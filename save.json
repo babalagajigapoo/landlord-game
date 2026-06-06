@@ -1,0 +1,113 @@
+{
+  "cash": 5000,
+  "day": 1,
+  "next_id": 7,
+  "properties": [
+    {
+      "id": 1,
+      "type": "Bungalow",
+      "neighborhood": "Eastside",
+      "bedrooms": 2,
+      "bathrooms": 1,
+      "sqft": 820,
+      "condition": 28,
+      "upgrades": {},
+      "tenant": null,
+      "days_rented": 0,
+      "total_rent_collected": 0,
+      "total_repair_costs": 0,
+      "purchase_price": 0
+    }
+  ],
+  "market": [
+    {
+      "id": 2,
+      "type": "Condo",
+      "neighborhood": "Downtown",
+      "bedrooms": 1,
+      "bathrooms": 1,
+      "sqft": 935,
+      "condition": 44,
+      "upgrades": {},
+      "tenant": null,
+      "days_rented": 0,
+      "total_rent_collected": 0,
+      "total_repair_costs": 0,
+      "purchase_price": 176844
+    },
+    {
+      "id": 3,
+      "type": "Colonial",
+      "neighborhood": "Westwood",
+      "bedrooms": 4,
+      "bathrooms": 3,
+      "sqft": 1901,
+      "condition": 54,
+      "upgrades": {},
+      "tenant": null,
+      "days_rented": 0,
+      "total_rent_collected": 0,
+      "total_repair_costs": 0,
+      "purchase_price": 369547
+    },
+    {
+      "id": 4,
+      "type": "Townhouse",
+      "neighborhood": "Westwood",
+      "bedrooms": 5,
+      "bathrooms": 3,
+      "sqft": 1362,
+      "condition": 18,
+      "upgrades": {},
+      "tenant": null,
+      "days_rented": 0,
+      "total_rent_collected": 0,
+      "total_repair_costs": 0,
+      "purchase_price": 206430
+    },
+    {
+      "id": 5,
+      "type": "Colonial",
+      "neighborhood": "Midtown",
+      "bedrooms": 5,
+      "bathrooms": 3,
+      "sqft": 2650,
+      "condition": 34,
+      "upgrades": {},
+      "tenant": null,
+      "days_rented": 0,
+      "total_rent_collected": 0,
+      "total_repair_costs": 0,
+      "purchase_price": 288522
+    },
+    {
+      "id": 6,
+      "type": "Colonial",
+      "neighborhood": "Riverside",
+      "bedrooms": 2,
+      "bathrooms": 2,
+      "sqft": 1338,
+      "condition": 57,
+      "upgrades": {},
+      "tenant": null,
+      "days_rented": 0,
+      "total_rent_collected": 0,
+      "total_repair_costs": 0,
+      "purchase_price": 161911
+    }
+  ],
+  "log": [
+    {
+      "day": 1,
+      "type": "info",
+      "text": "You inherited a run-down Bungalow in Eastside. Fix it up and build your empire!"
+    }
+  ],
+  "applicants_cache": {},
+  "last_bank_day": 1,
+  "bank": {
+    "savings": 0,
+    "loans": [],
+    "next_loan_id": 1
+  }
+}
