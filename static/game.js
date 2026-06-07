@@ -276,7 +276,10 @@ async function showPropertyDetail(id) {
   const prop = state.properties.find(p => p.id === id);
   if (!prop) return;
 
-  const upgData  = await api(`/property/${id}/upgrades`);
+  const [upgData, premData] = await Promise.all([
+    api(`/property/${id}/upgrades`),
+    api(`/property/${id}/premium_upgrades`),
+  ]);
   const profit   = prop.market_value - prop.purchase_price;
   const profitStr = profit >= 0
     ? `<span style="color:var(--positive)">+${fmt(profit)}</span>`
@@ -357,9 +360,68 @@ async function showPropertyDetail(id) {
     ${prop.tenant ? '<p class="text-muted" style="margin-bottom:8px">Tenant must vacate before renovating.</p>' : ''}
     ${cooldownHtml}
     ${upgData.available.length > 0 ? `<div style="margin-top:8px"><div class="section-title" style="font-size:11px;margin-bottom:6px;color:var(--text-muted)">AVAILABLE</div>${availHtml}</div>` : ''}
+    ${buildPremiumSection(id, premData, state.cash)}
     <div class="btn-row" style="margin-top:16px">
       <button class="btn btn-ghost btn-sm" onclick="closeModal()">← Back</button>
     </div>`);
+}
+
+// ── Premium Upgrades ─────────────────────────────────────────────────────────
+function buildPremiumSection(pid, premData, cash) {
+  const catalog   = premData.catalog || [];
+  const installed = catalog.filter(u => u.installed);
+  const available = catalog.filter(u => !u.installed);
+
+  const installedHtml = installed.length > 0
+    ? installed.map(u => `
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:22px">${u.icon}</span>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:700">${u.name}</div>
+          <div style="font-size:11px;color:var(--text-muted)">${u.desc}</div>
+        </div>
+        <span style="font-size:11px;font-weight:700;color:var(--positive);white-space:nowrap">✓ Installed</span>
+      </div>`).join('')
+    : '';
+
+  const availableHtml = available.map(u => {
+    const canAfford = cash >= u.cost;
+    return `
+    <div class="card" style="margin-bottom:8px${!canAfford ? ';opacity:0.55' : ''}">
+      <div style="display:flex;align-items:flex-start;gap:10px">
+        <span style="font-size:28px;line-height:1.2">${u.icon}</span>
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:800">${u.name}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${u.desc}</div>
+          <div style="display:flex;gap:12px;margin-top:6px;font-size:12px">
+            <span style="color:var(--positive);font-weight:700">+${fmt(u.rent_bonus)}/wk rent</span>
+            <span style="color:var(--accent);font-weight:700">+${fmt(u.value_bonus)} value</span>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-sm btn-full ${canAfford ? 'btn-primary' : 'btn-ghost'}"
+        style="margin-top:10px${!canAfford ? ';cursor:not-allowed' : ''}"
+        ${canAfford ? `onclick="installPremiumUpgrade(${pid},'${u.key}')"` : 'disabled'}>
+        ${canAfford ? `🔨 Hire Contractor · ${fmt(u.cost)}` : `Need ${fmt(u.cost)} (have ${fmt(cash)})`}
+      </button>
+    </div>`;
+  }).join('');
+
+  return `
+  <div class="section-header" style="margin-top:16px">
+    <span class="section-title">⭐ Premium Upgrades</span>
+  </div>
+  ${installedHtml ? `<div class="card" style="margin-bottom:10px;padding:4px 12px">${installedHtml}</div>` : ''}
+  ${availableHtml || '<p class="text-muted" style="margin-bottom:8px">All premium upgrades installed!</p>'}`;
+}
+
+async function installPremiumUpgrade(pid, key) {
+  const res = await api(`/property/${pid}/premium_upgrades`, 'POST', { upgrade_key: key });
+  if (res.error) { toast(res.error, 'error'); return; }
+  toast(`✅ Upgrade installed! Property now ${fmt(res.market_value)}`, 'success');
+  await refreshState();
+  renderAll();
+  showPropertyDetail(pid);   // re-open the detail modal refreshed
 }
 
 // ── Sell & Evict ──────────────────────────────────────────────────────────────

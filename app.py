@@ -57,6 +57,28 @@ UPGRADES = {
     "kitchen":     {"name": "Kitchen Remodel",   "icon": "🍳", "base_cost": 12000, "value_add": 22000, "cond_boost": 25},
 }
 
+# Premium upgrades — permanent additions that raise market value & fair rent.
+# Contractor-only (no DIY). Can only be installed once per property.
+PREMIUM_UPGRADES = {
+    "smarthome":    {"name": "Smart Home Package",   "icon": "📱", "cost":  5_500, "rent_bonus": 32,  "value_bonus":  7_000, "desc": "Security cameras, smart thermostat & lighting automation"},
+    "ev_charger":   {"name": "EV Charging Station",  "icon": "⚡", "cost":  4_000, "rent_bonus": 20,  "value_bonus":  5_000, "desc": "Level 2 EV charger — big draw for modern renters"},
+    "hot_tub":      {"name": "Hot Tub / Spa",        "icon": "🛁", "cost": 12_000, "rent_bonus": 60,  "value_bonus": 13_000, "desc": "Outdoor hot tub with privacy fencing"},
+    "deck":         {"name": "Deck & Patio",         "icon": "🪵", "cost":  9_000, "rent_bonus": 45,  "value_bonus": 11_000, "desc": "Hardwood deck with built-in seating area"},
+    "central_hvac": {"name": "Central A/C & Heat",   "icon": "🌡️", "cost": 13_000, "rent_bonus": 70,  "value_bonus": 15_000, "desc": "Full HVAC system — year-round climate control"},
+    "garage":       {"name": "2-Car Garage",         "icon": "🚗", "cost": 16_000, "rent_bonus": 85,  "value_bonus": 20_000, "desc": "Attached 2-car garage with automatic door"},
+    "solar":        {"name": "Solar Panel Array",    "icon": "☀️", "cost": 19_000, "rent_bonus": 65,  "value_bonus": 22_000, "desc": "Rooftop solar — lower bills, higher tenant appeal"},
+    "basement":     {"name": "Finished Basement",    "icon": "🏗️", "cost": 22_000, "rent_bonus": 130, "value_bonus": 27_000, "desc": "Fully finished basement — extra living space"},
+    "pool":         {"name": "Swimming Pool",        "icon": "🏊", "cost": 28_000, "rent_bonus": 175, "value_bonus": 32_000, "desc": "Inground pool with full landscaping package"},
+    "adu":          {"name": "Guest House / ADU",    "icon": "🏡", "cost": 48_000, "rent_bonus": 325, "value_bonus": 55_000, "desc": "Detached accessory dwelling unit — major value add"},
+}
+
+def get_premium_bonuses(prop):
+    """Return total weekly rent bonus and value bonus from installed premium upgrades."""
+    installed = prop.get("premium_upgrades", [])
+    rent_b  = sum(PREMIUM_UPGRADES[k]["rent_bonus"]  for k in installed if k in PREMIUM_UPGRADES)
+    value_b = sum(PREMIUM_UPGRADES[k]["value_bonus"] for k in installed if k in PREMIUM_UPGRADES)
+    return {"rent": rent_b, "value": value_b}
+
 MAX_CONDITION    = 250   # condition is now out of 250 points
 RENO_COOLDOWN    = 28    # days before a renovation can be done again
 DAILY_ENERGY     = 10    # energy points restored each day; DIY renovations and side jobs consume energy
@@ -143,6 +165,7 @@ def calc_market_value(prop):
     for key, upg_val in prop.get("upgrades", {}).items():
         quality = get_upgrade_quality(upg_val)
         val    += int(UPGRADES[key]["value_add"] * (quality / 100))
+    val += get_premium_bonuses(prop)["value"]
     return val
 
 def calc_monthly_rent(prop):
@@ -151,7 +174,9 @@ def calc_monthly_rent(prop):
     cond_mult = 0.6 + (prop["condition"] / MAX_CONDITION) * 0.5
     bonus     = sum(int(UPGRADES[k]["value_add"] * 0.003 * (get_upgrade_quality(v) / 100))
                     for k, v in prop.get("upgrades", {}).items())
-    return int(base * cond_mult) + bonus
+    # premium_weekly is per-week; monthly_rent is used as 4-week equivalent
+    premium_weekly = get_premium_bonuses(prop)["rent"]
+    return int(base * cond_mult) + bonus + (premium_weekly * 4)
 
 def calc_fair_weekly_rent(prop):
     return max(1, round(calc_monthly_rent(prop) / 4))
@@ -219,6 +244,7 @@ def generate_property(nid):
     cond  = random.randint(25, 212)   # scaled to 250-point system
     prop  = {"id": nid, "type": ptype, "neighborhood": hood, "bedrooms": beds,
              "bathrooms": baths, "sqft": sqft, "condition": cond, "upgrades": {},
+             "premium_upgrades": [],
              "tenant": None, "days_rented": 0,
              "total_rent_collected": 0, "total_repair_costs": 0, "purchase_price": 0}
     prop["purchase_price"] = int(calc_market_value(prop) * random.uniform(0.88, 1.06))
@@ -227,7 +253,8 @@ def generate_property(nid):
 def make_starter_home():
     return {"id": 1, "type": "Bungalow", "neighborhood": "Eastside",
             "bedrooms": 2, "bathrooms": 1, "sqft": 820, "condition": 61,  # D tier on 250 scale
-            "upgrades": {}, "tenant": None, "days_rented": 0,
+            "upgrades": {}, "premium_upgrades": [],
+            "tenant": None, "days_rented": 0,
             "total_rent_collected": 0, "total_repair_costs": 0, "purchase_price": 0}
 
 def new_game():
@@ -393,6 +420,46 @@ def api_renovate():
                     "quality_tier": tier["key"], "cond_change": cond_change, "cond_pct": tier["pct"],
                     "condition": prop["condition"], "market_value": new_val,
                     "weekly_rent": calc_fair_weekly_rent(prop)})
+
+@app.route('/api/property/<int:pid>/premium_upgrades', methods=['GET', 'POST'])
+def api_premium_upgrades(pid):
+    s    = load()
+    prop = next((p for p in s["properties"] if p["id"] == pid), None)
+    if not prop:
+        return jsonify({"error": "Property not found"}), 404
+
+    # POST — return catalog if no upgrade_key (api() always POSTs), else install
+    data        = request.json or {}
+    upgrade_key = data.get("upgrade_key")
+    if not upgrade_key:
+        installed = prop.get("premium_upgrades", [])
+        catalog = [
+            {**v, "key": k, "installed": k in installed}
+            for k, v in PREMIUM_UPGRADES.items()
+        ]
+        return jsonify({"catalog": catalog, "installed": installed})
+    if upgrade_key not in PREMIUM_UPGRADES:
+        return jsonify({"error": "Unknown upgrade"}), 400
+
+    installed = prop.setdefault("premium_upgrades", [])
+    if upgrade_key in installed:
+        return jsonify({"error": "Already installed"}), 400
+
+    upg  = PREMIUM_UPGRADES[upgrade_key]
+    cost = upg["cost"]
+    if s["cash"] < cost:
+        return jsonify({"error": f"Need ${cost:,} — you have ${int(s['cash']):,}"}), 400
+
+    s["cash"] -= cost
+    installed.append(upgrade_key)
+    new_val     = calc_market_value(prop)
+    weekly_rent = calc_fair_weekly_rent(prop)
+    s["log"].append({"day": s["day"], "type": "upgrade",
+        "text": f"Installed {upg['name']} at {prop['type']} in {prop['neighborhood']} — value now ${new_val:,}"})
+    save(s)
+    return jsonify({"success": True, "cash": s["cash"],
+                    "market_value": new_val, "weekly_rent": weekly_rent,
+                    "premium_upgrades": installed})
 
 @app.route('/api/sell', methods=['POST'])
 def api_sell():
