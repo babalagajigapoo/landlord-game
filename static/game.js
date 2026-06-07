@@ -669,48 +669,79 @@ async function hireContractor(contractorKey) {
 
 // ── Side Jobs ─────────────────────────────────────────────────────────────────
 function renderJobs() {
-  const el       = document.getElementById('dash-jobs');
-  const labelEl  = document.getElementById('dash-jobs-energy');
+  const el      = document.getElementById('dash-jobs');
+  const labelEl = document.getElementById('dash-jobs-energy');
   if (!el) return;
-  const energy = state.energy ?? DAILY_ENERGY;
+  const energy    = state.energy ?? DAILY_ENERGY;
+  const jobs      = state.jobs  || [];
+  const available = jobs.filter(j => energy >= j.energy_cost).length;
   if (labelEl) {
-    labelEl.textContent = `⚡ ${energy}/${DAILY_ENERGY} energy`;
+    labelEl.textContent = `⚡ ${energy}/${DAILY_ENERGY}`;
     labelEl.style.color = energy === 0 ? 'var(--negative)' : energy <= 3 ? 'var(--warning)' : 'var(--text-muted)';
   }
-  const jobs = state.jobs || [];
+  el.innerHTML = `
+  <div class="card" style="display:flex;align-items:center;gap:14px">
+    <div style="font-size:34px;line-height:1">💼</div>
+    <div style="flex:1">
+      <div style="font-size:15px;font-weight:800">Side Jobs</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:2px">
+        ${jobs.length > 0
+          ? `${jobs.length} job${jobs.length !== 1 ? 's' : ''} available · ${available} you can take`
+          : 'No jobs — advance the day for new listings'}
+      </div>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="showJobsModal()" ${jobs.length === 0 ? 'disabled style="opacity:0.4"' : ''}>
+      Browse →
+    </button>
+  </div>`;
+}
+
+function showJobsModal() {
+  const jobs   = state.jobs  || [];
+  const energy = state.energy ?? DAILY_ENERGY;
   if (jobs.length === 0) {
-    el.innerHTML = `<div class="card"><p class="text-muted" style="text-align:center;padding:8px 0">No jobs available — advance the day for fresh listings.</p></div>`;
+    openModal(`
+      <div class="modal-handle"></div>
+      <div class="modal-title">💼 Side Jobs</div>
+      <p class="text-muted" style="text-align:center;padding:16px 0">No jobs available — advance the day for fresh listings.</p>
+      <button class="btn btn-ghost btn-full" onclick="closeModal()">Close</button>`);
     return;
   }
-  el.innerHTML = jobs.map(j => {
-    const canTake  = energy >= j.energy_cost;
-    const minPay   = Math.round(j.base_pay * 0.5);
-    const energyPips = '⚡'.repeat(j.energy_cost) + '<span style="opacity:0.25">⚡</span>'.repeat(Math.max(0, 4 - j.energy_cost));
-    return `
-    <div class="card" style="margin-bottom:10px">
-      <div class="card-header">
-        <div class="card-icon">${j.icon}</div>
-        <div style="flex:1">
-          <div class="card-title">${j.name}</div>
-          <div class="card-subtitle">${j.desc}</div>
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">💼 Side Jobs</div>
+    <div class="modal-subtitle">⚡ ${energy} / ${DAILY_ENERGY} energy remaining today</div>
+    ${jobs.map(j => {
+      const canTake  = energy >= j.energy_cost;
+      const minPay   = Math.round(j.base_pay * 0.5);
+      const pips     = '⚡'.repeat(j.energy_cost) + '<span style="opacity:0.2">⚡</span>'.repeat(Math.max(0, 4 - j.energy_cost));
+      return `
+      <div class="card" style="margin-bottom:10px${!canTake ? ';opacity:0.5' : ''}">
+        <div class="card-header">
+          <div class="card-icon">${j.icon}</div>
+          <div style="flex:1">
+            <div class="card-title">${j.name}</div>
+            <div class="card-subtitle">${j.desc}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;margin-left:8px">
+            <div style="font-size:14px;font-weight:800;color:var(--positive)">${fmt(minPay)}–${fmt(j.base_pay)}</div>
+            <div style="font-size:12px;margin-top:3px">${pips}</div>
+          </div>
         </div>
-        <div style="text-align:right;flex-shrink:0;margin-left:8px">
-          <div style="font-size:14px;font-weight:800;color:var(--positive)">${fmt(minPay)}–${fmt(j.base_pay)}</div>
-          <div style="font-size:13px;margin-top:2px">${energyPips}</div>
-        </div>
-      </div>
-      <button class="btn btn-sm btn-full ${canTake ? 'btn-primary' : 'btn-ghost'}"
-        ${canTake ? `onclick="startJob(${j.id})"` : 'disabled'}
-        style="${!canTake ? 'opacity:0.45;cursor:not-allowed' : ''}">
-        ${canTake ? `Take Job &nbsp;·&nbsp; costs ⚡${j.energy_cost}` : `Need ⚡${j.energy_cost} (have ${energy})`}
-      </button>
-    </div>`;
-  }).join('');
+        <button class="btn btn-sm btn-full ${canTake ? 'btn-primary' : 'btn-ghost'}"
+          ${canTake ? `onclick="startJob(${j.id})"` : 'disabled'}
+          style="${!canTake ? 'cursor:not-allowed' : ''}">
+          ${canTake ? `Take Job · ⚡${j.energy_cost}` : `Need ⚡${j.energy_cost} (have ${energy})`}
+        </button>
+      </div>`;
+    }).join('')}
+    <button class="btn btn-ghost btn-sm btn-full mt-8" onclick="closeModal()">Cancel</button>`);
 }
 
 function startJob(jobId) {
   const job = (state.jobs || []).find(j => j.id === jobId);
   if (!job) return;
+  closeModal();   // dismiss the jobs picker modal first
   _pendingJob = job;
   _mg = { isJob: true };
   launchMgByType(selectMgType(job.name), 'job');
