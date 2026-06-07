@@ -10,9 +10,10 @@ let _pendingConfirm = null;
 
 // ── Mini-game state ───────────────────────────────────────────────────────────
 let _mg             = {};   // active mini-game state
-let _pendingRepairs = [];   // repair events queued after advancing
-let _currentRepair  = null; // repair being handled right now
-let _pendingJob     = null; // side job being played
+let _pendingRepairs  = [];   // repair events queued after advancing
+let _currentRepair   = null; // repair being handled right now
+let _pendingJob      = null; // side job being played
+let _pendingSquatter = null; // squatter event queued after repairs
 
 // ── Seasons ───────────────────────────────────────────────────────────────────
 const SEASONS = [
@@ -24,8 +25,18 @@ const SEASONS = [
 
 const DAYS_PER_SEASON = 28;
 const MAX_CONDITION   = 250;
-const DAILY_ENERGY    = 10;
+const DAILY_ENERGY    = 10;  // fallback only; real max comes from state.max_energy
 const DAYS_PER_YEAR   = DAYS_PER_SEASON * 4;  // 112
+
+const PLAYER_HOME_DATA = [
+  { key: 'moms_basement', name: "Mom's Basement",  icon: '🛏️',  cost:       0, max_energy: 10, recharge:  2, desc: "Rent-free but cramped. Thanks, Mom." },
+  { key: 'studio_apt',    name: 'Studio Apartment', icon: '🏠',  cost:    80000, max_energy: 12, recharge:  4, desc: 'Your own place — finally.' },
+  { key: 'starter_house', name: 'Starter House',    icon: '🏡',  cost:   150000, max_energy: 14, recharge:  6, desc: 'A real house with a yard. Moving up!' },
+  { key: 'modern_condo',  name: 'Modern Condo',     icon: '🏢',  cost:   200000, max_energy: 16, recharge:  8, desc: 'High-rise living with city views.' },
+  { key: 'suburban_home', name: 'Suburban Home',    icon: '🏘️',  cost:   500000, max_energy: 18, recharge: 10, desc: 'Quiet neighborhood, big garage.' },
+  { key: 'luxury_villa',  name: 'Mansion',          icon: '🏛️',  cost:  1000000, max_energy: 20, recharge: 12, desc: "Sprawling estate. You've made it." },
+  { key: 'mansion',       name: 'Castle',           icon: '🏰',  cost: 10000000, max_energy: 30, recharge: 30, desc: 'Absolute excess. Full energy, every single day.' },
+];
 
 function getSeasonInfo(day) {
   const d         = Math.max(1, day);
@@ -81,8 +92,9 @@ async function loadMarket() {
 function updateHeader() {
   document.getElementById('hdr-cash').textContent = fmt(state.cash);
   const energy = state.energy ?? DAILY_ENERGY;
+  const maxE   = state.max_energy || DAILY_ENERGY;
   const energyEl = document.getElementById('hdr-energy');
-  energyEl.textContent = `⚡ ${energy} / ${DAILY_ENERGY}`;
+  energyEl.textContent = `⚡ ${energy} / ${maxE}`;
   energyEl.style.color = energy === 0 ? 'var(--negative)' : energy <= 3 ? 'var(--warning)' : 'var(--positive)';
   const s = getSeasonInfo(state.day);
   document.getElementById('hdr-day').textContent  = `${s.icon} ${s.name} · Day ${s.seasonDay}`;
@@ -203,6 +215,7 @@ async function buyProperty(id) {
     async () => {
       const res = await api('/buy', 'POST', { listing_id: id });
       if (res.error) { toast(res.error, 'error'); return; }
+      closeModal();
       toast(`Purchased ${listing.type} in ${listing.neighborhood}!`, 'success');
       await refreshState();
       await loadMarket();
@@ -225,19 +238,130 @@ async function refreshMarket() {
 function renderProperties() {
   const el = document.getElementById('property-list');
   if (!el) return;
+  const homeCard = playerHomeCardHtml();
   if (!state.properties || state.properties.length === 0) {
-    el.innerHTML = `<div class="empty-state">
+    el.innerHTML = homeCard + `<div class="empty-state">
       <div class="empty-icon">🏗️</div>
-      <div class="empty-text">No properties yet</div>
+      <div class="empty-text">No rental properties yet</div>
       <div class="empty-sub">Head to the Market tab to buy your first property</div>
     </div>`;
     return;
   }
-  el.innerHTML = state.properties.map(p => portfolioCardHtml(p)).join('');
+  el.innerHTML = homeCard + state.properties.map(p => portfolioCardHtml(p)).join('');
+}
+
+function playerHomeCardHtml() {
+  const homeKey = state.player_home || 'moms_basement';
+  const maxE    = state.max_energy || 10;
+  const recharge = state.energy_recharge || 2;
+  const home    = PLAYER_HOME_DATA.find(h => h.key === homeKey) || PLAYER_HOME_DATA[0];
+  const isMax   = homeKey === 'mansion';
+  return `
+  <div class="section-header" style="margin-bottom:8px">
+    <span class="section-title">🏠 My Home</span>
+  </div>
+  <div class="card" onclick="showPlayerHomeModal()" style="cursor:pointer;margin-bottom:16px;border:2px solid var(--primary)">
+    <div class="card-header">
+      <div class="card-icon">${home.icon}</div>
+      <div style="flex:1">
+        <div class="card-title">${home.name}</div>
+        <div class="card-subtitle">${isMax ? '🏆 Max upgrade reached!' : 'Tap to upgrade your home'}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:13px;font-weight:700;color:var(--positive)">⚡ ${maxE} max</div>
+        <div style="font-size:11px;color:var(--text-muted)">+${recharge}/day</div>
+      </div>
+    </div>
+  </div>
+  <div class="section-header" style="margin-bottom:8px">
+    <span class="section-title">My Portfolio</span>
+  </div>`;
+}
+
+function showPlayerHomeModal() {
+  const homeKey    = state.player_home || 'moms_basement';
+  const currentIdx = PLAYER_HOME_DATA.findIndex(h => h.key === homeKey);
+  const current    = PLAYER_HOME_DATA[currentIdx] || PLAYER_HOME_DATA[0];
+  const upgrades   = PLAYER_HOME_DATA.slice(currentIdx + 1);
+
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">🏠 Your Home</div>
+    <div class="card" style="margin-bottom:16px;background:var(--surface-2)">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="font-size:36px;line-height:1">${current.icon}</div>
+        <div style="flex:1">
+          <div style="font-size:16px;font-weight:800">${current.name}</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${current.desc}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:12px">
+        <div style="flex:1;text-align:center;padding:8px;background:var(--surface);border-radius:8px">
+          <div style="font-size:20px;font-weight:900;color:var(--positive)">⚡ ${current.max_energy}</div>
+          <div style="font-size:11px;color:var(--text-muted)">Max Energy</div>
+        </div>
+        <div style="flex:1;text-align:center;padding:8px;background:var(--surface);border-radius:8px">
+          <div style="font-size:20px;font-weight:900;color:var(--primary)">+${current.recharge}</div>
+          <div style="font-size:11px;color:var(--text-muted)">Energy/Day</div>
+        </div>
+      </div>
+    </div>
+    ${upgrades.length === 0
+      ? `<div style="text-align:center;padding:20px;color:var(--text-muted)">🏆 You live in the best home possible!</div>`
+      : `<div style="font-size:12px;font-weight:700;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:8px">UPGRADE OPTIONS</div>
+         ${upgrades.map(h => {
+           const canAfford = state.cash >= h.cost;
+           return `
+           <div class="card" style="margin-bottom:10px${!canAfford ? ';opacity:0.55' : ''}">
+             <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+               <div style="font-size:28px;line-height:1">${h.icon}</div>
+               <div style="flex:1">
+                 <div style="font-size:15px;font-weight:800">${h.name}</div>
+                 <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${h.desc}</div>
+               </div>
+               <div style="text-align:right;flex-shrink:0">
+                 <div style="font-size:14px;font-weight:800;color:var(--primary)">${fmt(h.cost)}</div>
+               </div>
+             </div>
+             <div style="display:flex;gap:8px;margin-bottom:10px">
+               <div style="flex:1;text-align:center;padding:6px;background:var(--surface-2);border-radius:6px">
+                 <div style="font-size:15px;font-weight:800;color:var(--positive)">⚡ ${h.max_energy}</div>
+                 <div style="font-size:10px;color:var(--text-muted)">Max Energy</div>
+               </div>
+               <div style="flex:1;text-align:center;padding:6px;background:var(--surface-2);border-radius:6px">
+                 <div style="font-size:15px;font-weight:800;color:var(--primary)">+${h.recharge}/day</div>
+                 <div style="font-size:10px;color:var(--text-muted)">Daily Recharge</div>
+               </div>
+             </div>
+             <button class="btn btn-full ${canAfford ? 'btn-primary' : 'btn-ghost'}"
+               ${canAfford ? `onclick="moveIn('${h.key}')"` : 'disabled'}
+               style="${!canAfford ? 'cursor:not-allowed' : ''}">
+               ${canAfford ? `Move In · ${fmt(h.cost)}` : `Need ${fmt(h.cost)} · Have ${fmt(state.cash)}`}
+             </button>
+           </div>`;
+         }).join('')}`
+    }
+    <button class="btn btn-ghost btn-full mt-8" onclick="closeModal()">Close</button>`);
+}
+
+async function moveIn(homeKey) {
+  const res = await api('/move_in', 'POST', { home_key: homeKey });
+  if (res.error) { toast(res.error, 'error'); return; }
+  closeModal();
+  await refreshState();
+  renderAll();
+  const home = PLAYER_HOME_DATA.find(h => h.key === homeKey);
+  toast(`🏠 Moved into ${home ? home.name : 'new home'}! Energy max & recharge increased.`);
 }
 
 function portfolioCardHtml(p) {
-  const tenantBadge = p.tenant
+  const activePending = p.pending_reno || p.pending_premium;
+  const pendingDaysLeft = activePending ? Math.max(0, activePending.complete_day - state.day) : 0;
+  const tenantBadge = p.squatter
+    ? `<span class="vacant-chip" style="background:#FFEBEE;color:#C62828;border-color:#EF9A9A">🚨 Squatter</span>`
+    : activePending
+    ? `<span class="vacant-chip" style="background:#E3F2FD;color:#1565C0;border-color:#90CAF9">🔨 ${activePending.name} · ${pendingDaysLeft}d left</span>`
+    : p.tenant
     ? `<span class="tenant-chip">${p.tenant.icon || '👤'} ${p.tenant.name} · ${fmt(p.tenant.rent)}/wk</span>`
     : `<span class="vacant-chip">⚪ Vacant</span>`;
   const profit    = p.market_value - p.purchase_price;
@@ -285,7 +409,34 @@ async function showPropertyDetail(id) {
     ? `<span style="color:var(--positive)">+${fmt(profit)}</span>`
     : `<span style="color:var(--negative)">${fmt(profit)}</span>`;
 
-  const tenantSection = prop.tenant
+  const renoInProgress = prop.pending_reno
+    ? `<div class="card" style="margin-bottom:10px;border:2px solid #1565C0">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="font-size:30px">🔨</span>
+          <div style="flex:1">
+            <div style="font-size:15px;font-weight:800;color:#1565C0">Renovation In Progress</div>
+            <div style="font-size:13px;color:var(--text-muted);margin-top:2px">${prop.pending_reno.icon} ${prop.pending_reno.name}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:22px;font-weight:900;color:#1565C0">${Math.max(0, prop.pending_reno.complete_day - state.day)}</div>
+            <div style="font-size:11px;color:var(--text-muted)">days left</div>
+          </div>
+        </div>
+        <p style="font-size:12px;color:var(--text-muted);margin-top:10px">The result will be revealed when the work is done. Advance time to complete it.</p>
+      </div>`
+    : '';
+
+  const tenantSection = prop.squatter
+    ? `<div class="card" style="margin-bottom:10px;border:2px solid #EF9A9A">
+        <div class="section-header mb-0"><span class="section-title" style="color:#C62828">🚨 Squatters Present</span></div>
+        <p style="margin-top:8px;font-size:13px;color:var(--text-muted)">Someone has moved in without permission and isn't paying rent. You can't rent out or renovate until they're gone.</p>
+        <div class="money-row" style="margin-top:10px"><span class="mr-label">Their Asking Price to Leave</span><span class="mr-value" style="color:#C62828">${fmt(prop.squatter.bribe)}</span></div>
+        <div class="btn-row" style="margin-top:10px">
+          <button class="btn btn-danger btn-sm" onclick="briberSquatter(${id})">💸 Pay ${fmt(prop.squatter.bribe)} to Remove</button>
+        </div>
+        <p style="font-size:11px;color:var(--text-muted);margin-top:8px">Or wait — they may leave on their own eventually.</p>
+      </div>`
+    : prop.tenant
     ? `<div class="card" style="margin-bottom:10px">
         <div class="section-header mb-0"><span class="section-title">Current Tenant</span></div>
         <div style="margin-top:10px">
@@ -307,9 +458,11 @@ async function showPropertyDetail(id) {
       </div>`
     : `<div class="card" style="margin-bottom:10px">
         <div class="section-header mb-0"><span class="section-title">Tenant</span></div>
-        <p style="margin-top:8px;font-size:13px;color:var(--text-muted)">This property is vacant.</p>
+        ${prop.pending_reno
+          ? '<p style="margin-top:8px;font-size:13px;color:var(--text-muted)">Renovation in progress — find a tenant once work is complete.</p>'
+          : '<p style="margin-top:8px;font-size:13px;color:var(--text-muted)">This property is vacant.</p>'}
         <div class="btn-row">
-          <button class="btn btn-primary btn-sm" onclick="showTenantsModal(${id})">🔑 Find Tenant</button>
+          ${!prop.pending_reno ? `<button class="btn btn-primary btn-sm" onclick="showTenantsModal(${id})">🔑 Find Tenant</button>` : ''}
           <button class="btn btn-accent btn-sm" onclick="sellProperty(${id})">💰 Sell Property</button>
         </div>
       </div>`;
@@ -327,8 +480,8 @@ async function showPropertyDetail(id) {
 
   const availHtml = upgData.available.length > 0
     ? `<div class="upgrade-grid">${upgData.available.map(u =>
-        `<div class="upgrade-card ${prop.tenant ? 'btn-disabled' : ''}"
-          ${!prop.tenant ? `onclick="showContractorModal(${id},'${u.key}')"` : ''}>
+        `<div class="upgrade-card ${(prop.tenant || prop.squatter || prop.pending_reno) ? 'btn-disabled' : ''}"
+          ${!(prop.tenant || prop.squatter || prop.pending_reno) ? `onclick="showContractorModal(${id},'${u.key}')"` : ''}>
           <div class="upgrade-icon">${u.icon}</div>
           <div class="upgrade-name">${u.name}</div>
           ${u.prev_quality_tier ? `<div class="upgrade-quality" style="font-size:10px;color:var(--text-muted)">Last: ${u.prev_quality_tier} · Redo</div>` : `<div class="upgrade-cost">from ${fmt(u.costs.budget)}</div>`}
@@ -355,19 +508,36 @@ async function showPropertyDetail(id) {
     <div class="money-row"><span class="mr-label">Purchase Price</span><span class="mr-value">${fmt(prop.purchase_price)}</span></div>
     <div class="money-row"><span class="mr-label">Unrealized Gain/Loss</span><div>${profitStr}</div></div>
     <div class="money-row" style="margin-bottom:12px"><span class="mr-label">Fair Weekly Rent</span><span class="mr-value green">${fmt(prop.weekly_rent)}/wk</span></div>
+    ${renoInProgress}
     ${tenantSection}
     <div class="section-header"><span class="section-title">Renovations</span></div>
-    ${prop.tenant ? '<p class="text-muted" style="margin-bottom:8px">Tenant must vacate before renovating.</p>' : ''}
+    ${prop.pending_reno ? '<p class="text-muted" style="margin-bottom:8px">Renovation already in progress.</p>' : prop.squatter ? '<p class="text-muted" style="margin-bottom:8px">Remove squatters before renovating.</p>' : prop.tenant ? '<p class="text-muted" style="margin-bottom:8px">Tenant must vacate before renovating.</p>' : ''}
     ${cooldownHtml}
-    ${upgData.available.length > 0 ? `<div style="margin-top:8px"><div class="section-title" style="font-size:11px;margin-bottom:6px;color:var(--text-muted)">AVAILABLE</div>${availHtml}</div>` : ''}
-    ${buildPremiumSection(id, premData, state.cash)}
+    ${upgData.pending_reno ? `<div style="margin-top:8px"><div class="section-title" style="font-size:11px;margin-bottom:6px;color:#1565C0">IN PROGRESS</div>
+      <div class="upgrade-grid"><div class="upgrade-card" style="border-color:#1565C0;background:#E3F2FD">
+        <div class="upgrade-icon">${upgData.pending_reno.icon}</div>
+        <div class="upgrade-name">${upgData.pending_reno.name}</div>
+        <div class="upgrade-quality" style="color:#1565C0">🔨 ${Math.max(0, upgData.pending_reno.complete_day - state.day)}d left</div>
+      </div></div></div>` : ''}
+    ${!prop.pending_reno && upgData.available.length > 0 ? `<div style="margin-top:8px"><div class="section-title" style="font-size:11px;margin-bottom:6px;color:var(--text-muted)">AVAILABLE</div>${availHtml}</div>` : ''}
+    ${buildPremiumSection(id, premData, state.cash, !!prop.squatter)}
     <div class="btn-row" style="margin-top:16px">
       <button class="btn btn-ghost btn-sm" onclick="closeModal()">← Back</button>
     </div>`);
 }
 
 // ── Premium Upgrades ─────────────────────────────────────────────────────────
-function buildPremiumSection(pid, premData, cash) {
+function buildPremiumSection(pid, premData, cash, hasSquatter = false) {
+  const blocked = hasSquatter || !!(premData.pending_premium);
+
+  if (hasSquatter) {
+    return `
+    <div class="section-header" style="margin-top:16px">
+      <span class="section-title">⭐ Premium Upgrades</span>
+    </div>
+    <p class="text-muted" style="margin-bottom:8px">Remove squatters before installing premium upgrades.</p>`;
+  }
+
   const catalog   = premData.catalog || [];
   const installed = catalog.filter(u => u.installed);
   const available = catalog.filter(u => !u.installed);
@@ -384,10 +554,27 @@ function buildPremiumSection(pid, premData, cash) {
       </div>`).join('')
     : '';
 
+  const pendingHtml = premData.pending_premium
+    ? `<div class="card" style="margin-bottom:8px;border:2px solid #1565C0;background:#E3F2FD">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="font-size:26px">${premData.pending_premium.icon}</span>
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:800;color:#1565C0">🔨 ${premData.pending_premium.name}</div>
+            <div style="font-size:12px;color:var(--text-muted)">Installation in progress</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:20px;font-weight:900;color:#1565C0">${Math.max(0, premData.pending_premium.complete_day - state.day)}d</div>
+            <div style="font-size:10px;color:var(--text-muted)">left</div>
+          </div>
+        </div>
+      </div>`
+    : '';
+
   const availableHtml = available.map(u => {
-    const canAfford = cash >= u.cost;
+    const canAfford = !blocked && cash >= u.cost;
+    const blocked2  = blocked || cash < u.cost;
     return `
-    <div class="card" style="margin-bottom:8px${!canAfford ? ';opacity:0.55' : ''}">
+    <div class="card" style="margin-bottom:8px${blocked2 ? ';opacity:0.55' : ''}">
       <div style="display:flex;align-items:flex-start;gap:10px">
         <span style="font-size:28px;line-height:1.2">${u.icon}</span>
         <div style="flex:1">
@@ -396,13 +583,14 @@ function buildPremiumSection(pid, premData, cash) {
           <div style="display:flex;gap:12px;margin-top:6px;font-size:12px">
             <span style="color:var(--positive);font-weight:700">+${fmt(u.rent_bonus)}/wk rent</span>
             <span style="color:var(--accent);font-weight:700">+${fmt(u.value_bonus)} value</span>
+            <span style="color:var(--text-muted)">⏱ ${u.days}d</span>
           </div>
         </div>
       </div>
       <button class="btn btn-sm btn-full ${canAfford ? 'btn-primary' : 'btn-ghost'}"
         style="margin-top:10px${!canAfford ? ';cursor:not-allowed' : ''}"
         ${canAfford ? `onclick="installPremiumUpgrade(${pid},'${u.key}')"` : 'disabled'}>
-        ${canAfford ? `🔨 Hire Contractor · ${fmt(u.cost)}` : `Need ${fmt(u.cost)} (have ${fmt(cash)})`}
+        ${blocked ? 'Upgrade in progress' : canAfford ? `🔨 Hire Contractor · ${fmt(u.cost)}` : `Need ${fmt(u.cost)} (have ${fmt(cash)})`}
       </button>
     </div>`;
   }).join('');
@@ -412,16 +600,27 @@ function buildPremiumSection(pid, premData, cash) {
     <span class="section-title">⭐ Premium Upgrades</span>
   </div>
   ${installedHtml ? `<div class="card" style="margin-bottom:10px;padding:4px 12px">${installedHtml}</div>` : ''}
-  ${availableHtml || '<p class="text-muted" style="margin-bottom:8px">All premium upgrades installed!</p>'}`;
+  ${pendingHtml}
+  ${!premData.pending_premium && (availableHtml || '<p class="text-muted" style="margin-bottom:8px">All premium upgrades installed!</p>')}`;
 }
 
 async function installPremiumUpgrade(pid, key) {
   const res = await api(`/property/${pid}/premium_upgrades`, 'POST', { upgrade_key: key });
   if (res.error) { toast(res.error, 'error'); return; }
-  toast(`✅ Upgrade installed! Property now ${fmt(res.market_value)}`, 'success');
+  const d = res.duration;
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">🔨 Work Underway!</div>
+    <div class="modal-subtitle">${res.name}</div>
+    <div style="text-align:center;padding:16px 0">
+      <div style="font-size:48px">🏗️</div>
+      <div style="font-size:22px;font-weight:900;margin-top:8px">${d} Day${d !== 1 ? 's' : ''}</div>
+      <div style="font-size:13px;color:var(--text-muted)">until installation complete</div>
+    </div>
+    <div class="money-row"><span class="mr-label">Cash Remaining</span><span class="mr-value">${fmt(res.cash)}</span></div>
+    <button class="btn btn-primary btn-full mt-8" onclick="closeModal()">Got It</button>`);
   await refreshState();
   renderAll();
-  showPropertyDetail(pid);   // re-open the detail modal refreshed
 }
 
 // ── Sell & Evict ──────────────────────────────────────────────────────────────
@@ -631,9 +830,10 @@ async function showContractorModal(propId, upgradeKey) {
   if (!upg) return;
 
   const energy     = state.energy ?? DAILY_ENERGY;
+  const maxE       = state.max_energy || DAILY_ENERGY;
   const ec         = upg.energy_cost ?? 1;
   const hasEnergy  = energy >= ec;
-  const energyDots = `⚡ ${energy}/${DAILY_ENERGY} remaining`;
+  const energyDots = `⚡ ${energy}/${maxE} remaining`;
   const ecPips     = '⚡'.repeat(ec) + '<span style="opacity:0.2">⚡</span>'.repeat(Math.max(0, 4 - ec));
 
   const diyCard = hasEnergy
@@ -665,7 +865,9 @@ async function showContractorModal(propId, upgradeKey) {
 
     <div style="text-align:center;font-size:11px;color:var(--text-muted);margin-bottom:8px">── or hire a contractor ──</div>
 
-    ${Object.entries(upgData.contractors).map(([key, c]) => `
+    ${Object.entries(upgData.contractors).map(([key, c]) => {
+      const days = contractorDays(key, upg.energy_cost || 1);
+      return `
       <div class="contractor-card" onclick="hireContractor('${key}')">
         <div class="contractor-header">
           <span class="contractor-icon">${c.icon}</span>
@@ -673,8 +875,9 @@ async function showContractorModal(propId, upgradeKey) {
           <span class="contractor-cost">${fmt(upg.costs[key])}</span>
         </div>
         <div class="contractor-desc">${c.desc}</div>
-        <div class="contractor-quality">Grade range: ${c.tier_range || 'F – S+'}</div>
-      </div>`).join('')}
+        <div class="contractor-quality">Grade range: ${c.tier_range || 'F – S+'} · ⏱ ${days} day${days !== 1 ? 's' : ''}</div>
+      </div>`;
+    }).join('')}
     <button class="btn btn-ghost btn-sm btn-full mt-8" onclick="closeModal()">Cancel</button>`);
 }
 
@@ -710,23 +913,31 @@ async function finishDIY(upgradeKey, score) {
   renderAll();
 }
 
+function contractorDays(contractorKey, energyCost) {
+  if (contractorKey === 'budget')   return 1;
+  if (contractorKey === 'standard') return energyCost <= 2 ? 2 : (energyCost === 3 ? 3 : 4);
+  return energyCost <= 2 ? 4 : (energyCost === 3 ? 5 : 6); // premium
+}
+
 async function hireContractor(contractorKey) {
   if (!pendingUpgrade) return;
   const { propId, upgradeKey } = pendingUpgrade;
   const res = await api('/renovate', 'POST', { prop_id: propId, upgrade_key: upgradeKey, contractor_key: contractorKey });
   if (res.error) { toast(res.error, 'error'); return; }
   pendingUpgrade = null;
+  const d = res.duration;
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">🎉 Renovation Complete!</div>
-    <div style="text-align:center;margin:12px 0">
-      <div style="font-size:64px;font-weight:900;color:${tierColor(res.quality_tier)}">${res.quality_tier}</div>
-      <div style="font-size:13px;color:var(--text-muted)">work grade</div>
+    <div class="modal-title">🔨 Work Underway!</div>
+    <div class="modal-subtitle">${res.contractor_name} is on the job</div>
+    <div style="text-align:center;padding:16px 0">
+      <div style="font-size:48px">🏗️</div>
+      <div style="font-size:22px;font-weight:900;margin-top:8px">${d} Day${d !== 1 ? 's' : ''}</div>
+      <div style="font-size:13px;color:var(--text-muted)">until completion</div>
     </div>
-    <div class="money-row"><span class="mr-label">New Condition</span><span class="mr-value" style="color:${tierColor(condTier(res.condition))};font-weight:900">${condTier(res.condition)}</span></div>
-    <div class="money-row"><span class="mr-label">New Market Value</span><span class="mr-value green">${fmt(res.market_value)}</span></div>
+    <p style="font-size:13px;color:var(--text-muted);text-align:center;margin-bottom:16px">Advance time to complete the renovation. The result will be revealed when they finish.</p>
     <div class="money-row"><span class="mr-label">Cash Remaining</span><span class="mr-value">${fmt(res.cash)}</span></div>
-    <button class="btn btn-primary btn-full mt-8" onclick="closeModal()">Done</button>`);
+    <button class="btn btn-primary btn-full mt-8" onclick="closeModal()">Got It</button>`);
   await refreshState();
   renderAll();
 }
@@ -737,10 +948,11 @@ function renderJobs() {
   const labelEl = document.getElementById('dash-jobs-energy');
   if (!el) return;
   const energy    = state.energy ?? DAILY_ENERGY;
+  const maxE      = state.max_energy || DAILY_ENERGY;
   const jobs      = state.jobs  || [];
   const available = jobs.filter(j => energy >= j.energy_cost).length;
   if (labelEl) {
-    labelEl.textContent = `⚡ ${energy}/${DAILY_ENERGY}`;
+    labelEl.textContent = `⚡ ${energy}/${maxE}`;
     labelEl.style.color = energy === 0 ? 'var(--negative)' : energy <= 3 ? 'var(--warning)' : 'var(--text-muted)';
   }
   el.innerHTML = `
@@ -763,6 +975,7 @@ function renderJobs() {
 function showJobsModal() {
   const jobs   = state.jobs  || [];
   const energy = state.energy ?? DAILY_ENERGY;
+  const maxE   = state.max_energy || DAILY_ENERGY;
   if (jobs.length === 0) {
     openModal(`
       <div class="modal-handle"></div>
@@ -774,7 +987,7 @@ function showJobsModal() {
   openModal(`
     <div class="modal-handle"></div>
     <div class="modal-title">💼 Side Jobs</div>
-    <div class="modal-subtitle">⚡ ${energy} / ${DAILY_ENERGY} energy remaining today</div>
+    <div class="modal-subtitle">⚡ ${energy} / ${maxE} energy remaining today</div>
     ${jobs.map(j => {
       const canTake  = energy >= j.energy_cost;
       const minPay   = Math.round(j.base_pay * 0.5);
@@ -831,7 +1044,7 @@ async function finishJob(score) {
     <div class="money-row"><span class="mr-label">Job</span><span class="mr-value">${job.name}</span></div>
     <div class="money-row"><span class="mr-label">Payout</span><span class="mr-value green">${fmt(res.pay)}</span></div>
     <div class="money-row"><span class="mr-label">Cash on Hand</span><span class="mr-value">${fmt(res.cash)}</span></div>
-    <div class="money-row"><span class="mr-label">Energy Left</span><span class="mr-value">⚡ ${res.energy} / ${DAILY_ENERGY}</span></div>
+    <div class="money-row"><span class="mr-label">Energy Left</span><span class="mr-value">⚡ ${res.energy} / ${state.max_energy || DAILY_ENERGY}</span></div>
     <button class="btn btn-primary btn-full mt-8" onclick="closeModal()">Done</button>`);
   await refreshState();
   renderAll();
@@ -1325,7 +1538,8 @@ async function advanceDays(days) {
         </div>
       </div>`).join('');
 
-  _pendingRepairs = res.repairs || [];
+  _pendingRepairs  = res.repairs || [];
+  _pendingSquatter = (res.events || []).find(e => e.type === 'squatter') || null;
   const repairNote = _pendingRepairs.length > 0
     ? `<div style="background:var(--warning-bg,#FFF8E1);border:2px solid var(--warning);border-radius:var(--radius-sm);padding:10px 12px;margin-top:12px;font-size:13px;font-weight:700">
         🔧 ${_pendingRepairs.length} repair${_pendingRepairs.length > 1 ? 's' : ''} need${_pendingRepairs.length === 1 ? 's' : ''} attention!</div>`
@@ -1352,9 +1566,56 @@ async function advanceDays(days) {
 function continueFromEvents() {
   if (_pendingRepairs.length > 0) {
     showNextRepair();
+  } else if (_pendingSquatter) {
+    const sq = _pendingSquatter;
+    _pendingSquatter = null;
+    showSquatterModal(sq.prop_id, sq.bribe, sq.prop_name);
   } else {
     closeModal();
   }
+}
+
+function showSquatterModal(propId, bribe, propName) {
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">🚨 Squatters!</div>
+    <div class="modal-subtitle">${propName}</div>
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
+      Someone has moved into your vacant property without permission. They're refusing to leave and not paying a dime. What do you want to do?
+    </p>
+    <div class="card" style="margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+        <span style="font-size:30px">💸</span>
+        <div>
+          <div style="font-size:15px;font-weight:800">Pay Them Off</div>
+          <div style="font-size:12px;color:var(--text-muted)">They'll leave immediately — no questions asked.</div>
+        </div>
+      </div>
+      <div class="money-row" style="margin-bottom:10px">
+        <span class="mr-label">Their asking price</span>
+        <span class="mr-value" style="color:#C62828">${fmt(bribe)}</span>
+      </div>
+      <button class="btn btn-danger btn-full" onclick="briberSquatter(${propId})">💸 Pay ${fmt(bribe)} to Remove Them</button>
+    </div>
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+        <span style="font-size:30px">⏳</span>
+        <div>
+          <div style="font-size:15px;font-weight:800">Wait It Out</div>
+          <div style="font-size:12px;color:var(--text-muted)">They might leave eventually. Or they might not. Hard to say.</div>
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-full" onclick="closeModal()">Do Nothing for Now</button>
+    </div>`);
+}
+
+async function briberSquatter(propId) {
+  const res = await api('/squatter/bribe', 'POST', { prop_id: propId });
+  if (res.error) { toast(res.error, 'error'); return; }
+  toast(`Squatters gone! Paid ${fmt(res.bribe_paid)}.`);
+  closeModal();
+  await refreshState();
+  renderAll();
 }
 
 function showNextRepair() {

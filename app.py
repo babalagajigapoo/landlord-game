@@ -60,16 +60,15 @@ UPGRADES = {
 # Premium upgrades — permanent additions that raise market value & fair rent.
 # Contractor-only (no DIY). Can only be installed once per property.
 PREMIUM_UPGRADES = {
-    "smarthome":    {"name": "Smart Home Package",   "icon": "📱", "cost":  5_500, "rent_bonus": 32,  "value_bonus":  7_000, "desc": "Security cameras, smart thermostat & lighting automation"},
-    "ev_charger":   {"name": "EV Charging Station",  "icon": "⚡", "cost":  4_000, "rent_bonus": 20,  "value_bonus":  5_000, "desc": "Level 2 EV charger — big draw for modern renters"},
-    "hot_tub":      {"name": "Hot Tub / Spa",        "icon": "🛁", "cost": 12_000, "rent_bonus": 60,  "value_bonus": 13_000, "desc": "Outdoor hot tub with privacy fencing"},
-    "deck":         {"name": "Deck & Patio",         "icon": "🪵", "cost":  9_000, "rent_bonus": 45,  "value_bonus": 11_000, "desc": "Hardwood deck with built-in seating area"},
-    "central_hvac": {"name": "Central A/C & Heat",   "icon": "🌡️", "cost": 13_000, "rent_bonus": 70,  "value_bonus": 15_000, "desc": "Full HVAC system — year-round climate control"},
-    "garage":       {"name": "2-Car Garage",         "icon": "🚗", "cost": 16_000, "rent_bonus": 85,  "value_bonus": 20_000, "desc": "Attached 2-car garage with automatic door"},
-    "solar":        {"name": "Solar Panel Array",    "icon": "☀️", "cost": 19_000, "rent_bonus": 65,  "value_bonus": 22_000, "desc": "Rooftop solar — lower bills, higher tenant appeal"},
-    "basement":     {"name": "Finished Basement",    "icon": "🏗️", "cost": 22_000, "rent_bonus": 130, "value_bonus": 27_000, "desc": "Fully finished basement — extra living space"},
-    "pool":         {"name": "Swimming Pool",        "icon": "🏊", "cost": 28_000, "rent_bonus": 175, "value_bonus": 32_000, "desc": "Inground pool with full landscaping package"},
-    "adu":          {"name": "Guest House / ADU",    "icon": "🏡", "cost": 48_000, "rent_bonus": 325, "value_bonus": 55_000, "desc": "Detached accessory dwelling unit — major value add"},
+    "ev_charger": {"name": "EV Charging Station",  "icon": "⚡", "cost":  4_000, "rent_bonus": 20,  "value_bonus":  5_000, "days":  1, "desc": "Level 2 EV charger — big draw for modern renters"},
+    "smarthome":  {"name": "Smart Home Package",   "icon": "📱", "cost":  5_500, "rent_bonus": 32,  "value_bonus":  7_000, "days":  1, "desc": "Security cameras, smart thermostat & lighting automation"},
+    "deck":       {"name": "Deck & Patio",         "icon": "🪵", "cost":  9_000, "rent_bonus": 45,  "value_bonus": 11_000, "days":  2, "desc": "Hardwood deck with built-in seating area"},
+    "hot_tub":    {"name": "Hot Tub / Spa",        "icon": "🛁", "cost": 12_000, "rent_bonus": 60,  "value_bonus": 13_000, "days":  3, "desc": "Outdoor hot tub with privacy fencing"},
+    "garage":     {"name": "2-Car Garage",         "icon": "🚗", "cost": 16_000, "rent_bonus": 85,  "value_bonus": 20_000, "days":  5, "desc": "Attached 2-car garage with automatic door"},
+    "solar":      {"name": "Solar Panel Array",    "icon": "☀️", "cost": 19_000, "rent_bonus": 65,  "value_bonus": 22_000, "days":  7, "desc": "Rooftop solar — lower bills, higher tenant appeal"},
+    "basement":   {"name": "Finished Basement",    "icon": "🏗️", "cost": 22_000, "rent_bonus": 130, "value_bonus": 27_000, "days":  8, "desc": "Fully finished basement — extra living space"},
+    "pool":       {"name": "Swimming Pool",        "icon": "🏊", "cost": 28_000, "rent_bonus": 175, "value_bonus": 32_000, "days": 10, "desc": "Inground pool with full landscaping package"},
+    "adu":        {"name": "Guest House / ADU",    "icon": "🏡", "cost": 48_000, "rent_bonus": 325, "value_bonus": 55_000, "days": 14, "desc": "Detached accessory dwelling unit — major value add"},
 }
 
 def get_premium_bonuses(prop):
@@ -124,6 +123,17 @@ CREATOR_CODES = {
     "cheatercheater": {"desc": "💰 $10,000,000 deposited!", "cash": 10_000_000},
 }
 
+# Player homes — each tier increases max energy and daily recharge by 2
+PLAYER_HOMES = [
+    {"key": "moms_basement", "name": "Mom's Basement",  "icon": "🛏️",  "cost":       0, "max_energy": 10, "recharge":  2, "desc": "Rent-free but cramped. Thanks, Mom."},
+    {"key": "studio_apt",    "name": "Studio Apartment","icon": "🏠",  "cost":   80_000, "max_energy": 12, "recharge":  4, "desc": "Your own place — finally."},
+    {"key": "starter_house", "name": "Starter House",   "icon": "🏡",  "cost":  150_000, "max_energy": 14, "recharge":  6, "desc": "A real house with a yard. Moving up!"},
+    {"key": "modern_condo",  "name": "Modern Condo",    "icon": "🏢",  "cost":  200_000, "max_energy": 16, "recharge":  8, "desc": "High-rise living with city views."},
+    {"key": "suburban_home", "name": "Suburban Home",   "icon": "🏘️",  "cost":  500_000, "max_energy": 18, "recharge": 10, "desc": "Quiet neighborhood, big garage."},
+    {"key": "luxury_villa",  "name": "Mansion",         "icon": "🏛️",  "cost":1_000_000, "max_energy": 20, "recharge": 12, "desc": "Sprawling estate. You've made it."},
+    {"key": "mansion",       "name": "Castle",          "icon": "🏰",  "cost":10_000_000, "max_energy": 30, "recharge": 30, "desc": "Absolute excess. Full energy, every single day."},
+]
+
 def generate_jobs():
     """Pick 3 random jobs with guaranteed varied energy costs."""
     templates    = random.sample(JOB_TEMPLATES, 3)
@@ -155,6 +165,20 @@ TENANT_PROFILES = [
 def get_upgrade_quality(upg_val):
     """Handle both old format (int) and new format (dict with quality+day)."""
     return upg_val["quality"] if isinstance(upg_val, dict) else upg_val
+
+def contractor_days(contractor_key, energy_cost):
+    """How many days a contractor takes based on tier and job difficulty (energy_cost 1-4)."""
+    if contractor_key == "budget":
+        return 1
+    if contractor_key == "standard":
+        return 2 if energy_cost <= 2 else (3 if energy_cost == 3 else 4)
+    # premium
+    return 4 if energy_cost <= 2 else (5 if energy_cost == 3 else 6)
+
+def get_player_home(s):
+    """Return the PLAYER_HOMES dict for the player's current home."""
+    key = s.get("player_home", "moms_basement")
+    return next((h for h in PLAYER_HOMES if h["key"] == key), PLAYER_HOMES[0])
 
 def upgrade_cooldown_remaining(upg_val, current_day):
     """Days left before this upgrade can be done again. 0 = available now."""
@@ -249,7 +273,8 @@ def generate_property(nid):
     cond  = random.randint(25, 212)   # scaled to 250-point system
     prop  = {"id": nid, "type": ptype, "neighborhood": hood, "bedrooms": beds,
              "bathrooms": baths, "sqft": sqft, "condition": cond, "upgrades": {},
-             "premium_upgrades": [],
+             "premium_upgrades": [], "squatter": None, "vacant_since": 1,
+             "pending_reno": None, "pending_premium": None,
              "tenant": None, "days_rented": 0,
              "total_rent_collected": 0, "total_repair_costs": 0, "purchase_price": 0}
     prop["purchase_price"] = int(calc_market_value(prop) * random.uniform(0.88, 1.06))
@@ -257,8 +282,9 @@ def generate_property(nid):
 
 def make_starter_home():
     return {"id": 1, "type": "Bungalow", "neighborhood": "Eastside",
-            "bedrooms": 2, "bathrooms": 1, "sqft": 820, "condition": 61,  # D tier on 250 scale
-            "upgrades": {}, "premium_upgrades": [],
+            "bedrooms": 2, "bathrooms": 1, "sqft": 820, "condition": 61,
+            "upgrades": {}, "premium_upgrades": [], "squatter": None, "vacant_since": 1,
+            "pending_reno": None, "pending_premium": None,
             "tenant": None, "days_rented": 0,
             "total_rent_collected": 0, "total_repair_costs": 0, "purchase_price": 0}
 
@@ -269,9 +295,11 @@ def new_game():
         "properties": [starter], "market": [], "log": [],
         "applicants_cache": {},
         "last_bank_day": 1,
-        "energy": DAILY_ENERGY,
+        "energy": PLAYER_HOMES[0]["max_energy"],
+        "player_home": "moms_basement",
         "jobs": generate_jobs(),
         "redeemed_codes": [],
+        "squatter_count": 0,
         "bank": {"savings": 0, "loans": [], "next_loan_id": 1},
     }
     state["log"].append({"day": 1, "type": "info",
@@ -319,19 +347,23 @@ def index():
 @app.route('/api/state', methods=['GET', 'POST'])
 def api_state():
     s = load()
+    home = get_player_home(s)
     weekly_income = sum(p["tenant"]["rent"] for p in s["properties"] if p.get("tenant"))
     return jsonify({
-        "cash":           s["cash"],
-        "day":            s["day"],
-        "energy":         s.get("energy", DAILY_ENERGY),
-        "jobs":           s.get("jobs", []),
-        "net_worth":      s["cash"] + sum(calc_market_value(p) for p in s["properties"]),
-        "weekly_income":  weekly_income,
-        "property_count": len(s["properties"]),
-        "properties":     [enrich(p, s["day"]) for p in s["properties"]],
-        "log":            s["log"][-40:],
-        "bank":           s.get("bank", {"savings": 0, "loans": [], "next_loan_id": 1}),
-        "savings_tier":   savings_tier(s.get("bank", {}).get("savings", 0)),
+        "cash":            s["cash"],
+        "day":             s["day"],
+        "energy":          s.get("energy", home["max_energy"]),
+        "max_energy":      home["max_energy"],
+        "energy_recharge": home["recharge"],
+        "player_home":     s.get("player_home", "moms_basement"),
+        "jobs":            s.get("jobs", []),
+        "net_worth":       s["cash"] + sum(calc_market_value(p) for p in s["properties"]),
+        "weekly_income":   weekly_income,
+        "property_count":  len(s["properties"]),
+        "properties":      [enrich(p, s["day"]) for p in s["properties"]],
+        "log":             s["log"][-40:],
+        "bank":            s.get("bank", {"savings": 0, "loans": [], "next_loan_id": 1}),
+        "savings_tier":    savings_tier(s.get("bank", {}).get("savings", 0)),
     })
 
 @app.route('/api/market', methods=['GET', 'POST'])
@@ -359,6 +391,7 @@ def api_buy():
     if prop["purchase_price"] > s["cash"]:
         return jsonify({"error": "Not enough cash"}), 400
     s["cash"] -= prop["purchase_price"]
+    prop["vacant_since"] = s["day"]   # start tracking vacancy from purchase day
     s["properties"].append(prop)
     s["market"] = [p for p in s["market"] if p["id"] != prop["id"]]
     s["log"].append({"day": s["day"], "type": "buy",
@@ -374,7 +407,10 @@ def api_upgrades(pid):
         return jsonify({"error": "Not found"}), 404
     available, on_cooldown = [], []
     current_day = s["day"]
+    pending_key = (prop.get("pending_reno") or {}).get("upgrade_key")
     for key, upg in UPGRADES.items():
+        if key == pending_key:
+            continue   # shown separately as in-progress
         upg_val = prop.get("upgrades", {}).get(key)
         if upg_val is not None:
             quality   = get_upgrade_quality(upg_val)
@@ -384,7 +420,6 @@ def api_upgrades(pid):
                 on_cooldown.append({**upg, "key": key, "quality": quality,
                                     "quality_tier": tier_key, "days_remaining": remaining})
             else:
-                # Cooldown expired — available to renovate again
                 costs = {ck: int(upg["base_cost"] * c["cost_mult"]) for ck, c in CONTRACTORS.items()}
                 available.append({**upg, "key": key, "costs": costs,
                                   "prev_quality_tier": tier_key})
@@ -392,6 +427,7 @@ def api_upgrades(pid):
             costs = {ck: int(upg["base_cost"] * c["cost_mult"]) for ck, c in CONTRACTORS.items()}
             available.append({**upg, "key": key, "costs": costs})
     return jsonify({"available": available, "on_cooldown": on_cooldown,
+                    "pending_reno": prop.get("pending_reno"),
                     "contractors": CONTRACTORS, "cash": s["cash"]})
 
 @app.route('/api/renovate', methods=['POST'])
@@ -403,29 +439,43 @@ def api_renovate():
         return jsonify({"error": "Not found"}), 404
     if prop.get("tenant"):
         return jsonify({"error": "Tenant must vacate first"}), 400
-    existing  = prop.get("upgrades", {}).get(data["upgrade_key"])
-    remaining = upgrade_cooldown_remaining(existing, s["day"]) if existing is not None else 0
+    if prop.get("squatter"):
+        return jsonify({"error": "Remove squatters first"}), 400
+    if prop.get("pending_reno"):
+        return jsonify({"error": "A renovation is already in progress"}), 400
+    upgrade_key = data["upgrade_key"]
+    existing    = prop.get("upgrades", {}).get(upgrade_key)
+    remaining   = upgrade_cooldown_remaining(existing, s["day"]) if existing is not None else 0
     if remaining > 0:
         return jsonify({"error": f"On cooldown — {remaining} days remaining"}), 400
-    upg  = UPGRADES[data["upgrade_key"]]
+    upg  = UPGRADES[upgrade_key]
     cont = CONTRACTORS[data["contractor_key"]]
     cost = int(upg["base_cost"] * cont["cost_mult"])
     if cost > s["cash"]:
         return jsonify({"error": "Not enough cash"}), 400
-    quality     = random.randint(cont["q_min"], cont["q_max"])
-    tier        = score_to_tier(quality)
-    cond_change = tier_cond_change(tier)
+    quality      = random.randint(cont["q_min"], cont["q_max"])
+    tier         = score_to_tier(quality)
+    cond_change  = tier_cond_change(tier)
+    duration     = contractor_days(data["contractor_key"], upg.get("energy_cost", 1))
+    complete_day = s["day"] + duration
     s["cash"] -= cost
-    prop.setdefault("upgrades", {})[data["upgrade_key"]] = {"quality": quality, "day": s["day"]}
-    prop["condition"] = max(0, min(MAX_CONDITION, prop["condition"] + cond_change))
-    new_val = calc_market_value(prop)
-    s["log"].append({"day": s["day"], "type": "renovate",
-        "text": f"{upg['name']} on {prop['type']} in {prop['neighborhood']} — grade {tier['key']}, value now ${new_val:,}"})
+    prop["pending_reno"] = {
+        "upgrade_key":  upgrade_key,
+        "contractor":   data["contractor_key"],
+        "quality":      quality,
+        "tier_key":     tier["key"],
+        "cond_change":  cond_change,
+        "complete_day": complete_day,
+        "duration":     duration,
+        "name":         upg["name"],
+        "icon":         upg["icon"],
+    }
+    s["log"].append({"day": s["day"], "type": "info",
+        "text": f"{upg['name']} started at {prop['type']} in {prop['neighborhood']} — done in {duration} day{'s' if duration > 1 else ''}"})
     save(s)
-    return jsonify({"success": True, "cash": s["cash"], "quality": quality,
-                    "quality_tier": tier["key"], "cond_change": cond_change, "cond_pct": tier["pct"],
-                    "condition": prop["condition"], "market_value": new_val,
-                    "weekly_rent": calc_fair_weekly_rent(prop)})
+    return jsonify({"success": True, "cash": s["cash"],
+                    "duration": duration, "complete_day": complete_day,
+                    "contractor_name": cont["name"]})
 
 @app.route('/api/property/<int:pid>/premium_upgrades', methods=['GET', 'POST'])
 def api_premium_upgrades(pid):
@@ -438,16 +488,25 @@ def api_premium_upgrades(pid):
     data        = request.json or {}
     upgrade_key = data.get("upgrade_key")
     if not upgrade_key:
-        installed = prop.get("premium_upgrades", [])
+        installed    = prop.get("premium_upgrades", [])
+        pending_key  = (prop.get("pending_premium") or {}).get("upgrade_key")
         catalog = [
             {**v, "key": k, "installed": k in installed}
             for k, v in PREMIUM_UPGRADES.items()
+            if k != pending_key
         ]
-        return jsonify({"catalog": catalog, "installed": installed})
+        return jsonify({"catalog": catalog, "installed": installed,
+                        "pending_premium": prop.get("pending_premium")})
     if upgrade_key not in PREMIUM_UPGRADES:
         return jsonify({"error": "Unknown upgrade"}), 400
+    if prop.get("squatter"):
+        return jsonify({"error": "Remove squatters before installing upgrades"}), 400
+    if prop.get("pending_reno"):
+        return jsonify({"error": "Wait for the current renovation to finish first"}), 400
+    if prop.get("pending_premium"):
+        return jsonify({"error": "A premium upgrade is already in progress"}), 400
 
-    installed = prop.setdefault("premium_upgrades", [])
+    installed = prop.get("premium_upgrades", [])
     if upgrade_key in installed:
         return jsonify({"error": "Already installed"}), 400
 
@@ -457,15 +516,19 @@ def api_premium_upgrades(pid):
         return jsonify({"error": f"Need ${cost:,} — you have ${int(s['cash']):,}"}), 400
 
     s["cash"] -= cost
-    installed.append(upgrade_key)
-    new_val     = calc_market_value(prop)
-    weekly_rent = calc_fair_weekly_rent(prop)
-    s["log"].append({"day": s["day"], "type": "upgrade",
-        "text": f"Installed {upg['name']} at {prop['type']} in {prop['neighborhood']} — value now ${new_val:,}"})
+    complete_day = s["day"] + upg["days"]
+    prop["pending_premium"] = {
+        "upgrade_key":  upgrade_key,
+        "complete_day": complete_day,
+        "days":         upg["days"],
+        "name":         upg["name"],
+        "icon":         upg["icon"],
+    }
+    s["log"].append({"day": s["day"], "type": "info",
+        "text": f"{upg['name']} installation started at {prop['type']} in {prop['neighborhood']} — done in {upg['days']} day{'s' if upg['days'] > 1 else ''}"})
     save(s)
     return jsonify({"success": True, "cash": s["cash"],
-                    "market_value": new_val, "weekly_rent": weekly_rent,
-                    "premium_upgrades": installed})
+                    "duration": upg["days"], "complete_day": complete_day, "name": upg["name"]})
 
 @app.route('/api/sell', methods=['POST'])
 def api_sell():
@@ -555,6 +618,7 @@ def api_evict():
     name = prop["tenant"]["name"]
     s["cash"] -= fee
     prop["tenant"] = None
+    prop["vacant_since"] = s["day"]
     s["log"].append({"day": s["day"], "type": "evict",
         "text": f"Evicted {name} from {prop['type']} in {prop['neighborhood']} ($1,500 legal fees)"})
     save(s)
@@ -565,9 +629,10 @@ def api_advance():
     data     = request.json
     days     = max(1, min(int(data.get("days", 1)), 30))
     s           = load()
-    events      = []
-    new_repairs = []
-    rent_log    = {}   # prop_id -> summary dict
+    events           = []
+    new_repairs      = []
+    rent_log         = {}   # prop_id -> summary dict
+    squatter_spawned = False
 
     for d in range(days):
         current_day = s["day"] + d + 1
@@ -582,6 +647,7 @@ def api_advance():
             if current_day >= t.get("lease_end_day", 999999):
                 name = t["name"]
                 prop["tenant"] = None
+                prop["vacant_since"] = current_day
                 events.append({"prop": f"{prop['type']} — {prop['neighborhood']}",
                                 "text": f"{name}'s lease ended — moved out", "type": "warning"})
                 s["log"].append({"day": current_day, "type": "info",
@@ -624,6 +690,81 @@ def api_advance():
 
             prop["days_rented"] = prop.get("days_rented", 0) + 1
 
+        # Renovation completion
+        for prop in s["properties"]:
+            reno = prop.get("pending_reno")
+            if reno and current_day >= reno["complete_day"]:
+                prop.setdefault("upgrades", {})[reno["upgrade_key"]] = {
+                    "quality": reno["quality"], "day": reno["complete_day"]}
+                prop["condition"]   = max(0, min(MAX_CONDITION, prop["condition"] + reno["cond_change"]))
+                prop["pending_reno"] = None
+                new_val = calc_market_value(prop)
+                events.append({"prop": f"{prop['type']} — {prop['neighborhood']}",
+                                "text": f"✅ {reno['name']} finished! Grade {reno['tier_key']}",
+                                "type": "positive"})
+                s["log"].insert(0, {"day": current_day, "type": "renovate",
+                    "text": f"{reno['name']} at {prop['type']} in {prop['neighborhood']} completed — grade {reno['tier_key']}, value now ${new_val:,}"})
+
+        # Premium upgrade completion
+        for prop in s["properties"]:
+            pp = prop.get("pending_premium")
+            if pp and current_day >= pp["complete_day"]:
+                prop.setdefault("premium_upgrades", []).append(pp["upgrade_key"])
+                prop["pending_premium"] = None
+                new_val = calc_market_value(prop)
+                events.append({"prop": f"{prop['type']} — {prop['neighborhood']}",
+                                "text": f"✅ {pp['name']} installation complete!",
+                                "type": "positive"})
+                s["log"].insert(0, {"day": current_day, "type": "upgrade",
+                    "text": f"{pp['name']} installed at {prop['type']} in {prop['neighborhood']} — value now ${new_val:,}"})
+
+        # Squatter departure — natural end of stay
+        for prop in s["properties"]:
+            sq = prop.get("squatter")
+            if sq and current_day >= sq["moved_in_day"] + sq["stay_days"]:
+                prop["squatter"]     = None
+                prop["vacant_since"] = current_day
+                events.append({"prop": f"{prop['type']} — {prop['neighborhood']}",
+                                "text": "Squatters finally moved out on their own", "type": "positive"})
+                s["log"].insert(0, {"day": current_day, "type": "info",
+                    "text": f"Squatters left your {prop['type']} in {prop['neighborhood']} on their own"})
+
+        # Squatter daily condition damage — 15% chance per squatter to drop condition 50 pts
+        for prop in s["properties"]:
+            if prop.get("squatter") and random.random() < 0.15:
+                prop["condition"] = max(0, prop["condition"] - 50)
+                s["log"].insert(0, {"day": current_day, "type": "warning",
+                    "text": f"Squatters damaged your {prop['type']} in {prop['neighborhood']}!"})
+
+        # Squatter spawning — rate drops with each past squatter event: 5% → 3% → 1%
+        if not squatter_spawned:
+            sq_count      = s.get("squatter_count", 0)
+            spawn_chance  = 0.05 if sq_count == 0 else (0.03 if sq_count == 1 else 0.01)
+            eligible = [p for p in s["properties"]
+                        if not p.get("tenant") and not p.get("squatter")
+                        and not p.get("pending_reno") and not p.get("pending_premium")
+                        and (current_day - p.get("vacant_since", 1)) >= 3]
+            if eligible and random.random() < spawn_chance:
+                target = random.choice(eligible)
+                bribe  = int(calc_market_value(target) * 0.10)
+                target["squatter"] = {
+                    "moved_in_day": current_day,
+                    "stay_days":    random.randint(28, 112),
+                    "bribe":        bribe,
+                }
+                s["squatter_count"] = sq_count + 1
+                events.append({
+                    "type":      "squatter",
+                    "prop":      f"{target['type']} — {target['neighborhood']}",
+                    "text":      f"🚨 Squatters moved in! They want ${bribe:,} to leave.",
+                    "prop_id":   target["id"],
+                    "prop_name": f"{target['type']} — {target['neighborhood']}",
+                    "bribe":     bribe,
+                })
+                s["log"].insert(0, {"day": current_day, "type": "warning",
+                    "text": f"Squatters moved into your {target['type']} in {target['neighborhood']}!"})
+                squatter_spawned = True
+
         # Every 7 days: weekly bank processing (savings interest + loan payments)
         last_bank = s.get("last_bank_day", 1)
         if current_day - last_bank >= 7:
@@ -661,8 +802,9 @@ def api_advance():
         # Refresh market each day advance
         s["market"], s["next_id"] = _gen_market(s["next_id"])
 
-    # Restore energy and refresh jobs at the start of the new day
-    s["energy"] = DAILY_ENERGY
+    # Restore energy (additive recharge capped at home max) and refresh jobs
+    home = get_player_home(s)
+    s["energy"] = min(home["max_energy"], s.get("energy", 0) + home["recharge"])
     s["jobs"]   = generate_jobs()
 
 
@@ -891,6 +1033,24 @@ def api_jobs_complete():
     return jsonify({"success": True, "pay": pay, "cash": s["cash"],
                     "energy": s["energy"], "quality": quality})
 
+@app.route('/api/squatter/bribe', methods=['POST'])
+def api_squatter_bribe():
+    s    = load()
+    data = request.json or {}
+    prop = next((p for p in s["properties"] if p["id"] == data.get("prop_id")), None)
+    if not prop or not prop.get("squatter"):
+        return jsonify({"error": "No squatter found"}), 400
+    bribe = prop["squatter"]["bribe"]
+    if s["cash"] < bribe:
+        return jsonify({"error": f"Not enough cash — they want ${bribe:,}"}), 400
+    s["cash"] -= bribe
+    prop["squatter"]     = None
+    prop["vacant_since"] = s["day"]
+    s["log"].insert(0, {"day": s["day"], "type": "info",
+        "text": f"Paid ${bribe:,} bribe — squatters removed from {prop['type']} in {prop['neighborhood']}"})
+    save(s)
+    return jsonify({"success": True, "bribe_paid": bribe})
+
 @app.route('/api/redeem_code', methods=['POST'])
 def api_redeem_code():
     s    = load()
@@ -908,6 +1068,30 @@ def api_redeem_code():
         "text": f"Creator code redeemed — {reward['desc']}"})
     save(s)
     return jsonify({"success": True, "reward_desc": reward["desc"]})
+
+@app.route('/api/move_in', methods=['POST'])
+def api_move_in():
+    s    = load()
+    data = request.json or {}
+    key  = data.get("home_key", "")
+    new_home = next((h for h in PLAYER_HOMES if h["key"] == key), None)
+    if not new_home:
+        return jsonify({"error": "Invalid home"}), 400
+    current     = get_player_home(s)
+    current_idx = next(i for i, h in enumerate(PLAYER_HOMES) if h["key"] == current["key"])
+    new_idx     = next(i for i, h in enumerate(PLAYER_HOMES) if h["key"] == key)
+    if new_idx <= current_idx:
+        return jsonify({"error": "You already live somewhere better!"}), 400
+    if new_home["cost"] > 0 and s["cash"] < new_home["cost"]:
+        return jsonify({"error": f"Not enough cash — need ${new_home['cost']:,}"}), 400
+    s["cash"] -= new_home["cost"]
+    s["player_home"] = key
+    # Cap current energy at new home's max (it might already be lower)
+    s["energy"] = min(s.get("energy", 0), new_home["max_energy"])
+    s["log"].insert(0, {"day": s["day"], "type": "info",
+        "text": f"Moved into {new_home['name']}! Max energy now ⚡{new_home['max_energy']}, recharge +{new_home['recharge']}/day."})
+    save(s)
+    return jsonify({"success": True, "home": new_home["name"]})
 
 @app.route('/api/reset', methods=['POST'])
 def api_reset():
