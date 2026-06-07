@@ -39,22 +39,23 @@ a { text-decoration: none; color: inherit; }
 header {
   background: var(--header-bg);
   color: var(--header-text);
-  height: var(--header-h);
   display: flex;
-  align-items: center;
-  padding: 0 16px;
-  gap: 12px;
+  flex-direction: column;
+  padding: 10px 16px 8px;
+  gap: 5px;
   flex-shrink: 0;
   position: sticky;
   top: 0;
   z-index: 100;
 }
-.header-logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; flex: 1; }
+.header-top    { display: flex; align-items: center; justify-content: space-between; }
+.header-bottom { display: flex; align-items: baseline; justify-content: space-between; }
+.header-logo { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
 .header-logo span { color: #81C784; }
-.header-stat { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+.header-stat { display: flex; flex-direction: column; gap: 1px; }
 .header-stat .label { font-size: 10px; opacity: 0.6; text-transform: uppercase; letter-spacing: 0.5px; }
-.header-stat .value { font-size: 15px; font-weight: 700; color: #81C784; }
-.header-month { background: rgba(255,255,255,0.12); border-radius: 20px; padding: 4px 10px; font-size: 12px; font-weight: 600; }
+.header-stat .value { font-size: 17px; font-weight: 700; color: #81C784; }
+.header-month { background: rgba(255,255,255,0.12); border-radius: 20px; padding: 3px 10px; font-size: 12px; font-weight: 600; white-space: nowrap; }
 
 main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
 
@@ -494,8 +495,8 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
 .mg-color-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
 .mg-color-btn {
   height: 64px; border-radius: var(--radius-sm); border: 3px solid transparent;
-  font-size: 22px; cursor: pointer; font-weight: 800; color: white;
-  transition: transform 0.1s, filter 0.1s; touch-action: manipulation;
+  font-size: 15px; cursor: pointer; font-weight: 900; color: white;
+  letter-spacing: 0.5px; transition: transform 0.1s, filter 0.1s; touch-action: manipulation;
 }
 .mg-color-btn:active { transform: scale(0.95); }
 .mg-color-btn.correct { border-color: white; filter: brightness(1.3); }

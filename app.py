@@ -8,10 +8,10 @@ app = Flask(__name__)
 STARTING_CASH = 5_000
 
 LOAN_PRODUCTS = [
-    {"key": "quick",    "name": "Quick Cash",    "icon": "💵", "min": 500,   "max": 5_000,   "apr": 0.24, "term": 12, "desc": "Fast money, high interest."},
-    {"key": "personal", "name": "Personal Loan", "icon": "🤝", "min": 3_000, "max": 25_000,  "apr": 0.15, "term": 24, "desc": "Reasonable rates for mid-range needs."},
-    {"key": "property", "name": "Property Loan", "icon": "🏦", "min": 15000, "max": 75_000,  "apr": 0.09, "term": 36, "desc": "Low rates for real estate investment."},
-    {"key": "business", "name": "Business Loan", "icon": "💼", "min": 50000, "max": 150_000, "apr": 0.07, "term": 48, "desc": "Best rates for serious investors."},
+    {"key": "quick",    "name": "Quick Cash",    "icon": "💵", "min": 500,   "max": 5_000,   "apr": 0.24, "term_seasons": 2,  "desc": "Fast money, high interest."},
+    {"key": "personal", "name": "Personal Loan", "icon": "🤝", "min": 3_000, "max": 25_000,  "apr": 0.15, "term_seasons": 4,  "desc": "Reasonable rates for mid-range needs."},
+    {"key": "property", "name": "Property Loan", "icon": "🏦", "min": 15000, "max": 75_000,  "apr": 0.09, "term_seasons": 8,  "desc": "Low rates for real estate investment."},
+    {"key": "business", "name": "Business Loan", "icon": "💼", "min": 50000, "max": 150_000, "apr": 0.07, "term_seasons": 12, "desc": "Best rates for serious investors."},
 ]
 
 SAVINGS_TIERS = [
@@ -38,12 +38,12 @@ NEIGHBORHOODS = {
 DAYS_PER_SEASON = 28   # 4 seasons × 28 days = 112-day year
 
 REPAIR_TYPES = [
-    {"key": "plumbing",   "name": "Plumbing Leak",       "icon": "🔧", "base_cost": 400,  "cond_loss": 3, "cond_fix": 4},
-    {"key": "electrical", "name": "Electrical Issue",    "icon": "⚡", "base_cost": 700,  "cond_loss": 2, "cond_fix": 3},
-    {"key": "appliance",  "name": "Appliance Breakdown", "icon": "📦", "base_cost": 350,  "cond_loss": 2, "cond_fix": 3},
-    {"key": "roof_patch", "name": "Roof Patch Needed",   "icon": "🏚️", "base_cost": 900,  "cond_loss": 4, "cond_fix": 5},
-    {"key": "pest",       "name": "Pest Problem",        "icon": "🐛", "base_cost": 300,  "cond_loss": 3, "cond_fix": 3},
-    {"key": "hvac_fix",   "name": "HVAC Repair",         "icon": "🌡️", "base_cost": 600,  "cond_loss": 3, "cond_fix": 4},
+    {"key": "plumbing",   "name": "Plumbing Leak",       "icon": "🔧", "base_cost": 400,  "cond_loss": 7,  "cond_fix": 9},
+    {"key": "electrical", "name": "Electrical Issue",    "icon": "⚡", "base_cost": 700,  "cond_loss": 5,  "cond_fix": 7},
+    {"key": "appliance",  "name": "Appliance Breakdown", "icon": "📦", "base_cost": 350,  "cond_loss": 5,  "cond_fix": 7},
+    {"key": "roof_patch", "name": "Roof Patch Needed",   "icon": "🏚️", "base_cost": 900,  "cond_loss": 9,  "cond_fix": 11},
+    {"key": "pest",       "name": "Pest Problem",        "icon": "🐛", "base_cost": 300,  "cond_loss": 7,  "cond_fix": 7},
+    {"key": "hvac_fix",   "name": "HVAC Repair",         "icon": "🌡️", "base_cost": 600,  "cond_loss": 7,  "cond_fix": 9},
 ]
 
 UPGRADES = {
@@ -57,10 +57,60 @@ UPGRADES = {
     "kitchen":     {"name": "Kitchen Remodel",   "icon": "🍳", "base_cost": 12000, "value_add": 22000, "cond_boost": 25},
 }
 
+MAX_CONDITION    = 250   # condition is now out of 250 points
+RENO_COOLDOWN    = 28    # days before a renovation can be done again
+DAILY_ENERGY     = 10    # energy points restored each day; DIY renovations and side jobs consume energy
+
+# Grade tiers: quality score 0-100 → letter grade → % change of MAX_CONDITION
+TIER_GRADES = [
+    {"key": "F",  "min_score": 0,  "max_score": 14,  "pct": -10},
+    {"key": "D",  "min_score": 15, "max_score": 29,  "pct":   0},
+    {"key": "C",  "min_score": 30, "max_score": 44,  "pct":   7},
+    {"key": "B",  "min_score": 45, "max_score": 59,  "pct":  14},
+    {"key": "A",  "min_score": 60, "max_score": 74,  "pct":  16},
+    {"key": "S",  "min_score": 75, "max_score": 89,  "pct":  18},
+    {"key": "S+", "min_score": 90, "max_score": 100, "pct":  25},
+]
+
+def tier_cond_change(tier):
+    """Convert a tier's pct to actual condition points (out of MAX_CONDITION)."""
+    return round(tier["pct"] / 100 * MAX_CONDITION)
+
+JOB_TEMPLATES = [
+    {"name": "Paint a Room",        "icon": "🎨", "desc": "Roll a fresh coat on interior walls"},
+    {"name": "Lay Flooring",        "icon": "🪵", "desc": "Install hardwood planks in a living room"},
+    {"name": "Patch the Roof",      "icon": "🏚️", "desc": "Seal up a leaking section of roofing"},
+    {"name": "Fix a Plumbing Leak", "icon": "🔧", "desc": "Repair a leaky pipe under a kitchen sink"},
+    {"name": "Install Windows",     "icon": "🪟", "desc": "Fit double-pane windows in a bedroom"},
+    {"name": "Tile a Bathroom",     "icon": "🚿", "desc": "Lay ceramic tiles in a residential bathroom"},
+    {"name": "Hang Drywall",        "icon": "🧱", "desc": "Install drywall sheets in a new build"},
+    {"name": "Electrical Work",     "icon": "⚡", "desc": "Run wiring and fit outlets in a remodel"},
+    {"name": "HVAC Maintenance",    "icon": "🌡️", "desc": "Service and tune a residential HVAC unit"},
+    {"name": "Build a Fence",       "icon": "🪚", "desc": "Put up a new wooden privacy fence"},
+    {"name": "Pour Concrete",       "icon": "🏗️", "desc": "Pour and level a new driveway section"},
+    {"name": "Landscaping Work",    "icon": "🌿", "desc": "Clear, grade, and replant a front yard"},
+    {"name": "Power Washing",       "icon": "💧", "desc": "Deep clean siding, decking, and walkways"},
+    {"name": "Install Cabinets",    "icon": "🍳", "desc": "Mount and align kitchen cabinets and hardware"},
+    {"name": "Repair a Deck",       "icon": "🪜", "desc": "Replace rotted planks on an outdoor deck"},
+]
+
+# Pay ranges per energy tier: {energy_cost: (min_base, max_base)}
+JOB_PAY_RANGES = {1: (100, 350), 2: (350, 700), 3: (700, 1200), 4: (1200, 2000)}
+
+def generate_jobs():
+    """Pick 3 random jobs with guaranteed varied energy costs."""
+    templates    = random.sample(JOB_TEMPLATES, 3)
+    energy_costs = random.sample([1, 2, 3, 4], 3)   # always 3 different tiers
+    jobs = []
+    for i, (t, ec) in enumerate(zip(templates, energy_costs)):
+        lo, hi = JOB_PAY_RANGES[ec]
+        jobs.append({**t, "id": i, "energy_cost": ec, "base_pay": random.randint(lo, hi)})
+    return jobs
+
 CONTRACTORS = {
-    "budget":   {"name": "Budget Bob",     "icon": "🔨", "desc": "Cheap but inconsistent — may cut corners", "cost_mult": 0.70, "q_min": 45, "q_max": 80},
-    "standard": {"name": "Standard Steve", "icon": "🛠️", "desc": "Reliable work at fair prices",              "cost_mult": 1.00, "q_min": 75, "q_max": 95},
-    "premium":  {"name": "Premier Pete",   "icon": "⭐", "desc": "Top-tier quality, fully guaranteed",         "cost_mult": 1.50, "q_min": 92, "q_max": 100},
+    "budget":   {"name": "Budget Bob",     "icon": "🔨", "desc": "Cheap but inconsistent — may cut corners", "cost_mult": 0.70, "q_min": 0,  "q_max": 59, "tier_range": "F – B"},
+    "standard": {"name": "Standard Steve", "icon": "🛠️", "desc": "Reliable work at fair prices",              "cost_mult": 1.00, "q_min": 30, "q_max": 74, "tier_range": "C – A"},
+    "premium":  {"name": "Premier Pete",   "icon": "⭐", "desc": "Top-tier quality, fully guaranteed",         "cost_mult": 1.50, "q_min": 45, "q_max": 100, "tier_range": "B – S+"},
 }
 
 # stay_min / stay_max are in DAYS
@@ -75,20 +125,32 @@ TENANT_PROFILES = [
 
 # ── Game Logic ─────────────────────────────────────────────────────────────────
 
+def get_upgrade_quality(upg_val):
+    """Handle both old format (int) and new format (dict with quality+day)."""
+    return upg_val["quality"] if isinstance(upg_val, dict) else upg_val
+
+def upgrade_cooldown_remaining(upg_val, current_day):
+    """Days left before this upgrade can be done again. 0 = available now."""
+    if not isinstance(upg_val, dict):
+        return 0   # old format = no cooldown
+    return max(0, RENO_COOLDOWN - (current_day - upg_val.get("day", 0)))
+
 def calc_market_value(prop):
-    n    = NEIGHBORHOODS[prop["neighborhood"]]
-    base = prop["sqft"] * 120 + prop["bedrooms"] * 15000 + prop["bathrooms"] * 8000
-    cond_mult = 0.5 + (prop["condition"] / 100) * 0.7
-    val  = int(base * n["price_mult"] * cond_mult)
-    for key, quality in prop.get("upgrades", {}).items():
-        val += int(UPGRADES[key]["value_add"] * (quality / 100))
+    n         = NEIGHBORHOODS[prop["neighborhood"]]
+    base      = prop["sqft"] * 120 + prop["bedrooms"] * 15000 + prop["bathrooms"] * 8000
+    cond_mult = 0.5 + (prop["condition"] / MAX_CONDITION) * 0.7
+    val       = int(base * n["price_mult"] * cond_mult)
+    for key, upg_val in prop.get("upgrades", {}).items():
+        quality = get_upgrade_quality(upg_val)
+        val    += int(UPGRADES[key]["value_add"] * (quality / 100))
     return val
 
 def calc_monthly_rent(prop):
-    n    = NEIGHBORHOODS[prop["neighborhood"]]
-    base = int((prop["sqft"] * 1.1 + prop["bedrooms"] * 400 + prop["bathrooms"] * 150) * n["rent_mult"])
-    cond_mult = 0.6 + (prop["condition"] / 100) * 0.5
-    bonus = sum(int(UPGRADES[k]["value_add"] * 0.003 * (q / 100)) for k, q in prop.get("upgrades", {}).items())
+    n         = NEIGHBORHOODS[prop["neighborhood"]]
+    base      = int((prop["sqft"] * 1.1 + prop["bedrooms"] * 400 + prop["bathrooms"] * 150) * n["rent_mult"])
+    cond_mult = 0.6 + (prop["condition"] / MAX_CONDITION) * 0.5
+    bonus     = sum(int(UPGRADES[k]["value_add"] * 0.003 * (get_upgrade_quality(v) / 100))
+                    for k, v in prop.get("upgrades", {}).items())
     return int(base * cond_mult) + bonus
 
 def calc_fair_weekly_rent(prop):
@@ -108,18 +170,24 @@ def rent_tier(weekly_rent, fair_rent):
         return {"tier": "High",      "color": "orange", "stay_mult": 0.7, "damage_mult": 1.60, "pay_adj": -0.08}
     return     {"tier": "Very High", "color": "red",    "stay_mult": 0.4, "damage_mult": 2.50, "pay_adj": -0.18}
 
-def condition_label(c):
-    if c >= 90: return "Excellent"
-    if c >= 75: return "Good"
-    if c >= 55: return "Fair"
-    if c >= 35: return "Poor"
-    return "Dilapidated"
+def score_to_tier(score):
+    """Convert a 0-100 quality score to a letter grade tier."""
+    for t in reversed(TIER_GRADES):
+        if score >= t["min_score"]:
+            return t
+    return TIER_GRADES[0]
 
-def calc_monthly_payment(principal, annual_rate, term_months):
-    r = annual_rate / 12
+def condition_label(c):
+    """Map a 0-250 condition value to a tier letter."""
+    pct = (c / MAX_CONDITION) * 100
+    return score_to_tier(pct)["key"]
+
+def calc_weekly_payment(principal, annual_rate, term_seasons):
+    term_weeks = term_seasons * 4   # 1 season = 28 days = 4 weeks exactly
+    r = annual_rate / 52
     if r == 0:
-        return round(principal / term_months, 2)
-    return round(principal * r * (1 + r)**term_months / ((1 + r)**term_months - 1), 2)
+        return round(principal / term_weeks, 2)
+    return round(principal * r * (1 + r)**term_weeks / ((1 + r)**term_weeks - 1), 2)
 
 def savings_tier(balance):
     tier = SAVINGS_TIERS[0]
@@ -148,7 +216,7 @@ def generate_property(nid):
     beds  = random.randint(1, 5)
     baths = random.randint(1, min(beds, 3))
     sqft  = random.randint(600 + beds * 150, 900 + beds * 350)
-    cond  = random.randint(10, 85)
+    cond  = random.randint(25, 212)   # scaled to 250-point system
     prop  = {"id": nid, "type": ptype, "neighborhood": hood, "bedrooms": beds,
              "bathrooms": baths, "sqft": sqft, "condition": cond, "upgrades": {},
              "tenant": None, "days_rented": 0,
@@ -158,7 +226,7 @@ def generate_property(nid):
 
 def make_starter_home():
     return {"id": 1, "type": "Bungalow", "neighborhood": "Eastside",
-            "bedrooms": 2, "bathrooms": 1, "sqft": 820, "condition": 28,
+            "bedrooms": 2, "bathrooms": 1, "sqft": 820, "condition": 61,  # D tier on 250 scale
             "upgrades": {}, "tenant": None, "days_rented": 0,
             "total_rent_collected": 0, "total_repair_costs": 0, "purchase_price": 0}
 
@@ -169,6 +237,8 @@ def new_game():
         "properties": [starter], "market": [], "log": [],
         "applicants_cache": {},
         "last_bank_day": 1,
+        "energy": DAILY_ENERGY,
+        "jobs": generate_jobs(),
         "bank": {"savings": 0, "loans": [], "next_loan_id": 1},
     }
     state["log"].append({"day": 1, "type": "info",
@@ -191,6 +261,7 @@ def load():
 
 def save(state):
     """Store state on Flask's per-request g — injected into the response automatically."""
+    state["log"] = state["log"][-300:]   # cap log so state doesn't grow unbounded
     g.game_state = state
 
 # ── Inject saved state into every JSON response ───────────────────────────────
@@ -219,6 +290,8 @@ def api_state():
     return jsonify({
         "cash":           s["cash"],
         "day":            s["day"],
+        "energy":         s.get("energy", DAILY_ENERGY),
+        "jobs":           s.get("jobs", []),
         "net_worth":      s["cash"] + sum(calc_market_value(p) for p in s["properties"]),
         "weekly_income":  weekly_income,
         "property_count": len(s["properties"]),
@@ -266,14 +339,27 @@ def api_upgrades(pid):
     prop = next((p for p in s["properties"] if p["id"] == pid), None)
     if not prop:
         return jsonify({"error": "Not found"}), 404
-    available, done = [], []
+    available, on_cooldown = [], []
+    current_day = s["day"]
     for key, upg in UPGRADES.items():
-        if key in prop.get("upgrades", {}):
-            done.append({**upg, "key": key, "quality": prop["upgrades"][key]})
+        upg_val = prop.get("upgrades", {}).get(key)
+        if upg_val is not None:
+            quality   = get_upgrade_quality(upg_val)
+            remaining = upgrade_cooldown_remaining(upg_val, current_day)
+            tier_key  = score_to_tier(quality)["key"]
+            if remaining > 0:
+                on_cooldown.append({**upg, "key": key, "quality": quality,
+                                    "quality_tier": tier_key, "days_remaining": remaining})
+            else:
+                # Cooldown expired — available to renovate again
+                costs = {ck: int(upg["base_cost"] * c["cost_mult"]) for ck, c in CONTRACTORS.items()}
+                available.append({**upg, "key": key, "costs": costs,
+                                  "prev_quality_tier": tier_key})
         else:
             costs = {ck: int(upg["base_cost"] * c["cost_mult"]) for ck, c in CONTRACTORS.items()}
             available.append({**upg, "key": key, "costs": costs})
-    return jsonify({"available": available, "done": done, "contractors": CONTRACTORS, "cash": s["cash"]})
+    return jsonify({"available": available, "on_cooldown": on_cooldown,
+                    "contractors": CONTRACTORS, "cash": s["cash"]})
 
 @app.route('/api/renovate', methods=['POST'])
 def api_renovate():
@@ -284,23 +370,27 @@ def api_renovate():
         return jsonify({"error": "Not found"}), 404
     if prop.get("tenant"):
         return jsonify({"error": "Tenant must vacate first"}), 400
-    if data["upgrade_key"] in prop.get("upgrades", {}):
-        return jsonify({"error": "Already upgraded"}), 400
+    existing  = prop.get("upgrades", {}).get(data["upgrade_key"])
+    remaining = upgrade_cooldown_remaining(existing, s["day"]) if existing is not None else 0
+    if remaining > 0:
+        return jsonify({"error": f"On cooldown — {remaining} days remaining"}), 400
     upg  = UPGRADES[data["upgrade_key"]]
     cont = CONTRACTORS[data["contractor_key"]]
     cost = int(upg["base_cost"] * cont["cost_mult"])
     if cost > s["cash"]:
         return jsonify({"error": "Not enough cash"}), 400
-    quality   = random.randint(cont["q_min"], cont["q_max"])
-    cond_gain = int(upg["cond_boost"] * (quality / 100))
+    quality     = random.randint(cont["q_min"], cont["q_max"])
+    tier        = score_to_tier(quality)
+    cond_change = tier_cond_change(tier)
     s["cash"] -= cost
-    prop.setdefault("upgrades", {})[data["upgrade_key"]] = quality
-    prop["condition"] = min(100, prop["condition"] + cond_gain)
+    prop.setdefault("upgrades", {})[data["upgrade_key"]] = {"quality": quality, "day": s["day"]}
+    prop["condition"] = max(0, min(MAX_CONDITION, prop["condition"] + cond_change))
     new_val = calc_market_value(prop)
     s["log"].append({"day": s["day"], "type": "renovate",
-        "text": f"{upg['name']} done on {prop['type']} in {prop['neighborhood']} — quality {quality}/100, value now ${new_val:,}"})
+        "text": f"{upg['name']} on {prop['type']} in {prop['neighborhood']} — grade {tier['key']}, value now ${new_val:,}"})
     save(s)
     return jsonify({"success": True, "cash": s["cash"], "quality": quality,
+                    "quality_tier": tier["key"], "cond_change": cond_change, "cond_pct": tier["pct"],
                     "condition": prop["condition"], "market_value": new_val,
                     "weekly_rent": calc_fair_weekly_rent(prop)})
 
@@ -450,7 +540,7 @@ def api_advance():
             # Daily damage chance — generates a repair event the player must handle
             if random.random() < t["damage_chance"] / 7:
                 rt = random.choice(REPAIR_TYPES)
-                prop["condition"] = max(0, prop["condition"] - 1)   # small drop just from problem occurring
+                prop["condition"] = max(0, prop["condition"] - 2)   # small drop just from problem occurring
                 new_repairs.append({
                     "id":        f"r{current_day}_{pid}",
                     "prop_id":   pid,
@@ -461,36 +551,46 @@ def api_advance():
 
             prop["days_rented"] = prop.get("days_rented", 0) + 1
 
-        # Every 28 days: bank processing
+        # Every 7 days: weekly bank processing (savings interest + loan payments)
         last_bank = s.get("last_bank_day", 1)
-        if current_day - last_bank >= DAYS_PER_SEASON:
+        if current_day - last_bank >= 7:
             s["last_bank_day"] = current_day
             bank = s.get("bank", {"savings": 0, "loans": [], "next_loan_id": 1})
 
             if bank.get("savings", 0) > 0:
-                tier     = savings_tier(bank["savings"])
-                interest = round(bank["savings"] * tier["monthly_rate"], 2)
+                st       = savings_tier(bank["savings"])
+                interest = round(bank["savings"] * st["monthly_rate"] / 4, 2)
                 bank["savings"] = round(bank["savings"] + interest, 2)
                 events.append({"prop": "Savings Account",
-                                "text": f"Monthly interest earned: +${interest:,.2f}", "type": "positive"})
+                                "text": f"Weekly interest: +${interest:,.2f}", "type": "positive"})
 
             paid_off = []
             for loan in bank.get("loans", []):
-                payment  = round(min(loan["monthly_payment"], loan["balance"]), 2)
-                int_part = round(loan["balance"] * loan["monthly_rate"], 2)
+                # Support both old monthly_payment loans and new weekly_payment loans
+                wp       = loan.get("weekly_payment") or round(loan.get("monthly_payment", 0) / 4, 2)
+                wr       = loan.get("weekly_rate")    or loan.get("monthly_rate", 0) / 4
+                payment  = round(min(wp, loan["balance"]), 2)
+                int_part = round(loan["balance"] * wr, 2)
                 pri_part = round(payment - int_part, 2)
                 s["cash"] -= payment
                 loan["balance"] = round(max(0, loan["balance"] - pri_part), 2)
-                loan["months_paid"] += 1
+                loan["weeks_paid"] = loan.get("weeks_paid", loan.get("months_paid", 0)) + 1
                 label = "⚠ You're in the red!" if s["cash"] < 0 else f"${loan['balance']:,.0f} left"
                 events.append({"prop": loan["product"],
-                                "text": f"Loan payment: -${payment:,.2f} ({label})",
+                                "text": f"Weekly loan payment: -${payment:,.2f} ({label})",
                                 "type": "negative" if s["cash"] < 0 else "warning"})
                 if loan["balance"] <= 0:
                     paid_off.append(loan["id"])
                     events.append({"prop": loan["product"], "text": "Loan fully paid off! 🎉", "type": "positive"})
             bank["loans"] = [l for l in bank["loans"] if l["id"] not in paid_off]
             s["bank"] = bank
+
+        # Refresh market each day advance
+        s["market"], s["next_id"] = _gen_market(s["next_id"])
+
+    # Restore energy and refresh jobs at the start of the new day
+    s["energy"] = DAILY_ENERGY
+    s["jobs"]   = generate_jobs()
 
 
     # Build rent summary events
@@ -520,7 +620,7 @@ def api_advance():
 
 @app.route('/api/bank/products', methods=['GET', 'POST'])
 def api_bank_products():
-    products = [{**p, "sample_payment": calc_monthly_payment(p["min"], p["apr"], p["term"])}
+    products = [{**p, "sample_payment": calc_weekly_payment(p["min"], p["apr"], p["term_seasons"])}
                 for p in LOAN_PRODUCTS]
     return jsonify({"products": products, "savings_tiers": SAVINGS_TIERS})
 
@@ -533,10 +633,12 @@ def api_loan_preview():
     amount  = int(data["amount"])
     if amount < product["min"] or amount > product["max"]:
         return jsonify({"error": f"Amount must be between ${product['min']:,} and ${product['max']:,}"}), 400
-    payment = calc_monthly_payment(amount, product["apr"], product["term"])
-    total   = round(payment * product["term"], 2)
-    return jsonify({"monthly_payment": payment, "total_repaid": total,
-                    "total_interest": round(total - amount, 2), "term": product["term"]})
+    payment     = calc_weekly_payment(amount, product["apr"], product["term_seasons"])
+    term_weeks  = product["term_seasons"] * 4
+    total       = round(payment * term_weeks, 2)
+    return jsonify({"weekly_payment": payment, "total_repaid": total,
+                    "total_interest": round(total - amount, 2), "term_seasons": product["term_seasons"],
+                    "term_weeks": term_weeks})
 
 @app.route('/api/bank/loan/take', methods=['POST'])
 def api_loan_take():
@@ -550,15 +652,18 @@ def api_loan_take():
         return jsonify({"error": "Amount out of range"}), 400
     if "bank" not in s:
         s["bank"] = {"savings": 0, "loans": [], "next_loan_id": 1}
-    payment = calc_monthly_payment(amount, product["apr"], product["term"])
+    payment      = calc_weekly_payment(amount, product["apr"], product["term_seasons"])
+    term_weeks   = product["term_seasons"] * 4
+    term_seasons = product["term_seasons"]
     loan = {"id": s["bank"]["next_loan_id"], "product": product["name"], "icon": product["icon"],
-            "balance": amount, "monthly_payment": payment, "monthly_rate": product["apr"] / 12,
-            "term": product["term"], "months_paid": 0}
+            "balance": amount, "original_amount": amount,
+            "weekly_payment": payment, "weekly_rate": product["apr"] / 52,
+            "term_seasons": term_seasons, "term_weeks": term_weeks, "weeks_paid": 0}
     s["bank"]["next_loan_id"] += 1
     s["bank"]["loans"].append(loan)
     s["cash"] += amount
     s["log"].append({"day": s["day"], "type": "info",
-        "text": f"Took out a {product['name']} for ${amount:,} — ${payment:,.2f}/mo for {product['term']} months"})
+        "text": f"Took out a {product['name']} for ${amount:,} — ${payment:,.2f}/wk for {term_seasons} seasons ({term_weeks} weeks)"})
     save(s)
     return jsonify({"success": True, "cash": s["cash"], "loan": loan})
 
@@ -619,19 +724,27 @@ def api_diy_renovate():
     if prop.get("tenant"):
         return jsonify({"error": "Tenant must vacate first"}), 400
     upgrade_key = data["upgrade_key"]
-    if upgrade_key in prop.get("upgrades", {}):
-        return jsonify({"error": "Already upgraded"}), 400
-    upg     = UPGRADES[upgrade_key]
-    quality = max(5, min(100, int(data["quality"])))
-    cond_gain = int(upg["cond_boost"] * (quality / 100))
-    prop.setdefault("upgrades", {})[upgrade_key] = quality
-    prop["condition"] = min(100, prop["condition"] + cond_gain)
+    existing    = prop.get("upgrades", {}).get(upgrade_key)
+    remaining   = upgrade_cooldown_remaining(existing, s["day"]) if existing is not None else 0
+    if remaining > 0:
+        return jsonify({"error": f"On cooldown — {remaining} days remaining"}), 400
+    if s.get("energy", DAILY_ENERGY) <= 0:
+        return jsonify({"error": "No energy left — advance to the next day to restore your energy"}), 400
+    upg         = UPGRADES[upgrade_key]
+    quality     = max(0, min(100, int(data["quality"])))
+    tier        = score_to_tier(quality)
+    cond_change = tier_cond_change(tier)
+    s["energy"] = s.get("energy", DAILY_ENERGY) - 1
+    prop.setdefault("upgrades", {})[upgrade_key] = {"quality": quality, "day": s["day"]}
+    prop["condition"] = max(0, min(MAX_CONDITION, prop["condition"] + cond_change))
     new_val = calc_market_value(prop)
     s["log"].append({"day": s["day"], "type": "renovate",
-        "text": f"DIY {upg['name']} on {prop['type']} in {prop['neighborhood']} — quality {quality}/100, value now ${new_val:,}"})
+        "text": f"DIY {upg['name']} on {prop['type']} in {prop['neighborhood']} — grade {tier['key']}, value now ${new_val:,}"})
     save(s)
-    return jsonify({"success": True, "quality": quality, "condition": prop["condition"],
-                    "market_value": new_val, "weekly_rent": calc_fair_weekly_rent(prop)})
+    return jsonify({"success": True, "quality": quality, "quality_tier": tier["key"],
+                    "cond_change": cond_change, "cond_pct": tier["pct"], "condition": prop["condition"],
+                    "market_value": new_val, "weekly_rent": calc_fair_weekly_rent(prop),
+                    "energy": s["energy"]})
 
 @app.route('/api/repair/fix', methods=['POST'])
 def api_repair_fix():
@@ -661,7 +774,7 @@ def api_repair_fix():
         s["cash"] -= cost
         prop["total_repair_costs"] += cost
 
-    prop["condition"] = min(100, prop["condition"] + cond_gain)
+    prop["condition"] = min(MAX_CONDITION, prop["condition"] + cond_gain)
     s["log"].append({"day": s["day"], "type": "renovate",
         "text": f"{rt['name']} fixed at {prop['type']} in {prop['neighborhood']} ({method}, quality {quality}/100)"})
     save(s)
@@ -682,6 +795,27 @@ def api_repair_ignore():
         "text": f"Ignored {rt['name'] if rt else 'repair'} at {prop['type']} in {prop['neighborhood']} — condition -{cond_loss}"})
     save(s)
     return jsonify({"success": True, "condition": prop["condition"], "cash": s["cash"]})
+
+@app.route('/api/jobs/complete', methods=['POST'])
+def api_jobs_complete():
+    data = request.json
+    s    = load()
+    job  = next((j for j in s.get("jobs", []) if j["id"] == data["job_id"]), None)
+    if not job:
+        return jsonify({"error": "Job not found"}), 404
+    if s.get("energy", DAILY_ENERGY) < job["energy_cost"]:
+        return jsonify({"error": f"Not enough energy — this job needs ⚡{job['energy_cost']}"}), 400
+    quality  = max(0, min(100, int(data["quality"])))
+    # Pay scales from 50% (score 0) to 100% (score 100) of base_pay
+    pay      = round(job["base_pay"] * (0.5 + 0.5 * quality / 100))
+    s["energy"] = s.get("energy", DAILY_ENERGY) - job["energy_cost"]
+    s["cash"]  += pay
+    s["jobs"]   = [j for j in s["jobs"] if j["id"] != job["id"]]
+    s["log"].append({"day": s["day"], "type": "info",
+        "text": f"Side job '{job['name']}' — quality {quality}/100, earned ${pay:,}"})
+    save(s)
+    return jsonify({"success": True, "pay": pay, "cash": s["cash"],
+                    "energy": s["energy"], "quality": quality})
 
 @app.route('/api/reset', methods=['POST'])
 def api_reset():

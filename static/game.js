@@ -12,6 +12,7 @@ let _pendingConfirm = null;
 let _mg             = {};   // active mini-game state
 let _pendingRepairs = [];   // repair events queued after advancing
 let _currentRepair  = null; // repair being handled right now
+let _pendingJob     = null; // side job being played
 
 // ── Seasons ───────────────────────────────────────────────────────────────────
 const SEASONS = [
@@ -22,6 +23,8 @@ const SEASONS = [
 ];
 
 const DAYS_PER_SEASON = 28;
+const MAX_CONDITION   = 250;
+const DAILY_ENERGY    = 10;
 const DAYS_PER_YEAR   = DAYS_PER_SEASON * 4;  // 112
 
 function getSeasonInfo(day) {
@@ -77,6 +80,10 @@ async function loadMarket() {
 // ── Header ────────────────────────────────────────────────────────────────────
 function updateHeader() {
   document.getElementById('hdr-cash').textContent = fmt(state.cash);
+  const energy = state.energy ?? DAILY_ENERGY;
+  const energyEl = document.getElementById('hdr-energy');
+  energyEl.textContent = `⚡ ${energy} / ${DAILY_ENERGY}`;
+  energyEl.style.color = energy === 0 ? 'var(--negative)' : energy <= 3 ? 'var(--warning)' : 'var(--positive)';
   const s = getSeasonInfo(state.day);
   document.getElementById('hdr-day').textContent  = `${s.icon} ${s.name} · Day ${s.seasonDay}`;
 }
@@ -134,6 +141,8 @@ function renderDashboard() {
       </div>`;
   }
 
+  // Side jobs
+  renderJobs();
 }
 
 // ── Market ────────────────────────────────────────────────────────────────────
@@ -168,15 +177,15 @@ function marketCardHtml(p) {
     <div class="condition-wrap">
       <div class="condition-top">
         <span class="condition-lbl">Condition</span>
-        <span class="condition-val">${p.condition_label} (${p.condition}/100)</span>
+        <span class="condition-val" style="color:${tierColor(condTier(p.condition))};font-weight:900">${condTier(p.condition)} Tier</span>
       </div>
-      <div class="condition-bar"><div class="condition-fill ${condClass(p.condition)}" style="width:${p.condition}%"></div></div>
+      <div class="condition-bar"><div class="condition-fill ${condClass(p.condition)}" style="width:${condPct(p.condition)}%"></div></div>
     </div>
     <div class="money-row"><span class="mr-label">Asking Price</span><span class="mr-value">${fmt(p.purchase_price)}</span></div>
     <div class="money-row"><span class="mr-label">Est. Market Value</span><span class="mr-value">${fmt(p.market_value)}</span></div>
     <div class="money-row"><span class="mr-label">Fair Weekly Rent</span><span class="mr-value green">${fmt(p.weekly_rent)}/wk</span></div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px">
-      ${dealTag}
+    ${dealTag}
       <button class="btn btn-primary btn-sm" onclick="buyProperty(${p.id})" ${!canAfford ? 'disabled style="opacity:0.4"' : ''}>
         Buy ${fmt(p.purchase_price)}
       </button>
@@ -251,10 +260,9 @@ function portfolioCardHtml(p) {
     </div>
     <div class="condition-wrap mb-0">
       <div class="condition-top">
-        <span class="condition-lbl">Condition · ${p.condition_label}</span>
-        <span class="condition-val">${p.condition}/100</span>
+        <span class="condition-lbl">Condition · <span style="color:${tierColor(condTier(p.condition))};font-weight:900">${condTier(p.condition)}</span></span>
       </div>
-      <div class="condition-bar"><div class="condition-fill ${condClass(p.condition)}" style="width:${p.condition}%"></div></div>
+      <div class="condition-bar"><div class="condition-fill ${condClass(p.condition)}" style="width:${condPct(p.condition)}%"></div></div>
     </div>
     <div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between">
       ${tenantBadge}
@@ -303,13 +311,15 @@ async function showPropertyDetail(id) {
         </div>
       </div>`;
 
-  const doneHtml = upgData.done.length > 0
-    ? `<div class="upgrade-grid">${upgData.done.map(u =>
-        `<div class="upgrade-card done">
+  const cooldownHtml = (upgData.on_cooldown || []).length > 0
+    ? `<div style="margin-bottom:8px"><div class="section-title" style="font-size:11px;margin-bottom:6px;color:var(--text-muted)">ON COOLDOWN</div>
+       <div class="upgrade-grid">${upgData.on_cooldown.map(u =>
+        `<div class="upgrade-card done" style="opacity:0.7">
           <div class="upgrade-icon">${u.icon}</div>
           <div class="upgrade-name">${u.name}</div>
-          <div class="upgrade-quality">✓ Quality ${u.quality}/100</div>
-        </div>`).join('')}</div>`
+          <div class="upgrade-quality" style="color:${tierColor(u.quality_tier)};font-weight:800">${u.quality_tier}</div>
+          <div class="upgrade-quality">⏳ ${u.days_remaining}d left</div>
+        </div>`).join('')}</div></div>`
     : '';
 
   const availHtml = upgData.available.length > 0
@@ -318,9 +328,9 @@ async function showPropertyDetail(id) {
           ${!prop.tenant ? `onclick="showContractorModal(${id},'${u.key}')"` : ''}>
           <div class="upgrade-icon">${u.icon}</div>
           <div class="upgrade-name">${u.name}</div>
-          <div class="upgrade-cost">from ${fmt(u.costs.budget)}</div>
+          ${u.prev_quality_tier ? `<div class="upgrade-quality" style="font-size:10px;color:var(--text-muted)">Last: ${u.prev_quality_tier} · Redo</div>` : `<div class="upgrade-cost">from ${fmt(u.costs.budget)}</div>`}
         </div>`).join('')}</div>`
-    : '<p class="text-muted" style="margin-top:4px">All upgrades completed!</p>';
+    : '<p class="text-muted" style="margin-top:4px">All upgrades on cooldown!</p>';
 
   openModal(`
     <div class="modal-handle"></div>
@@ -333,10 +343,10 @@ async function showPropertyDetail(id) {
     </div>
     <div class="condition-wrap">
       <div class="condition-top">
-        <span class="condition-lbl">Condition · ${prop.condition_label}</span>
-        <span class="condition-val">${prop.condition}/100</span>
+        <span class="condition-lbl">Condition</span>
+        <span class="condition-val" style="color:${tierColor(condTier(prop.condition))};font-weight:900">${condTier(prop.condition)} Tier</span>
       </div>
-      <div class="condition-bar"><div class="condition-fill ${condClass(prop.condition)}" style="width:${prop.condition}%"></div></div>
+      <div class="condition-bar"><div class="condition-fill ${condClass(prop.condition)}" style="width:${condPct(prop.condition)}%"></div></div>
     </div>
     <div class="money-row"><span class="mr-label">Market Value</span><span class="mr-value">${fmt(prop.market_value)}</span></div>
     <div class="money-row"><span class="mr-label">Purchase Price</span><span class="mr-value">${fmt(prop.purchase_price)}</span></div>
@@ -345,7 +355,7 @@ async function showPropertyDetail(id) {
     ${tenantSection}
     <div class="section-header"><span class="section-title">Renovations</span></div>
     ${prop.tenant ? '<p class="text-muted" style="margin-bottom:8px">Tenant must vacate before renovating.</p>' : ''}
-    ${doneHtml}
+    ${cooldownHtml}
     ${upgData.available.length > 0 ? `<div style="margin-top:8px"><div class="section-title" style="font-size:11px;margin-bottom:6px;color:var(--text-muted)">AVAILABLE</div>${availHtml}</div>` : ''}
     <div class="btn-row" style="margin-top:16px">
       <button class="btn btn-ghost btn-sm" onclick="closeModal()">← Back</button>
@@ -506,6 +516,43 @@ function rentTierBadge(tier) {
 const ALL_MG_TYPES = ['quicktap','sweetspot','sequence','rapidpress','colormatch','reactiontap'];
 function randomMgType() { return ALL_MG_TYPES[Math.floor(Math.random() * ALL_MG_TYPES.length)]; }
 
+// Maps renovation/repair/job context → the mini-game that fits the work
+const WORK_MG_MAP = {
+  // Renovation upgrades
+  'paint':       'rapidpress',   // Roll It Out — painting is repetitive strokes
+  'flooring':    'colormatch',   // Match the Tile — picking & placing materials
+  'windows':     'reactiontap',  // Level It Up — precision fitting
+  'hvac':        'sweetspot',    // Tighten the Fitting — mechanical tensioning
+  'bathrooms':   'colormatch',   // Match the Tile — tiling
+  'roof':        'quicktap',     // Drive the Nails — nailing shingles
+  'kitchen':     'sweetspot',    // Tighten the Fitting — plumbing & fittings
+  'landscaping': 'reactiontap',  // Level It Up — grading and precision
+  // Repair types
+  'plumbing':    'sweetspot',
+  'electrical':  'sequence',     // Wire It Up — connect wires in order
+  'appliance':   'sweetspot',
+  'roof_patch':  'quicktap',
+  'pest':        'reactiontap',
+  'hvac_fix':    'sweetspot',
+  // Side job names
+  'Paint a Room':        'rapidpress',
+  'Lay Flooring':        'colormatch',
+  'Patch the Roof':      'quicktap',
+  'Fix a Plumbing Leak': 'sweetspot',
+  'Install Windows':     'reactiontap',
+  'Tile a Bathroom':     'colormatch',
+  'Hang Drywall':        'quicktap',
+  'Electrical Work':     'sequence',
+  'HVAC Maintenance':    'sweetspot',
+  'Build a Fence':       'quicktap',
+  'Pour Concrete':       'rapidpress',
+  'Landscaping Work':    'reactiontap',
+  'Power Washing':       'rapidpress',
+  'Install Cabinets':    'reactiontap',
+  'Repair a Deck':       'quicktap',
+};
+function selectMgType(context) { return WORK_MG_MAP[context] || randomMgType(); }
+
 function launchMgByType(mgType, upgradeKey) {
   if      (mgType === 'quicktap')    launchQuickTap(upgradeKey);
   else if (mgType === 'sweetspot')   launchSweetSpot(upgradeKey);
@@ -520,20 +567,37 @@ async function showContractorModal(propId, upgradeKey) {
   const upgData  = await api(`/property/${propId}/upgrades`);
   const upg      = upgData.available.find(u => u.key === upgradeKey);
   if (!upg) return;
+
+  const energy    = state.energy ?? DAILY_ENERGY;
+  const hasEnergy = energy > 0;
+  const energyDots = energy > 0 ? `⚡ ${energy}/${DAILY_ENERGY} remaining` : `○ 0/${DAILY_ENERGY} remaining`;
+
+  const diyCard = hasEnergy
+    ? `<div class="contractor-card" style="border-color:var(--primary);margin-bottom:8px" onclick="startDIY('${upgradeKey}')">
+        <div class="contractor-header">
+          <span class="contractor-icon">🧰</span>
+          <span class="contractor-name">Do It Yourself</span>
+          <span class="contractor-cost" style="color:var(--positive)">FREE · costs ⚡1</span>
+        </div>
+        <div class="contractor-desc">Play a random mini-game (6 possible). How well you do = work quality.</div>
+        <div class="contractor-quality">${energyDots}</div>
+      </div>`
+    : `<div class="contractor-card" style="border-color:var(--border);opacity:0.55;margin-bottom:8px">
+        <div class="contractor-header">
+          <span class="contractor-icon">🧰</span>
+          <span class="contractor-name">Do It Yourself</span>
+          <span class="contractor-cost" style="color:var(--negative)">NO ENERGY</span>
+        </div>
+        <div class="contractor-desc" style="color:var(--negative)">Out of energy — advance to the next day to restore.</div>
+        <div class="contractor-quality">${energyDots}</div>
+      </div>`;
+
   openModal(`
     <div class="modal-handle"></div>
     <div class="modal-title">${upg.icon} ${upg.name}</div>
     <div class="modal-subtitle">Adds up to +${fmt(upg.value_add)} value · You have ${fmt(upgData.cash)}</div>
 
-    <div class="contractor-card" style="border-color:var(--primary);margin-bottom:8px" onclick="startDIY('${upgradeKey}')">
-      <div class="contractor-header">
-        <span class="contractor-icon">🧰</span>
-        <span class="contractor-name">Do It Yourself</span>
-        <span class="contractor-cost" style="color:var(--positive)">FREE</span>
-      </div>
-      <div class="contractor-desc">Play a random mini-game (6 possible). How well you do = work quality.</div>
-      <div class="contractor-quality">Quality range: 0–100 based on your skill</div>
-    </div>
+    ${diyCard}
 
     <div style="text-align:center;font-size:11px;color:var(--text-muted);margin-bottom:8px">── or hire a contractor ──</div>
 
@@ -545,7 +609,7 @@ async function showContractorModal(propId, upgradeKey) {
           <span class="contractor-cost">${fmt(upg.costs[key])}</span>
         </div>
         <div class="contractor-desc">${c.desc}</div>
-        <div class="contractor-quality">Quality: ${c.q_min}–${c.q_max}/100</div>
+        <div class="contractor-quality">Grade range: ${c.tier_range || 'F – S+'}</div>
       </div>`).join('')}
     <button class="btn btn-ghost btn-sm btn-full mt-8" onclick="closeModal()">Cancel</button>`);
 }
@@ -553,24 +617,28 @@ async function showContractorModal(propId, upgradeKey) {
 function startDIY(upgradeKey) {
   if (!pendingUpgrade) return;
   _mg = { isRepair: false };
-  launchMgByType(randomMgType(), upgradeKey);
+  launchMgByType(selectMgType(upgradeKey), upgradeKey);
 }
 
 async function finishDIY(upgradeKey, score) {
   if (_mg.isRepair) { await finishRepairDIY(score); return; }
+  if (_mg.isJob)    { await finishJob(score); return; }
   const { propId } = pendingUpgrade;
   const res = await api('/diy_renovate', 'POST', { prop_id: propId, upgrade_key: upgradeKey, quality: score });
   pendingUpgrade = null;
-  if (res.error) { toast(res.error, 'error'); return; }
+  if (res.error) { toast(res.error, 'error'); await refreshState(); renderAll(); return; }
+  // Update energy immediately from response so header reflects it right away
+  if (res._state) state.energy = res._state.energy;
+  const tColor    = tierColor(res.quality_tier);
   openModal(`
     <div class="modal-handle"></div>
     <div class="modal-title">🧰 DIY Complete!</div>
     <div style="text-align:center;margin:12px 0">
-      <div style="font-size:40px;font-weight:900;color:${res.quality >= 70 ? 'var(--positive)' : res.quality >= 40 ? 'var(--warning)' : 'var(--negative)'}">${res.quality}<span style="font-size:18px">/100</span></div>
-      <div style="font-size:13px;color:var(--text-muted)">work quality</div>
+      <div style="font-size:64px;font-weight:900;color:${tColor}">${res.quality_tier}</div>
+      <div style="font-size:13px;color:var(--text-muted)">work grade</div>
       <div class="mg-score-bar" style="margin:8px 16px"><div class="mg-score-fill" style="width:${res.quality}%"></div></div>
     </div>
-    <div class="money-row"><span class="mr-label">New Condition</span><span class="mr-value">${res.condition}/100</span></div>
+    <div class="money-row"><span class="mr-label">New Condition</span><span class="mr-value" style="color:${tierColor(condTier(res.condition))};font-weight:900">${condTier(res.condition)}</span></div>
     <div class="money-row"><span class="mr-label">New Market Value</span><span class="mr-value green">${fmt(res.market_value)}</span></div>
     <div class="money-row"><span class="mr-label">New Weekly Rent</span><span class="mr-value green">${fmt(res.weekly_rent)}/wk</span></div>
     <button class="btn btn-primary btn-full mt-8" onclick="closeModal()">Done</button>`);
@@ -587,10 +655,88 @@ async function hireContractor(contractorKey) {
   openModal(`
     <div class="modal-handle"></div>
     <div class="modal-title">🎉 Renovation Complete!</div>
-    <div class="money-row"><span class="mr-label">Work Quality</span><span class="mr-value">${res.quality}/100</span></div>
-    <div class="money-row"><span class="mr-label">New Condition</span><span class="mr-value">${res.condition}/100</span></div>
+    <div style="text-align:center;margin:12px 0">
+      <div style="font-size:64px;font-weight:900;color:${tierColor(res.quality_tier)}">${res.quality_tier}</div>
+      <div style="font-size:13px;color:var(--text-muted)">work grade</div>
+    </div>
+    <div class="money-row"><span class="mr-label">New Condition</span><span class="mr-value" style="color:${tierColor(condTier(res.condition))};font-weight:900">${condTier(res.condition)}</span></div>
     <div class="money-row"><span class="mr-label">New Market Value</span><span class="mr-value green">${fmt(res.market_value)}</span></div>
     <div class="money-row"><span class="mr-label">Cash Remaining</span><span class="mr-value">${fmt(res.cash)}</span></div>
+    <button class="btn btn-primary btn-full mt-8" onclick="closeModal()">Done</button>`);
+  await refreshState();
+  renderAll();
+}
+
+// ── Side Jobs ─────────────────────────────────────────────────────────────────
+function renderJobs() {
+  const el       = document.getElementById('dash-jobs');
+  const labelEl  = document.getElementById('dash-jobs-energy');
+  if (!el) return;
+  const energy = state.energy ?? DAILY_ENERGY;
+  if (labelEl) {
+    labelEl.textContent = `⚡ ${energy}/${DAILY_ENERGY} energy`;
+    labelEl.style.color = energy === 0 ? 'var(--negative)' : energy <= 3 ? 'var(--warning)' : 'var(--text-muted)';
+  }
+  const jobs = state.jobs || [];
+  if (jobs.length === 0) {
+    el.innerHTML = `<div class="card"><p class="text-muted" style="text-align:center;padding:8px 0">No jobs available — advance the day for fresh listings.</p></div>`;
+    return;
+  }
+  el.innerHTML = jobs.map(j => {
+    const canTake  = energy >= j.energy_cost;
+    const minPay   = Math.round(j.base_pay * 0.5);
+    const energyPips = '⚡'.repeat(j.energy_cost) + '<span style="opacity:0.25">⚡</span>'.repeat(Math.max(0, 4 - j.energy_cost));
+    return `
+    <div class="card" style="margin-bottom:10px">
+      <div class="card-header">
+        <div class="card-icon">${j.icon}</div>
+        <div style="flex:1">
+          <div class="card-title">${j.name}</div>
+          <div class="card-subtitle">${j.desc}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;margin-left:8px">
+          <div style="font-size:14px;font-weight:800;color:var(--positive)">${fmt(minPay)}–${fmt(j.base_pay)}</div>
+          <div style="font-size:13px;margin-top:2px">${energyPips}</div>
+        </div>
+      </div>
+      <button class="btn btn-sm btn-full ${canTake ? 'btn-primary' : 'btn-ghost'}"
+        ${canTake ? `onclick="startJob(${j.id})"` : 'disabled'}
+        style="${!canTake ? 'opacity:0.45;cursor:not-allowed' : ''}">
+        ${canTake ? `Take Job &nbsp;·&nbsp; costs ⚡${j.energy_cost}` : `Need ⚡${j.energy_cost} (have ${energy})`}
+      </button>
+    </div>`;
+  }).join('');
+}
+
+function startJob(jobId) {
+  const job = (state.jobs || []).find(j => j.id === jobId);
+  if (!job) return;
+  _pendingJob = job;
+  _mg = { isJob: true };
+  launchMgByType(selectMgType(job.name), 'job');
+}
+
+async function finishJob(score) {
+  const job   = _pendingJob;
+  _pendingJob = null;
+  const res   = await api('/jobs/complete', 'POST', { job_id: job.id, quality: score });
+  if (res.error) { toast(res.error, 'error'); await refreshState(); renderAll(); return; }
+  // Immediately sync energy into local state so header updates before refreshState
+  if (res._state) state.energy = res._state.energy;
+  updateHeader();
+  const qualColor = res.quality >= 75 ? 'var(--positive)' : res.quality >= 40 ? 'var(--warning)' : 'var(--negative)';
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">💼 Job Complete!</div>
+    <div style="text-align:center;margin:12px 0">
+      <div style="font-size:64px;font-weight:900;color:${qualColor}">${res.quality}%</div>
+      <div style="font-size:13px;color:var(--text-muted)">work quality</div>
+      <div class="mg-score-bar" style="margin:8px 16px"><div class="mg-score-fill" style="width:${res.quality}%"></div></div>
+    </div>
+    <div class="money-row"><span class="mr-label">Job</span><span class="mr-value">${job.name}</span></div>
+    <div class="money-row"><span class="mr-label">Payout</span><span class="mr-value green">${fmt(res.pay)}</span></div>
+    <div class="money-row"><span class="mr-label">Cash on Hand</span><span class="mr-value">${fmt(res.cash)}</span></div>
+    <div class="money-row"><span class="mr-label">Energy Left</span><span class="mr-value">⚡ ${res.energy} / ${DAILY_ENERGY}</span></div>
     <button class="btn btn-primary btn-full mt-8" onclick="closeModal()">Done</button>`);
   await refreshState();
   renderAll();
@@ -602,16 +748,16 @@ function launchQuickTap(upgradeKey) {
   _mg = { ..._mg, hits: 0, total: 8, current: 0, active: false, upgradeKey };
   openModal(`
     <div class="modal-handle"></div>
-    <div class="mg-wrap">
-      <div class="mg-title">🎯 Quick Tap</div>
-      <div class="mg-desc">Tap the circles before they shrink away! 8 targets total.</div>
+    <div class="mg-wrap" style="background:#3E2723">
+      <div class="mg-title" style="color:#FFCC80">🔨 Drive the Nails!</div>
+      <div class="mg-desc" style="color:#BCAAA4">Tap each nail before it sinks into the wood! 8 nails total.</div>
       <div class="mg-stats">
-        <div><div class="mg-stat-val" id="qt-hits">0</div><div>Hits</div></div>
-        <div><div class="mg-stat-val" id="qt-left">8</div><div>Left</div></div>
+        <div><div class="mg-stat-val" style="color:#FFAB40" id="qt-hits">0</div><div style="color:#A1887F;font-size:11px">Driven</div></div>
+        <div><div class="mg-stat-val" style="color:#FFAB40" id="qt-left">8</div><div style="color:#A1887F;font-size:11px">Left</div></div>
       </div>
-      <div class="mg-tap-area" id="qt-area"></div>
+      <div class="mg-tap-area" id="qt-area" style="background:#5D4037;border-color:#4E342E"></div>
     </div>
-    <button class="btn btn-primary btn-full" id="qt-start-btn" onclick="qtStart()">▶ Start Game</button>`);
+    <button class="btn btn-full" id="qt-start-btn" onclick="qtStart()" style="background:#FF8F00;color:white;padding:14px;font-size:16px;font-weight:800;border-radius:var(--radius-sm);border:none;width:100%">🔨 Grab the Hammer</button>`);
 }
 
 function qtStart() {
@@ -630,13 +776,12 @@ function qtNextTarget() {
   const areaH = area.offsetHeight - size - 10;
   const x     = Math.floor(Math.random() * areaW) + 5;
   const y     = Math.floor(Math.random() * areaH) + 5;
-  const emojis = ['🔴','🟠','🟡','🟢','🔵','🟣'];
+  const emojis = ['🔩','🔩','🪛','🔩','🔩','🪛','🔩','🔩'];
   const emoji  = emojis[_mg.current % emojis.length];
 
   const el = document.createElement('div');
   el.className = 'mg-target';
-  el.style.cssText = `left:${x}px;top:${y}px;width:${size}px;height:${size}px`;
-  el.textContent   = emoji;
+  el.style.cssText = `left:${x}px;top:${y}px;width:${size}px;height:${size}px;background:#90A4AE;border-color:#546E7A`;
   el.id            = 'qt-target';
   area.appendChild(el);
   _mg.current++;
@@ -671,20 +816,20 @@ function launchSweetSpot(upgradeKey) {
   _mg = { ..._mg, round: 1, totalRounds: 5, scores: [], upgradeKey, animId: null, pos: 0, dir: 1, speed: 0.6 };
   openModal(`
     <div class="modal-handle"></div>
-    <div class="mg-wrap">
-      <div class="mg-title">🎯 Sweet Spot</div>
-      <div class="mg-desc">Press LOCK IT when the bar is in the green zone. 5 rounds — it speeds up!</div>
+    <div class="mg-wrap" style="background:#ECEFF1">
+      <div class="mg-title">🔧 Tighten the Fitting</div>
+      <div class="mg-desc">Stop the dial in the green zone — perfect tension or it'll leak! 5 rounds, gets trickier.</div>
       <div class="mg-stats">
-        <div><div class="mg-stat-val" id="ss-round">1</div><div>Round</div></div>
-        <div><div class="mg-stat-val" id="ss-score">—</div><div>Last Score</div></div>
+        <div><div class="mg-stat-val" id="ss-round">1</div><div style="font-size:11px">Round</div></div>
+        <div><div class="mg-stat-val" id="ss-score">—</div><div style="font-size:11px">Pressure</div></div>
       </div>
-      <div class="mg-bar-wrap" id="ss-bar">
+      <div class="mg-bar-wrap" id="ss-bar" style="background:#CFD8DC">
         <div class="mg-zone"  id="ss-zone"></div>
-        <div class="mg-needle" id="ss-needle"></div>
+        <div class="mg-needle" id="ss-needle" style="background:#E65100;width:8px"></div>
       </div>
-      <button class="mg-lock-btn" id="ss-btn" onclick="ssLock()" style="display:none">🔒 LOCK IT!</button>
+      <button class="mg-lock-btn" id="ss-btn" onclick="ssLock()" style="display:none;background:#BF360C;letter-spacing:2px">🔒 LOCK TENSION!</button>
     </div>
-    <button class="btn btn-primary btn-full" id="ss-start-btn" onclick="ssStart()">▶ Start Game</button>`);
+    <button class="btn btn-primary btn-full" id="ss-start-btn" onclick="ssStart()">🔧 Pick Up the Wrench</button>`);
 }
 
 function ssStart() {
@@ -735,27 +880,28 @@ function ssLock() {
 
 // ── Mini-game: Sequence ───────────────────────────────────────────────────────
 // Watch a color pattern light up. Repeat it in order. 5 rounds, grows longer.
-const SEQ_COLORS = ['#E53935','#1E88E5','#43A047','#F9A825'];
-const SEQ_EMOJIS = ['🔴','🔵','🟢','🟡'];
+// Wire colours — match real electrical wire standards
+const SEQ_COLORS  = ['#C62828', '#1565C0', '#2E7D32', '#F9A825'];
+const SEQ_EMOJIS  = ['● RED', '● BLUE', '● GREEN', '● YELLOW'];
 const SEQ_LENGTHS = [3, 3, 4, 4, 5];
 
 function launchSequence(upgradeKey) {
   _mg = { ..._mg, round: 0, seq: [], playerSeq: [], totalRounds: 5, correct: 0, showing: false, upgradeKey };
   openModal(`
     <div class="modal-handle"></div>
-    <div class="mg-wrap">
-      <div class="mg-title">🎯 Sequence</div>
-      <div class="mg-desc">Watch the pattern light up, then repeat it in order!</div>
+    <div class="mg-wrap" style="background:#212121">
+      <div class="mg-title" style="color:#FFD54F">⚡ Wire It Up!</div>
+      <div class="mg-desc" style="color:#9E9E9E">Watch which wires light up, then connect them in the same order!</div>
       <div class="mg-stats">
-        <div><div class="mg-stat-val" id="seq-round">1</div><div>Round</div></div>
-        <div><div class="mg-stat-val" id="seq-correct">0</div><div>Correct</div></div>
+        <div><div class="mg-stat-val" style="color:#FFD54F" id="seq-round">1</div><div style="color:#757575;font-size:11px">Round</div></div>
+        <div><div class="mg-stat-val" style="color:#69F0AE" id="seq-correct">0</div><div style="color:#757575;font-size:11px">Correct</div></div>
       </div>
       <div class="mg-seq-grid">
-        ${SEQ_COLORS.map((c, i) => `<button class="mg-seq-btn" id="seq-btn-${i}" style="background:${c}" onclick="seqPress(${i})">${SEQ_EMOJIS[i]}</button>`).join('')}
+        ${SEQ_COLORS.map((c, i) => `<button class="mg-seq-btn" id="seq-btn-${i}" style="background:${c};font-size:13px;font-weight:900;color:rgba(255,255,255,0.9);letter-spacing:1px" onclick="seqPress(${i})">${SEQ_EMOJIS[i]}</button>`).join('')}
       </div>
-      <div id="seq-status" style="text-align:center;font-size:13px;color:var(--text-muted)">Watch the pattern…</div>
+      <div id="seq-status" style="text-align:center;font-size:13px;color:#9E9E9E;margin-top:4px">Watch carefully…</div>
     </div>
-    <button class="btn btn-primary btn-full" id="seq-start-btn" onclick="seqStart()">▶ Start Game</button>`);
+    <button class="btn btn-full" id="seq-start-btn" onclick="seqStart()" style="background:#F57F17;color:white;padding:14px;font-size:16px;font-weight:800;border-radius:var(--radius-sm);border:none;width:100%">⚡ Open the Panel</button>`);
 }
 
 function seqStart() {
@@ -835,17 +981,19 @@ function launchRapidPress(upgradeKey) {
   _mg = { ..._mg, presses: 0, target: 30, upgradeKey, running: false, timerId: null };
   openModal(`
     <div class="modal-handle"></div>
-    <div class="mg-wrap">
-      <div class="mg-title">💪 Rapid Press</div>
-      <div class="mg-desc">Mash the button as fast as you can — 3 seconds!</div>
+    <div class="mg-wrap" style="background:#FFF8E1">
+      <div class="mg-title">🎨 Roll It Out!</div>
+      <div class="mg-desc">Keep that roller moving — cover the whole surface in 3 seconds!</div>
       <div class="mg-stats">
-        <div><div class="mg-stat-val" id="rp-count">0</div><div>Presses</div></div>
-        <div><div class="mg-stat-val" id="rp-time">3.0</div><div>Seconds</div></div>
+        <div><div class="mg-stat-val" style="color:#E65100" id="rp-count">0</div><div style="font-size:11px">Strokes</div></div>
+        <div><div class="mg-stat-val" style="color:#E65100" id="rp-time">3.0</div><div style="font-size:11px">Seconds</div></div>
       </div>
-      <div class="mg-score-bar" style="margin-bottom:12px"><div class="mg-score-fill" id="rp-bar" style="width:0%"></div></div>
-      <button class="mg-rapid-btn" id="rp-btn" onclick="rpPress()" style="display:none">PRESS!</button>
+      <div style="height:22px;background:#E0E0E0;border-radius:4px;overflow:hidden;margin-bottom:14px">
+        <div id="rp-bar" style="width:0%;height:100%;border-radius:4px;background:linear-gradient(90deg,#EF9A9A,#CE93D8,#90CAF9,#A5D6A7,#FFF176);transition:width 0.1s"></div>
+      </div>
+      <button class="mg-rapid-btn" id="rp-btn" onclick="rpPress()" style="display:none;background:#E65100;font-size:22px">🖌️ ROLL!</button>
     </div>
-    <button class="btn btn-primary btn-full" id="rp-start" onclick="rpStart()">▶ Start Game</button>`);
+    <button class="btn btn-full" id="rp-start" onclick="rpStart()" style="background:#F57C00;color:white;padding:14px;font-size:16px;font-weight:800;border-radius:var(--radius-sm);border:none;width:100%">🎨 Dip the Roller</button>`);
 }
 
 function rpStart() {
@@ -880,11 +1028,12 @@ function rpPress() {
 
 // ── Mini-game: Color Match ────────────────────────────────────────────────────
 // A color flashes at the top. Pick the matching button from 4. 8 rounds, speeds up.
+// Tile colours — earthy construction tones, all legible with white text
 const CM_COLORS = [
-  { name: 'RED',    bg: '#E53935', label: '🔴 RED'    },
-  { name: 'BLUE',   bg: '#1E88E5', label: '🔵 BLUE'   },
-  { name: 'GREEN',  bg: '#43A047', label: '🟢 GREEN'  },
-  { name: 'YELLOW', bg: '#F9A825', label: '🟡 YELLOW' },
+  { name: 'SLATE',  bg: '#455A64', label: 'Slate'      },
+  { name: 'TERRA',  bg: '#BF360C', label: 'Terracotta' },
+  { name: 'MOSS',   bg: '#33691E', label: 'Moss'       },
+  { name: 'SAND',   bg: '#795548', label: 'Sandstone'  },
 ];
 
 function launchColorMatch(upgradeKey) {
@@ -892,18 +1041,18 @@ function launchColorMatch(upgradeKey) {
   openModal(`
     <div class="modal-handle"></div>
     <div class="mg-wrap">
-      <div class="mg-title">🎨 Color Match</div>
-      <div class="mg-desc">Tap the button that matches the color shown! Gets faster!</div>
+      <div class="mg-title">🪵 Match the Tile!</div>
+      <div class="mg-desc">Tap the tile that matches the sample — it gets faster each round!</div>
       <div class="mg-stats">
-        <div><div class="mg-stat-val" id="cm-correct">0</div><div>Correct</div></div>
-        <div><div class="mg-stat-val" id="cm-round">1</div><div>Round</div></div>
+        <div><div class="mg-stat-val" id="cm-correct">0</div><div style="font-size:11px">Matched</div></div>
+        <div><div class="mg-stat-val" id="cm-round">1</div><div style="font-size:11px">Round</div></div>
       </div>
-      <div class="mg-color-show" id="cm-show">?</div>
+      <div class="mg-color-show" id="cm-show" style="font-size:15px;font-weight:900;letter-spacing:3px;border:4px solid #5D4037;border-radius:8px">SAMPLE</div>
       <div class="mg-color-grid">
         ${CM_COLORS.map((c, i) => `<button class="mg-color-btn" id="cm-btn-${i}" style="background:${c.bg}" onclick="cmPress(${i})">${c.label}</button>`).join('')}
       </div>
     </div>
-    <button class="btn btn-primary btn-full" id="cm-start" onclick="cmStart()">▶ Start Game</button>`);
+    <button class="btn btn-primary btn-full" id="cm-start" onclick="cmStart()">🪵 Open the Tile Box</button>`);
 }
 
 function cmStart() {
@@ -971,17 +1120,17 @@ function launchReactionTap(upgradeKey) {
   _mg = { ..._mg, round: 0, totalRounds: 5, times: [], upgradeKey, greenAt: 0, waiting: false, timerId: null };
   openModal(`
     <div class="modal-handle"></div>
-    <div class="mg-wrap">
-      <div class="mg-title">🚦 Reaction Tap</div>
-      <div class="mg-desc">Wait for the light to turn GREEN, then tap as fast as possible!</div>
+    <div class="mg-wrap" style="background:#E3F2FD">
+      <div class="mg-title" style="color:#1565C0">📐 Level It Up!</div>
+      <div class="mg-desc" style="color:#546E7A">Watch the bubble — tap the instant it centers in the tube!</div>
       <div class="mg-stats">
-        <div><div class="mg-stat-val" id="rt-round">1</div><div>Round</div></div>
-        <div><div class="mg-stat-val" id="rt-best">—</div><div>Best (ms)</div></div>
+        <div><div class="mg-stat-val" style="color:#1565C0" id="rt-round">1</div><div style="color:#546E7A;font-size:11px">Round</div></div>
+        <div><div class="mg-stat-val" style="color:#1565C0" id="rt-best">—</div><div style="color:#546E7A;font-size:11px">Best ms</div></div>
       </div>
-      <div class="mg-reaction-light" id="rt-light">🔴</div>
-      <button class="mg-reaction-tap-btn" id="rt-tap" onclick="rtTap()" disabled>Wait for green…</button>
+      <div class="mg-reaction-light" id="rt-light" style="background:#1565C0;border-color:#0D47A1;box-shadow:none">↔️</div>
+      <button class="mg-reaction-tap-btn" id="rt-tap" onclick="rtTap()" disabled style="background:#37474F;letter-spacing:1px">Hold steady…</button>
     </div>
-    <button class="btn btn-primary btn-full" id="rt-start" onclick="rtStart()">▶ Start Game</button>`);
+    <button class="btn btn-full" id="rt-start" onclick="rtStart()" style="background:#1565C0;color:white;padding:14px;font-size:16px;font-weight:800;border-radius:var(--radius-sm);border:none;width:100%">📐 Get the Level</button>`);
 }
 
 function rtStart() {
@@ -999,30 +1148,37 @@ function rtNextRound() {
   const light = document.getElementById('rt-light');
   const btn   = document.getElementById('rt-tap');
   if (!light || !btn) return;
-  light.className  = 'mg-reaction-light';
-  light.textContent = '🔴';
-  btn.disabled     = true;
-  btn.textContent  = 'Wait for green…';
-  _mg.waiting      = false;
+  // Waiting — bubble off-center (blue)
+  light.dataset.state  = 'waiting';
+  light.style.cssText  = 'background:#1565C0;border-color:#0D47A1;box-shadow:none';
+  light.textContent    = '↔️';
+  btn.disabled         = true;
+  btn.textContent      = 'Hold steady…';
+  btn.style.background = '#37474F';
+  _mg.waiting          = false;
   const delay = 1500 + Math.random() * 2500;
   clearTimeout(_mg.timerId);
   _mg.timerId = setTimeout(() => {
-    light.className  = 'mg-reaction-light go';
-    light.textContent = '🟢';
-    btn.disabled     = false;
-    btn.textContent  = '⚡ TAP!';
-    _mg.greenAt  = Date.now();
-    _mg.waiting  = true;
-    // auto-fail if too slow (2s)
+    // Centered — tap now! (green)
+    light.dataset.state  = 'go';
+    light.style.cssText  = 'background:#2E7D32;border-color:#1B5E20;box-shadow:0 0 30px #4CAF5080';
+    light.textContent    = '📐';
+    btn.disabled         = false;
+    btn.textContent      = '✅ LEVEL!';
+    btn.style.background = '#2E7D32';
+    _mg.greenAt          = Date.now();
+    _mg.waiting          = true;
+    // auto-fail if too slow
     _mg.timerId = setTimeout(() => {
       if (_mg.waiting) {
-        _mg.waiting = false;
+        _mg.waiting          = false;
         _mg.times.push(2000);
         _mg.round++;
         document.getElementById('rt-round').textContent = Math.min(_mg.round + 1, _mg.totalRounds);
-        btn.disabled = true;
-        light.className = 'mg-reaction-light';
-        light.textContent = '❌';
+        btn.disabled         = true;
+        light.dataset.state  = 'missed';
+        light.style.cssText  = 'background:#B71C1C;border-color:#7F0000;box-shadow:none';
+        light.textContent    = '❌';
         setTimeout(rtNextRound, 700);
       }
     }, 2000);
@@ -1031,10 +1187,11 @@ function rtNextRound() {
 
 function rtTap() {
   if (!_mg.waiting) {
-    // Tapped too early!
+    // Tapped too early — bubble not centered yet!
     const light = document.getElementById('rt-light');
-    if (light && !light.classList.contains('go')) {
-      light.textContent = '⚠️';
+    if (light && light.dataset.state === 'waiting') {
+      light.style.cssText = 'background:#F57F17;border-color:#E65100;box-shadow:none';
+      light.textContent   = '⚠️';
       clearTimeout(_mg.timerId);
       _mg.times.push(2000);
       _mg.round++;
@@ -1051,8 +1208,8 @@ function rtTap() {
   document.getElementById('rt-best').textContent = best;
   const btn   = document.getElementById('rt-tap');
   const light = document.getElementById('rt-light');
-  if (btn)   btn.textContent  = `${reaction}ms!`;
-  if (light) light.textContent = reaction < 400 ? '⚡' : '✅';
+  if (btn)   { btn.textContent = `${reaction}ms!`; btn.disabled = true; }
+  if (light) { light.dataset.state = 'done'; light.textContent = reaction < 400 ? '⚡' : '📐'; }
   _mg.round++;
   document.getElementById('rt-round').textContent = Math.min(_mg.round + 1, _mg.totalRounds);
   setTimeout(rtNextRound, 800);
@@ -1093,6 +1250,7 @@ async function advanceDays(days) {
     </button>`);
 
   await refreshState();
+  await loadMarket();
   renderAll();
 }
 
@@ -1146,10 +1304,9 @@ function showRepairModal(repair) {
 }
 
 function startRepairDIY() {
-  const types = ['quicktap','sweetspot','sequence','rapidpress','colormatch','reactiontap'];
-  const mgType = types[Math.floor(Math.random() * types.length)];
+  const rt = _currentRepair?.repair_type;
   _mg = { isRepair: true };
-  launchMgByType(mgType, null);
+  launchMgByType(selectMgType(rt?.key || ''), null);
 }
 
 async function fixRepairContractor(contractorKey) {
@@ -1159,7 +1316,7 @@ async function fixRepairContractor(contractorKey) {
     method: contractorKey,
   });
   if (res.error) { toast(res.error, 'error'); return; }
-  toast(`Repaired! Condition now ${res.condition}/100`, 'success');
+  toast(`Repaired! Condition: ${condTier(res.condition)} Tier`, 'success');
   await refreshState();
   renderAll();
   showNextRepair();
@@ -1172,15 +1329,15 @@ async function finishRepairDIY(score) {
     method: 'diy', quality: score,
   });
   if (res.error) { toast(res.error, 'error'); return; }
+  const tColor = tierColor(condTier(res.condition));
   openModal(`
     <div class="modal-handle"></div>
     <div class="modal-title">🔧 Repair Done!</div>
     <div style="text-align:center;margin:12px 0">
-      <div style="font-size:40px;font-weight:900;color:${res.quality >= 70 ? 'var(--positive)' : res.quality >= 40 ? 'var(--warning)' : 'var(--negative)'}">${res.quality}<span style="font-size:18px">/100</span></div>
-      <div style="font-size:13px;color:var(--text-muted)">work quality</div>
+      <div style="font-size:64px;font-weight:900;color:${tColor}">${condTier(res.condition)}</div>
+      <div style="font-size:13px;color:var(--text-muted)">new condition</div>
       <div class="mg-score-bar" style="margin:8px 16px"><div class="mg-score-fill" style="width:${res.quality}%"></div></div>
     </div>
-    <div class="money-row"><span class="mr-label">Property Condition</span><span class="mr-value">${res.condition}/100</span></div>
     <button class="btn btn-primary btn-full mt-8" onclick="nextRepairFromResult()">
       ${_pendingRepairs.length > 0 ? `Next Repair (${_pendingRepairs.length})` : 'Done'}
     </button>`);
@@ -1198,7 +1355,7 @@ async function ignoreRepair() {
     prop_id: repair.prop_id, repair_key: repair.repair_type.key,
   });
   if (res.error) { toast(res.error, 'error'); return; }
-  toast(`Ignored — condition dropped to ${res.condition}`, 'warning');
+  toast(`Ignored — condition now ${condTier(res.condition)} Tier`, 'warning');
   await refreshState();
   renderAll();
   showNextRepair();
@@ -1242,13 +1399,19 @@ async function renderBank() {
 
   const loansHtml = bank.loans?.length > 0
     ? bank.loans.map(l => {
-        const pct = Math.max(5, Math.min(100, (l.balance / (l.monthly_payment * l.term)) * 100));
+        const termWks  = l.term_weeks  || (l.term_seasons || 0) * 4 || (l.term || 0) * 4;
+        const paidWks  = l.weeks_paid  || 0;
+        const leftWks  = Math.max(0, termWks - paidWks);
+        const leftSeas = Math.ceil(leftWks / 4);
+        const pctLeft  = termWks > 0 ? Math.max(5, Math.min(95, (leftWks / termWks) * 100)) : 5;
+        const orig     = l.original_amount || (l.weekly_payment || 0) * termWks;
+        const paidOff  = orig > 0 ? Math.round(((orig - l.balance) / orig) * 100) : 0;
         return `<div class="card">
           <div class="card-header">
             <div class="card-icon">${l.icon}</div>
             <div style="flex:1">
               <div class="card-title">${l.product}</div>
-              <div class="card-subtitle">${fmt(l.monthly_payment)}/mo · ${l.term - l.months_paid} payments left</div>
+              <div class="card-subtitle">${fmt(l.weekly_payment || 0)}/wk · ${leftSeas} season${leftSeas !== 1 ? 's' : ''} left</div>
             </div>
             <div style="text-align:right">
               <div style="font-size:16px;font-weight:800;color:var(--negative)">${fmt(Math.ceil(l.balance))}</div>
@@ -1256,8 +1419,8 @@ async function renderBank() {
             </div>
           </div>
           <div class="condition-wrap">
-            <div class="condition-top"><span class="condition-lbl">Balance</span><span class="condition-val">${Math.round(100-pct)}% paid off</span></div>
-            <div class="condition-bar"><div class="condition-fill cond-poor" style="width:${pct}%"></div></div>
+            <div class="condition-top"><span class="condition-lbl">Balance</span><span class="condition-val">${paidOff}% paid off</span></div>
+            <div class="condition-bar"><div class="condition-fill cond-poor" style="width:${pctLeft}%"></div></div>
           </div>
           <button class="btn btn-ghost btn-sm" onclick="showExtraPaymentModal(${l.id}, ${Math.ceil(l.balance)})">💸 Extra Payment</button>
         </div>`;}).join('')
@@ -1279,11 +1442,11 @@ async function renderBank() {
           </div>
           <div style="text-align:right;flex-shrink:0">
             <div style="font-size:13px;font-weight:700;color:var(--negative)">${(p.apr*100).toFixed(0)}% APR</div>
-            <div style="font-size:11px;color:var(--text-muted)">${p.term} mo term</div>
+            <div style="font-size:11px;color:var(--text-muted)">${p.term_seasons} season term</div>
           </div>
         </div>
         <div class="money-row"><span class="mr-label">Range</span><span class="mr-value">${fmt(p.min)} – ${fmt(p.max)}</span></div>
-        <div class="money-row"><span class="mr-label">Example Payment</span><span class="mr-value orange">${fmt(p.sample_payment)}/mo on ${fmt(p.min)}</span></div>
+        <div class="money-row"><span class="mr-label">Example Payment</span><span class="mr-value orange">${fmt(p.sample_payment)}/wk on ${fmt(p.min)}</span></div>
       </div>`).join('')}`;
 }
 
@@ -1294,7 +1457,7 @@ function showLoanModal(productKey) {
     openModal(`
       <div class="modal-handle"></div>
       <div class="modal-title">${p.icon} ${p.name}</div>
-      <div class="modal-subtitle">${p.desc} · ${(p.apr*100).toFixed(0)}% APR · ${p.term} month term</div>
+      <div class="modal-subtitle">${p.desc} · ${(p.apr*100).toFixed(0)}% APR · ${p.term_seasons}-season term</div>
       <div style="margin-bottom:12px">
         <label style="font-size:13px;font-weight:700;display:block;margin-bottom:6px">Amount (${fmt(p.min)}–${fmt(p.max)})</label>
         <input id="loan-amount" type="number" min="${p.min}" max="${p.max}" step="500" value="${p.min}"
@@ -1318,8 +1481,8 @@ async function previewLoan(productKey) {
   if (!el) return;
   if (res.error) { el.innerHTML = `<p style="color:var(--negative);font-size:13px">${res.error}</p>`; return; }
   el.innerHTML = `
-    <div class="money-row"><span class="mr-label">Monthly Payment</span><span class="mr-value orange">${fmt(res.monthly_payment)}/mo</span></div>
-    <div class="money-row"><span class="mr-label">Term</span><span class="mr-value">${res.term} months</span></div>
+    <div class="money-row"><span class="mr-label">Weekly Payment</span><span class="mr-value orange">${fmt(res.weekly_payment)}/wk</span></div>
+    <div class="money-row"><span class="mr-label">Term</span><span class="mr-value">${res.term_seasons} seasons (${res.term_weeks} weeks)</span></div>
     <div class="money-row"><span class="mr-label">Total Repaid</span><span class="mr-value">${fmt(res.total_repaid)}</span></div>
     <div class="money-row"><span class="mr-label">Total Interest</span><span class="mr-value red">${fmt(res.total_interest)}</span></div>`;
 }
@@ -1329,7 +1492,7 @@ async function confirmLoan(productKey) {
   if (!amount) return;
   const res = await api('/bank/loan/take', 'POST', { product_key: productKey, amount: parseInt(amount) });
   if (res.error) { toast(res.error, 'error'); return; }
-  toast(`Loan approved! ${fmt(res.loan.monthly_payment)}/mo`, 'success');
+  toast(`Loan approved! ${fmt(res.loan.weekly_payment)}/wk`, 'success');
   closeModal();
   await refreshState();
   renderAll();
@@ -1525,12 +1688,29 @@ function fmt(n) {
   return sign + '$' + abs;
 }
 
+function condTier(c) {
+  // thresholds scaled to 250-point system
+  if (c >= 225) return 'S+';
+  if (c >= 188) return 'S';
+  if (c >= 150) return 'A';
+  if (c >= 113) return 'B';
+  if (c >= 75)  return 'C';
+  if (c >= 38)  return 'D';
+  return 'F';
+}
+
+function condPct(c) { return Math.round((c / MAX_CONDITION) * 100); }
+
 function condClass(c) {
-  if (c >= 75) return 'cond-great';
-  if (c >= 55) return 'cond-good';
-  if (c >= 35) return 'cond-fair';
+  if (c >= 188) return 'cond-great';
+  if (c >= 150) return 'cond-great';
+  if (c >= 113) return 'cond-good';
+  if (c >= 75)  return 'cond-fair';
   return 'cond-poor';
 }
+
+const TIER_COLORS = { 'S+': '#7B1FA2', 'S': '#1565C0', 'A': '#2E7D32', 'B': '#33691E', 'C': '#F57F17', 'D': '#E65100', 'F': '#B71C1C' };
+function tierColor(t) { return TIER_COLORS[t] || 'var(--text)'; }
 
 function starsHtml(chance) {
   const full  = Math.round(chance * 5);

@@ -11,12 +11,20 @@
 
   <!-- Header -->
   <header>
-    <div class="header-logo">🏠 LandLord<span>Special Alpha</span></div>
-    <div class="header-stat">
-      <span class="label">Cash</span>
-      <span class="value" id="hdr-cash">$0</span>
+    <div class="header-top">
+      <div class="header-logo">🏠 LandLord<span>Special Alpha</span></div>
+      <div class="header-month" id="hdr-day">🌸 Spring · Day 1</div>
     </div>
-    <div class="header-month" id="hdr-day">🌸 Spring · Day 1</div>
+    <div class="header-bottom">
+      <div class="header-stat">
+        <span class="label">Cash</span>
+        <span class="value" id="hdr-cash">$0</span>
+      </div>
+      <div class="header-stat" style="align-items:flex-end">
+        <span class="label">Energy</span>
+        <span class="value" id="hdr-energy">⚡ 10 / 10</span>
+      </div>
+    </div>
   </header>
 
   <!-- Main Content -->
@@ -57,13 +65,18 @@
         </div>
       </div>
 
+      <div class="section-header" style="margin-top:16px">
+        <span class="section-title">💼 Side Jobs</span>
+        <span style="font-size:12px;color:var(--text-muted)" id="dash-jobs-energy"></span>
+      </div>
+      <div id="dash-jobs"></div>
+
     </div>
 
     <!-- Market -->
     <div id="page-market" class="page">
       <div class="section-header">
         <span class="section-title">Properties for Sale</span>
-        <button id="refresh-btn" class="btn btn-ghost btn-sm" onclick="refreshMarket()">🔄 Refresh</button>
       </div>
       <div id="market-list"></div>
     </div>
