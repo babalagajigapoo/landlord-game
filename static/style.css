@@ -307,7 +307,7 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
   animation: slideUp 0.2s ease;
 }
 @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-.modal-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 16px; }
+.modal-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 16px; cursor: pointer; padding: 10px 24px; box-sizing: content-box; background-clip: content-box; }
 .modal-title { font-size: 18px; font-weight: 800; margin-bottom: 6px; }
 .modal-subtitle { font-size: 13px; color: var(--text-2); margin-bottom: 16px; }
 

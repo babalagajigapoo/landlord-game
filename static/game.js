@@ -630,27 +630,29 @@ async function showContractorModal(propId, upgradeKey) {
   const upg      = upgData.available.find(u => u.key === upgradeKey);
   if (!upg) return;
 
-  const energy    = state.energy ?? DAILY_ENERGY;
-  const hasEnergy = energy > 0;
-  const energyDots = energy > 0 ? `⚡ ${energy}/${DAILY_ENERGY} remaining` : `○ 0/${DAILY_ENERGY} remaining`;
+  const energy     = state.energy ?? DAILY_ENERGY;
+  const ec         = upg.energy_cost ?? 1;
+  const hasEnergy  = energy >= ec;
+  const energyDots = `⚡ ${energy}/${DAILY_ENERGY} remaining`;
+  const ecPips     = '⚡'.repeat(ec) + '<span style="opacity:0.2">⚡</span>'.repeat(Math.max(0, 4 - ec));
 
   const diyCard = hasEnergy
     ? `<div class="contractor-card" style="border-color:var(--primary);margin-bottom:8px" onclick="startDIY('${upgradeKey}')">
         <div class="contractor-header">
           <span class="contractor-icon">🧰</span>
           <span class="contractor-name">Do It Yourself</span>
-          <span class="contractor-cost" style="color:var(--positive)">FREE · costs ⚡1</span>
+          <span class="contractor-cost" style="color:var(--positive)">FREE · ${ecPips}</span>
         </div>
-        <div class="contractor-desc">Play a random mini-game (6 possible). How well you do = work quality.</div>
+        <div class="contractor-desc">Play a mini-game — how well you do determines the work quality.</div>
         <div class="contractor-quality">${energyDots}</div>
       </div>`
     : `<div class="contractor-card" style="border-color:var(--border);opacity:0.55;margin-bottom:8px">
         <div class="contractor-header">
           <span class="contractor-icon">🧰</span>
           <span class="contractor-name">Do It Yourself</span>
-          <span class="contractor-cost" style="color:var(--negative)">NO ENERGY</span>
+          <span class="contractor-cost" style="color:var(--negative)">Need ⚡${ec} (have ${energy})</span>
         </div>
-        <div class="contractor-desc" style="color:var(--negative)">Out of energy — advance to the next day to restore.</div>
+        <div class="contractor-desc" style="color:var(--negative)">Not enough energy — advance the day to restore.</div>
         <div class="contractor-quality">${energyDots}</div>
       </div>`;
 
@@ -1686,6 +1688,18 @@ function renderSettings() {
     </div>
 
     <div class="card" style="margin-top:12px">
+      <div style="font-size:14px;font-weight:800;margin-bottom:8px">🎁 Creator Codes</div>
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">Got a code? Enter it below for special rewards.</p>
+      <div style="display:flex;gap:8px">
+        <input id="creator-code-input" type="text" placeholder="Enter code…"
+          style="flex:1;padding:10px 12px;font-size:14px;border:1.5px solid var(--border);border-radius:10px;background:var(--bg-card);color:var(--text-primary);outline:none"
+          onkeydown="if(event.key==='Enter') redeemCode()" autocomplete="off" autocorrect="off" spellcheck="false" />
+        <button class="btn btn-primary" onclick="redeemCode()">Redeem</button>
+      </div>
+      <div id="creator-code-msg" style="font-size:13px;margin-top:8px;min-height:18px"></div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
       <div style="font-size:14px;font-weight:800;margin-bottom:8px">⚠️ Danger Zone</div>
       <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">This will permanently erase all progress and start a fresh game.</p>
       <button class="btn btn-danger btn-full" onclick="confirmReset()">🗑 Start New Game</button>
@@ -1710,6 +1724,25 @@ function confirmReset() {
   );
 }
 
+async function redeemCode() {
+  const input = document.getElementById('creator-code-input');
+  const msgEl = document.getElementById('creator-code-msg');
+  if (!input || !msgEl) return;
+  const code = input.value.trim();
+  if (!code) return;
+  const res = await api('/redeem_code', 'POST', { code });
+  if (res.error) {
+    msgEl.textContent = '❌ ' + res.error;
+    msgEl.style.color = 'var(--negative)';
+  } else {
+    input.value = '';
+    msgEl.textContent = '✅ ' + res.reward_desc;
+    msgEl.style.color = 'var(--positive)';
+    await refreshState();
+    renderSettings();
+  }
+}
+
 // ── Log ───────────────────────────────────────────────────────────────────────
 function renderLog() {
   const el = document.getElementById('log-list');
@@ -1732,8 +1765,11 @@ function logItemHtml(l) {
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
 function openModal(html) {
-  document.getElementById('modal-content').innerHTML = html;
+  const content = document.getElementById('modal-content');
+  content.innerHTML = html;
   document.getElementById('modal-overlay').classList.add('open');
+  const handle = content.querySelector('.modal-handle');
+  if (handle) handle.addEventListener('click', closeModal, { once: true });
 }
 
 function closeModal() {

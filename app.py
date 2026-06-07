@@ -47,14 +47,14 @@ REPAIR_TYPES = [
 ]
 
 UPGRADES = {
-    "paint":       {"name": "Interior Paint",   "icon": "🎨", "base_cost": 1500,  "value_add": 3000,  "cond_boost": 15},
-    "landscaping": {"name": "Landscaping",       "icon": "🌿", "base_cost": 2000,  "value_add": 4500,  "cond_boost": 10},
-    "flooring":    {"name": "New Flooring",      "icon": "🪵", "base_cost": 4000,  "value_add": 8000,  "cond_boost": 20},
-    "windows":     {"name": "New Windows",       "icon": "🪟", "base_cost": 6000,  "value_add": 10000, "cond_boost": 12},
-    "hvac":        {"name": "HVAC System",       "icon": "❄️", "base_cost": 7000,  "value_add": 11000, "cond_boost": 15},
-    "bathrooms":   {"name": "Bathroom Remodel",  "icon": "🚿", "base_cost": 8000,  "value_add": 14000, "cond_boost": 20},
-    "roof":        {"name": "Roof Replacement",  "icon": "🏠", "base_cost": 10000, "value_add": 15000, "cond_boost": 18},
-    "kitchen":     {"name": "Kitchen Remodel",   "icon": "🍳", "base_cost": 12000, "value_add": 22000, "cond_boost": 25},
+    "paint":       {"name": "Interior Paint",   "icon": "🎨", "base_cost": 1500,  "value_add": 3000,  "cond_boost": 15, "energy_cost": 1},
+    "landscaping": {"name": "Landscaping",       "icon": "🌿", "base_cost": 2000,  "value_add": 4500,  "cond_boost": 10, "energy_cost": 1},
+    "flooring":    {"name": "New Flooring",      "icon": "🪵", "base_cost": 4000,  "value_add": 8000,  "cond_boost": 20, "energy_cost": 2},
+    "windows":     {"name": "New Windows",       "icon": "🪟", "base_cost": 6000,  "value_add": 10000, "cond_boost": 12, "energy_cost": 2},
+    "hvac":        {"name": "HVAC System",       "icon": "❄️", "base_cost": 7000,  "value_add": 11000, "cond_boost": 15, "energy_cost": 3},
+    "bathrooms":   {"name": "Bathroom Remodel",  "icon": "🚿", "base_cost": 8000,  "value_add": 14000, "cond_boost": 20, "energy_cost": 3},
+    "roof":        {"name": "Roof Replacement",  "icon": "🏠", "base_cost": 10000, "value_add": 15000, "cond_boost": 18, "energy_cost": 4},
+    "kitchen":     {"name": "Kitchen Remodel",   "icon": "🍳", "base_cost": 12000, "value_add": 22000, "cond_boost": 25, "energy_cost": 4},
 }
 
 # Premium upgrades — permanent additions that raise market value & fair rent.
@@ -118,6 +118,11 @@ JOB_TEMPLATES = [
 
 # Pay ranges per energy tier: {energy_cost: (min_base, max_base)}
 JOB_PAY_RANGES = {1: (100, 350), 2: (350, 700), 3: (700, 1200), 4: (1200, 2000)}
+
+# Creator / cheat codes — keys are lowercase for case-insensitive matching
+CREATOR_CODES = {
+    "cheatercheater": {"desc": "💰 $10,000,000 deposited!", "cash": 10_000_000},
+}
 
 def generate_jobs():
     """Pick 3 random jobs with guaranteed varied energy costs."""
@@ -266,6 +271,7 @@ def new_game():
         "last_bank_day": 1,
         "energy": DAILY_ENERGY,
         "jobs": generate_jobs(),
+        "redeemed_codes": [],
         "bank": {"savings": 0, "loans": [], "next_loan_id": 1},
     }
     state["log"].append({"day": 1, "type": "info",
@@ -795,13 +801,14 @@ def api_diy_renovate():
     remaining   = upgrade_cooldown_remaining(existing, s["day"]) if existing is not None else 0
     if remaining > 0:
         return jsonify({"error": f"On cooldown — {remaining} days remaining"}), 400
-    if s.get("energy", DAILY_ENERGY) <= 0:
-        return jsonify({"error": "No energy left — advance to the next day to restore your energy"}), 400
     upg         = UPGRADES[upgrade_key]
+    energy_cost = upg.get("energy_cost", 1)
+    if s.get("energy", DAILY_ENERGY) < energy_cost:
+        return jsonify({"error": f"Not enough energy — this renovation costs ⚡{energy_cost}"}), 400
     quality     = max(0, min(100, int(data["quality"])))
     tier        = score_to_tier(quality)
     cond_change = tier_cond_change(tier)
-    s["energy"] = s.get("energy", DAILY_ENERGY) - 1
+    s["energy"] = s.get("energy", DAILY_ENERGY) - energy_cost
     prop.setdefault("upgrades", {})[upgrade_key] = {"quality": quality, "day": s["day"]}
     prop["condition"] = max(0, min(MAX_CONDITION, prop["condition"] + cond_change))
     new_val = calc_market_value(prop)
@@ -883,6 +890,24 @@ def api_jobs_complete():
     save(s)
     return jsonify({"success": True, "pay": pay, "cash": s["cash"],
                     "energy": s["energy"], "quality": quality})
+
+@app.route('/api/redeem_code', methods=['POST'])
+def api_redeem_code():
+    s    = load()
+    data = request.json or {}
+    code = (data.get("code") or "").strip().lower()
+    if code not in CREATOR_CODES:
+        return jsonify({"error": "Invalid code — try again!"}), 400
+    redeemed = s.get("redeemed_codes", [])
+    if code in redeemed:
+        return jsonify({"error": "Code already used!"}), 400
+    reward = CREATOR_CODES[code]
+    s["cash"] += reward.get("cash", 0)
+    s.setdefault("redeemed_codes", []).append(code)
+    s["log"].insert(0, {"day": s["day"], "type": "info",
+        "text": f"Creator code redeemed — {reward['desc']}"})
+    save(s)
+    return jsonify({"success": True, "reward_desc": reward["desc"]})
 
 @app.route('/api/reset', methods=['POST'])
 def api_reset():
