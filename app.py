@@ -303,7 +303,7 @@ CREATOR_CODES = {
 
 # Player homes — each tier increases max energy and daily recharge by 2
 PLAYER_HOMES = [
-    {"key": "moms_basement", "name": "Mom's Basement",  "icon": "🛏️",  "cost":       0, "max_energy": 10, "recharge":  2, "desc": "Rent-free but cramped. Thanks, Mom."},
+    {"key": "moms_basement", "name": "The Shed",         "icon": "🛖",  "cost":       0, "max_energy": 10, "recharge":  2, "desc": "Your in-laws' backyard shed. No rent, no dignity."},
     {"key": "studio_apt",    "name": "Studio Apartment","icon": "🏠",  "cost":   80_000, "max_energy": 12, "recharge":  4, "desc": "Your own place — finally."},
     {"key": "starter_house", "name": "Starter House",   "icon": "🏡",  "cost":  150_000, "max_energy": 14, "recharge":  6, "desc": "A real house with a yard. Moving up!"},
     {"key": "modern_condo",  "name": "Modern Condo",    "icon": "🏢",  "cost":  200_000, "max_energy": 16, "recharge":  8, "desc": "High-rise living with city views."},
@@ -1126,6 +1126,13 @@ def api_advance():
                         else:
                             ev_data["message"] = f"Your tenant has a request: {chosen_event['name']}."
                         new_morale_events.append(ev_data)
+                        # Also show a line in the advance events list so the player
+                        # can see the request even before clicking "Respond"
+                        events.append({
+                            "prop": ev_data["prop_name"],
+                            "text": f"{chosen_event.get('icon','💬')} {ev_data['message']} — tap below to respond",
+                            "type": "request",
+                        })
 
                     elif chosen_event["type"] == "morale_auto":
                         # Auto events: apply morale silently, show in advance events list

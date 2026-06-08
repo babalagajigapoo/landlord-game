@@ -349,12 +349,14 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
 .event-dot.positive { background: var(--positive); }
 .event-dot.warning  { background: var(--warning); }
 .event-dot.negative { background: var(--negative); }
+.event-dot.request  { background: #AB47BC; }
 .event-info { flex: 1; }
 .event-prop { font-size: 11px; color: var(--text-muted); margin-bottom: 1px; }
 .event-text { font-size: 13px; font-weight: 600; }
 .event-text.positive { color: var(--positive); }
 .event-text.warning  { color: var(--warning); }
 .event-text.negative { color: var(--negative); }
+.event-text.request  { color: #AB47BC; }
 
 /* ── Next Month Button ───────────────────────────────────────── */
 .next-month-btn {
