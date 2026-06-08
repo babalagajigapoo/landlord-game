@@ -10,10 +10,23 @@ let _pendingConfirm = null;
 
 // ── Mini-game state ───────────────────────────────────────────────────────────
 let _mg             = {};   // active mini-game state
-let _pendingRepairs  = [];   // repair events queued after advancing
-let _currentRepair   = null; // repair being handled right now
-let _pendingJob      = null; // side job being played
-let _pendingSquatter = null; // squatter event queued after repairs
+let _pendingRepairs      = [];   // repair events queued after advancing
+let _currentRepair       = null; // repair being handled right now
+let _pendingJob          = null; // side job being played
+let _pendingSquatter     = null; // squatter event queued after repairs
+let _pendingMoraleEvents = [];   // morale-choice events queued after repairs
+
+// ── Tenant window cache ───────────────────────────────────────────────────────
+// Stores the maintenance window day per property, keyed by propId.
+// Regenerated when the game day advances so the window stays stable within a day.
+const _tenantWindowCache = {};
+function getTenantAvailDay(propId) {
+  const cached = _tenantWindowCache[propId];
+  if (cached && cached.day === state.day) return cached.availDay;
+  const availDay = state.day + Math.floor(Math.random() * 28) + 1;
+  _tenantWindowCache[propId] = { day: state.day, availDay };
+  return availDay;
+}
 
 // ── Seasons ───────────────────────────────────────────────────────────────────
 const SEASONS = [
@@ -29,7 +42,7 @@ const DAILY_ENERGY    = 10;  // fallback only; real max comes from state.max_ene
 const DAYS_PER_YEAR   = DAYS_PER_SEASON * 4;  // 112
 
 const PLAYER_HOME_DATA = [
-  { key: 'moms_basement', name: "Mom's Basement",  icon: '🛏️',  cost:       0, max_energy: 10, recharge:  2, desc: "Rent-free but cramped. Thanks, Mom." },
+  { key: 'moms_basement', name: "The Shed",         icon: '🛖',  cost:       0, max_energy: 10, recharge:  2, desc: "Your in-laws' backyard shed. No rent, no dignity." },
   { key: 'studio_apt',    name: 'Studio Apartment', icon: '🏠',  cost:    80000, max_energy: 12, recharge:  4, desc: 'Your own place — finally.' },
   { key: 'starter_house', name: 'Starter House',    icon: '🏡',  cost:   150000, max_energy: 14, recharge:  6, desc: 'A real house with a yard. Moving up!' },
   { key: 'modern_condo',  name: 'Modern Condo',     icon: '🏢',  cost:   200000, max_energy: 16, recharge:  8, desc: 'High-rise living with city views.' },
@@ -355,12 +368,18 @@ async function moveIn(homeKey) {
 }
 
 function portfolioCardHtml(p) {
-  const activePending = p.pending_reno || p.pending_premium;
+  const activePending   = p.pending_reno || p.pending_premium;
   const pendingDaysLeft = activePending ? Math.max(0, activePending.complete_day - state.day) : 0;
+  const scheduledWork   = p.scheduled_reno || p.scheduled_premium;
+  const scheduledDaysOut = scheduledWork ? Math.max(0, scheduledWork.start_day - state.day) : 0;
   const tenantBadge = p.squatter
     ? `<span class="vacant-chip" style="background:#FFEBEE;color:#C62828;border-color:#EF9A9A">🚨 Squatter</span>`
     : activePending
     ? `<span class="vacant-chip" style="background:#E3F2FD;color:#1565C0;border-color:#90CAF9">🔨 ${activePending.name} · ${pendingDaysLeft}d left</span>`
+    : p.tenant && scheduledWork
+    ? `<span class="vacant-chip" style="background:#F3E5F5;color:#6A1B9A;border-color:#CE93D8">🗓️ ${scheduledWork.name} · starts in ${scheduledDaysOut}d</span>`
+    : p.tenant && (p.tenant.morale ?? 50) < 20
+    ? `<span class="vacant-chip" style="background:#FFEBEE;color:#C62828;border-color:#EF9A9A">😠 ${p.tenant.name} · morale ${p.tenant.morale ?? '?'}%</span>`
     : p.tenant
     ? `<span class="tenant-chip">${p.tenant.icon || '👤'} ${p.tenant.name} · ${fmt(p.tenant.rent)}/wk</span>`
     : `<span class="vacant-chip">⚪ Vacant</span>`;
@@ -437,7 +456,12 @@ async function showPropertyDetail(id) {
         <p style="font-size:11px;color:var(--text-muted);margin-top:8px">Or wait — they may leave on their own eventually.</p>
       </div>`
     : prop.tenant
-    ? `<div class="card" style="margin-bottom:10px">
+    ? (() => {
+        const morale      = prop.tenant.morale ?? 50;
+        const moraleColor = morale >= 60 ? 'var(--positive)' : morale >= 40 ? 'var(--primary)' : morale >= 20 ? 'var(--warning)' : 'var(--negative)';
+        const moraleLabel = morale >= 60 ? '😊 Happy' : morale >= 40 ? '😐 Content' : morale >= 20 ? '😟 Uneasy' : '😠 Unhappy — at risk of leaving!';
+        const moraleWarn  = morale < 20 ? `<div style="font-size:12px;color:var(--negative);font-weight:700;margin-top:6px">⚠️ Morale critical — fix repairs before they break lease early!</div>` : '';
+        return `<div class="card" style="margin-bottom:10px${morale < 20 ? ';border:2px solid var(--negative)' : ''}">
         <div class="section-header mb-0"><span class="section-title">Current Tenant</span></div>
         <div style="margin-top:10px">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
@@ -449,13 +473,24 @@ async function showPropertyDetail(id) {
             </div>
             <span style="font-size:18px;font-weight:800;color:var(--positive)">${fmt(prop.tenant.rent)}/wk</span>
           </div>
+          <div style="margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+              <span style="font-size:12px;font-weight:700;color:var(--text-muted)">MORALE</span>
+              <span style="font-size:13px;font-weight:800;color:${moraleColor}">${moraleLabel} · ${morale}%</span>
+            </div>
+            <div style="height:8px;background:var(--border);border-radius:4px;overflow:hidden">
+              <div style="height:100%;width:${morale}%;background:${moraleColor};border-radius:4px;transition:width 0.3s"></div>
+            </div>
+            ${moraleWarn}
+          </div>
           <div class="money-row"><span class="mr-label">Total Rent Collected</span><span class="mr-value green">${fmt(prop.total_rent_collected)}</span></div>
           <div class="money-row"><span class="mr-label">Total Repair Costs</span><span class="mr-value red">${fmt(prop.total_repair_costs)}</span></div>
           <div class="btn-row">
             <button class="btn btn-danger btn-sm" onclick="evictTenant(${id})">⚖️ Evict ($1,500)</button>
           </div>
         </div>
-      </div>`
+      </div>`;
+      })()
     : `<div class="card" style="margin-bottom:10px">
         <div class="section-header mb-0"><span class="section-title">Tenant</span></div>
         ${prop.pending_reno
@@ -478,14 +513,42 @@ async function showPropertyDetail(id) {
         </div>`).join('')}</div></div>`
     : '';
 
+  // Scheduled reno info banner
+  const scheduledRenoHtml = prop.scheduled_reno
+    ? `<div class="card" style="margin-bottom:10px;border:2px solid #7B1FA2;background:#F3E5F5">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="font-size:28px">🗓️</span>
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:800;color:#6A1B9A">Renovation Scheduled</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${prop.scheduled_reno.icon} ${prop.scheduled_reno.name}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:20px;font-weight:900;color:#6A1B9A">${Math.max(0, prop.scheduled_reno.start_day - state.day)}</div>
+            <div style="font-size:10px;color:var(--text-muted)">days until start</div>
+          </div>
+        </div>
+        <p style="font-size:11px;color:var(--text-muted);margin-top:8px">Contractors will arrive on Day ${prop.scheduled_reno.start_day}. Advance time to get there.</p>
+      </div>`
+    : '';
+
+  // Each available reno card: vacant → normal click; tenant + no scheduled → schedule click; blocked → dimmed
   const availHtml = upgData.available.length > 0
-    ? `<div class="upgrade-grid">${upgData.available.map(u =>
-        `<div class="upgrade-card ${(prop.tenant || prop.squatter || prop.pending_reno) ? 'btn-disabled' : ''}"
-          ${!(prop.tenant || prop.squatter || prop.pending_reno) ? `onclick="showContractorModal(${id},'${u.key}')"` : ''}>
+    ? `<div class="upgrade-grid">${upgData.available.map(u => {
+        const fullyBlocked  = prop.squatter || prop.pending_reno;
+        const canSchedule   = prop.tenant && !fullyBlocked && !prop.scheduled_reno;
+        const canRenovate   = !prop.tenant && !fullyBlocked;
+        const clickable     = canRenovate || canSchedule;
+        const onclick       = canRenovate  ? `onclick="showContractorModal(${id},'${u.key}')"` :
+                              canSchedule  ? `onclick="showScheduleRenoModal(${id},'${u.key}')"` : '';
+        return `<div class="upgrade-card ${!clickable ? 'btn-disabled' : ''}" ${onclick}>
           <div class="upgrade-icon">${u.icon}</div>
           <div class="upgrade-name">${u.name}</div>
-          ${u.prev_quality_tier ? `<div class="upgrade-quality" style="font-size:10px;color:var(--text-muted)">Last: ${u.prev_quality_tier} · Redo</div>` : `<div class="upgrade-cost">from ${fmt(u.costs.budget)}</div>`}
-        </div>`).join('')}</div>`
+          ${u.prev_quality_tier
+            ? `<div class="upgrade-quality" style="font-size:10px;color:var(--text-muted)">Last: ${u.prev_quality_tier} · Redo</div>`
+            : `<div class="upgrade-cost">from ${fmt(u.costs.budget)}</div>`}
+          ${canSchedule ? `<div class="upgrade-quality" style="font-size:10px;color:#7B1FA2">📅 Schedule</div>` : ''}
+        </div>`;
+      }).join('')}</div>`
     : '<p class="text-muted" style="margin-top:4px">All upgrades on cooldown!</p>';
 
   openModal(`
@@ -511,7 +574,16 @@ async function showPropertyDetail(id) {
     ${renoInProgress}
     ${tenantSection}
     <div class="section-header"><span class="section-title">Renovations</span></div>
-    ${prop.pending_reno ? '<p class="text-muted" style="margin-bottom:8px">Renovation already in progress.</p>' : prop.squatter ? '<p class="text-muted" style="margin-bottom:8px">Remove squatters before renovating.</p>' : prop.tenant ? '<p class="text-muted" style="margin-bottom:8px">Tenant must vacate before renovating.</p>' : ''}
+    ${prop.pending_reno
+      ? '<p class="text-muted" style="margin-bottom:8px">Renovation already in progress.</p>'
+      : prop.squatter
+      ? '<p class="text-muted" style="margin-bottom:8px">Remove squatters before renovating.</p>'
+      : prop.tenant && prop.scheduled_reno
+      ? '<p class="text-muted" style="margin-bottom:8px">Work is scheduled — one renovation at a time.</p>'
+      : prop.tenant
+      ? '<p class="text-muted" style="margin-bottom:8px">Tenant in residence — tap an upgrade to schedule a maintenance window. Contractor only.</p>'
+      : ''}
+    ${scheduledRenoHtml}
     ${cooldownHtml}
     ${upgData.pending_reno ? `<div style="margin-top:8px"><div class="section-title" style="font-size:11px;margin-bottom:6px;color:#1565C0">IN PROGRESS</div>
       <div class="upgrade-grid"><div class="upgrade-card" style="border-color:#1565C0;background:#E3F2FD">
@@ -519,15 +591,15 @@ async function showPropertyDetail(id) {
         <div class="upgrade-name">${upgData.pending_reno.name}</div>
         <div class="upgrade-quality" style="color:#1565C0">🔨 ${Math.max(0, upgData.pending_reno.complete_day - state.day)}d left</div>
       </div></div></div>` : ''}
-    ${!prop.pending_reno && upgData.available.length > 0 ? `<div style="margin-top:8px"><div class="section-title" style="font-size:11px;margin-bottom:6px;color:var(--text-muted)">AVAILABLE</div>${availHtml}</div>` : ''}
-    ${buildPremiumSection(id, premData, state.cash, !!prop.squatter)}
+    ${!prop.pending_reno && upgData.available.length > 0 ? `<div style="margin-top:8px"><div class="section-title" style="font-size:11px;margin-bottom:6px;color:var(--text-muted)">${prop.tenant && !prop.scheduled_reno ? 'TAP TO SCHEDULE' : 'AVAILABLE'}</div>${availHtml}</div>` : ''}
+    ${buildPremiumSection(id, premData, state.cash, !!prop.squatter, !!prop.tenant)}
     <div class="btn-row" style="margin-top:16px">
       <button class="btn btn-ghost btn-sm" onclick="closeModal()">← Back</button>
     </div>`);
 }
 
 // ── Premium Upgrades ─────────────────────────────────────────────────────────
-function buildPremiumSection(pid, premData, cash, hasSquatter = false) {
+function buildPremiumSection(pid, premData, cash, hasSquatter = false, hasTenant = false) {
   const blocked = hasSquatter || !!(premData.pending_premium);
 
   if (hasSquatter) {
@@ -537,6 +609,9 @@ function buildPremiumSection(pid, premData, cash, hasSquatter = false) {
     </div>
     <p class="text-muted" style="margin-bottom:8px">Remove squatters before installing premium upgrades.</p>`;
   }
+
+  // Find scheduled premium on the prop (passed via premData)
+  const scheduledPrem = premData.scheduled_premium || null;
 
   const catalog   = premData.catalog || [];
   const installed = catalog.filter(u => u.installed);
@@ -570,11 +645,37 @@ function buildPremiumSection(pid, premData, cash, hasSquatter = false) {
       </div>`
     : '';
 
+  // Scheduled premium banner
+  const scheduledPremHtml = scheduledPrem
+    ? `<div class="card" style="margin-bottom:8px;border:2px solid #7B1FA2;background:#F3E5F5">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="font-size:26px">🗓️</span>
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:800;color:#6A1B9A">Upgrade Scheduled</div>
+            <div style="font-size:12px;color:var(--text-muted);">${scheduledPrem.icon} ${scheduledPrem.name} · Day ${scheduledPrem.start_day}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:20px;font-weight:900;color:#6A1B9A">${Math.max(0, scheduledPrem.start_day - state.day)}</div>
+            <div style="font-size:10px;color:var(--text-muted)">days until start</div>
+          </div>
+        </div>
+      </div>`
+    : '';
+
   const availableHtml = available.map(u => {
-    const canAfford = !blocked && cash >= u.cost;
-    const blocked2  = blocked || cash < u.cost;
+    const canSchedule = hasTenant && !blocked && !scheduledPrem && cash >= u.cost;
+    const canInstall  = !hasTenant && !blocked && cash >= u.cost;
+    const canAfford   = canSchedule || canInstall;
+    const fullyBlocked = blocked || (hasTenant && !!scheduledPrem) || (!hasTenant && !canAfford) || (hasTenant && cash < u.cost);
+    let btnLabel, btnOnclick;
+    if (blocked)             { btnLabel = 'Upgrade in progress'; btnOnclick = 'disabled'; }
+    else if (hasTenant && scheduledPrem) { btnLabel = 'Upgrade already scheduled'; btnOnclick = 'disabled'; }
+    else if (!canAfford)     { btnLabel = `Need ${fmt(u.cost)} (have ${fmt(cash)})`; btnOnclick = 'disabled'; }
+    else if (canSchedule)    { btnLabel = `📅 Schedule · ${fmt(u.cost)}`; btnOnclick = `onclick="showSchedulePremiumModal(${pid},'${u.key}',${u.cost},${u.days},'${u.name}','${u.icon}')"` ; }
+    else                     { btnLabel = `🔨 Hire Contractor · ${fmt(u.cost)}`; btnOnclick = `onclick="installPremiumUpgrade(${pid},'${u.key}')"` ; }
+
     return `
-    <div class="card" style="margin-bottom:8px${blocked2 ? ';opacity:0.55' : ''}">
+    <div class="card" style="margin-bottom:8px${fullyBlocked ? ';opacity:0.55' : ''}">
       <div style="display:flex;align-items:flex-start;gap:10px">
         <span style="font-size:28px;line-height:1.2">${u.icon}</span>
         <div style="flex:1">
@@ -588,19 +689,25 @@ function buildPremiumSection(pid, premData, cash, hasSquatter = false) {
         </div>
       </div>
       <button class="btn btn-sm btn-full ${canAfford ? 'btn-primary' : 'btn-ghost'}"
-        style="margin-top:10px${!canAfford ? ';cursor:not-allowed' : ''}"
-        ${canAfford ? `onclick="installPremiumUpgrade(${pid},'${u.key}')"` : 'disabled'}>
-        ${blocked ? 'Upgrade in progress' : canAfford ? `🔨 Hire Contractor · ${fmt(u.cost)}` : `Need ${fmt(u.cost)} (have ${fmt(cash)})`}
+        style="margin-top:10px${btnOnclick === 'disabled' ? ';cursor:not-allowed' : ''}"
+        ${btnOnclick === 'disabled' ? 'disabled' : btnOnclick}>
+        ${btnLabel}
       </button>
     </div>`;
   }).join('');
+
+  const tenantNote = hasTenant && !premData.pending_premium && !scheduledPrem
+    ? `<p class="text-muted" style="margin-bottom:8px;font-size:12px">Tenant in residence — schedule a maintenance window below.</p>`
+    : '';
 
   return `
   <div class="section-header" style="margin-top:16px">
     <span class="section-title">⭐ Premium Upgrades</span>
   </div>
+  ${tenantNote}
   ${installedHtml ? `<div class="card" style="margin-bottom:10px;padding:4px 12px">${installedHtml}</div>` : ''}
   ${pendingHtml}
+  ${scheduledPremHtml}
   ${!premData.pending_premium && (availableHtml || '<p class="text-muted" style="margin-bottom:8px">All premium upgrades installed!</p>')}`;
 }
 
@@ -616,6 +723,144 @@ async function installPremiumUpgrade(pid, key) {
       <div style="font-size:48px">🏗️</div>
       <div style="font-size:22px;font-weight:900;margin-top:8px">${d} Day${d !== 1 ? 's' : ''}</div>
       <div style="font-size:13px;color:var(--text-muted)">until installation complete</div>
+    </div>
+    <div class="money-row"><span class="mr-label">Cash Remaining</span><span class="mr-value">${fmt(res.cash)}</span></div>
+    <button class="btn btn-primary btn-full mt-8" onclick="closeModal()">Got It</button>`);
+  await refreshState();
+  renderAll();
+}
+
+// ── Schedule Renovations (with tenant) ───────────────────────────────────────
+async function showScheduleRenoModal(propId, upgradeKey) {
+  const upgData = await api(`/property/${propId}/upgrades`);
+  const upg     = upgData.available.find(u => u.key === upgradeKey);
+  if (!upg) { toast('Upgrade not found', 'error'); return; }
+
+  // Stable tenant window — same day until the player advances
+  const availDay = getTenantAvailDay(propId);
+  const daysOut  = availDay - state.day;
+  const sInfo    = getSeasonInfo(availDay);
+
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">${upg.icon} ${upg.name}</div>
+    <div class="modal-subtitle">Schedule with tenant in residence</div>
+
+    <div class="card" style="margin-bottom:16px;background:#F3E5F5;border:2px solid #CE93D8">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span style="font-size:30px">📅</span>
+        <div>
+          <div style="font-size:14px;font-weight:800;color:#6A1B9A">Tenant Maintenance Window</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:3px">
+            Your tenant is available starting <strong>Day ${availDay}</strong>
+            &nbsp;(${sInfo.icon} ${sInfo.name} · in ${daysOut} day${daysOut !== 1 ? 's' : ''})
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="text-align:center;font-size:11px;color:var(--text-muted);margin-bottom:10px">── choose a contractor ──</div>
+
+    ${Object.entries(upgData.contractors).map(([key, c]) => {
+      const cost     = upg.costs[key];
+      const days     = contractorDays(key, upg.energy_cost || 1);
+      const canAfford = state.cash >= cost;
+      return `
+      <div class="contractor-card${!canAfford ? '' : ''}" style="${!canAfford ? 'opacity:0.5' : ''}">
+        <div class="contractor-header">
+          <span class="contractor-icon">${c.icon}</span>
+          <span class="contractor-name">${c.name}</span>
+          <span class="contractor-cost" style="color:${canAfford ? 'inherit' : 'var(--negative)'}">
+            ${canAfford ? fmt(cost) : `Need ${fmt(cost)}`}
+          </span>
+        </div>
+        <div class="contractor-desc">${c.desc}</div>
+        <div class="contractor-quality">Finishes ~${days}d after start · total wait ~${daysOut + days}d</div>
+        <button class="btn btn-sm btn-full ${canAfford ? 'btn-primary' : 'btn-ghost'} mt-8"
+          style="${!canAfford ? 'cursor:not-allowed' : ''};margin-top:8px"
+          ${canAfford ? `onclick="confirmScheduleReno(${propId},'${upgradeKey}','${key}',${availDay})"` : 'disabled'}>
+          ${canAfford ? `📅 Book · ${fmt(cost)}` : `Not enough cash`}
+        </button>
+      </div>`;
+    }).join('')}
+
+    <button class="btn btn-ghost btn-sm btn-full mt-8" onclick="closeModal()">Cancel</button>`);
+}
+
+async function confirmScheduleReno(propId, upgradeKey, contractorKey, startDay) {
+  const res = await api(`/property/${propId}/schedule_reno`, 'POST', {
+    upgrade_key: upgradeKey, contractor_key: contractorKey, start_day: startDay,
+  });
+  if (res.error) { toast(res.error, 'error'); return; }
+  const daysOut = startDay - state.day;
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">📅 Renovation Scheduled!</div>
+    <div class="modal-subtitle">${res.name}</div>
+    <div style="text-align:center;padding:16px 0">
+      <div style="font-size:48px">🗓️</div>
+      <div style="font-size:22px;font-weight:900;margin-top:8px;color:#6A1B9A">Day ${startDay}</div>
+      <div style="font-size:13px;color:var(--text-muted)">contractors arrive · in ${daysOut} day${daysOut !== 1 ? 's' : ''}</div>
+    </div>
+    <div class="money-row"><span class="mr-label">Cash Remaining</span><span class="mr-value">${fmt(res.cash)}</span></div>
+    <button class="btn btn-primary btn-full mt-8" onclick="closeModal()">Got It</button>`);
+  await refreshState();
+  renderAll();
+}
+
+function showSchedulePremiumModal(propId, upgradeKey, cost, days, name, icon) {
+  // Stable tenant window — same day until the player advances
+  const availDay = getTenantAvailDay(propId);
+  const daysOut  = availDay - state.day;
+  const sInfo    = getSeasonInfo(availDay);
+  const canAfford = state.cash >= cost;
+
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">${icon} ${name}</div>
+    <div class="modal-subtitle">Schedule with tenant in residence</div>
+
+    <div class="card" style="margin-bottom:16px;background:#F3E5F5;border:2px solid #CE93D8">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span style="font-size:30px">📅</span>
+        <div>
+          <div style="font-size:14px;font-weight:800;color:#6A1B9A">Tenant Maintenance Window</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:3px">
+            Your tenant is available starting <strong>Day ${availDay}</strong>
+            &nbsp;(${sInfo.icon} ${sInfo.name} · in ${daysOut} day${daysOut !== 1 ? 's' : ''})
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:12px">
+      <div class="money-row"><span class="mr-label">Cost</span><span class="mr-value">${fmt(cost)}</span></div>
+      <div class="money-row"><span class="mr-label">Work Duration</span><span class="mr-value">${days} day${days !== 1 ? 's' : ''} after start</span></div>
+      <div class="money-row"><span class="mr-label">Total Wait</span><span class="mr-value">~${daysOut + days} days</span></div>
+    </div>
+
+    <button class="btn btn-primary btn-full"
+      ${canAfford ? `onclick="confirmSchedulePremium(${propId},'${upgradeKey}',${availDay})"` : 'disabled'}
+      style="${!canAfford ? 'opacity:0.5;cursor:not-allowed' : ''}">
+      ${canAfford ? `📅 Schedule · ${fmt(cost)}` : `Need ${fmt(cost)} — have ${fmt(state.cash)}`}
+    </button>
+    <button class="btn btn-ghost btn-sm btn-full mt-8" onclick="closeModal()">Cancel</button>`);
+}
+
+async function confirmSchedulePremium(propId, upgradeKey, startDay) {
+  const res = await api(`/property/${propId}/schedule_premium`, 'POST', {
+    upgrade_key: upgradeKey, start_day: startDay,
+  });
+  if (res.error) { toast(res.error, 'error'); return; }
+  const daysOut = startDay - state.day;
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">📅 Upgrade Scheduled!</div>
+    <div class="modal-subtitle">${res.name}</div>
+    <div style="text-align:center;padding:16px 0">
+      <div style="font-size:48px">🗓️</div>
+      <div style="font-size:22px;font-weight:900;margin-top:8px;color:#6A1B9A">Day ${startDay}</div>
+      <div style="font-size:13px;color:var(--text-muted)">workers arrive · in ${daysOut} day${daysOut !== 1 ? 's' : ''}</div>
     </div>
     <div class="money-row"><span class="mr-label">Cash Remaining</span><span class="mr-value">${fmt(res.cash)}</span></div>
     <button class="btn btn-primary btn-full mt-8" onclick="closeModal()">Got It</button>`);
@@ -1538,11 +1783,17 @@ async function advanceDays(days) {
         </div>
       </div>`).join('');
 
-  _pendingRepairs  = res.repairs || [];
-  _pendingSquatter = (res.events || []).find(e => e.type === 'squatter') || null;
+  _pendingRepairs      = res.repairs       || [];
+  _pendingMoraleEvents = res.morale_events || [];
+  _pendingSquatter     = (res.events || []).find(e => e.type === 'squatter') || null;
+  const totalPending   = _pendingRepairs.length + _pendingMoraleEvents.length;
   const repairNote = _pendingRepairs.length > 0
     ? `<div style="background:var(--warning-bg,#FFF8E1);border:2px solid var(--warning);border-radius:var(--radius-sm);padding:10px 12px;margin-top:12px;font-size:13px;font-weight:700">
         🔧 ${_pendingRepairs.length} repair${_pendingRepairs.length > 1 ? 's' : ''} need${_pendingRepairs.length === 1 ? 's' : ''} attention!</div>`
+    : '';
+  const moraleNote = _pendingMoraleEvents.length > 0
+    ? `<div style="background:#F3E5F5;border:2px solid #CE93D8;border-radius:var(--radius-sm);padding:10px 12px;margin-top:8px;font-size:13px;font-weight:700">
+        💬 ${_pendingMoraleEvents.length} tenant request${_pendingMoraleEvents.length > 1 ? 's' : ''} waiting!</div>`
     : '';
 
   openModal(`
@@ -1554,8 +1805,9 @@ async function advanceDays(days) {
     <div class="section-title" style="margin-bottom:8px">Events</div>
     ${eventsHtml}
     ${repairNote}
+    ${moraleNote}
     <button class="btn btn-primary btn-full mt-8" onclick="continueFromEvents()">
-      ${_pendingRepairs.length > 0 ? `Fix Repairs (${_pendingRepairs.length})` : 'Continue'}
+      ${_pendingRepairs.length > 0 ? `Fix Repairs (${_pendingRepairs.length})` : totalPending > 0 ? `Respond to Requests (${totalPending})` : 'Continue'}
     </button>`);
 
   await refreshState();
@@ -1566,6 +1818,8 @@ async function advanceDays(days) {
 function continueFromEvents() {
   if (_pendingRepairs.length > 0) {
     showNextRepair();
+  } else if (_pendingMoraleEvents.length > 0) {
+    showNextMoraleEvent();
   } else if (_pendingSquatter) {
     const sq = _pendingSquatter;
     _pendingSquatter = null;
@@ -1616,6 +1870,70 @@ async function briberSquatter(propId) {
   closeModal();
   await refreshState();
   renderAll();
+}
+
+// ── Morale Events ─────────────────────────────────────────────────────────────
+function showNextMoraleEvent() {
+  if (_pendingMoraleEvents.length === 0) { continueFromEvents(); return; }
+  showMoraleEventModal(_pendingMoraleEvents.shift());
+}
+
+function showMoraleEventModal(ev) {
+  const damPct = Math.round(ev.damage_chance * 100);
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">${ev.icon} Tenant Request</div>
+    <div class="modal-subtitle">${ev.prop_name}</div>
+    <p style="font-size:14px;color:var(--text-2);margin-bottom:16px">${ev.message}</p>
+
+    <div class="card" style="margin-bottom:10px;border:2px solid var(--positive)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <span style="font-size:24px">✅</span>
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:800">Agree</div>
+          <div style="font-size:12px;color:var(--text-muted)">
+            Morale +${ev.morale_gain} · ${damPct}% chance of −${ev.damage_pts} condition
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="respondMoraleEvent(${ev.prop_id},'${ev.key}',true)">
+        ${ev.agree_label}
+      </button>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <span style="font-size:24px">❌</span>
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:800">Decline</div>
+          <div style="font-size:12px;color:var(--text-muted)">Tenant morale drops 5–10 points.</div>
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-full" onclick="respondMoraleEvent(${ev.prop_id},'${ev.key}',false)">
+        ${ev.decline_label}
+      </button>
+    </div>
+
+    ${_pendingMoraleEvents.length > 0
+      ? `<div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:8px">${_pendingMoraleEvents.length} more request(s) after this</div>`
+      : ''}`);
+}
+
+async function respondMoraleEvent(propId, eventKey, agree) {
+  const res = await api('/tenant_event/respond', 'POST', { prop_id: propId, event_key: eventKey, agree });
+  if (res.error) { toast(res.error, 'error'); return; }
+  if (agree) {
+    if (res.condition_change < 0) {
+      toast(`They made a mess! Condition −${Math.abs(res.condition_change)} pts`, 'warning');
+    } else {
+      toast(`Agreed! Tenant morale +${res.morale_change}`, 'success');
+    }
+  } else {
+    toast(`Declined — tenant morale ${res.morale_change}`, 'warning');
+  }
+  await refreshState();
+  renderAll();
+  showNextMoraleEvent();
 }
 
 function showNextRepair() {
