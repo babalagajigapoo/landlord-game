@@ -46,6 +46,184 @@ REPAIR_TYPES = [
     {"key": "hvac_fix",   "name": "HVAC Repair",         "icon": "🌡️", "base_cost": 600,  "cond_loss": 7,  "cond_fix": 9},
 ]
 
+# ── Tenant Event System ────────────────────────────────────────────────────────
+# One event can fire per day when the global roll succeeds.
+# Chance = 35% base + 1% per tenant (capped at 90%).
+#
+# To add a new event type:
+#   1. Add an entry here with a unique "key", a "weight" (higher = more common),
+#      a "type" string, and a display "name".
+#   2. Add an `elif chosen_event["type"] == "your_type":` block in api_advance()
+#      to handle the logic and append to new_repairs / events as needed.
+TENANT_EVENTS = [
+    # ── Repair ────────────────────────────────────────────────────────────────
+    # weight 10 keeps repairs at ~8% of all events across the full list
+    {"key": "repair", "weight": 10, "type": "repair", "name": "Repair Needed"},
+
+    # ── Morale-choice events ───────────────────────────────────────────────────
+    # Player sees a prompt and chooses Agree or Decline.
+    # Agree: morale_gain applied; damage_chance to lose damage_pts condition.
+    # Decline: morale drops 5-10 (handled in api_tenant_event_respond).
+    # To add: give unique key, type="morale_choice", fill fields, add message
+    #         logic in the advance loop's morale_choice elif block if needed.
+    {
+        "key": "paint_room", "weight": 6, "type": "morale_choice",
+        "name": "Paint Request", "icon": "🎨",
+        "agree_label": "Sure, go ahead!", "decline_label": "No thanks.",
+        "morale_gain": 8, "damage_chance": 0.30, "damage_pts": 25,
+        "rooms": ["bedroom", "kitchen", "living room", "bathroom", "dining room"],
+    },
+    {
+        "key": "garage_sale", "weight": 6, "type": "morale_choice",
+        "name": "Garage Sale", "icon": "🏷️",
+        "agree_label": "Sure, go ahead!", "decline_label": "Not at my property.",
+        "morale_gain": 8, "damage_chance": 0.15, "damage_pts": 25,
+    },
+    {
+        "key": "party", "weight": 6, "type": "morale_choice",
+        "name": "Party Request", "icon": "🎉",
+        "agree_label": "Sure, have fun!", "decline_label": "No parties.",
+        "morale_gain": 8, "damage_chance": 0.40, "damage_pts": 25,
+        "reasons": ["birthday", "promotion", "holiday", "housewarming", "New Year's Eve"],
+    },
+    {
+        "key": "dog", "weight": 6, "type": "morale_choice",
+        "name": "Dog Request", "icon": "🐶",
+        "agree_label": "Sure, one dog is fine!", "decline_label": "No pets allowed.",
+        "morale_gain": 8, "damage_chance": 0.20, "damage_pts": 20,
+    },
+    {
+        "key": "cat", "weight": 6, "type": "morale_choice",
+        "name": "Cat Request", "icon": "🐱",
+        "agree_label": "Sure, a cat is fine!", "decline_label": "No pets allowed.",
+        "morale_gain": 6, "damage_chance": 0.10, "damage_pts": 15,
+    },
+    {
+        "key": "garden", "weight": 6, "type": "morale_choice",
+        "name": "Garden Request", "icon": "🌱",
+        "agree_label": "Go for it!", "decline_label": "Let's keep the yard as-is.",
+        "morale_gain": 10, "damage_chance": 0.10, "damage_pts": 10,
+    },
+    {
+        "key": "satellite_dish", "weight": 5, "type": "morale_choice",
+        "name": "Satellite Dish", "icon": "📡",
+        "agree_label": "Sure, go ahead.", "decline_label": "No modifications to the roof.",
+        "morale_gain": 7, "damage_chance": 0.25, "damage_pts": 20,
+    },
+    {
+        "key": "band_practice", "weight": 5, "type": "morale_choice",
+        "name": "Band Practice", "icon": "🎸",
+        "agree_label": "As long as it's not too late!", "decline_label": "Not in my property.",
+        "morale_gain": 8, "damage_chance": 0.35, "damage_pts": 20,
+    },
+    {
+        "key": "home_gym", "weight": 5, "type": "morale_choice",
+        "name": "Home Gym", "icon": "🏋️",
+        "agree_label": "Sure, just don't damage the floors.", "decline_label": "No heavy equipment.",
+        "morale_gain": 7, "damage_chance": 0.20, "damage_pts": 15,
+    },
+    {
+        "key": "holiday_decorations", "weight": 5, "type": "morale_choice",
+        "name": "Holiday Decorations", "icon": "🎃",
+        "agree_label": "Sure, just take them down after.", "decline_label": "No exterior modifications.",
+        "morale_gain": 6, "damage_chance": 0.10, "damage_pts": 10,
+    },
+    {
+        "key": "fire_pit", "weight": 5, "type": "morale_choice",
+        "name": "Fire Pit", "icon": "🔥",
+        "agree_label": "Sure, be careful.", "decline_label": "Too much liability.",
+        "morale_gain": 9, "damage_chance": 0.30, "damage_pts": 25,
+    },
+    {
+        "key": "duck", "weight": 4, "type": "morale_choice",
+        "name": "The Duck", "icon": "🦆",
+        "agree_label": "...Fine. One duck.", "decline_label": "Absolutely not.",
+        "morale_gain": 12, "damage_chance": 0.20, "damage_pts": 15,
+    },
+    {
+        "key": "taco_tuesday", "weight": 5, "type": "morale_choice",
+        "name": "Taco Tuesday", "icon": "🌮",
+        "agree_label": "Sounds delicious, go ahead!", "decline_label": "Keep the gatherings small.",
+        "morale_gain": 7, "damage_chance": 0.20, "damage_pts": 15,
+    },
+    {
+        "key": "feng_shui", "weight": 4, "type": "morale_choice",
+        "name": "Feng Shui Rearrangement", "icon": "🔮",
+        "agree_label": "Sure, rearrange whatever you like.", "decline_label": "Please leave the fixtures alone.",
+        "morale_gain": 6, "damage_chance": 0.40, "damage_pts": 20,
+    },
+    {
+        "key": "backyard_chicken", "weight": 4, "type": "morale_choice",
+        "name": "Backyard Chickens", "icon": "🦃",
+        "agree_label": "Only if they stay in the yard.", "decline_label": "No livestock.",
+        "morale_gain": 10, "damage_chance": 0.50, "damage_pts": 30,
+    },
+    {
+        "key": "candles", "weight": 5, "type": "morale_choice",
+        "name": "Candle Obsession", "icon": "🕯️",
+        "agree_label": "Sure, just be careful!", "decline_label": "Too much of a fire risk.",
+        "morale_gain": 5, "damage_chance": 0.35, "damage_pts": 20,
+    },
+    {
+        "key": "bulletin_board", "weight": 4, "type": "morale_choice",
+        "name": "Conspiracy Bulletin Board", "icon": "🛸",
+        "agree_label": "...Sure.", "decline_label": "I'd rather not have holes in my walls.",
+        "morale_gain": 4, "damage_chance": 0.15, "damage_pts": 10,
+    },
+    {
+        "key": "dartboard", "weight": 5, "type": "morale_choice",
+        "name": "Dart Board", "icon": "🎯",
+        "agree_label": "Sure, sounds fun.", "decline_label": "Not on my walls.",
+        "morale_gain": 5, "damage_chance": 0.45, "damage_pts": 15,
+    },
+
+    # ── Morale-auto events ─────────────────────────────────────────────────────
+    # These fire silently — no modal. The morale change is applied automatically
+    # and a note appears in the advance events list.
+    # To add: give unique key, type="morale_auto", set morale_delta and message.
+    {
+        "key": "noise_complaint", "weight": 5, "type": "morale_auto",
+        "name": "Noise Complaint", "icon": "😤",
+        "morale_delta": -8,
+        "message": "is being kept up by noisy neighbors",
+    },
+    {
+        "key": "rainy_mood", "weight": 5, "type": "morale_auto",
+        "name": "Rainy Day Mood", "icon": "🌧️",
+        "morale_delta": -5,
+        "message": "is having a rough week for no particular reason",
+    },
+    {
+        "key": "great_month", "weight": 5, "type": "morale_auto",
+        "name": "Great Month", "icon": "🎉",
+        "morale_delta": 10,
+        "message": "says they're really loving it here",
+    },
+    {
+        "key": "new_job", "weight": 5, "type": "morale_auto",
+        "name": "New Job", "icon": "📦",
+        "morale_delta": 12,
+        "message": "just got a new job and is thrilled",
+    },
+    {
+        "key": "tight_month", "weight": 5, "type": "morale_auto",
+        "name": "Tight Month", "icon": "💸",
+        "morale_delta": -6,
+        "message": "mentioned money is tight this month",
+    },
+    # ── Add future events below this line ─────────────────────────────────────
+]
+
+def _pick_weighted_event(event_list):
+    """Weighted-random pick from a list of events."""
+    total = sum(e["weight"] for e in event_list)
+    r, cumulative = random.uniform(0, total), 0
+    for ev in event_list:
+        cumulative += ev["weight"]
+        if r <= cumulative:
+            return ev
+    return event_list[-1]
+
 UPGRADES = {
     "paint":       {"name": "Interior Paint",   "icon": "🎨", "base_cost": 1500,  "value_add": 3000,  "cond_boost": 15, "energy_cost": 1},
     "landscaping": {"name": "Landscaping",       "icon": "🌿", "base_cost": 2000,  "value_add": 4500,  "cond_boost": 10, "energy_cost": 1},
@@ -152,12 +330,30 @@ CONTRACTORS = {
 
 # stay_min / stay_max are in DAYS
 TENANT_PROFILES = [
+    # ── Original profiles ──────────────────────────────────────────────────────
     {"name": "Young Professional", "icon": "💼", "pay_chance": 0.97, "damage_chance": 0.03, "stay_min": 60,  "stay_max": 180},
     {"name": "College Student",    "icon": "🎓", "pay_chance": 0.82, "damage_chance": 0.12, "stay_min": 30,  "stay_max": 90},
     {"name": "Retired Couple",     "icon": "👴", "pay_chance": 0.99, "damage_chance": 0.01, "stay_min": 120, "stay_max": 365},
     {"name": "Young Family",       "icon": "👨‍👩‍👧", "pay_chance": 0.93, "damage_chance": 0.07, "stay_min": 90,  "stay_max": 270},
     {"name": "Freelancer",         "icon": "💻", "pay_chance": 0.85, "damage_chance": 0.05, "stay_min": 45,  "stay_max": 120},
     {"name": "Section 8",          "icon": "🏛️", "pay_chance": 0.95, "damage_chance": 0.08, "stay_min": 60,  "stay_max": 180},
+    # ── Expanded profiles ──────────────────────────────────────────────────────
+    {"name": "Aspiring Chef",      "icon": "👨‍🍳", "pay_chance": 0.91, "damage_chance": 0.14, "stay_min": 60,  "stay_max": 180},
+    {"name": "The Minimalist",     "icon": "🧘", "pay_chance": 0.98, "damage_chance": 0.01, "stay_min": 90,  "stay_max": 240},
+    {"name": "Nurse (Night Shift)","icon": "🩺", "pay_chance": 0.96, "damage_chance": 0.02, "stay_min": 90,  "stay_max": 270},
+    {"name": "Grad Student",       "icon": "📚", "pay_chance": 0.79, "damage_chance": 0.06, "stay_min": 60,  "stay_max": 120},
+    {"name": "Single Parent",      "icon": "🧑‍👧", "pay_chance": 0.90, "damage_chance": 0.06, "stay_min": 90,  "stay_max": 300},
+    {"name": "Social Butterfly",   "icon": "🦋", "pay_chance": 0.88, "damage_chance": 0.11, "stay_min": 45,  "stay_max": 120},
+    {"name": "Veteran",            "icon": "🪖", "pay_chance": 0.99, "damage_chance": 0.02, "stay_min": 120, "stay_max": 365},
+    {"name": "Remote Worker",      "icon": "🖥️", "pay_chance": 0.94, "damage_chance": 0.04, "stay_min": 90,  "stay_max": 270},
+    {"name": "The Artist",         "icon": "🎨", "pay_chance": 0.80, "damage_chance": 0.15, "stay_min": 60,  "stay_max": 150},
+    {"name": "Doomsday Prepper",   "icon": "🥫", "pay_chance": 0.92, "damage_chance": 0.09, "stay_min": 120, "stay_max": 365},
+    {"name": "Trust Fund Kid",     "icon": "🛍️", "pay_chance": 0.99, "damage_chance": 0.13, "stay_min": 30,  "stay_max": 90},
+    {"name": "Teacher",            "icon": "🍎", "pay_chance": 0.93, "damage_chance": 0.03, "stay_min": 90,  "stay_max": 270},
+    {"name": "Outdoorsy Type",     "icon": "🏕️", "pay_chance": 0.95, "damage_chance": 0.02, "stay_min": 45,  "stay_max": 150},
+    {"name": "Band Member",        "icon": "🎸", "pay_chance": 0.78, "damage_chance": 0.16, "stay_min": 30,  "stay_max": 90},
+    {"name": "Influencer",         "icon": "📱", "pay_chance": 0.90, "damage_chance": 0.10, "stay_min": 30,  "stay_max": 90},
+    {"name": "The Handyman",       "icon": "🔧", "pay_chance": 0.91, "damage_chance": 0.01, "stay_min": 90,  "stay_max": 240},
 ]
 
 # ── Game Logic ─────────────────────────────────────────────────────────────────
@@ -174,6 +370,20 @@ def contractor_days(contractor_key, energy_cost):
         return 2 if energy_cost <= 2 else (3 if energy_cost == 3 else 4)
     # premium
     return 4 if energy_cost <= 2 else (5 if energy_cost == 3 else 6)
+
+def calc_initial_morale(prop, weekly_rent):
+    """Starting morale 0-100 based on rent vs fair and property condition at move-in."""
+    fair  = max(1, calc_fair_weekly_rent(prop))
+    ratio = weekly_rent / fair
+    # rent component: 100 at 50%-of-fair, 50 at fair, 0 at 150%+ of fair
+    rent_cmp = max(0.0, min(100.0, (1.5 - ratio) * 100))
+    # condition component: 0-100 scaled from 0-MAX_CONDITION
+    cond_cmp = (prop["condition"] / MAX_CONDITION) * 100
+    return int(round(0.5 * rent_cmp + 0.5 * cond_cmp))
+
+def clamp_morale(t):
+    """Clamp tenant morale to 0-100 in-place."""
+    t["morale"] = max(0, min(100, t.get("morale", 50)))
 
 def get_player_home(s):
     """Return the PLAYER_HOMES dict for the player's current home."""
@@ -275,6 +485,7 @@ def generate_property(nid):
              "bathrooms": baths, "sqft": sqft, "condition": cond, "upgrades": {},
              "premium_upgrades": [], "squatter": None, "vacant_since": 1,
              "pending_reno": None, "pending_premium": None,
+             "scheduled_reno": None, "scheduled_premium": None,
              "tenant": None, "days_rented": 0,
              "total_rent_collected": 0, "total_repair_costs": 0, "purchase_price": 0}
     prop["purchase_price"] = int(calc_market_value(prop) * random.uniform(0.88, 1.06))
@@ -285,6 +496,7 @@ def make_starter_home():
             "bedrooms": 2, "bathrooms": 1, "sqft": 820, "condition": 61,
             "upgrades": {}, "premium_upgrades": [], "squatter": None, "vacant_since": 1,
             "pending_reno": None, "pending_premium": None,
+            "scheduled_reno": None, "scheduled_premium": None,
             "tenant": None, "days_rented": 0,
             "total_rent_collected": 0, "total_repair_costs": 0, "purchase_price": 0}
 
@@ -496,7 +708,8 @@ def api_premium_upgrades(pid):
             if k != pending_key
         ]
         return jsonify({"catalog": catalog, "installed": installed,
-                        "pending_premium": prop.get("pending_premium")})
+                        "pending_premium":   prop.get("pending_premium"),
+                        "scheduled_premium": prop.get("scheduled_premium")})
     if upgrade_key not in PREMIUM_UPGRADES:
         return jsonify({"error": "Unknown upgrade"}), 400
     if prop.get("squatter"):
@@ -529,6 +742,124 @@ def api_premium_upgrades(pid):
     save(s)
     return jsonify({"success": True, "cash": s["cash"],
                     "duration": upg["days"], "complete_day": complete_day, "name": upg["name"]})
+
+@app.route('/api/property/<int:pid>/schedule_reno', methods=['POST'])
+def api_schedule_reno(pid):
+    """Schedule a renovation to start when the tenant has a maintenance window."""
+    s    = load()
+    data = request.json or {}
+    prop = next((p for p in s["properties"] if p["id"] == pid), None)
+    if not prop:
+        return jsonify({"error": "Property not found"}), 404
+    if not prop.get("tenant"):
+        return jsonify({"error": "No tenant — just renovate normally"}), 400
+    if prop.get("squatter"):
+        return jsonify({"error": "Remove squatters first"}), 400
+    if prop.get("pending_reno"):
+        return jsonify({"error": "Renovation already in progress"}), 400
+    if prop.get("scheduled_reno"):
+        return jsonify({"error": "A renovation is already scheduled — wait for it to begin"}), 400
+
+    upgrade_key    = data.get("upgrade_key")
+    contractor_key = data.get("contractor_key")
+    start_day      = data.get("start_day")
+
+    if upgrade_key not in UPGRADES:
+        return jsonify({"error": "Unknown upgrade"}), 400
+    if contractor_key not in CONTRACTORS:
+        return jsonify({"error": "Unknown contractor"}), 400
+
+    existing  = prop.get("upgrades", {}).get(upgrade_key)
+    remaining = upgrade_cooldown_remaining(existing, s["day"]) if existing is not None else 0
+    if remaining > 0:
+        return jsonify({"error": f"On cooldown — {remaining} days remaining"}), 400
+
+    upg  = UPGRADES[upgrade_key]
+    cont = CONTRACTORS[contractor_key]
+    cost = int(upg["base_cost"] * cont["cost_mult"])
+    if cost > s["cash"]:
+        return jsonify({"error": f"Need ${cost:,} — you have ${int(s['cash']):,}"}), 400
+
+    # Validate/clamp start_day to 1-28 days out
+    if not start_day or not (s["day"] + 1 <= start_day <= s["day"] + 28):
+        start_day = s["day"] + random.randint(1, 28)
+
+    quality     = random.randint(cont["q_min"], cont["q_max"])
+    tier        = score_to_tier(quality)
+    cond_change = tier_cond_change(tier)
+    duration    = contractor_days(contractor_key, upg.get("energy_cost", 1))
+
+    s["cash"] -= cost
+    prop["scheduled_reno"] = {
+        "upgrade_key":    upgrade_key,
+        "contractor_key": contractor_key,
+        "quality":        quality,
+        "tier_key":       tier["key"],
+        "cond_change":    cond_change,
+        "start_day":      start_day,
+        "duration":       duration,
+        "name":           upg["name"],
+        "icon":           upg["icon"],
+        "cost":           cost,
+    }
+    days_out = start_day - s["day"]
+    s["log"].append({"day": s["day"], "type": "info",
+        "text": f"{upg['name']} scheduled at {prop['type']} in {prop['neighborhood']} — contractors arrive in {days_out} day{'s' if days_out != 1 else ''}"})
+    save(s)
+    return jsonify({"success": True, "cash": s["cash"],
+                    "start_day": start_day, "duration": duration, "name": upg["name"]})
+
+
+@app.route('/api/property/<int:pid>/schedule_premium', methods=['POST'])
+def api_schedule_premium(pid):
+    """Schedule a premium upgrade to start when the tenant has a maintenance window."""
+    s    = load()
+    data = request.json or {}
+    prop = next((p for p in s["properties"] if p["id"] == pid), None)
+    if not prop:
+        return jsonify({"error": "Property not found"}), 404
+    if not prop.get("tenant"):
+        return jsonify({"error": "No tenant — just install normally"}), 400
+    if prop.get("squatter"):
+        return jsonify({"error": "Remove squatters first"}), 400
+    if prop.get("pending_premium"):
+        return jsonify({"error": "Premium upgrade already in progress"}), 400
+    if prop.get("scheduled_premium"):
+        return jsonify({"error": "A premium upgrade is already scheduled"}), 400
+
+    upgrade_key = data.get("upgrade_key")
+    start_day   = data.get("start_day")
+
+    if not upgrade_key or upgrade_key not in PREMIUM_UPGRADES:
+        return jsonify({"error": "Unknown upgrade"}), 400
+    if upgrade_key in prop.get("premium_upgrades", []):
+        return jsonify({"error": "Already installed"}), 400
+
+    upg  = PREMIUM_UPGRADES[upgrade_key]
+    cost = upg["cost"]
+    if cost > s["cash"]:
+        return jsonify({"error": f"Need ${cost:,} — you have ${int(s['cash']):,}"}), 400
+
+    # Validate/clamp start_day to 1-28 days out
+    if not start_day or not (s["day"] + 1 <= start_day <= s["day"] + 28):
+        start_day = s["day"] + random.randint(1, 28)
+
+    s["cash"] -= cost
+    prop["scheduled_premium"] = {
+        "upgrade_key": upgrade_key,
+        "start_day":   start_day,
+        "days":        upg["days"],
+        "name":        upg["name"],
+        "icon":        upg["icon"],
+        "cost":        cost,
+    }
+    days_out = start_day - s["day"]
+    s["log"].append({"day": s["day"], "type": "info",
+        "text": f"{upg['name']} scheduled at {prop['type']} in {prop['neighborhood']} — workers arrive in {days_out} day{'s' if days_out != 1 else ''}"})
+    save(s)
+    return jsonify({"success": True, "cash": s["cash"],
+                    "start_day": start_day, "name": upg["name"]})
+
 
 @app.route('/api/sell', methods=['POST'])
 def api_sell():
@@ -589,6 +920,7 @@ def api_rent():
     pay_chance  = min(0.99, max(0.50, t["pay_chance"] + tier["pay_adj"]))
     dmg_chance  = min(0.50, max(0.005, t["damage_chance"] * tier["damage_mult"]))
 
+    initial_morale = calc_initial_morale(prop, weekly_rent)
     prop["tenant"] = {
         **t,
         "rent":            weekly_rent,
@@ -598,6 +930,8 @@ def api_rent():
         "damage_chance":   dmg_chance,
         "next_rent_day":   s["day"] + 7,
         "lease_end_day":   s["day"] + stay_days,
+        "morale":          initial_morale,
+        "recent_events":   [],   # {key, day} — prevents same event repeating within a season
     }
     s.get("applicants_cache", {}).pop(key, None)
     s["log"].append({"day": s["day"], "type": "rent",
@@ -629,13 +963,15 @@ def api_advance():
     data     = request.json
     days     = max(1, min(int(data.get("days", 1)), 30))
     s           = load()
-    events           = []
-    new_repairs      = []
-    rent_log         = {}   # prop_id -> summary dict
-    squatter_spawned = False
+    events             = []
+    new_repairs        = []
+    new_morale_events  = []
+    rent_log           = {}   # prop_id -> summary dict
+    squatter_spawned   = False
 
     for d in range(days):
-        current_day = s["day"] + d + 1
+        current_day       = s["day"] + d + 1
+        early_exit_happened = False   # only one tenant leaves early per day
 
         for prop in s["properties"]:
             if not prop.get("tenant"):
@@ -653,6 +989,26 @@ def api_advance():
                 s["log"].append({"day": current_day, "type": "info",
                     "text": f"{name} moved out of {prop['type']} in {prop['neighborhood']}"})
                 continue
+
+            # Morale-based early exit — kicks in below 20%, one tenant max per day
+            morale = t.get("morale", 50)
+            if morale < 20 and not early_exit_happened:
+                if   morale <= 1:  exit_chance = 0.90
+                elif morale <= 4:  exit_chance = 0.50
+                elif morale <= 9:  exit_chance = 0.30
+                elif morale <= 14: exit_chance = 0.20
+                else:              exit_chance = 0.15   # 15-19
+                if random.random() < exit_chance:
+                    name = t["name"]
+                    prop["tenant"]       = None
+                    prop["vacant_since"] = current_day
+                    early_exit_happened  = True
+                    events.append({"prop": f"{prop['type']} — {prop['neighborhood']}",
+                                    "text": f"😤 {name} broke their lease early — morale too low",
+                                    "type": "negative"})
+                    s["log"].insert(0, {"day": current_day, "type": "warning",
+                        "text": f"{name} left {prop['type']} in {prop['neighborhood']} early — morale was {morale}%"})
+                    continue
 
             # Weekly rent due
             if current_day >= t.get("next_rent_day", 999999):
@@ -676,19 +1032,157 @@ def api_advance():
                 else:
                     rent_log[pid]["missed"] += 1
 
-            # Daily damage chance — generates a repair event the player must handle
-            if random.random() < t["damage_chance"] / 7:
-                rt = random.choice(REPAIR_TYPES)
-                prop["condition"] = max(0, prop["condition"] - 2)   # small drop just from problem occurring
-                new_repairs.append({
-                    "id":        f"r{current_day}_{pid}",
-                    "prop_id":   pid,
-                    "prop_name": f"{prop['type']} — {prop['neighborhood']}",
-                    "repair_type": rt,
-                    "costs":     {k: int(rt["base_cost"] * c["cost_mult"]) for k, c in CONTRACTORS.items()},
-                })
-
             prop["days_rented"] = prop.get("days_rented", 0) + 1
+
+        # ── Global tenant event roll ───────────────────────────────────────────
+        # 35% base chance + 1% per tenant (capped at 90%) that one event fires.
+        # Each event type has a weight; same event can't repeat for a tenant within a season.
+        # To add a new event: add to TENANT_EVENTS and add an elif handler below.
+        tenant_props = [p for p in s["properties"] if p.get("tenant")]
+        tenant_count = len(tenant_props)
+        if tenant_count > 0:
+            event_chance = min(0.35 + 0.01 * tenant_count, 0.90)
+            if random.random() < event_chance:
+                target_prop = random.choice(tenant_props)
+                t           = target_prop["tenant"]
+
+                # Filter out events used by this tenant within the last season
+                recent_keys  = {e["key"] for e in t.get("recent_events", [])
+                                if current_day - e["day"] < DAYS_PER_SEASON}
+                valid_events = [e for e in TENANT_EVENTS if e["key"] not in recent_keys]
+
+                if valid_events:
+                    chosen_event = _pick_weighted_event(valid_events)
+
+                    # Record event on tenant; trim entries older than 2 seasons
+                    t.setdefault("recent_events", []).append(
+                        {"key": chosen_event["key"], "day": current_day})
+                    t["recent_events"] = [e for e in t["recent_events"]
+                                          if current_day - e["day"] < DAYS_PER_SEASON * 2]
+
+                    if chosen_event["type"] == "repair":
+                        rt = random.choice(REPAIR_TYPES)
+                        target_prop["condition"] = max(0, target_prop["condition"] - 2)
+                        new_repairs.append({
+                            "id":          f"r{current_day}_{target_prop['id']}",
+                            "prop_id":     target_prop["id"],
+                            "prop_name":   f"{target_prop['type']} — {target_prop['neighborhood']}",
+                            "repair_type": rt,
+                            "costs":       {k: int(rt["base_cost"] * c["cost_mult"])
+                                            for k, c in CONTRACTORS.items()},
+                        })
+
+                    elif chosen_event["type"] == "morale_choice":
+                        ev_data = {
+                            "key":          chosen_event["key"],
+                            "name":         chosen_event["name"],
+                            "icon":         chosen_event.get("icon", "💬"),
+                            "prop_id":      target_prop["id"],
+                            "prop_name":    f"{target_prop['type']} — {target_prop['neighborhood']}",
+                            "morale_gain":  chosen_event["morale_gain"],
+                            "damage_chance":chosen_event["damage_chance"],
+                            "damage_pts":   chosen_event["damage_pts"],
+                            "agree_label":  chosen_event["agree_label"],
+                            "decline_label":chosen_event["decline_label"],
+                        }
+                        if chosen_event["key"] == "paint_room":
+                            room = random.choice(chosen_event["rooms"])
+                            ev_data["message"] = f"Your tenant wants to paint the {room}."
+                        elif chosen_event["key"] == "garage_sale":
+                            ev_data["message"] = "Your tenant wants to host a garage sale."
+                        elif chosen_event["key"] == "party":
+                            reason = random.choice(chosen_event["reasons"])
+                            ev_data["message"] = f"Your tenant wants to throw a party for their {reason}."
+                        elif chosen_event["key"] == "dog":
+                            ev_data["message"] = "Your tenant wants to get a dog."
+                        elif chosen_event["key"] == "cat":
+                            ev_data["message"] = "Your tenant wants to get a cat."
+                        elif chosen_event["key"] == "garden":
+                            ev_data["message"] = "Your tenant wants to start a garden in the backyard."
+                        elif chosen_event["key"] == "satellite_dish":
+                            ev_data["message"] = "Your tenant wants to install a satellite dish on the roof."
+                        elif chosen_event["key"] == "band_practice":
+                            ev_data["message"] = "Your tenant wants to host band practice at the property."
+                        elif chosen_event["key"] == "home_gym":
+                            ev_data["message"] = "Your tenant wants to set up a home gym with heavy equipment."
+                        elif chosen_event["key"] == "holiday_decorations":
+                            ev_data["message"] = "Your tenant wants to put up holiday decorations outside."
+                        elif chosen_event["key"] == "fire_pit":
+                            ev_data["message"] = "Your tenant wants to set up a fire pit in the backyard."
+                        elif chosen_event["key"] == "duck":
+                            ev_data["message"] = "Your tenant wants to keep a duck. Just one duck, they promise."
+                        elif chosen_event["key"] == "taco_tuesday":
+                            ev_data["message"] = "Your tenant wants to host a weekly Taco Tuesday with friends."
+                        elif chosen_event["key"] == "feng_shui":
+                            ev_data["message"] = "Your tenant wants to rearrange everything according to feng shui."
+                        elif chosen_event["key"] == "backyard_chicken":
+                            ev_data["message"] = "Your tenant wants to keep backyard chickens."
+                        elif chosen_event["key"] == "candles":
+                            ev_data["message"] = "Your tenant has developed a serious candle obsession."
+                        elif chosen_event["key"] == "bulletin_board":
+                            ev_data["message"] = "Your tenant wants to mount a large bulletin board on the wall."
+                        elif chosen_event["key"] == "dartboard":
+                            ev_data["message"] = "Your tenant wants to mount a dartboard on the wall."
+                        else:
+                            ev_data["message"] = f"Your tenant has a request: {chosen_event['name']}."
+                        new_morale_events.append(ev_data)
+
+                    elif chosen_event["type"] == "morale_auto":
+                        # Auto events: apply morale silently, show in advance events list
+                        delta = chosen_event.get("morale_delta", 0)
+                        icon  = chosen_event.get("icon", "💬")
+                        tenant_name = t.get("name", "Your tenant")
+                        msg   = chosen_event.get("message", "Something happened with your tenant.")
+                        old_morale = t.get("morale", 50)
+                        t["morale"] = max(0, min(100, old_morale + delta))
+                        direction  = "▲" if delta > 0 else "▼"
+                        events.append({
+                            "prop": f"{target_prop['type']} — {target_prop['neighborhood']}",
+                            "text": f"{icon} {tenant_name} {msg}. (Morale {direction}{abs(delta)})",
+                            "type": "info" if delta >= 0 else "warning",
+                        })
+                        s["log"].insert(0, {"day": current_day, "type": "info",
+                            "text": f"{tenant_name} {msg} at {target_prop['type']} in {target_prop['neighborhood']} (morale {direction}{abs(delta)})"})
+                    # ── Add handlers for future event types here ──────────────
+
+        # Scheduled renovations — convert to pending when start_day arrives
+        for prop in s["properties"]:
+            sr = prop.get("scheduled_reno")
+            if sr and current_day >= sr["start_day"] and not prop.get("pending_reno"):
+                duration = sr["duration"]
+                prop["pending_reno"] = {
+                    "upgrade_key":  sr["upgrade_key"],
+                    "contractor":   sr["contractor_key"],
+                    "quality":      sr["quality"],
+                    "tier_key":     sr["tier_key"],
+                    "cond_change":  sr["cond_change"],
+                    "complete_day": current_day + duration,
+                    "duration":     duration,
+                    "name":         sr["name"],
+                    "icon":         sr["icon"],
+                }
+                prop["scheduled_reno"] = None
+                events.append({"prop": f"{prop['type']} — {prop['neighborhood']}",
+                                "text": f"🔨 Contractors arrived for {sr['name']}!", "type": "info"})
+                s["log"].insert(0, {"day": current_day, "type": "info",
+                    "text": f"Contractors started {sr['name']} at {prop['type']} in {prop['neighborhood']}"})
+
+        # Scheduled premium upgrades — convert to pending when start_day arrives
+        for prop in s["properties"]:
+            sp = prop.get("scheduled_premium")
+            if sp and current_day >= sp["start_day"] and not prop.get("pending_premium"):
+                prop["pending_premium"] = {
+                    "upgrade_key":  sp["upgrade_key"],
+                    "complete_day": current_day + sp["days"],
+                    "days":         sp["days"],
+                    "name":         sp["name"],
+                    "icon":         sp["icon"],
+                }
+                prop["scheduled_premium"] = None
+                events.append({"prop": f"{prop['type']} — {prop['neighborhood']}",
+                                "text": f"🔨 Workers arrived for {sp['name']}!", "type": "info"})
+                s["log"].insert(0, {"day": current_day, "type": "info",
+                    "text": f"Workers started {sp['name']} at {prop['type']} in {prop['neighborhood']}"})
 
         # Renovation completion
         for prop in s["properties"]:
@@ -699,6 +1193,9 @@ def api_advance():
                 prop["condition"]   = max(0, min(MAX_CONDITION, prop["condition"] + reno["cond_change"]))
                 prop["pending_reno"] = None
                 new_val = calc_market_value(prop)
+                # Tenant morale boost — they appreciate the improvement
+                if prop.get("tenant"):
+                    prop["tenant"]["morale"] = min(100, prop["tenant"].get("morale", 50) + 8)
                 events.append({"prop": f"{prop['type']} — {prop['neighborhood']}",
                                 "text": f"✅ {reno['name']} finished! Grade {reno['tier_key']}",
                                 "type": "positive"})
@@ -712,6 +1209,9 @@ def api_advance():
                 prop.setdefault("premium_upgrades", []).append(pp["upgrade_key"])
                 prop["pending_premium"] = None
                 new_val = calc_market_value(prop)
+                # Tenant morale boost — premium upgrades impress tenants
+                if prop.get("tenant"):
+                    prop["tenant"]["morale"] = min(100, prop["tenant"].get("morale", 50) + 8)
                 events.append({"prop": f"{prop['type']} — {prop['neighborhood']}",
                                 "text": f"✅ {pp['name']} installation complete!",
                                 "type": "positive"})
@@ -827,8 +1327,9 @@ def api_advance():
         "day":       s["day"],
         "cash":      s["cash"],
         "net_worth": s["cash"] + sum(calc_market_value(p) for p in s["properties"]),
-        "events":    events,
-        "repairs":   new_repairs,
+        "events":        events,
+        "repairs":       new_repairs,
+        "morale_events": new_morale_events,
     })
 
 # ── Bank Routes ────────────────────────────────────────────────────────────────
@@ -991,6 +1492,9 @@ def api_repair_fix():
         prop["total_repair_costs"] += cost
 
     prop["condition"] = min(MAX_CONDITION, prop["condition"] + cond_gain)
+    # Tenant morale boost — they appreciate the quick fix
+    if prop.get("tenant"):
+        prop["tenant"]["morale"] = min(100, prop["tenant"].get("morale", 50) + 5)
     s["log"].append({"day": s["day"], "type": "renovate",
         "text": f"{rt['name']} fixed at {prop['type']} in {prop['neighborhood']} ({method}, quality {quality}/100)"})
     save(s)
@@ -1007,10 +1511,62 @@ def api_repair_ignore():
     rt        = next((r for r in REPAIR_TYPES if r["key"] == data["repair_key"]), None)
     cond_loss = rt["cond_loss"] if rt else 3
     prop["condition"] = max(0, prop["condition"] - cond_loss)
+    # Tenant morale hit — they're not happy about ignored issues
+    morale_before = None
+    if prop.get("tenant"):
+        morale_before = prop["tenant"].get("morale", 50)
+        prop["tenant"]["morale"] = max(0, morale_before - 15)
     s["log"].append({"day": s["day"], "type": "warning",
-        "text": f"Ignored {rt['name'] if rt else 'repair'} at {prop['type']} in {prop['neighborhood']} — condition -{cond_loss}"})
+        "text": f"Ignored {rt['name'] if rt else 'repair'} at {prop['type']} in {prop['neighborhood']} — condition -{cond_loss}, tenant morale -{15 if morale_before is not None else 0}"})
     save(s)
-    return jsonify({"success": True, "condition": prop["condition"], "cash": s["cash"]})
+    return jsonify({"success": True, "condition": prop["condition"], "cash": s["cash"],
+                    "morale": prop["tenant"]["morale"] if prop.get("tenant") else None})
+
+@app.route('/api/tenant_event/respond', methods=['POST'])
+def api_tenant_event_respond():
+    s    = load()
+    data = request.json or {}
+    prop = next((p for p in s["properties"] if p["id"] == data.get("prop_id")), None)
+    if not prop or not prop.get("tenant"):
+        return jsonify({"error": "Property or tenant not found"}), 404
+
+    agree     = bool(data.get("agree"))
+    event_key = data.get("event_key")
+    event_cfg = next((e for e in TENANT_EVENTS if e["key"] == event_key), None)
+    if not event_cfg:
+        return jsonify({"error": "Unknown event"}), 400
+
+    t                = prop["tenant"]
+    condition_change = 0
+    morale_change    = 0
+    morale_before    = t.get("morale", 50)
+
+    if agree:
+        morale_change   = event_cfg["morale_gain"]
+        t["morale"]     = min(100, t.get("morale", 50) + morale_change)
+        if random.random() < event_cfg["damage_chance"]:
+            condition_change    = -event_cfg["damage_pts"]
+            prop["condition"]   = max(0, prop["condition"] + condition_change)
+        s["log"].append({"day": s["day"], "type": "info",
+            "text": f"Agreed to {t['name']}'s {event_cfg['name']} request at {prop['type']} in {prop['neighborhood']}"
+                   + (f" — caused {abs(condition_change)} pts condition damage" if condition_change else "")})
+    else:
+        morale_change = -random.randint(5, 10)
+        t["morale"]   = max(0, morale_before + morale_change)
+        s["log"].append({"day": s["day"], "type": "info",
+            "text": f"Declined {t['name']}'s {event_cfg['name']} request at {prop['type']} in {prop['neighborhood']} — morale {morale_change}"})
+
+    save(s)
+    return jsonify({
+        "success":          True,
+        "agree":            agree,
+        "condition":        prop["condition"],
+        "morale":           t.get("morale"),
+        "condition_change": condition_change,
+        "morale_change":    morale_change,
+        "cash":             s["cash"],
+    })
+
 
 @app.route('/api/jobs/complete', methods=['POST'])
 def api_jobs_complete():
