@@ -93,8 +93,14 @@ async function init() {
 }
 
 async function refreshState() {
+  const prevLevel = state ? (state.level ?? 0) : null;
   state = await api('/state');
   updateHeader();
+  if (prevLevel !== null && state.level > prevLevel) {
+    showLevelUpToast(state.level);
+    await loadMarket();  // reload market since new neighborhoods may have unlocked
+    renderMarket();
+  }
 }
 
 async function loadMarket() {
@@ -112,6 +118,37 @@ function updateHeader() {
   energyEl.style.color = energy === 0 ? 'var(--negative)' : energy <= 3 ? 'var(--warning)' : 'var(--positive)';
   const s = getSeasonInfo(state.day);
   document.getElementById('hdr-day').textContent  = `${s.icon} ${s.name} · Day ${s.seasonDay}`;
+  // XP bar
+  const lvl    = state.level ?? 0;
+  const xpPct  = state.xp_pct ?? 0;
+  const levelBadge = document.getElementById('hdr-level');
+  const xpBar      = document.getElementById('hdr-xp-bar');
+  const xpNextLbl  = document.getElementById('hdr-level-next');
+  if (levelBadge) levelBadge.textContent = lvl >= 7 ? '⭐ Max Level' : `Level ${lvl}`;
+  if (xpBar)      xpBar.style.width = `${xpPct}%`;
+  if (xpNextLbl) {
+    if (lvl === 0)       xpNextLbl.textContent = 'Sell your first property';
+    else if (lvl >= 7)   xpNextLbl.textContent = 'Fully maxed out!';
+    else                 xpNextLbl.textContent = `→ Level ${lvl + 1}`;
+  }
+}
+
+// ── Level-up ──────────────────────────────────────────────────────────────────
+const LEVEL_HOOD_NAMES = ['', 'Midtown', 'Northside', 'Westwood', 'Riverside', 'Newbay'];
+const LEVEL_HOME_NAMES = ['', 'Studio Apartment', 'Starter House', 'Modern Condo', 'Suburban Home', 'Mansion', 'Castle'];
+
+function showLevelUpToast(newLevel) {
+  const hood = LEVEL_HOOD_NAMES[newLevel] || null;
+  const home = LEVEL_HOME_NAMES[newLevel] || null;
+  let unlocks = [];
+  if (hood) unlocks.push(`🏙️ ${hood}`);
+  if (home) unlocks.push(`🏠 ${home}`);
+  const unlockLine = unlocks.length ? `<br><small style="opacity:0.85">Unlocked: ${unlocks.join(' · ')}</small>` : '';
+  const el = document.createElement('div');
+  el.className = 'toast success level-up-toast';
+  el.innerHTML = `<span>⭐</span>Level ${newLevel} Reached!${unlockLine}`;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), 5000);
 }
 
 // ── Navigation ────────────────────────────────────────────────────────────────
@@ -175,11 +212,51 @@ function renderDashboard() {
 function renderMarket() {
   const el = document.getElementById('market-list');
   if (!el) return;
+  if (state && state.level === 0) {
+    el.innerHTML = `<div class="empty-state">
+      <div class="empty-icon">🔒</div>
+      <div class="empty-text">Market Locked</div>
+      <div class="empty-sub">Sell your starter Bungalow in Midtown to reach Level 1 and unlock buying.</div>
+    </div>`;
+    return;
+  }
   if (marketListings.length === 0) {
     el.innerHTML = '<div class="empty-state"><div class="empty-icon">🏚️</div><div class="empty-text">No listings</div><div class="empty-sub">Refresh to see new properties</div></div>';
     return;
   }
-  el.innerHTML = marketListings.map(p => marketCardHtml(p)).join('');
+
+  // Group by neighborhood, preserving unlock order
+  const HOOD_ORDER = ['Midtown', 'Northside', 'Westwood', 'Riverside', 'Newbay'];
+  const HOOD_META = {
+    Midtown:  { emoji: '🏚️', desc: 'Crumbling blocks, forgotten by time' },
+    Northside:{ emoji: '🌲', desc: 'Gritty streets, high turnover' },
+    Westwood: { emoji: '🏘️', desc: 'Solid middle-class area' },
+    Riverside:{ emoji: '🌊', desc: 'Desirable riverside living' },
+    Newbay:   { emoji: '🌆', desc: 'Premium downtown district' },
+  };
+  const grouped = {};
+  for (const p of marketListings) {
+    if (!grouped[p.neighborhood]) grouped[p.neighborhood] = [];
+    grouped[p.neighborhood].push(p);
+  }
+  const sections = HOOD_ORDER.filter(h => grouped[h]).map(hood => {
+    const meta  = HOOD_META[hood] || { emoji: '🏙️', desc: '' };
+    const tier  = grouped[hood][0]?.neighborhood_info?.tier || 'mid';
+    const cards = grouped[hood].map(p => marketCardHtml(p)).join('');
+    return `
+      <div class="market-hood-section">
+        <div class="market-hood-header badge-${tier}">
+          <span class="market-hood-emoji">${meta.emoji}</span>
+          <div>
+            <div class="market-hood-name">${hood}</div>
+            <div class="market-hood-desc">${meta.desc}</div>
+          </div>
+          <span class="market-hood-count">${grouped[hood].length} listing${grouped[hood].length !== 1 ? 's' : ''}</span>
+        </div>
+        ${cards}
+      </div>`;
+  }).join('');
+  el.innerHTML = sections;
 }
 
 function marketCardHtml(p) {
@@ -196,8 +273,7 @@ function marketCardHtml(p) {
       <div class="card-icon">${p.icon}</div>
       <div style="flex:1">
         <div class="card-title">${p.bedrooms}bd / ${p.bathrooms}ba ${p.type}</div>
-        <div class="card-subtitle">${p.neighborhood} · ${p.sqft.toLocaleString()} sqft</div>
-        <div style="margin-top:4px"><span class="card-badge badge-${tier}">${p.neighborhood}</span></div>
+        <div class="card-subtitle">${p.sqft.toLocaleString()} sqft</div>
       </div>
     </div>
     <div class="condition-wrap">
@@ -220,6 +296,7 @@ function marketCardHtml(p) {
 }
 
 async function buyProperty(id) {
+  if (state.level === 0) { toast('Reach Level 1 first — sell your starter property!', 'error'); return; }
   const listing = marketListings.find(p => p.id === id);
   if (!listing) return;
   if (listing.purchase_price > state.cash) { toast('Not enough cash!', 'error'); return; }
@@ -238,14 +315,10 @@ async function buyProperty(id) {
   );
 }
 
-async function refreshMarket() {
-  const btn = document.getElementById('refresh-btn');
-  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>'; }
+async function refreshMarketListings() {
   const data = await api('/market/refresh', 'POST');
-  marketListings = data.listings;
+  marketListings = data.listings || [];
   renderMarket();
-  if (btn) { btn.disabled = false; btn.textContent = '🔄 Refresh'; }
-  toast('New listings loaded!');
 }
 
 // ── Properties ────────────────────────────────────────────────────────────────
@@ -293,10 +366,13 @@ function playerHomeCardHtml() {
 }
 
 function showPlayerHomeModal() {
-  const homeKey    = state.player_home || 'moms_basement';
-  const currentIdx = PLAYER_HOME_DATA.findIndex(h => h.key === homeKey);
-  const current    = PLAYER_HOME_DATA[currentIdx] || PLAYER_HOME_DATA[0];
-  const upgrades   = PLAYER_HOME_DATA.slice(currentIdx + 1);
+  const homeKey       = state.player_home || 'moms_basement';
+  const currentIdx    = PLAYER_HOME_DATA.findIndex(h => h.key === homeKey);
+  const current       = PLAYER_HOME_DATA[currentIdx] || PLAYER_HOME_DATA[0];
+  const unlockedKeys  = state.unlocked_homes || ['moms_basement'];
+  // Show all upgrades above current; mark locked ones
+  const allUpgrades   = PLAYER_HOME_DATA.slice(currentIdx + 1);
+  const upgrades      = allUpgrades;
 
   openModal(`
     <div class="modal-handle"></div>
@@ -324,17 +400,19 @@ function showPlayerHomeModal() {
       ? `<div style="text-align:center;padding:20px;color:var(--text-muted)">🏆 You live in the best home possible!</div>`
       : `<div style="font-size:12px;font-weight:700;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:8px">UPGRADE OPTIONS</div>
          ${upgrades.map(h => {
-           const canAfford = state.cash >= h.cost;
+           const isLocked  = !unlockedKeys.includes(h.key);
+           const canAfford = !isLocked && state.cash >= h.cost;
+           const reqLevel  = PLAYER_HOME_DATA.indexOf(h); // 1-indexed unlock level
            return `
-           <div class="card" style="margin-bottom:10px${!canAfford ? ';opacity:0.55' : ''}">
+           <div class="card" style="margin-bottom:10px;opacity:${isLocked ? '0.45' : (!canAfford ? '0.6' : '1')}">
              <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
-               <div style="font-size:28px;line-height:1">${h.icon}</div>
+               <div style="font-size:28px;line-height:1">${isLocked ? '🔒' : h.icon}</div>
                <div style="flex:1">
                  <div style="font-size:15px;font-weight:800">${h.name}</div>
-                 <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${h.desc}</div>
+                 <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${isLocked ? `Unlocks at Level ${reqLevel}` : h.desc}</div>
                </div>
                <div style="text-align:right;flex-shrink:0">
-                 <div style="font-size:14px;font-weight:800;color:var(--primary)">${fmt(h.cost)}</div>
+                 <div style="font-size:14px;font-weight:800;color:var(--primary)">${isLocked ? '🔒' : fmt(h.cost)}</div>
                </div>
              </div>
              <div style="display:flex;gap:8px;margin-bottom:10px">
@@ -350,7 +428,7 @@ function showPlayerHomeModal() {
              <button class="btn btn-full ${canAfford ? 'btn-primary' : 'btn-ghost'}"
                ${canAfford ? `onclick="moveIn('${h.key}')"` : 'disabled'}
                style="${!canAfford ? 'cursor:not-allowed' : ''}">
-               ${canAfford ? `Move In · ${fmt(h.cost)}` : `Need ${fmt(h.cost)} · Have ${fmt(state.cash)}`}
+               ${isLocked ? `🔒 Locked — reach Level ${reqLevel}` : canAfford ? `Move In · ${fmt(h.cost)}` : `Need ${fmt(h.cost)} · Have ${fmt(state.cash)}`}
              </button>
            </div>`;
          }).join('')}`
@@ -911,6 +989,10 @@ function evictTenant(id) {
 
 // ── Tenant Flow ───────────────────────────────────────────────────────────────
 async function showTenantsModal(id) {
+  if (state.level === 0) {
+    toast('Reach Level 1 first — sell your starter property!', 'error');
+    return;
+  }
   const prop = state.properties.find(p => p.id === id);
   openModal(`<div class="modal-handle"></div><div class="modal-title">Find a Tenant</div><p class="text-muted">Loading applicants…</p>`);
 
@@ -1854,7 +1936,7 @@ async function advanceDays(days) {
     <button class="btn btn-primary btn-full mt-8" onclick="continueFromEvents()">${btnLabel}</button>`);
 
   await refreshState();
-  await loadMarket();
+  await refreshMarketListings();
   renderAll();
 }
 

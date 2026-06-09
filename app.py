@@ -28,12 +28,25 @@ PROPERTY_ICONS = {
 }
 
 NEIGHBORHOODS = {
-    "Eastside":  {"price_mult": 0.70, "rent_mult": 0.75, "desc": "Up-and-coming, rough around the edges", "tier": "budget"},
-    "Riverside": {"price_mult": 0.85, "rent_mult": 0.90, "desc": "Quiet and a bit isolated",              "tier": "budget"},
-    "Midtown":   {"price_mult": 1.00, "rent_mult": 1.00, "desc": "Solid middle-class area",               "tier": "mid"},
-    "Westwood":  {"price_mult": 1.40, "rent_mult": 1.35, "desc": "Desirable suburb, great schools",       "tier": "premium"},
-    "Downtown":  {"price_mult": 1.60, "rent_mult": 1.55, "desc": "High-demand urban core",                "tier": "premium"},
+    "Midtown":   {"price_mult": 0.70, "rent_mult": 0.75, "desc": "Crumbling blocks, forgotten by time", "tier": "budget"},
+    "Northside": {"price_mult": 0.85, "rent_mult": 0.90, "desc": "Gritty streets, high turnover",       "tier": "budget"},
+    "Westwood":  {"price_mult": 1.00, "rent_mult": 1.00, "desc": "Solid middle-class area",               "tier": "mid"},
+    "Riverside": {"price_mult": 1.40, "rent_mult": 1.35, "desc": "Desirable suburb, great schools",       "tier": "premium"},
+    "Newbay":    {"price_mult": 1.60, "rent_mult": 1.55, "desc": "High-demand urban core",                "tier": "premium"},
 }
+
+# ── XP / Level System ──────────────────────────────────────────────────────────
+# XP_THRESHOLDS[level] = cumulative XP required to reach that level.
+# Level 0 → 1 is a special trigger (guaranteed on first property sale).
+# Levels 1 → 7 are earned through gameplay.
+XP_THRESHOLDS         = [0, 0, 150, 450, 1050, 2250, 4750, 9750]
+MAX_LEVEL             = 7
+
+# Neighborhood unlocked at each level (index 0 → level 1, index 1 → level 2, …)
+NEIGHBORHOOD_UNLOCK_ORDER = ["Midtown", "Northside", "Westwood", "Riverside", "Newbay"]
+
+# Personal home key unlocked at each level (index 0 → level 1, index 1 → level 2, …)
+HOME_UNLOCK_ORDER = ["studio_apt", "starter_house", "modern_condo", "suburban_home", "luxury_villa", "mansion"]
 
 DAYS_PER_SEASON = 28   # 4 seasons × 28 days = 112-day year
 
@@ -299,6 +312,7 @@ JOB_PAY_RANGES = {1: (100, 350), 2: (350, 700), 3: (700, 1200), 4: (1200, 2000)}
 # Creator / cheat codes — keys are lowercase for case-insensitive matching
 CREATOR_CODES = {
     "cheatercheater": {"desc": "💰 $10,000,000 deposited!", "cash": 10_000_000},
+    "pumpkineater":   {"desc": "⭐ Max Level unlocked — all neighborhoods and homes available!", "level": MAX_LEVEL, "xp": XP_THRESHOLDS[MAX_LEVEL]},
 }
 
 # Player homes — each tier increases max energy and daily recharge by 2
@@ -401,6 +415,48 @@ def clamp_morale(t):
     """Clamp tenant morale to 0-100 in-place."""
     t["morale"] = max(0, min(100, t.get("morale", 50)))
 
+def get_unlocked_neighborhoods(level):
+    """Return list of neighborhood names the player can access at this level."""
+    if level == 0: return []
+    return NEIGHBORHOOD_UNLOCK_ORDER[:min(level, len(NEIGHBORHOOD_UNLOCK_ORDER))]
+
+def get_unlocked_home_keys(level):
+    """Return list of personal home keys the player can purchase at this level."""
+    base = ["moms_basement"]
+    if level == 0: return base
+    return base + HOME_UNLOCK_ORDER[:min(level, len(HOME_UNLOCK_ORDER))]
+
+def add_xp(s, amount):
+    """Add XP to the player. Returns new level if a level-up occurred, else None.
+    Level 0 is special — XP is ignored there (level 0→1 is triggered by first sale)."""
+    lvl = s.get("level", 0)
+    if lvl == 0 or lvl >= MAX_LEVEL:
+        return None
+    s["xp"] = s.get("xp", 0) + amount
+    new_lvl = lvl
+    for check in range(lvl + 1, MAX_LEVEL + 1):
+        if s["xp"] >= XP_THRESHOLDS[check]:
+            new_lvl = check
+        else:
+            break
+    if new_lvl > lvl:
+        s["level"] = new_lvl
+        s["log"].append({"day": s["day"], "type": "info",
+            "text": f"Level Up! You are now Level {new_lvl}. New options unlocked!"})
+        return new_lvl
+    return None
+
+def calc_xp_pct(s):
+    """Return XP progress as integer percent (0-100) toward the next level."""
+    lvl = s.get("level", 0)
+    xp  = s.get("xp", 0)
+    if lvl == 0: return 0
+    if lvl >= MAX_LEVEL: return 100
+    lo  = XP_THRESHOLDS[lvl]
+    hi  = XP_THRESHOLDS[lvl + 1]
+    if hi <= lo: return 100
+    return min(100, max(0, int((xp - lo) / (hi - lo) * 100)))
+
 def get_player_home(s):
     """Return the PLAYER_HOMES dict for the player's current home."""
     key = s.get("player_home", "moms_basement")
@@ -490,9 +546,9 @@ def enrich(prop, current_day=1):
         p["tenant_days_remaining"] = max(0, lease_end - current_day)
     return p
 
-def generate_property(nid):
+def generate_property(nid, hoods=None):
     ptype = random.choice(PROPERTY_TYPES)
-    hood  = random.choice(list(NEIGHBORHOODS.keys()))
+    hood  = random.choice(hoods if hoods else list(NEIGHBORHOODS.keys()))
     beds  = random.randint(1, 5)
     baths = random.randint(1, min(beds, 3))
     sqft  = random.randint(600 + beds * 150, 900 + beds * 350)
@@ -508,7 +564,7 @@ def generate_property(nid):
     return prop
 
 def make_starter_home():
-    return {"id": 1, "type": "Bungalow", "neighborhood": "Eastside",
+    return {"id": 1, "type": "Bungalow", "neighborhood": "Midtown",
             "bedrooms": 2, "bathrooms": 1, "sqft": 820, "condition": 61,
             "upgrades": {}, "premium_upgrades": [], "squatter": None, "vacant_since": 1,
             "pending_reno": None, "pending_premium": None,
@@ -529,24 +585,70 @@ def new_game():
         "redeemed_codes": [],
         "squatter_count": 0,
         "bank": {"savings": 0, "loans": [], "next_loan_id": 1},
+        "level": 0, "xp": 0,
     }
     state["log"].append({"day": 1, "type": "info",
-        "text": "You inherited a run-down Bungalow in Eastside. Fix it up and build your empire!"})
+        "text": "You inherited a run-down Bungalow in Midtown. Fix it up and sell it to get started!"})
     state["market"], state["next_id"] = _gen_market(state["next_id"])
     return state
 
-def _gen_market(start_id, count=5):
+def _gen_market(start_id, count=5, hoods=None):
     listings, nid = [], start_id
-    for _ in range(count):
-        listings.append(generate_property(nid))
+    # Guarantee at least one listing per unlocked neighborhood so the market
+    # never appears to be missing a hood that should be accessible.
+    seeded_hoods = list(hoods) if hoods else []
+    for hood in seeded_hoods:
+        prop = generate_property(nid, hoods=[hood])
+        listings.append(prop)
+        nid += 1
+    # Fill remaining slots randomly across all unlocked hoods
+    remaining = max(0, count - len(seeded_hoods))
+    for _ in range(remaining):
+        listings.append(generate_property(nid, hoods=hoods))
         nid += 1
     return listings, nid
+
+_HOOD_MIGRATION = {
+    "Eastside":  "Midtown",
+    "Riverside": "Northside",
+    "Midtown":   "Westwood",
+    "Westwood":  "Riverside",
+    "Downtown":  "Newbay",
+}
+
+def _migrate_state(s):
+    """Migrate old saves to current schema."""
+    # Neighbourhood rename: only remap on OLD saves (those without a "level" key).
+    # New saves already use the correct hood names; remapping them would corrupt data
+    # because several names overlap between old and new (Midtown, Westwood, Riverside).
+    if "level" not in s:
+        for prop in s.get("properties", []) + s.get("market", []):
+            hood = prop.get("neighborhood", "")
+            if hood in _HOOD_MIGRATION:
+                prop["neighborhood"] = _HOOD_MIGRATION[hood]
+    # Level/XP migration — give existing players a fair starting point.
+    # Only applies when level is missing (first time loading after the XP update).
+    if "level" not in s:
+        props     = s.get("properties", [])
+        has_props = len(props) > 0
+        tenanted  = any(p.get("tenant") for p in props)
+        cash      = s.get("cash", 0)
+        # Anyone who already has property activity starts at level 1 so they
+        # aren't locked out of everything they've already built.
+        if has_props or cash > STARTING_CASH:
+            s["level"] = 1
+            s["xp"]    = 0
+        else:
+            s["level"] = 0
+            s["xp"]    = 0
+    s.setdefault("xp", 0)
+    return s
 
 def load():
     """Read game state from the request body (_state field) or start a new game."""
     data  = request.get_json(silent=True) or {}
     state = data.get('_state')
-    return state if state else new_game()
+    return _migrate_state(state) if state else new_game()
 
 def save(state):
     """Store state on Flask's per-request g — injected into the response automatically."""
@@ -577,35 +679,51 @@ def api_state():
     s = load()
     home = get_player_home(s)
     weekly_income = sum(p["tenant"]["rent"] for p in s["properties"] if p.get("tenant"))
+    lvl = s.get("level", 0)
     return jsonify({
-        "cash":            s["cash"],
-        "day":             s["day"],
-        "energy":          s.get("energy", home["max_energy"]),
-        "max_energy":      home["max_energy"],
-        "energy_recharge": home["recharge"],
-        "player_home":     s.get("player_home", "moms_basement"),
-        "jobs":            s.get("jobs", []),
-        "net_worth":       s["cash"] + sum(calc_market_value(p) for p in s["properties"]),
-        "weekly_income":   weekly_income,
-        "property_count":  len(s["properties"]),
-        "properties":      [enrich(p, s["day"]) for p in s["properties"]],
-        "log":             s["log"][-40:],
-        "bank":            s.get("bank", {"savings": 0, "loans": [], "next_loan_id": 1}),
-        "savings_tier":    savings_tier(s.get("bank", {}).get("savings", 0)),
+        "cash":                   s["cash"],
+        "day":                    s["day"],
+        "energy":                 s.get("energy", home["max_energy"]),
+        "max_energy":             home["max_energy"],
+        "energy_recharge":        home["recharge"],
+        "player_home":            s.get("player_home", "moms_basement"),
+        "jobs":                   s.get("jobs", []),
+        "net_worth":              s["cash"] + sum(calc_market_value(p) for p in s["properties"]),
+        "weekly_income":          weekly_income,
+        "property_count":         len(s["properties"]),
+        "properties":             [enrich(p, s["day"]) for p in s["properties"]],
+        "log":                    s["log"][-40:],
+        "bank":                   s.get("bank", {"savings": 0, "loans": [], "next_loan_id": 1}),
+        "savings_tier":           savings_tier(s.get("bank", {}).get("savings", 0)),
+        "level":                  lvl,
+        "xp_pct":                 calc_xp_pct(s),
+        "unlocked_neighborhoods": get_unlocked_neighborhoods(lvl),
+        "unlocked_homes":         get_unlocked_home_keys(lvl),
     })
 
 @app.route('/api/market', methods=['GET', 'POST'])
 def api_market():
     s = load()
-    if not s["market"]:
-        s["market"], s["next_id"] = _gen_market(s["next_id"])
+    unlocked = get_unlocked_neighborhoods(s.get("level", 0))
+    if not unlocked:
+        return jsonify({"listings": [], "level_locked": True})
+    visible      = [p for p in s.get("market", []) if p["neighborhood"] in unlocked]
+    represented  = {p["neighborhood"] for p in visible}
+    # Regenerate if any unlocked neighborhood has zero listings (e.g. just levelled
+    # up and the new hood isn't in the stored market yet, or market is empty).
+    if set(unlocked) != represented:
+        s["market"], s["next_id"] = _gen_market(s["next_id"], hoods=unlocked)
         save(s)
-    return jsonify({"listings": [enrich(p, s["day"]) for p in s["market"]]})
+        visible = s["market"]
+    return jsonify({"listings": [enrich(p, s["day"]) for p in visible]})
 
 @app.route('/api/market/refresh', methods=['POST'])
 def api_market_refresh():
     s = load()
-    s["market"], s["next_id"] = _gen_market(s["next_id"])
+    unlocked = get_unlocked_neighborhoods(s.get("level", 0))
+    if not unlocked:
+        return jsonify({"listings": [], "level_locked": True})
+    s["market"], s["next_id"] = _gen_market(s["next_id"], hoods=unlocked)
     save(s)
     return jsonify({"listings": [enrich(p, s["day"]) for p in s["market"]]})
 
@@ -613,6 +731,8 @@ def api_market_refresh():
 def api_buy():
     data = request.json
     s    = load()
+    if s.get("level", 0) == 0:
+        return jsonify({"error": "Reach Level 1 first — sell your starter property!"}), 400
     prop = next((p for p in s["market"] if p["id"] == data["listing_id"]), None)
     if not prop:
         return jsonify({"error": "Listing not found"}), 404
@@ -892,12 +1012,27 @@ def api_sell():
     s["properties"] = [p for p in s["properties"] if p["id"] != prop["id"]]
     s["log"].append({"day": s["day"], "type": "sell" if profit >= 0 else "loss",
         "text": f"Sold {prop['type']} in {prop['neighborhood']} for ${sale:,} ({'profit' if profit >= 0 else 'loss'}: ${abs(profit):,})"})
+    # ── XP / Level trigger ────────────────────────────────────────────────────
+    level_up = None
+    if s.get("level", 0) == 0:
+        # First sale: guaranteed level 1
+        s["level"] = 1
+        s["xp"]    = 0
+        s["log"].append({"day": s["day"], "type": "info",
+            "text": "Level Up! You are now Level 1. Buy properties and find tenants in Midtown!"})
+        level_up = 1
+    elif profit > 0:
+        xp_gain  = min(80, max(5, round(profit / 800)))
+        level_up = add_xp(s, xp_gain)
     save(s)
-    return jsonify({"success": True, "sale_price": sale, "profit": profit, "cash": s["cash"]})
+    return jsonify({"success": True, "sale_price": sale, "profit": profit, "cash": s["cash"],
+                    "level_up": level_up, "new_level": s.get("level", 0)})
 
 @app.route('/api/property/<int:pid>/applicants', methods=['GET', 'POST'])
 def api_applicants(pid):
     s    = load()
+    if s.get("level", 0) == 0:
+        return jsonify({"error": "Reach Level 1 first — sell your starter property!"}), 400
     prop = next((p for p in s["properties"] if p["id"] == pid), None)
     if not prop:
         return jsonify({"error": "Not found"}), 404
@@ -908,7 +1043,7 @@ def api_applicants(pid):
                        "damage_label": "Low" if t["damage_chance"] < 0.05 else ("Medium" if t["damage_chance"] < 0.10 else "High")}
                       for i, t in enumerate(picks)]
         # Possibly inject The Phil — only if nobody else has him and no cooldown
-        phil_active   = any(p.get("tenant", {}).get("is_phil") for p in s["properties"])
+        phil_active   = any((p.get("tenant") or {}).get("is_phil") for p in s["properties"])
         phil_cooldown = s.get("phil_cooldown_until", 0) > s["day"]
         if not phil_active and not phil_cooldown and random.random() < 0.20:
             applicants.append({**THE_PHIL, "idx": len(applicants)})
@@ -926,6 +1061,8 @@ def api_rent():
         return jsonify({"error": "Not found"}), 404
     if prop.get("tenant"):
         return jsonify({"error": "Already rented"}), 400
+    if prop.get("squatter"):
+        return jsonify({"error": "Remove squatters first"}), 400
     key         = str(data["prop_id"])
     applicants  = s.get("applicants_cache", {}).get(key, [])
     if not applicants or data["applicant_idx"] >= len(applicants):
@@ -944,15 +1081,16 @@ def api_rent():
     initial_morale = calc_initial_morale(prop, weekly_rent)
     prop["tenant"] = {
         **t,
-        "rent":            weekly_rent,
-        "fair_rent":       fair_rent,
-        "rent_tier":       tier["tier"],
-        "pay_chance":      pay_chance,
-        "damage_chance":   dmg_chance,
-        "next_rent_day":   s["day"] + 7,
-        "lease_end_day":   s["day"] + stay_days,
-        "morale":          initial_morale,
-        "recent_events":   [],   # {key, day} — prevents same event repeating within a season
+        "rent":             weekly_rent,
+        "fair_rent":        fair_rent,
+        "rent_tier":        tier["tier"],
+        "pay_chance":       pay_chance,
+        "damage_chance":    dmg_chance,
+        "next_rent_day":    s["day"] + 7,
+        "lease_end_day":    s["day"] + stay_days,
+        "morale":           initial_morale,
+        "recent_events":    [],   # {key, day} — prevents same event repeating within a season
+        "missed_payments":  0,
     }
     # Phil-specific initialisation
     if t.get("is_phil"):
@@ -1595,11 +1733,13 @@ def api_diy_renovate():
     new_val = calc_market_value(prop)
     s["log"].append({"day": s["day"], "type": "renovate",
         "text": f"DIY {upg['name']} on {prop['type']} in {prop['neighborhood']} — grade {tier['key']}, value now ${new_val:,}"})
+    xp_gain  = round(quality * 0.35)
+    level_up = add_xp(s, xp_gain) if xp_gain > 0 else None
     save(s)
     return jsonify({"success": True, "quality": quality, "quality_tier": tier["key"],
                     "cond_change": cond_change, "cond_pct": tier["pct"], "condition": prop["condition"],
                     "market_value": new_val, "weekly_rent": calc_fair_weekly_rent(prop),
-                    "energy": s["energy"]})
+                    "energy": s["energy"], "level_up": level_up, "new_level": s.get("level", 0)})
 
 @app.route('/api/repair/fix', methods=['POST'])
 def api_repair_fix():
@@ -1694,6 +1834,11 @@ def api_tenant_event_respond():
         s["log"].append({"day": s["day"], "type": "info",
             "text": f"Declined {t['name']}'s {event_cfg['name']} request at {prop['type']} in {prop['neighborhood']} — morale {morale_change}"})
 
+    level_up = None
+    if agree and morale_change > 0:
+        xp_gain  = max(1, morale_change // 5)
+        level_up = add_xp(s, xp_gain)
+
     save(s)
     return jsonify({
         "success":          True,
@@ -1703,6 +1848,8 @@ def api_tenant_event_respond():
         "condition_change": condition_change,
         "morale_change":    morale_change,
         "cash":             s["cash"],
+        "level_up":         level_up,
+        "new_level":        s.get("level", 0),
     })
 
 
@@ -1723,9 +1870,12 @@ def api_jobs_complete():
     s["jobs"]   = [j for j in s["jobs"] if j["id"] != job["id"]]
     s["log"].append({"day": s["day"], "type": "info",
         "text": f"Side job '{job['name']}' — quality {quality}/100, earned ${pay:,}"})
+    xp_gain  = round(quality * 0.4)
+    level_up = add_xp(s, xp_gain) if xp_gain > 0 else None
     save(s)
     return jsonify({"success": True, "pay": pay, "cash": s["cash"],
-                    "energy": s["energy"], "quality": quality})
+                    "energy": s["energy"], "quality": quality,
+                    "level_up": level_up, "new_level": s.get("level", 0)})
 
 @app.route('/api/squatter/bribe', methods=['POST'])
 def api_squatter_bribe():
@@ -1757,11 +1907,16 @@ def api_redeem_code():
         return jsonify({"error": "Code already used!"}), 400
     reward = CREATOR_CODES[code]
     s["cash"] += reward.get("cash", 0)
+    if "level" in reward:
+        s["level"] = reward["level"]
+        s["xp"]    = reward.get("xp", XP_THRESHOLDS[reward["level"]])
     s.setdefault("redeemed_codes", []).append(code)
     s["log"].insert(0, {"day": s["day"], "type": "info",
         "text": f"Creator code redeemed — {reward['desc']}"})
     save(s)
-    return jsonify({"success": True, "reward_desc": reward["desc"]})
+    return jsonify({"success": True, "reward_desc": reward["desc"],
+                    "level_up": s.get("level") if "level" in reward else None,
+                    "new_level": s.get("level", 0)})
 
 @app.route('/api/move_in', methods=['POST'])
 def api_move_in():
@@ -1771,6 +1926,9 @@ def api_move_in():
     new_home = next((h for h in PLAYER_HOMES if h["key"] == key), None)
     if not new_home:
         return jsonify({"error": "Invalid home"}), 400
+    unlocked_homes = get_unlocked_home_keys(s.get("level", 0))
+    if key not in unlocked_homes:
+        return jsonify({"error": "This home is locked — level up to unlock it!"}), 400
     current     = get_player_home(s)
     current_idx = next(i for i, h in enumerate(PLAYER_HOMES) if h["key"] == current["key"])
     new_idx     = next(i for i, h in enumerate(PLAYER_HOMES) if h["key"] == key)
