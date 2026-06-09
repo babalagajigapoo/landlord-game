@@ -966,6 +966,7 @@ def api_advance():
     events             = []
     new_repairs        = []
     new_morale_events  = []
+    new_renewal_offers = []
     rent_log           = {}   # prop_id -> summary dict
     squatter_spawned   = False
 
@@ -979,15 +980,37 @@ def api_advance():
             t   = prop["tenant"]
             pid = prop["id"]
 
-            # Lease end
+            # Waiting on player's renewal response — skip all processing
+            if t.get("renewal_pending"):
+                continue
+
+            # Lease end — 50% chance the tenant offers to renew
             if current_day >= t.get("lease_end_day", 999999):
-                name = t["name"]
-                prop["tenant"] = None
-                prop["vacant_since"] = current_day
-                events.append({"prop": f"{prop['type']} — {prop['neighborhood']}",
-                                "text": f"{name}'s lease ended — moved out", "type": "warning"})
-                s["log"].append({"day": current_day, "type": "info",
-                    "text": f"{name} moved out of {prop['type']} in {prop['neighborhood']}"})
+                if random.random() < 0.50:
+                    new_stay = random.randint(t.get("stay_min", 60), t.get("stay_max", 180))
+                    t["renewal_pending"]   = True
+                    t["renewal_stay_days"] = new_stay
+                    new_renewal_offers.append({
+                        "prop_id":        prop["id"],
+                        "prop_name":      f"{prop['type']} — {prop['neighborhood']}",
+                        "tenant_name":    t["name"],
+                        "tenant_icon":    t.get("icon", "👤"),
+                        "rent":           t["rent"],
+                        "new_stay_days":  new_stay,
+                        "missed_payments": t.get("missed_payments", 0),
+                        "morale":         t.get("morale", 50),
+                    })
+                    events.append({"prop": f"{prop['type']} — {prop['neighborhood']}",
+                                   "text": f"🔄 {t['name']}'s lease ended — they want to renew! (respond below)",
+                                   "type": "info"})
+                else:
+                    name = t["name"]
+                    prop["tenant"] = None
+                    prop["vacant_since"] = current_day
+                    events.append({"prop": f"{prop['type']} — {prop['neighborhood']}",
+                                    "text": f"{name}'s lease ended — moved out", "type": "warning"})
+                    s["log"].append({"day": current_day, "type": "info",
+                        "text": f"{name} moved out of {prop['type']} in {prop['neighborhood']}"})
                 continue
 
             # Morale-based early exit — kicks in below 20%, one tenant max per day
@@ -1031,6 +1054,7 @@ def api_advance():
                     rent_log[pid]["partial"]     += 1
                 else:
                     rent_log[pid]["missed"] += 1
+                    t["missed_payments"] = t.get("missed_payments", 0) + 1
 
             prop["days_rented"] = prop.get("days_rented", 0) + 1
 
@@ -1203,6 +1227,9 @@ def api_advance():
                 # Tenant morale boost — they appreciate the improvement
                 if prop.get("tenant"):
                     prop["tenant"]["morale"] = min(100, prop["tenant"].get("morale", 50) + 8)
+                else:
+                    # Vacant — protect against squatters for 3 days
+                    prop["reno_protected_until"] = current_day + 3
                 events.append({"prop": f"{prop['type']} — {prop['neighborhood']}",
                                 "text": f"✅ {reno['name']} finished! Grade {reno['tier_key']}",
                                 "type": "positive"})
@@ -1219,6 +1246,9 @@ def api_advance():
                 # Tenant morale boost — premium upgrades impress tenants
                 if prop.get("tenant"):
                     prop["tenant"]["morale"] = min(100, prop["tenant"].get("morale", 50) + 8)
+                else:
+                    # Vacant — protect against squatters for 3 days
+                    prop["reno_protected_until"] = current_day + 3
                 events.append({"prop": f"{prop['type']} — {prop['neighborhood']}",
                                 "text": f"✅ {pp['name']} installation complete!",
                                 "type": "positive"})
@@ -1250,7 +1280,8 @@ def api_advance():
             eligible = [p for p in s["properties"]
                         if not p.get("tenant") and not p.get("squatter")
                         and not p.get("pending_reno") and not p.get("pending_premium")
-                        and (current_day - p.get("vacant_since", 1)) >= 3]
+                        and (current_day - p.get("vacant_since", 1)) >= 3
+                        and current_day > p.get("reno_protected_until", 0)]
             if eligible and random.random() < spawn_chance:
                 target = random.choice(eligible)
                 bribe  = int(calc_market_value(target) * 0.10)
@@ -1336,8 +1367,38 @@ def api_advance():
         "net_worth": s["cash"] + sum(calc_market_value(p) for p in s["properties"]),
         "events":        events,
         "repairs":       new_repairs,
-        "morale_events": new_morale_events,
+        "morale_events":  new_morale_events,
+        "renewal_offers": new_renewal_offers,
     })
+
+
+@app.route('/api/property/<int:pid>/renewal_respond', methods=['POST'])
+def api_renewal_respond(pid):
+    s    = load()
+    data = request.json or {}
+    prop = next((p for p in s["properties"] if p["id"] == pid), None)
+    if not prop or not prop.get("tenant") or not prop["tenant"].get("renewal_pending"):
+        return jsonify({"error": "No pending renewal for this property"}), 400
+
+    t = prop["tenant"]
+    if data.get("agree"):
+        new_stay = t.get("renewal_stay_days",
+                         random.randint(t.get("stay_min", 60), t.get("stay_max", 180)))
+        t["lease_end_day"]   = s["day"] + new_stay
+        t["renewal_pending"] = False
+        t.pop("renewal_stay_days", None)
+        s["log"].append({"day": s["day"], "type": "rent",
+            "text": f"{t['name']} renewed lease at {prop['type']} in {prop['neighborhood']} for {new_stay} more days"})
+    else:
+        name = t["name"]
+        prop["tenant"]       = None
+        prop["vacant_since"] = s["day"]
+        s["log"].append({"day": s["day"], "type": "info",
+            "text": f"{name}'s renewal denied at {prop['type']} in {prop['neighborhood']} — moved out"})
+
+    save(s)
+    return jsonify({"success": True})
+
 
 # ── Bank Routes ────────────────────────────────────────────────────────────────
 

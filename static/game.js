@@ -10,11 +10,12 @@ let _pendingConfirm = null;
 
 // ── Mini-game state ───────────────────────────────────────────────────────────
 let _mg             = {};   // active mini-game state
-let _pendingRepairs      = [];   // repair events queued after advancing
-let _currentRepair       = null; // repair being handled right now
-let _pendingJob          = null; // side job being played
-let _pendingSquatter     = null; // squatter event queued after repairs
-let _pendingMoraleEvents = [];   // morale-choice events queued after repairs
+let _pendingRepairs       = [];   // repair events queued after advancing
+let _currentRepair        = null; // repair being handled right now
+let _pendingJob           = null; // side job being played
+let _pendingSquatter      = null; // squatter event queued after repairs
+let _pendingMoraleEvents  = [];   // morale-choice events queued after repairs
+let _pendingRenewalOffers = [];   // lease renewal offers queued after advancing
 
 // ── Tenant window cache ───────────────────────────────────────────────────────
 // Stores the maintenance window day per property, keyed by propId.
@@ -1783,10 +1784,11 @@ async function advanceDays(days) {
         </div>
       </div>`).join('');
 
-  _pendingRepairs      = res.repairs       || [];
-  _pendingMoraleEvents = res.morale_events || [];
-  _pendingSquatter     = (res.events || []).find(e => e.type === 'squatter') || null;
-  const totalPending   = _pendingRepairs.length + _pendingMoraleEvents.length;
+  _pendingRepairs       = res.repairs        || [];
+  _pendingMoraleEvents  = res.morale_events  || [];
+  _pendingRenewalOffers = res.renewal_offers || [];
+  _pendingSquatter      = (res.events || []).find(e => e.type === 'squatter') || null;
+  const totalPending    = _pendingRepairs.length + _pendingMoraleEvents.length + _pendingRenewalOffers.length;
   const repairNote = _pendingRepairs.length > 0
     ? `<div style="background:var(--warning-bg,#FFF8E1);border:2px solid var(--warning);border-radius:var(--radius-sm);padding:10px 12px;margin-top:12px;font-size:13px;font-weight:700">
         🔧 ${_pendingRepairs.length} repair${_pendingRepairs.length > 1 ? 's' : ''} need${_pendingRepairs.length === 1 ? 's' : ''} attention!</div>`
@@ -1795,6 +1797,18 @@ async function advanceDays(days) {
     ? `<div style="background:#F3E5F5;border:2px solid #CE93D8;border-radius:var(--radius-sm);padding:10px 12px;margin-top:8px;font-size:13px;font-weight:700">
         💬 ${_pendingMoraleEvents.length} tenant request${_pendingMoraleEvents.length > 1 ? 's' : ''} waiting!</div>`
     : '';
+  const renewalNote = _pendingRenewalOffers.length > 0
+    ? `<div style="background:#E8F5E9;border:2px solid #66BB6A;border-radius:var(--radius-sm);padding:10px 12px;margin-top:8px;font-size:13px;font-weight:700">
+        🔄 ${_pendingRenewalOffers.length} lease renewal${_pendingRenewalOffers.length > 1 ? 's' : ''} to review!</div>`
+    : '';
+
+  const btnLabel = _pendingRepairs.length > 0
+    ? `Fix Repairs (${_pendingRepairs.length})`
+    : _pendingMoraleEvents.length > 0
+      ? `Respond to Requests (${_pendingMoraleEvents.length})`
+      : _pendingRenewalOffers.length > 0
+        ? `Review Leases (${_pendingRenewalOffers.length})`
+        : 'Continue';
 
   openModal(`
     <div class="modal-handle"></div>
@@ -1806,9 +1820,8 @@ async function advanceDays(days) {
     ${eventsHtml}
     ${repairNote}
     ${moraleNote}
-    <button class="btn btn-primary btn-full mt-8" onclick="continueFromEvents()">
-      ${_pendingRepairs.length > 0 ? `Fix Repairs (${_pendingRepairs.length})` : totalPending > 0 ? `Respond to Requests (${totalPending})` : 'Continue'}
-    </button>`);
+    ${renewalNote}
+    <button class="btn btn-primary btn-full mt-8" onclick="continueFromEvents()">${btnLabel}</button>`);
 
   await refreshState();
   await loadMarket();
@@ -1820,6 +1833,8 @@ function continueFromEvents() {
     showNextRepair();
   } else if (_pendingMoraleEvents.length > 0) {
     showNextMoraleEvent();
+  } else if (_pendingRenewalOffers.length > 0) {
+    showNextRenewalOffer();
   } else if (_pendingSquatter) {
     const sq = _pendingSquatter;
     _pendingSquatter = null;
@@ -1934,6 +1949,74 @@ async function respondMoraleEvent(propId, eventKey, agree) {
   await refreshState();
   renderAll();
   showNextMoraleEvent();
+}
+
+// ── Lease Renewal ─────────────────────────────────────────────────────────────
+function showNextRenewalOffer() {
+  if (_pendingRenewalOffers.length === 0) { continueFromEvents(); return; }
+  showRenewalModal(_pendingRenewalOffers.shift());
+}
+
+function showRenewalModal(offer) {
+  const missed = offer.missed_payments || 0;
+  const missedColor = missed === 0 ? 'var(--positive)' : missed <= 2 ? 'var(--warning)' : 'var(--negative)';
+  const missedLabel = missed === 0
+    ? '✅ Never missed a payment'
+    : missed === 1 ? '⚠️ Late on rent 1 time'
+    : `🚨 Late on rent ${missed} times`;
+  const stayLabel = offer.new_stay_days >= 90
+    ? `~${Math.round(offer.new_stay_days / 28)} seasons`
+    : `${offer.new_stay_days} days`;
+
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">🔄 Lease Renewal</div>
+    <div class="modal-subtitle">${offer.prop_name}</div>
+
+    <div class="card" style="margin-bottom:14px;text-align:center">
+      <div style="font-size:32px;margin-bottom:4px">${offer.tenant_icon}</div>
+      <div style="font-weight:800;font-size:15px">${offer.tenant_name}</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-top:4px">wants to stay for another <strong>${stayLabel}</strong></div>
+      <div style="font-size:13px;margin-top:6px">Rent: <strong>${fmt(offer.rent)}/wk</strong></div>
+      <div style="font-size:13px;margin-top:4px;color:${missedColor};font-weight:700">${missedLabel}</div>
+    </div>
+
+    <div class="card" style="margin-bottom:10px;border:2px solid var(--positive)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <span style="font-size:24px">✅</span>
+        <div><div style="font-size:14px;font-weight:800">Renew Lease</div>
+          <div style="font-size:12px;color:var(--text-muted)">They stay for another ${stayLabel} at the same rent</div>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="respondRenewal(${offer.prop_id}, true)">Renew Lease</button>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <span style="font-size:24px">👋</span>
+        <div><div style="font-size:14px;font-weight:800">Let Them Go</div>
+          <div style="font-size:12px;color:var(--text-muted)">They move out and the property goes vacant</div>
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-full" onclick="respondRenewal(${offer.prop_id}, false)">Let Them Go</button>
+    </div>
+
+    ${_pendingRenewalOffers.length > 0
+      ? `<div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:8px">${_pendingRenewalOffers.length} more renewal(s) after this</div>`
+      : ''}`);
+}
+
+async function respondRenewal(propId, agree) {
+  const res = await api(`/property/${propId}/renewal_respond`, 'POST', { agree });
+  if (res.error) { toast(res.error, 'error'); return; }
+  if (agree) {
+    toast('Lease renewed! Tenant staying on.', 'success');
+  } else {
+    toast('Tenant moved out. Property is now vacant.', 'warning');
+  }
+  await refreshState();
+  renderAll();
+  showNextRenewalOffer();
 }
 
 function showNextRepair() {
