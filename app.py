@@ -328,6 +328,22 @@ CONTRACTORS = {
     "premium":  {"name": "Premier Pete",   "icon": "⭐", "desc": "Top-tier quality, fully guaranteed",         "cost_mult": 1.50, "q_min": 45, "q_max": 100, "tier_range": "B – S+"},
 }
 
+# ── Special tenant: The Phil ──────────────────────────────────────────────────
+# Only one Phil can rent at a time. After he leaves a 4-season (112-day)
+# cooldown prevents him from reappearing in any applicant pool.
+# He never damages property, always pays, and actively improves the place.
+THE_PHIL = {
+    "name":          "The Phil",
+    "icon":          "🔱",
+    "pay_chance":    1.00,
+    "damage_chance": 0.00,
+    "stay_min":      56,    # 2 seasons min
+    "stay_max":      112,   # 1 year max
+    "is_phil":       True,
+    "damage_label":  "None ✨",
+    "desc":          "Mysterious. Immaculate. He just… fixes things.",
+}
+
 # stay_min / stay_max are in DAYS
 TENANT_PROFILES = [
     # ── Original profiles ──────────────────────────────────────────────────────
@@ -891,6 +907,11 @@ def api_applicants(pid):
         applicants = [{**t, "idx": i,
                        "damage_label": "Low" if t["damage_chance"] < 0.05 else ("Medium" if t["damage_chance"] < 0.10 else "High")}
                       for i, t in enumerate(picks)]
+        # Possibly inject The Phil — only if nobody else has him and no cooldown
+        phil_active   = any(p.get("tenant", {}).get("is_phil") for p in s["properties"])
+        phil_cooldown = s.get("phil_cooldown_until", 0) > s["day"]
+        if not phil_active and not phil_cooldown and random.random() < 0.20:
+            applicants.append({**THE_PHIL, "idx": len(applicants)})
         s.setdefault("applicants_cache", {})[key] = applicants
         save(s)
     fair_weekly = calc_fair_weekly_rent(prop)
@@ -933,6 +954,10 @@ def api_rent():
         "morale":          initial_morale,
         "recent_events":   [],   # {key, day} — prevents same event repeating within a season
     }
+    # Phil-specific initialisation
+    if t.get("is_phil"):
+        prop["tenant"]["next_phil_work_day"] = s["day"] + 7
+        prop["tenant"]["morale"] = 100
     s.get("applicants_cache", {}).pop(key, None)
     s["log"].append({"day": s["day"], "type": "rent",
         "text": f"{t['name']} moved into {prop['type']} in {prop['neighborhood']} — ${weekly_rent:,}/wk ({tier['tier']} rent) for ~{stay_days} days"})
@@ -950,6 +975,8 @@ def api_evict():
     if s["cash"] < fee:
         return jsonify({"error": "Need $1,500 for legal fees"}), 400
     name = prop["tenant"]["name"]
+    if prop["tenant"].get("is_phil"):
+        s["phil_cooldown_until"] = s["day"] + DAYS_PER_SEASON * 4
     s["cash"] -= fee
     prop["tenant"] = None
     prop["vacant_since"] = s["day"]
@@ -1005,6 +1032,8 @@ def api_advance():
                                    "type": "info"})
                 else:
                     name = t["name"]
+                    if t.get("is_phil"):
+                        s["phil_cooldown_until"] = current_day + DAYS_PER_SEASON * 4
                     prop["tenant"] = None
                     prop["vacant_since"] = current_day
                     events.append({"prop": f"{prop['type']} — {prop['neighborhood']}",
@@ -1056,13 +1085,52 @@ def api_advance():
                     rent_log[pid]["missed"] += 1
                     t["missed_payments"] = t.get("missed_payments", 0) + 1
 
+            # ── The Phil's special effects ─────────────────────────────────
+            if t.get("is_phil"):
+                # Passive: condition +1 every day Phil is here
+                prop["condition"] = min(MAX_CONDITION, prop["condition"] + 1)
+
+                # Weekly: 25% chance to do a renovation or premium upgrade
+                if current_day >= t.get("next_phil_work_day", 999999):
+                    t["next_phil_work_day"] = current_day + 7
+                    if random.random() < 0.25:
+                        avail_upgrades  = [k for k in UPGRADES         if k not in prop.get("upgrades", {})]
+                        avail_premiums  = [k for k in PREMIUM_UPGRADES if k not in prop.get("premium_upgrades", [])]
+                        all_work = [("u", k) for k in avail_upgrades] + [("p", k) for k in avail_premiums]
+                        if all_work:
+                            wtype, wkey = random.choice(all_work)
+                            if wtype == "u":
+                                quality     = random.randint(80, 100)
+                                tier_grade  = next(tr for tr in TIER_GRADES if tr["min_score"] <= quality <= tr["max_score"])
+                                cond_change = tier_cond_change(tier_grade)
+                                prop.setdefault("upgrades", {})[wkey] = {"quality": quality, "day": current_day}
+                                prop["condition"] = max(0, min(MAX_CONDITION, prop["condition"] + cond_change))
+                                upg = UPGRADES[wkey]
+                                events.append({"prop": f"{prop['type']} — {prop['neighborhood']}",
+                                    "text": f"🔱 The Phil did: {upg['icon']} {upg['name']} — Grade {tier_grade['key']}!", "type": "positive"})
+                                s["log"].insert(0, {"day": current_day, "type": "renovate",
+                                    "text": f"The Phil completed {upg['name']} at {prop['type']} in {prop['neighborhood']} — Grade {tier_grade['key']}"})
+                            else:
+                                prop.setdefault("premium_upgrades", []).append(wkey)
+                                pu = PREMIUM_UPGRADES[wkey]
+                                events.append({"prop": f"{prop['type']} — {prop['neighborhood']}",
+                                    "text": f"🔱 The Phil installed: {pu['icon']} {pu['name']}!", "type": "positive"})
+                                s["log"].insert(0, {"day": current_day, "type": "upgrade",
+                                    "text": f"The Phil installed {pu['name']} at {prop['type']} in {prop['neighborhood']}"})
+                        else:
+                            # Everything's already done — Phil does a deep clean
+                            prop["condition"] = min(MAX_CONDITION, prop["condition"] + 10)
+                            events.append({"prop": f"{prop['type']} — {prop['neighborhood']}",
+                                "text": "🔱 The Phil deep-cleaned everything — condition +10!", "type": "positive"})
+
             prop["days_rented"] = prop.get("days_rented", 0) + 1
 
         # ── Global tenant event roll ───────────────────────────────────────────
         # 35% base chance + 1% per tenant (capped at 90%) that one event fires.
         # Each event type has a weight; same event can't repeat for a tenant within a season.
+        # The Phil is excluded — he handles his own improvements separately.
         # To add a new event: add to TENANT_EVENTS and add an elif handler below.
-        tenant_props = [p for p in s["properties"] if p.get("tenant")]
+        tenant_props = [p for p in s["properties"] if p.get("tenant") and not p["tenant"].get("is_phil")]
         tenant_count = len(tenant_props)
         if tenant_count > 0:
             event_chance = min(0.35 + 0.01 * tenant_count, 0.90)
@@ -1391,6 +1459,8 @@ def api_renewal_respond(pid):
             "text": f"{t['name']} renewed lease at {prop['type']} in {prop['neighborhood']} for {new_stay} more days"})
     else:
         name = t["name"]
+        if t.get("is_phil"):
+            s["phil_cooldown_until"] = s["day"] + DAYS_PER_SEASON * 4
         prop["tenant"]       = None
         prop["vacant_since"] = s["day"]
         s["log"].append({"day": s["day"], "type": "info",

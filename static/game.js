@@ -379,6 +379,8 @@ function portfolioCardHtml(p) {
     ? `<span class="vacant-chip" style="background:#E3F2FD;color:#1565C0;border-color:#90CAF9">🔨 ${activePending.name} · ${pendingDaysLeft}d left</span>`
     : p.tenant && scheduledWork
     ? `<span class="vacant-chip" style="background:#F3E5F5;color:#6A1B9A;border-color:#CE93D8">🗓️ ${scheduledWork.name} · starts in ${scheduledDaysOut}d</span>`
+    : p.tenant && p.tenant.is_phil
+    ? `<span class="tenant-chip" style="background:#fffde7;color:#b8860b;border-color:gold;font-weight:800">🔱 The Phil · ${fmt(p.tenant.rent)}/wk</span>`
     : p.tenant && (p.tenant.morale ?? 50) < 20
     ? `<span class="vacant-chip" style="background:#FFEBEE;color:#C62828;border-color:#EF9A9A">😠 ${p.tenant.name} · morale ${p.tenant.morale ?? '?'}%</span>`
     : p.tenant
@@ -462,15 +464,17 @@ async function showPropertyDetail(id) {
         const moraleColor = morale >= 60 ? 'var(--positive)' : morale >= 40 ? 'var(--primary)' : morale >= 20 ? 'var(--warning)' : 'var(--negative)';
         const moraleLabel = morale >= 60 ? '😊 Happy' : morale >= 40 ? '😐 Content' : morale >= 20 ? '😟 Uneasy' : '😠 Unhappy — at risk of leaving!';
         const moraleWarn  = morale < 20 ? `<div style="font-size:12px;color:var(--negative);font-weight:700;margin-top:6px">⚠️ Morale critical — fix repairs before they break lease early!</div>` : '';
-        return `<div class="card" style="margin-bottom:10px${morale < 20 ? ';border:2px solid var(--negative)' : ''}">
-        <div class="section-header mb-0"><span class="section-title">Current Tenant</span></div>
+        const isPhil      = !!prop.tenant.is_phil;
+        const philBorder  = isPhil ? ';border:2px solid gold' : (morale < 20 ? ';border:2px solid var(--negative)' : '');
+        return `<div class="card" style="margin-bottom:10px${philBorder}${isPhil ? ';background:linear-gradient(135deg,#fffde7,#fff8e1)' : ''}">
+        <div class="section-header mb-0"><span class="section-title">Current Tenant</span>${isPhil ? '<span style="font-size:11px;background:gold;color:#5d4037;padding:2px 8px;border-radius:8px;font-weight:700">🔱 THE PHIL</span>' : ''}</div>
         <div style="margin-top:10px">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
             <span style="font-size:28px">${prop.tenant.icon || '👤'}</span>
             <div style="flex:1">
-              <div style="font-size:15px;font-weight:700">${prop.tenant.name}</div>
+              <div style="font-size:15px;font-weight:700;${isPhil ? 'color:#b8860b' : ''}">${prop.tenant.name}</div>
               <div style="font-size:12px;color:var(--text-2)">${prop.tenant_days_remaining ?? '?'} days left on lease</div>
-              <div style="margin-top:2px">${rentTierBadge(prop.tenant.rent_tier)}</div>
+              <div style="margin-top:2px">${isPhil ? '<span style="font-size:11px;color:#b8860b;font-weight:700">+1 condition/day · 25% weekly reno</span>' : rentTierBadge(prop.tenant.rent_tier)}</div>
             </div>
             <span style="font-size:18px;font-weight:800;color:var(--positive)">${fmt(prop.tenant.rent)}/wk</span>
           </div>
@@ -918,7 +922,33 @@ async function showTenantsModal(id) {
     <div class="modal-handle"></div>
     <div class="modal-title">Choose a Tenant</div>
     <div class="modal-subtitle">${prop.type} in ${prop.neighborhood} · Fair rent: ${fmt(_fairRent)}/wk</div>
-    ${_applicants.map(t => `
+    ${_applicants.map(t => t.is_phil ? `
+      <div class="tenant-card" onclick="showRentSettingModal(${id}, ${t.idx})"
+           style="border:2px solid gold;background:linear-gradient(135deg,#fffde7,#fff8e1)">
+        <div class="tenant-header">
+          <span class="tenant-icon">${t.icon}</span>
+          <div style="flex:1">
+            <div class="tenant-name" style="color:#b8860b;font-weight:900">${t.name}
+              <span style="font-size:10px;background:gold;color:#5d4037;padding:2px 6px;border-radius:8px;margin-left:6px;font-weight:700">RARE</span>
+            </div>
+            <div style="font-size:11px;color:#8d6e63">${t.stay_min}–${t.stay_max} day lease · ${t.desc}</div>
+          </div>
+        </div>
+        <div class="tenant-meta">
+          <div class="tenant-meta-item">
+            <span class="tm-label">Reliability</span>
+            <span class="tm-value" style="color:gold;font-weight:800">★★★★★ Always</span>
+          </div>
+          <div class="tenant-meta-item">
+            <span class="tm-label">Damage Risk</span>
+            <span class="tm-value" style="color:var(--positive)">${t.damage_label}</span>
+          </div>
+          <div class="tenant-meta-item" style="grid-column:1/-1">
+            <span class="tm-label">Special</span>
+            <span class="tm-value" style="color:#b8860b">+1 condition/day · 25% weekly renovation</span>
+          </div>
+        </div>
+      </div>` : `
       <div class="tenant-card" onclick="showRentSettingModal(${id}, ${t.idx})">
         <div class="tenant-header">
           <span class="tenant-icon">${t.icon}</span>
