@@ -1299,13 +1299,13 @@ const WORK_MG_MAP = {
   'paint':       'paintgame',    // Paint the Wall — drag to cover tiles
   'flooring':    'flooringgame', // Lay the Floor — pick a color, tap matching planks
   'windows':     'windowgame',   // Level the Windows — hold to level, they drift back
-  'hvac':        'sweetspot',    // Tighten the Fitting — mechanical tensioning
-  'bathrooms':   'colormatch',   // Match the Tile — tiling
+  'hvac':        'hvacgame',     // Run the HVAC Pipe — drag through attic maze
+  'bathrooms':   'plumbinggame', // Tighten the Pipe — tap to stop the burst
   'roof':        'quicktap',     // Drive the Nails — nailing shingles
   'kitchen':     'sweetspot',    // Tighten the Fitting — plumbing & fittings
   'landscaping': 'landscapegame', // Pull the Weeds — tap weeds before they take over
   // Repair types
-  'plumbing':    'sweetspot',
+  'plumbing':    'plumbinggame',
   'electrical':  'sequence',     // Wire It Up — connect wires in order
   'appliance':   'sweetspot',
   'roof_patch':  'quicktap',
@@ -1315,12 +1315,12 @@ const WORK_MG_MAP = {
   'Paint a Room':        'paintgame',
   'Lay Flooring':        'flooringgame',
   'Patch the Roof':      'quicktap',
-  'Fix a Plumbing Leak': 'sweetspot',
+  'Fix a Plumbing Leak': 'plumbinggame',
   'Install Windows':     'windowgame',
   'Tile a Bathroom':     'colormatch',
   'Hang Drywall':        'quicktap',
   'Electrical Work':     'sequence',
-  'HVAC Maintenance':    'sweetspot',
+  'HVAC Maintenance':    'hvacgame',
   'Build a Fence':       'quicktap',
   'Pour Concrete':       'rapidpress',
   'Landscaping Work':    'landscapegame',
@@ -1341,6 +1341,8 @@ function launchMgByType(mgType, upgradeKey) {
   else if (mgType === 'landscapegame') launchLandscapeGame(upgradeKey);
   else if (mgType === 'flooringgame')  launchFlooringGame(upgradeKey);
   else if (mgType === 'windowgame')    launchWindowGame(upgradeKey);
+  else if (mgType === 'hvacgame')      launchHvacGame(upgradeKey);
+  else if (mgType === 'plumbinggame')  launchPlumbingGame(upgradeKey);
 }
 
 async function showContractorModal(propId, upgradeKey) {
@@ -2585,6 +2587,656 @@ function wgFinish() {
 function wgClose() {
   clearTimeout(_mg.autoCloseId);
   const overlay = document.getElementById('wg-overlay');
+  if (!overlay) return;
+  overlay.remove();
+  finishDIY(_mg.upgradeKey, _mg.finalScore ?? 0);
+}
+
+// ── Mini-game: Run the HVAC Pipe (HVAC) ──────────────────────────────────────
+// Drag through a randomly-generated attic maze. A metallic pipe renders as you
+// go — straight sections stay straight, corners automatically round into elbows.
+// Score = % of solution path completed (100% only if you reach the END).
+const HV_COLS     = 5;   // logical maze columns
+const HV_ROWS     = 9;   // logical maze rows
+const HV_DURATION = 3;   // seconds
+const HV_WALL     = 8;   // wall thickness in logical pixels
+
+// ── Maze generation (recursive backtracker) ──────────────────────────────────
+function hvGenMaze(rows, cols) {
+  const DIRS = { N: [-1,0], S: [1,0], E: [0,1], W: [0,-1] };
+  const OPP  = { N:'S', S:'N', E:'W', W:'E' };
+  const grid = Array.from({ length: rows }, () =>
+    Array.from({ length: cols }, () => ({ N:true, S:true, E:true, W:true, v:false }))
+  );
+  function sh(a) {
+    for (let i=a.length-1;i>0;i--) {
+      const j=0|Math.random()*(i+1); [a[i],a[j]]=[a[j],a[i]];
+    }
+    return a;
+  }
+  function carve(r,c) {
+    grid[r][c].v = true;
+    for (const d of sh(['N','S','E','W'])) {
+      const [dr,dc] = DIRS[d];
+      const nr=r+dr, nc=c+dc;
+      if (nr>=0&&nr<rows&&nc>=0&&nc<cols&&!grid[nr][nc].v) {
+        grid[r][c][d] = false;
+        grid[nr][nc][OPP[d]] = false;
+        carve(nr,nc);
+      }
+    }
+  }
+  carve(0,0);
+  grid.forEach(row => row.forEach(c => delete c.v));
+  return grid;
+}
+
+// ── BFS solver (finds shortest path for scoring) ─────────────────────────────
+function hvSolve(maze, rows, cols) {
+  const DIRS = { N:[-1,0], S:[1,0], E:[0,1], W:[0,-1] };
+  const prev = Array.from({length:rows}, () => Array(cols).fill(null));
+  const seen = Array.from({length:rows}, () => Array(cols).fill(false));
+  seen[0][0] = true;
+  const q = [[0,0]];
+  outer: while (q.length) {
+    const [r,c] = q.shift();
+    for (const [d,[dr,dc]] of Object.entries(DIRS)) {
+      const nr=r+dr, nc=c+dc;
+      if (!maze[r][c][d] && nr>=0&&nr<rows&&nc>=0&&nc<cols&&!seen[nr][nc]) {
+        seen[nr][nc] = true;
+        prev[nr][nc] = {r,c};
+        if (nr===rows-1&&nc===cols-1) break outer;
+        q.push([nr,nc]);
+      }
+    }
+  }
+  const path = [];
+  let r=rows-1, c=cols-1;
+  while (true) {
+    path.unshift({row:r,col:c});
+    const p = prev[r][c];
+    if (!p) break;
+    r=p.r; c=p.c;
+  }
+  return path;
+}
+
+// ── Launcher ─────────────────────────────────────────────────────────────────
+function launchHvacGame(upgradeKey) {
+  closeModal();
+
+  const maze     = hvGenMaze(HV_ROWS, HV_COLS);
+  const solution = hvSolve(maze, HV_ROWS, HV_COLS);
+
+  _mg = { ..._mg, upgradeKey, maze, solution,
+          path: [{row:0,col:0}],
+          running:false, timerId:null, startTime:0,
+          locked:true, finalScore:0, complete:false,
+          logW:0, logH:0 };
+
+  const old = document.getElementById('hv-overlay');
+  if (old) old.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id        = 'hv-overlay';
+  overlay.className = 'hv-overlay';
+  overlay.innerHTML = `
+    <div class="hv-header">
+      <div class="hv-top-row">
+        <span class="hv-title">🔧 Run the HVAC Pipe!</span>
+        <span class="hv-hint">Drag START → END</span>
+      </div>
+      <div class="hv-timer-track">
+        <div class="hv-timer-fill" id="hv-timer-fill"></div>
+      </div>
+      <div class="hv-time-label"><span id="hv-time">${HV_DURATION}</span>s remaining</div>
+    </div>
+    <div class="hv-arena" id="hv-arena">
+      <canvas id="hv-canvas"></canvas>
+    </div>
+    <div class="hv-start-screen" id="hv-start-screen">
+      <div class="hv-start-card">
+        <div class="hv-start-icon">🔧</div>
+        <div class="hv-start-title">Run the HVAC Pipe!</div>
+        <div class="hv-start-desc">Drag through the attic maze to lay pipe<br>from <span style="color:#4CAF50;font-weight:900">START</span> all the way to <span style="color:#FF5722;font-weight:900">END</span>!</div>
+        <button class="hv-start-btn" ontouchstart="hvStart();event.preventDefault()" onclick="hvStart()">🔧 Let's Go!</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  // Size canvas after layout
+  requestAnimationFrame(() => {
+    const arena  = document.getElementById('hv-arena');
+    const canvas = document.getElementById('hv-canvas');
+    if (!arena || !canvas) return;
+    const dpr  = window.devicePixelRatio || 1;
+    const logW = arena.clientWidth;
+    const logH = arena.clientHeight;
+    canvas.width  = logW * dpr;
+    canvas.height = logH * dpr;
+    canvas.style.width  = logW + 'px';
+    canvas.style.height = logH + 'px';
+    canvas.getContext('2d').scale(dpr, dpr);
+    _mg.logW = logW;
+    _mg.logH = logH;
+    hvRender();
+    hvAttachInput(canvas);
+  });
+}
+
+// ── Geometry helpers ──────────────────────────────────────────────────────────
+function hvMetrics() {
+  const cW = (_mg.logW - (HV_COLS+1) * HV_WALL) / HV_COLS;
+  const cH = (_mg.logH - (HV_ROWS+1) * HV_WALL) / HV_ROWS;
+  return {
+    cW, cH,
+    cx: c => HV_WALL + c*(cW+HV_WALL) + cW/2,   // cell center x
+    cy: r => HV_WALL + r*(cH+HV_WALL) + cH/2,   // cell center y
+    ox: c => HV_WALL + c*(cW+HV_WALL),           // cell origin x
+    oy: r => HV_WALL + r*(cH+HV_WALL),           // cell origin y
+  };
+}
+
+function hvPixelToCell(px, py) {
+  return {
+    col: Math.max(0, Math.min(HV_COLS-1, Math.floor(px / (_mg.logW / HV_COLS)))),
+    row: Math.max(0, Math.min(HV_ROWS-1, Math.floor(py / (_mg.logH / HV_ROWS)))),
+  };
+}
+
+// ── Canvas renderer ───────────────────────────────────────────────────────────
+function hvRender() {
+  const canvas = document.getElementById('hv-canvas');
+  if (!canvas || !_mg.logW) return;
+  const ctx = canvas.getContext('2d');
+  const { cW, cH, cx, cy, ox, oy } = hvMetrics();
+  const W = _mg.logW, H = _mg.logH;
+
+  // Attic background (wall color = dark wood beams)
+  ctx.fillStyle = '#2c1a06';
+  ctx.fillRect(0, 0, W, H);
+
+  // Open cells + open passages between them (passage color)
+  ctx.fillStyle = '#1a0f04';
+  for (let r=0; r<HV_ROWS; r++) {
+    for (let c=0; c<HV_COLS; c++) {
+      ctx.fillRect(ox(c), oy(r), cW, cH);
+      if (!_mg.maze[r][c].E && c<HV_COLS-1)
+        ctx.fillRect(ox(c)+cW, oy(r), HV_WALL, cH);   // east passage gap
+      if (!_mg.maze[r][c].S && r<HV_ROWS-1)
+        ctx.fillRect(ox(c), oy(r)+cH, cW, HV_WALL);   // south passage gap
+    }
+  }
+
+  // Subtle wood-grain lines on walls
+  ctx.strokeStyle = 'rgba(80,40,8,0.5)';
+  ctx.lineWidth = 1;
+  for (let y=0; y<H; y+=18) {
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
+  }
+
+  // START / END cell tints
+  ctx.fillStyle = 'rgba(76,175,80,0.22)';
+  ctx.fillRect(ox(0), oy(0), cW, cH);
+  ctx.fillStyle = 'rgba(255,87,34,0.22)';
+  ctx.fillRect(ox(HV_COLS-1), oy(HV_ROWS-1), cW, cH);
+
+  // ── Pipe path ──
+  const path = _mg.path;
+  if (path.length >= 2) {
+    const pw = Math.min(cW, cH) * 0.44;
+    ctx.lineCap  = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(cx(path[0].col), cy(path[0].row));
+    for (let i=1; i<path.length; i++)
+      ctx.lineTo(cx(path[i].col), cy(path[i].row));
+
+    ctx.lineWidth = pw;        ctx.strokeStyle = '#37474F'; ctx.stroke(); // shadow
+    ctx.lineWidth = pw * 0.68; ctx.strokeStyle = '#90A4AE'; ctx.stroke(); // body
+    ctx.lineWidth = pw * 0.28; ctx.strokeStyle = '#ECEFF1'; ctx.stroke(); // shine
+  }
+
+  // START / END node circles
+  const nr = Math.min(cW, cH) * 0.24;
+  ctx.fillStyle = '#4CAF50';
+  ctx.beginPath(); ctx.arc(cx(0), cy(0), nr, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = _mg.complete ? '#FFD700' : '#FF5722';
+  ctx.beginPath(); ctx.arc(cx(HV_COLS-1), cy(HV_ROWS-1), nr, 0, Math.PI*2); ctx.fill();
+
+  // Labels
+  const fs = Math.round(Math.min(cW,cH) * 0.18);
+  ctx.font = `900 ${fs}px system-ui,sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#fff';
+  ctx.fillText('START', cx(0), cy(0));
+  ctx.fillText('END',   cx(HV_COLS-1), cy(HV_ROWS-1));
+}
+
+// ── Touch / mouse input ───────────────────────────────────────────────────────
+function hvAttachInput(canvas) {
+  function canvasXY(clientX, clientY) {
+    const r = canvas.getBoundingClientRect();
+    return { x: clientX - r.left, y: clientY - r.top };
+  }
+
+  function tryMove(px, py) {
+    if (!_mg.running || _mg.complete) return;
+    const { col, row } = hvPixelToCell(px, py);
+    const path = _mg.path;
+    const last = path[path.length-1];
+    if (row===last.row && col===last.col) return;
+
+    // Backtrack support
+    if (path.length >= 2) {
+      const prev = path[path.length-2];
+      if (row===prev.row && col===prev.col) { path.pop(); hvRender(); return; }
+    }
+
+    // Must be exactly one step away
+    const dr = row-last.row, dc = col-last.col;
+    if (Math.abs(dr)+Math.abs(dc) !== 1) return;
+    const dir = dr===-1?'N': dr===1?'S': dc===1?'E':'W';
+    if (_mg.maze[last.row][last.col][dir]) return; // wall in the way
+
+    // No loops
+    if (path.some(p => p.row===row && p.col===col)) return;
+
+    path.push({row,col});
+
+    // Reached the end?
+    if (row===HV_ROWS-1 && col===HV_COLS-1) {
+      _mg.complete = true;
+      hvRender();
+      setTimeout(() => { clearInterval(_mg.timerId); _mg.running=false; hvFinish(); }, 400);
+      return;
+    }
+    hvRender();
+  }
+
+  canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    const p = canvasXY(e.touches[0].clientX, e.touches[0].clientY);
+    // Tap on START resets path
+    const {row,col} = hvPixelToCell(p.x,p.y);
+    if (row===0&&col===0) { _mg.path=[{row:0,col:0}]; hvRender(); }
+    tryMove(p.x, p.y);
+  }, {passive:false});
+  canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    const p = canvasXY(e.touches[0].clientX, e.touches[0].clientY);
+    tryMove(p.x, p.y);
+  }, {passive:false});
+
+  // Mouse for desktop testing
+  let md = false;
+  canvas.addEventListener('mousedown', e => {
+    md = true;
+    const p = canvasXY(e.clientX,e.clientY);
+    const {row,col}=hvPixelToCell(p.x,p.y);
+    if (row===0&&col===0) { _mg.path=[{row:0,col:0}]; hvRender(); }
+    tryMove(p.x,p.y);
+  });
+  canvas.addEventListener('mousemove', e => {
+    if (!md) return;
+    const p = canvasXY(e.clientX,e.clientY);
+    tryMove(p.x,p.y);
+  });
+  canvas.addEventListener('mouseup', () => { md=false; });
+}
+
+// ── Timer ─────────────────────────────────────────────────────────────────────
+function hvStart() {
+  const ss = document.getElementById('hv-start-screen');
+  if (ss) ss.style.display = 'none';
+  _mg.running   = true;
+  _mg.startTime = Date.now();
+  const endTime = _mg.startTime + HV_DURATION * 1000;
+
+  _mg.timerId = setInterval(() => {
+    const left = Math.max(0, endTime - Date.now());
+    const pct  = left / (HV_DURATION * 1000);
+    const fill  = document.getElementById('hv-timer-fill');
+    const timeEl = document.getElementById('hv-time');
+    if (fill) {
+      fill.style.width      = (pct*100).toFixed(1) + '%';
+      fill.style.background = pct>0.5 ? '#FF8F00' : pct>0.25 ? '#E65100' : '#F44336';
+    }
+    if (timeEl) timeEl.textContent = Math.ceil(left/1000);
+    if (left <= 0) { clearInterval(_mg.timerId); _mg.running=false; hvFinish(); }
+  }, 50);
+}
+
+// ── Finish / close ────────────────────────────────────────────────────────────
+function hvFinish() {
+  clearInterval(_mg.timerId);
+  _mg.locked = false;
+
+  const solLen = _mg.solution.length;
+  const patLen = _mg.path.length;
+  const score  = _mg.complete ? 100
+    : Math.min(80, Math.round((patLen / solLen) * 100));
+  _mg.finalScore = score;
+
+  const msg = score >= 100 ? '🌟 Pipes are flowing!'      :
+              score >= 60  ? '✅ Almost made it!'          :
+              score >= 30  ? '👍 Making progress!'         :
+                             '🔧 Back to trade school...';
+
+  const overlay = document.getElementById('hv-overlay');
+  if (overlay) {
+    const res = document.createElement('div');
+    res.className = 'hv-result-overlay';
+    res.innerHTML = `
+      <div class="hv-result-card">
+        <div class="hv-result-score">${score}%</div>
+        <div class="hv-result-label">${_mg.complete ? 'pipe fully run!' : 'of route completed'}</div>
+        <div class="hv-result-msg">${msg}</div>
+      </div>`;
+    overlay.appendChild(res);
+  }
+  _mg.autoCloseId = setTimeout(hvClose, 2400);
+}
+
+function hvClose() {
+  clearTimeout(_mg.autoCloseId);
+  const overlay = document.getElementById('hv-overlay');
+  if (!overlay) return;
+  overlay.remove();
+  finishDIY(_mg.upgradeKey, _mg.finalScore ?? 0);
+}
+
+// ── Mini-game: Tighten the Pipe (Plumbing) ───────────────────────────────────
+// A burst pipe sprays water. Tap the screen to tighten the wrench around it.
+// Each tap rotates the wrench and reduces water pressure. Score = taps / target.
+const PL_TARGET   = 80;   // taps for 100%
+const PL_DURATION = 8;    // seconds
+const PL_MAX_PTCL = 120;  // max water particles on screen
+
+function launchPlumbingGame(upgradeKey) {
+  closeModal();
+
+  _mg = { ..._mg, upgradeKey, taps: 0, running: false, timerId: null,
+          rafId: null, particles: [], startTime: 0, lastFrame: 0,
+          locked: true, finalScore: 0, logW: 0, logH: 0 };
+
+  const old = document.getElementById('pl-overlay');
+  if (old) old.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id        = 'pl-overlay';
+  overlay.className = 'pl-overlay';
+  overlay.innerHTML = `
+    <div class="pl-header">
+      <div class="pl-top-row">
+        <span class="pl-title">🔧 Tighten the Pipe!</span>
+        <span class="pl-taps" id="pl-taps">0 / ${PL_TARGET}</span>
+      </div>
+      <div class="pl-timer-track">
+        <div class="pl-timer-fill" id="pl-timer-fill"></div>
+      </div>
+      <div class="pl-time-label"><span id="pl-time">${PL_DURATION}</span>s remaining</div>
+    </div>
+    <div class="pl-arena" id="pl-arena">
+      <canvas id="pl-canvas"></canvas>
+      <div class="pl-wrench" id="pl-wrench">🔧</div>
+      <div class="pl-tap-hint" id="pl-tap-hint">TAP TO TIGHTEN!</div>
+    </div>
+    <div class="pl-start-screen" id="pl-start-screen">
+      <div class="pl-start-card">
+        <div class="pl-start-icon">💧</div>
+        <div class="pl-start-title">Tighten the Pipe!</div>
+        <div class="pl-start-desc">Tap as fast as you can to tighten<br>the wrench and stop the burst!</div>
+        <button class="pl-start-btn" ontouchstart="plStart();event.preventDefault()" onclick="plStart()">🔧 Let's Go!</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  // Tap handler on the arena
+  const arena = overlay.querySelector('#pl-arena');
+  arena.addEventListener('click', plTap);
+  arena.addEventListener('touchstart', e => { e.preventDefault(); plTap(); }, { passive: false });
+
+  // Size canvas after layout
+  requestAnimationFrame(() => {
+    const arenaEl = document.getElementById('pl-arena');
+    const canvas  = document.getElementById('pl-canvas');
+    if (!arenaEl || !canvas) return;
+    const dpr  = window.devicePixelRatio || 1;
+    const logW = arenaEl.clientWidth;
+    const logH = arenaEl.clientHeight;
+    canvas.width  = logW * dpr;
+    canvas.height = logH * dpr;
+    canvas.style.width  = logW + 'px';
+    canvas.style.height = logH + 'px';
+    canvas.getContext('2d').scale(dpr, dpr);
+    _mg.logW = logW;
+    _mg.logH = logH;
+
+    // Position wrench so its HEAD (upper-left ~15% of emoji) sits on the burst.
+    // The handle then swings around that fixed pivot as the player taps.
+    const headOff = 13; // px offset to head within the 84px emoji
+    const wrenchEl = document.getElementById('pl-wrench');
+    if (wrenchEl) {
+      wrenchEl.style.left            = `calc(50% - ${headOff}px)`;
+      wrenchEl.style.top             = `${Math.round(logH * 0.5 - headOff)}px`;
+      wrenchEl.style.transformOrigin = `${headOff}px ${headOff}px`;
+      wrenchEl.style.transform       = 'rotate(-30deg)';
+    }
+    plDrawStatic(); // show pipe before game starts
+  });
+}
+
+// Draw the scene once so the pipe is visible on the start screen
+function plDrawStatic() {
+  const canvas = document.getElementById('pl-canvas');
+  if (!canvas || !_mg.logW) return;
+  const ctx = canvas.getContext('2d');
+  _mg.particles = [];
+  plDrawScene(ctx, _mg.logW, _mg.logH, 1); // pressure = 1 (full burst)
+}
+
+function plTap() {
+  if (!_mg.running) return;
+  _mg.taps = Math.min(PL_TARGET, _mg.taps + 1);
+
+  // Rotate wrench clockwise: -30° → +220° over PL_TARGET taps
+  // transform-origin is set to the head/jaw (13px,13px) so it pivots there, not the center
+  const angle    = -30 + (_mg.taps / PL_TARGET) * 250;
+  const wrenchEl = document.getElementById('pl-wrench');
+  if (wrenchEl) wrenchEl.style.transform = `rotate(${angle}deg)`;
+
+  // Update counter
+  const tapsEl = document.getElementById('pl-taps');
+  if (tapsEl) tapsEl.textContent = `${_mg.taps} / ${PL_TARGET}`;
+
+  // Finished early?
+  if (_mg.taps >= PL_TARGET) {
+    clearInterval(_mg.timerId);
+    cancelAnimationFrame(_mg.rafId);
+    _mg.running = false;
+    plFinish();
+  }
+}
+
+function plStart() {
+  const ss = document.getElementById('pl-start-screen');
+  if (ss) ss.style.display = 'none';
+  const hint = document.getElementById('pl-tap-hint');
+  if (hint) hint.style.display = 'block';
+
+  _mg.running   = true;
+  _mg.startTime = Date.now();
+  _mg.lastFrame = Date.now();
+  _mg.particles = [];
+  const endTime = _mg.startTime + PL_DURATION * 1000;
+
+  _mg.timerId = setInterval(() => {
+    const left = Math.max(0, endTime - Date.now());
+    const pct  = left / (PL_DURATION * 1000);
+    const fill  = document.getElementById('pl-timer-fill');
+    const timeEl = document.getElementById('pl-time');
+    if (fill) {
+      fill.style.width      = (pct * 100).toFixed(1) + '%';
+      fill.style.background = pct > 0.5 ? '#2196F3' : pct > 0.25 ? '#FF9800' : '#F44336';
+    }
+    if (timeEl) timeEl.textContent = Math.ceil(left / 1000);
+    if (left <= 0) {
+      clearInterval(_mg.timerId);
+      cancelAnimationFrame(_mg.rafId);
+      _mg.running = false;
+      plFinish();
+    }
+  }, 50);
+
+  _mg.rafId = requestAnimationFrame(plLoop);
+}
+
+function plLoop() {
+  const canvas = document.getElementById('pl-canvas');
+  if (!canvas || !_mg.logW) return;
+
+  const ctx      = canvas.getContext('2d');
+  const now      = Date.now();
+  const dt       = Math.min((now - _mg.lastFrame) / 1000, 0.05);
+  _mg.lastFrame  = now;
+  const pressure = Math.max(0, 1 - (_mg.taps / PL_TARGET));
+
+  // Spawn new water particles — spray left AND right from burst crack
+  if (pressure > 0.01) {
+    const count = Math.ceil(pressure * 5);
+    for (let i = 0; i < count; i++) {
+      if (_mg.particles.length < PL_MAX_PTCL) {
+        const dir = Math.random() < 0.5 ? -1 : 1; // half go left, half go right
+        _mg.particles.push({
+          x:     _mg.logW * 0.5 + (Math.random() - 0.5) * 8,
+          y:     _mg.logH * 0.5 + (Math.random() - 0.5) * 12,
+          vx:    dir * (80 + Math.random() * 220) * pressure,
+          vy:    (Math.random() - 0.5) * 60 * pressure,
+          life:  1.0,
+          decay: 0.018 + Math.random() * 0.022,
+          size:  1.5 + Math.random() * 3 * pressure,
+        });
+      }
+    }
+  }
+
+  // Update particles
+  _mg.particles = _mg.particles.filter(p => {
+    p.x   += p.vx * dt;
+    p.y   += p.vy * dt;
+    p.vy  += 550 * dt;  // gravity px/s²
+    p.life -= p.decay;
+    return p.life > 0;
+  });
+
+  plDrawScene(ctx, _mg.logW, _mg.logH, pressure);
+
+  if (_mg.running) _mg.rafId = requestAnimationFrame(plLoop);
+}
+
+function plDrawScene(ctx, W, H, pressure) {
+  // Background — dark utility / basement wall
+  ctx.fillStyle = '#141c26';
+  ctx.fillRect(0, 0, W, H);
+
+  const pipeX = W * 0.5;
+  const pipeW = W * 0.13;   // pipe diameter
+
+  // ── Vertical pipe — left-to-right metallic gradient ──
+  const pg = ctx.createLinearGradient(pipeX - pipeW/2, 0, pipeX + pipeW/2, 0);
+  pg.addColorStop(0,    '#37474F');
+  pg.addColorStop(0.2,  '#78909C');
+  pg.addColorStop(0.5,  '#CFD8DC');
+  pg.addColorStop(0.75, '#90A4AE');
+  pg.addColorStop(1,    '#37474F');
+  ctx.fillStyle = pg;
+  ctx.fillRect(pipeX - pipeW/2, 0, pipeW, H);
+
+  // Pipe end flanges (top + bottom caps)
+  const fh = pipeW * 0.75;   // flange height
+  const fw = pipeW * 1.5;    // flange width (wider than pipe)
+  ctx.fillStyle = '#546E7A';
+  ctx.fillRect(pipeX - fw/2, 0,      fw, fh);
+  ctx.fillRect(pipeX - fw/2, H - fh, fw, fh);
+
+  // Flange bolts
+  ctx.fillStyle = '#B0BEC5';
+  [[pipeX - pipeW*0.3, fh/2], [pipeX + pipeW*0.3, fh/2],
+   [pipeX - pipeW*0.3, H - fh/2], [pipeX + pipeW*0.3, H - fh/2]].forEach(([bx, by]) => {
+    ctx.beginPath(); ctx.arc(bx, by, 3.5, 0, Math.PI*2); ctx.fill();
+  });
+
+  // ── Burst crack — vertical zig-zag at pipe center ──
+  const crackY  = H * 0.5;
+  const crackSz = pipeW * (0.4 + pressure * 0.7);
+  ctx.strokeStyle = '#1a252f';
+  ctx.lineWidth   = 1.5 + pressure * 2;
+  ctx.lineCap     = 'round';
+  ctx.beginPath();
+  ctx.moveTo(pipeX - pipeW * 0.15, crackY - crackSz * 0.5);
+  ctx.lineTo(pipeX + pipeW * 0.1,  crackY + crackSz * 0.1);
+  ctx.lineTo(pipeX - pipeW * 0.2,  crackY + crackSz * 0.45);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(pipeX + pipeW * 0.2,  crackY - crackSz * 0.4);
+  ctx.lineTo(pipeX - pipeW * 0.05, crackY + crackSz * 0.15);
+  ctx.stroke();
+
+  // ── Water particles ──
+  ctx.save();
+  _mg.particles.forEach(p => {
+    ctx.globalAlpha = p.life * 0.9;
+    ctx.fillStyle   = `rgb(56,${Math.round(148 + p.life * 60)},${Math.round(200 + p.life * 55)})`;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+  ctx.restore();
+
+  // ── "Sealed!" label ──
+  if (pressure <= 0.01) {
+    ctx.fillStyle    = '#4CAF50';
+    ctx.font         = `900 ${Math.round(W * 0.07)}px system-ui,sans-serif`;
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('SEALED! 💧', W / 2, H * 0.15);
+  }
+}
+
+function plFinish() {
+  cancelAnimationFrame(_mg.rafId);
+  clearInterval(_mg.timerId);
+  _mg.locked = false;
+
+  const score    = Math.min(100, Math.round((_mg.taps / PL_TARGET) * 100));
+  _mg.finalScore = score;
+
+  const msg = score >= 100 ? '🌟 No more leaks!'       :
+              score >= 75  ? '✅ Almost sealed!'        :
+              score >= 40  ? '👍 Slowed it down!'       :
+                             '💧 Still flooding...';
+
+  const overlay = document.getElementById('pl-overlay');
+  if (overlay) {
+    const res = document.createElement('div');
+    res.className = 'pl-result-overlay';
+    res.innerHTML = `
+      <div class="pl-result-card">
+        <div class="pl-result-score">${score}%</div>
+        <div class="pl-result-label">pipe tightened</div>
+        <div class="pl-result-msg">${msg}</div>
+      </div>`;
+    overlay.appendChild(res);
+  }
+  _mg.autoCloseId = setTimeout(plClose, 2400);
+}
+
+function plClose() {
+  clearTimeout(_mg.autoCloseId);
+  const overlay = document.getElementById('pl-overlay');
   if (!overlay) return;
   overlay.remove();
   finishDIY(_mg.upgradeKey, _mg.finalScore ?? 0);
