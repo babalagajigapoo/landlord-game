@@ -2355,7 +2355,7 @@ function fgClose() {
 // 6 windows slowly tilt off-level on their own. Hold a window to bring it back
 // to level. The moment you let go it starts drifting again. Score = average
 // levelness of all 6 windows when time runs out.
-const WG_COUNT       = 6;
+const WG_COUNT       = 4;
 const WG_MAX_TILT    = 38;  // max degrees off level
 const WG_LEVEL_SPEED = 60;  // degrees/sec when held (leveling rate)
 const WG_DRIFT_BASE  = 12;  // degrees/sec initial drift
@@ -2504,9 +2504,15 @@ function wgLoop() {
 
   _mg.windows.forEach((win, i) => {
     if (win.held) {
-      // Bring tilt toward 0
-      const move = WG_LEVEL_SPEED * dt;
-      win.tilt   = Math.abs(win.tilt) <= move ? 0 : win.tilt - Math.sign(win.tilt) * move;
+      // Bring tilt toward 0; flip drift direction when it hits centre
+      const move    = WG_LEVEL_SPEED * dt;
+      const prevDir = Math.sign(win.tilt) || win.dir;
+      if (Math.abs(win.tilt) <= move) {
+        win.tilt = 0;
+        win.dir  = -prevDir; // now drifts the other way on release
+      } else {
+        win.tilt -= Math.sign(win.tilt) * move;
+      }
     } else {
       // Drift away — accelerates as timer runs down
       const speed = WG_DRIFT_BASE + (WG_DRIFT_MAX - WG_DRIFT_BASE) * progress;
