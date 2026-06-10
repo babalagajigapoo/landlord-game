@@ -1,6 +1,7 @@
 // ── State ─────────────────────────────────────────────────────────────────────
 let state           = null;
 let marketListings  = [];
+let marketHoodOpen  = {};   // tracks which hood sections are expanded; undefined = open
 let currentPage     = 'dashboard';
 let pendingUpgrade  = null;
 let _applicants     = [];
@@ -222,7 +223,7 @@ function renderMarket() {
     return;
   }
   if (marketListings.length === 0) {
-    el.innerHTML = '<div class="empty-state"><div class="empty-icon">🏚️</div><div class="empty-text">No listings</div><div class="empty-sub">Refresh to see new properties</div></div>';
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">🏚️</div><div class="empty-text">No listings right now</div><div class="empty-sub">Advance the day to see new properties</div></div>';
     return;
   }
 
@@ -240,24 +241,39 @@ function renderMarket() {
     if (!grouped[p.neighborhood]) grouped[p.neighborhood] = [];
     grouped[p.neighborhood].push(p);
   }
-  const sections = HOOD_ORDER.filter(h => grouped[h]).map(hood => {
-    const meta  = HOOD_META[hood] || { emoji: '🏙️', desc: '' };
-    const tier  = grouped[hood][0]?.neighborhood_info?.tier || 'mid';
-    const cards = grouped[hood].map(p => marketCardHtml(p)).join('');
+  const hoodsPresent = HOOD_ORDER.filter(h => grouped[h]);
+  const useDropdown  = hoodsPresent.length >= 3;
+
+  const sections = hoodsPresent.map(hood => {
+    const meta    = HOOD_META[hood] || { emoji: '🏙️', desc: '' };
+    const tier    = grouped[hood][0]?.neighborhood_info?.tier || 'mid';
+    const count   = grouped[hood].length;
+    const isOpen  = useDropdown ? (marketHoodOpen[hood] !== false) : true;
+    const cards   = grouped[hood].map(p => marketCardHtml(p)).join('');
+    const chevron = useDropdown
+      ? `<span class="market-hood-chevron">${isOpen ? '▼' : '▶'}</span>` : '';
     return `
       <div class="market-hood-section">
-        <div class="market-hood-header badge-${tier}">
+        <div class="market-hood-header badge-${tier}${useDropdown ? ' market-hood-toggle' : ''}"
+             ${useDropdown ? `onclick="toggleMarketHood('${hood}')"` : ''}>
           <span class="market-hood-emoji">${meta.emoji}</span>
           <div>
             <div class="market-hood-name">${hood}</div>
             <div class="market-hood-desc">${meta.desc}</div>
           </div>
-          <span class="market-hood-count">${grouped[hood].length} listing${grouped[hood].length !== 1 ? 's' : ''}</span>
+          <span class="market-hood-count">${count} listing${count !== 1 ? 's' : ''}</span>
+          ${chevron}
         </div>
-        ${cards}
+        ${isOpen ? `<div class="market-hood-body">${cards}</div>` : ''}
       </div>`;
   }).join('');
   el.innerHTML = sections;
+}
+
+function toggleMarketHood(hood) {
+  // undefined = open by default; toggling for the first time closes it
+  marketHoodOpen[hood] = marketHoodOpen[hood] === false ? true : false;
+  renderMarket();
 }
 
 function marketCardHtml(p) {
@@ -309,8 +325,9 @@ async function buyProperty(id) {
       if (res.error) { toast(res.error, 'error'); return; }
       closeModal();
       toast(`Purchased ${listing.type} in ${listing.neighborhood}!`, 'success');
+      // Remove the bought listing locally — market only refills on day advance
+      marketListings = marketListings.filter(p => p.id !== id);
       await refreshState();
-      await loadMarket();
       renderAll();
     }
   );
@@ -319,6 +336,7 @@ async function buyProperty(id) {
 async function refreshMarketListings() {
   const data = await api('/market/refresh', 'POST');
   marketListings = data.listings || [];
+  marketHoodOpen = {};   // reset — all sections open after a day advance
   renderMarket();
 }
 
@@ -458,8 +476,14 @@ function portfolioCardHtml(p) {
     ? `<span class="vacant-chip" style="background:#E3F2FD;color:#1565C0;border-color:#90CAF9">🔨 ${activePending.name} · ${pendingDaysLeft}d left</span>`
     : p.tenant && scheduledWork
     ? `<span class="vacant-chip" style="background:#F3E5F5;color:#6A1B9A;border-color:#CE93D8">🗓️ ${scheduledWork.name} · starts in ${scheduledDaysOut}d</span>`
+    : p.tenant && p.tenant.is_mystery
+    ? `<span class="tenant-chip" style="background:#2d004f;color:#CE93D8;border-color:#7B1FA2;font-weight:800">👤 ??? · ${fmt(p.tenant.rent)}/wk</span>`
     : p.tenant && p.tenant.is_phil
     ? `<span class="tenant-chip" style="background:#fffde7;color:#b8860b;border-color:gold;font-weight:800">🔱 The Phil · ${fmt(p.tenant.rent)}/wk</span>`
+    : p.tenant && p.tenant.is_baileys
+    ? `<span class="tenant-chip" style="background:#FFF3E0;color:#E65100;border-color:#E65100;font-weight:800">👨‍👩‍👧‍👦 The Baileys · ${fmt(p.tenant.rent)}/wk</span>`
+    : p.tenant && p.tenant.is_goldbergs
+    ? `<span class="tenant-chip" style="background:#E8F5E9;color:#1B5E20;border-color:#2E7D32;font-weight:800">🎩 The Goldbergs · ${fmt(p.tenant.rent)}/wk</span>`
     : p.tenant && (p.tenant.morale ?? 50) < 20
     ? `<span class="vacant-chip" style="background:#FFEBEE;color:#C62828;border-color:#EF9A9A">😠 ${p.tenant.name} · morale ${p.tenant.morale ?? '?'}%</span>`
     : p.tenant
@@ -544,29 +568,65 @@ async function showPropertyDetail(id) {
         const moraleLabel = morale >= 60 ? '😊 Happy' : morale >= 40 ? '😐 Content' : morale >= 20 ? '😟 Uneasy' : '😠 Unhappy — at risk of leaving!';
         const moraleWarn  = morale < 20 ? `<div style="font-size:12px;color:var(--negative);font-weight:700;margin-top:6px">⚠️ Morale critical — fix repairs before they break lease early!</div>` : '';
         const isPhil      = !!prop.tenant.is_phil;
-        const philBorder  = isPhil ? ';border:2px solid gold' : (morale < 20 ? ';border:2px solid var(--negative)' : '');
-        return `<div class="card" style="margin-bottom:10px${philBorder}${isPhil ? ';background:linear-gradient(135deg,#fffde7,#fff8e1)' : ''}">
-        <div class="section-header mb-0"><span class="section-title">Current Tenant</span>${isPhil ? '<span style="font-size:11px;background:gold;color:#5d4037;padding:2px 8px;border-radius:8px;font-weight:700">🔱 THE PHIL</span>' : ''}</div>
+        const isBaileys   = !!prop.tenant.is_baileys;
+        const isGoldbergs = !!prop.tenant.is_goldbergs;
+        const isMystery   = !!prop.tenant.is_mystery;
+        const isSpecial   = isPhil || isBaileys || isGoldbergs || isMystery;
+        const cardBorder  = isMystery   ? ';border:2px solid #7B1FA2'
+                          : isPhil      ? ';border:2px solid gold'
+                          : isBaileys   ? ';border:2px solid #E65100'
+                          : isGoldbergs ? ';border:2px solid #2E7D32'
+                          : morale < 20 ? ';border:2px solid var(--negative)' : '';
+        const cardBg      = isMystery   ? ';background:linear-gradient(135deg,#1a0030,#2d004f)'
+                          : isPhil      ? ';background:linear-gradient(135deg,#fffde7,#fff8e1)'
+                          : isBaileys   ? ';background:linear-gradient(135deg,#FFF3E0,#FFF8F0)'
+                          : isGoldbergs ? ';background:linear-gradient(135deg,#E8F5E9,#F1F8F1)' : '';
+        const badgeHtml   = isMystery   ? '<span style="font-size:11px;background:#7B1FA2;color:#fff;padding:2px 8px;border-radius:8px;font-weight:700">👤 MYSTERY</span>'
+                          : isPhil      ? '<span style="font-size:11px;background:gold;color:#5d4037;padding:2px 8px;border-radius:8px;font-weight:700">🔱 THE PHIL</span>'
+                          : isBaileys   ? '<span style="font-size:11px;background:#E65100;color:#fff;padding:2px 8px;border-radius:8px;font-weight:700">👨‍👩‍👧‍👦 THE BAILEYS</span>'
+                          : isGoldbergs ? '<span style="font-size:11px;background:#2E7D32;color:#fff;padding:2px 8px;border-radius:8px;font-weight:700">🎩 THE GOLDBERGS</span>' : '';
+        const nameColor   = isMystery ? '#CE93D8' : isPhil ? '#b8860b' : isBaileys ? '#E65100' : isGoldbergs ? '#1B5E20' : '';
+        const subLine     = isPhil      ? '<span style="font-size:11px;color:#b8860b;font-weight:700">+1 condition/day · 25% weekly reno</span>'
+                          : isBaileys   ? '<span style="font-size:11px;color:#E65100;font-weight:700">Morale locked at 100% · Never damages</span>'
+                          : isGoldbergs ? '<span style="font-size:11px;color:#2E7D32;font-weight:700">10× rent · Short stay</span>'
+                          : isMystery   ? '<span style="font-size:11px;color:#CE93D8;font-weight:700">???</span>'
+                          : rentTierBadge(prop.tenant.rent_tier);
+        const iconStyle   = isMystery ? 'font-size:28px;filter:brightness(0.1)' : 'font-size:28px';
+        const moraleHtml  = isMystery
+          ? `<div style="margin-bottom:10px">
+               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                 <span style="font-size:12px;font-weight:700;color:#9C27B0">MORALE</span>
+                 <span style="font-size:13px;font-weight:800;color:#CE93D8">??? · ???%</span>
+               </div>
+               <div style="height:8px;background:#3a005a;border-radius:4px;overflow:hidden">
+                 <div style="height:100%;width:100%;background:linear-gradient(90deg,#7B1FA2,#CE93D8);border-radius:4px"></div>
+               </div>
+             </div>`
+          : `<div style="margin-bottom:10px">
+               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                 <span style="font-size:12px;font-weight:700;color:var(--text-muted)">MORALE</span>
+                 <span style="font-size:13px;font-weight:800;color:${moraleColor}">${moraleLabel} · ${morale}%</span>
+               </div>
+               <div style="height:8px;background:var(--border);border-radius:4px;overflow:hidden">
+                 <div style="height:100%;width:${morale}%;background:${moraleColor};border-radius:4px;transition:width 0.3s"></div>
+               </div>
+               ${moraleWarn}
+             </div>`;
+        return `<div class="card" style="margin-bottom:10px${cardBorder}${cardBg}">
+        <div class="section-header mb-0"><span class="section-title" style="${isMystery ? 'color:#CE93D8' : ''}">Current Tenant</span>${badgeHtml}</div>
         <div style="margin-top:10px">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-            <span style="font-size:28px">${prop.tenant.icon || '👤'}</span>
+            <span style="${iconStyle}">${isMystery ? '👤' : prop.tenant.icon || '👤'}</span>
             <div style="flex:1">
-              <div style="font-size:15px;font-weight:700;${isPhil ? 'color:#b8860b' : ''}">${prop.tenant.name}</div>
-              <div style="font-size:12px;color:var(--text-2)">${prop.tenant_days_remaining ?? '?'} days left on lease</div>
-              <div style="margin-top:2px">${isPhil ? '<span style="font-size:11px;color:#b8860b;font-weight:700">+1 condition/day · 25% weekly reno</span>' : rentTierBadge(prop.tenant.rent_tier)}</div>
+              <div style="font-size:15px;font-weight:700;${nameColor ? 'color:' + nameColor : ''}">${isMystery ? '???' : prop.tenant.name}</div>
+              <div style="font-size:12px;color:${isMystery ? '#9C27B0' : 'var(--text-2)'}">${prop.tenant_days_remaining ?? '?'} days left on lease</div>
+              <div style="margin-top:2px">${subLine}</div>
             </div>
-            <span style="font-size:18px;font-weight:800;color:var(--positive)">${fmt(prop.tenant.rent)}/wk</span>
+            <span style="font-size:18px;font-weight:800;color:${isGoldbergs ? '#2E7D32' : 'var(--positive)'}">
+              ${fmt(prop.tenant.rent)}/wk${isGoldbergs ? '<div style="font-size:10px;color:#2E7D32;text-align:right">10× rent</div>' : ''}
+            </span>
           </div>
-          <div style="margin-bottom:10px">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-              <span style="font-size:12px;font-weight:700;color:var(--text-muted)">MORALE</span>
-              <span style="font-size:13px;font-weight:800;color:${moraleColor}">${moraleLabel} · ${morale}%</span>
-            </div>
-            <div style="height:8px;background:var(--border);border-radius:4px;overflow:hidden">
-              <div style="height:100%;width:${morale}%;background:${moraleColor};border-radius:4px;transition:width 0.3s"></div>
-            </div>
-            ${moraleWarn}
-          </div>
+          ${moraleHtml}
           <div class="money-row"><span class="mr-label">Total Rent Collected</span><span class="mr-value green">${fmt(prop.total_rent_collected)}</span></div>
           <div class="money-row"><span class="mr-label">Total Repair Costs</span><span class="mr-value red">${fmt(prop.total_repair_costs)}</span></div>
           <div class="btn-row">
@@ -1028,7 +1088,29 @@ async function showTenantsModal(id) {
     <div class="modal-handle"></div>
     <div class="modal-title">Choose a Tenant</div>
     <div class="modal-subtitle">${prop.address || prop.type} · ${prop.neighborhood} · Fair rent: ${fmt(_fairRent)}/wk</div>
-    ${_applicants.map(t => t.is_phil ? `
+    ${_applicants.map(t => t.is_mystery ? `
+      <div class="tenant-card" onclick="showRentSettingModal(${id}, ${t.idx})"
+           style="border:2px solid #7B1FA2;background:linear-gradient(135deg,#1a0030,#2d004f);cursor:pointer">
+        <div class="tenant-header">
+          <span class="tenant-icon" style="font-size:28px;filter:brightness(0.1)">👤</span>
+          <div style="flex:1">
+            <div class="tenant-name" style="color:#CE93D8;font-weight:900">???
+              <span style="font-size:10px;background:#7B1FA2;color:#fff;padding:2px 6px;border-radius:8px;margin-left:6px;font-weight:700">RARE</span>
+            </div>
+            <div style="font-size:11px;color:#9C27B0">??? · ???</div>
+          </div>
+        </div>
+        <div class="tenant-meta">
+          <div class="tenant-meta-item">
+            <span class="tm-label" style="color:#9C27B0">Reliability</span>
+            <span class="tm-value" style="color:#CE93D8">???</span>
+          </div>
+          <div class="tenant-meta-item">
+            <span class="tm-label" style="color:#9C27B0">Damage Risk</span>
+            <span class="tm-value" style="color:#CE93D8">???</span>
+          </div>
+        </div>
+      </div>` : t.is_phil ? `
       <div class="tenant-card" onclick="showRentSettingModal(${id}, ${t.idx})"
            style="border:2px solid gold;background:linear-gradient(135deg,#fffde7,#fff8e1)">
         <div class="tenant-header">
@@ -1052,6 +1134,58 @@ async function showTenantsModal(id) {
           <div class="tenant-meta-item" style="grid-column:1/-1">
             <span class="tm-label">Special</span>
             <span class="tm-value" style="color:#b8860b">+1 condition/day · 25% weekly renovation</span>
+          </div>
+        </div>
+      </div>` : t.is_baileys ? `
+      <div class="tenant-card" onclick="showRentSettingModal(${id}, ${t.idx})"
+           style="border:2px solid #E65100;background:linear-gradient(135deg,#FFF3E0,#FFF8F0)">
+        <div class="tenant-header">
+          <span class="tenant-icon">${t.icon}</span>
+          <div style="flex:1">
+            <div class="tenant-name" style="color:#E65100;font-weight:900">${t.name}
+              <span style="font-size:10px;background:#E65100;color:#fff;padding:2px 6px;border-radius:8px;margin-left:6px;font-weight:700">RARE</span>
+            </div>
+            <div style="font-size:11px;color:#BF360C">${t.stay_min}–${t.stay_max} day lease · ${t.desc}</div>
+          </div>
+        </div>
+        <div class="tenant-meta">
+          <div class="tenant-meta-item">
+            <span class="tm-label">Reliability</span>
+            <span class="tm-value" style="color:#E65100;font-weight:800">★★★★★ Always</span>
+          </div>
+          <div class="tenant-meta-item">
+            <span class="tm-label">Damage Risk</span>
+            <span class="tm-value" style="color:var(--positive)">${t.damage_label}</span>
+          </div>
+          <div class="tenant-meta-item" style="grid-column:1/-1">
+            <span class="tm-label">Special</span>
+            <span class="tm-value" style="color:#E65100">Morale locked at 100% · Never damages · Never misses</span>
+          </div>
+        </div>
+      </div>` : t.is_goldbergs ? `
+      <div class="tenant-card" onclick="showRentSettingModal(${id}, ${t.idx})"
+           style="border:2px solid #2E7D32;background:linear-gradient(135deg,#E8F5E9,#F1F8F1)">
+        <div class="tenant-header">
+          <span class="tenant-icon">${t.icon}</span>
+          <div style="flex:1">
+            <div class="tenant-name" style="color:#1B5E20;font-weight:900">${t.name}
+              <span style="font-size:10px;background:#2E7D32;color:#fff;padding:2px 6px;border-radius:8px;margin-left:6px;font-weight:700">RARE</span>
+            </div>
+            <div style="font-size:11px;color:#2E7D32">${t.stay_min}–${t.stay_max} day lease · ${t.desc}</div>
+          </div>
+        </div>
+        <div class="tenant-meta">
+          <div class="tenant-meta-item">
+            <span class="tm-label">Reliability</span>
+            <span class="tm-value" style="color:#2E7D32;font-weight:800">★★★★★ Always</span>
+          </div>
+          <div class="tenant-meta-item">
+            <span class="tm-label">Damage Risk</span>
+            <span class="tm-value" style="color:var(--positive)">${t.damage_label}</span>
+          </div>
+          <div class="tenant-meta-item" style="grid-column:1/-1">
+            <span class="tm-label">Special</span>
+            <span class="tm-value" style="color:#1B5E20">💰 Pays 10× rent automatically — short stay</span>
           </div>
         </div>
       </div>` : `
@@ -2171,7 +2305,7 @@ async function respondRenewal(propId, agree) {
 }
 
 function showNextRepair() {
-  if (_pendingRepairs.length === 0) { closeModal(); return; }
+  if (_pendingRepairs.length === 0) { continueFromEvents(); return; }
   _currentRepair = _pendingRepairs.shift();
   showRepairModal(_currentRepair);
 }

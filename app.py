@@ -791,7 +791,7 @@ SPECIAL_CONTRACTORS = {
     "roof":        {"name": "Sky High Co.",         "icon": "🦅", "desc": "If it touches the sky, they've already touched it first"},
     "kitchen":     {"name": "The Sous Crew",        "icon": "👨‍🍳", "desc": "Michelin-starred kitchens, rental-grade prices"},
 }
-SPECIAL_CONTRACTOR_CHANCE = 0.08
+SPECIAL_CONTRACTOR_CHANCE = 0.10
 
 def _roll_special_contractors(s):
     """Re-roll which special contractors are available across all owned properties."""
@@ -812,12 +812,51 @@ THE_PHIL = {
     "icon":          "🔱",
     "pay_chance":    1.00,
     "damage_chance": 0.00,
-    "stay_min":      56,    # 2 seasons min
-    "stay_max":      112,   # 1 year max
+    "stay_min":      56,
+    "stay_max":      112,
     "is_phil":       True,
     "damage_label":  "None ✨",
     "desc":          "Mysterious. Immaculate. He just… fixes things.",
 }
+
+THE_BAILEYS = {
+    "name":          "The Baileys",
+    "icon":          "👨‍👩‍👧‍👦",
+    "pay_chance":    1.00,
+    "damage_chance": 0.00,
+    "stay_min":      84,    # 3 seasons
+    "stay_max":      224,   # ~2 years
+    "is_baileys":    True,
+    "damage_label":  "None ✨",
+    "desc":          "A tight-knit family who treat every home like their own. Never a complaint, never a late payment, never a scuff on the wall.",
+}
+
+THE_GOLDBERGS = {
+    "name":          "The Goldbergs",
+    "icon":          "🎩",
+    "pay_chance":    1.00,
+    "damage_chance": 0.00,
+    "stay_min":      14,
+    "stay_max":      56,    # max 2 seasons
+    "is_goldbergs":  True,
+    "damage_label":  "None ✨",
+    "desc":          "Old money. Very old money. They pay extravagantly, never haggle, and never miss a payment. They just don't stay long. Standards, you know.",
+}
+
+THE_MYSTERY = {
+    "name":          "???",
+    "icon":          "👤",
+    "pay_chance":    1.00,
+    "damage_chance": 0.00,
+    "stay_min":      28,
+    "stay_max":      168,
+    "is_mystery":    True,
+    "damage_label":  "None ✨",
+    "desc":          "???",
+}
+
+def _is_special_tenant(t):
+    return any(t.get(k) for k in ("is_phil", "is_baileys", "is_goldbergs", "is_mystery"))
 
 # stay_min / stay_max are in DAYS
 TENANT_PROFILES = [
@@ -1086,20 +1125,14 @@ def new_game():
     state["market"], state["next_id"] = _gen_market(state["next_id"])
     return state
 
-def _gen_market(start_id, count=5, hoods=None):
+def _gen_market(start_id, hoods=None):
     listings, nid = [], start_id
-    # Guarantee at least one listing per unlocked neighborhood so the market
-    # never appears to be missing a hood that should be accessible.
-    seeded_hoods = list(hoods) if hoods else []
-    for hood in seeded_hoods:
-        prop = generate_property(nid, hoods=[hood])
-        listings.append(prop)
-        nid += 1
-    # Fill remaining slots randomly across all unlocked hoods
-    remaining = max(0, count - len(seeded_hoods))
-    for _ in range(remaining):
-        listings.append(generate_property(nid, hoods=hoods))
-        nid += 1
+    target_hoods = list(hoods) if hoods else list(NEIGHBORHOODS.keys())
+    for hood in target_hoods:
+        count = random.randint(2, 5)
+        for _ in range(count):
+            listings.append(generate_property(nid, hoods=[hood]))
+            nid += 1
     return listings, nid
 
 _HOOD_MIGRATION = {
@@ -1138,6 +1171,15 @@ def _migrate_state(s):
     s.setdefault("xp", 0)
     if "stocks" not in s:
         s["stocks"] = _init_stock_state()
+    # One-time roll for any property that has never had special contractors set
+    for prop in s.get("properties", []):
+        if "special_contractors" not in prop:
+            rolled = {}
+            for key in SPECIAL_CONTRACTORS:
+                if random.random() < SPECIAL_CONTRACTOR_CHANCE:
+                    prem_cost = int(UPGRADES[key]["base_cost"] * CONTRACTORS["premium"]["cost_mult"])
+                    rolled[key] = {**SPECIAL_CONTRACTORS[key], "cost": prem_cost}
+            prop["special_contractors"] = rolled
     return s
 
 def load():
@@ -1203,15 +1245,16 @@ def api_market():
     unlocked = get_unlocked_neighborhoods(s.get("level", 0))
     if not unlocked:
         return jsonify({"listings": [], "level_locked": True})
-    visible      = [p for p in s.get("market", []) if p["neighborhood"] in unlocked]
-    represented  = {p["neighborhood"] for p in visible}
-    # Regenerate if any unlocked neighborhood has zero listings (e.g. just levelled
-    # up and the new hood isn't in the stored market yet, or market is empty).
-    if set(unlocked) != represented:
+    # Only regenerate when a brand-new neighborhood just unlocked (or first load).
+    # Do NOT regenerate just because all listings in a hood were purchased —
+    # the market only refills on day advance.
+    generated_for  = set(s.get("market_unlocked_hoods", []))
+    newly_unlocked = set(unlocked) - generated_for
+    if newly_unlocked or not s.get("market"):
         s["market"], s["next_id"] = _gen_market(s["next_id"], hoods=unlocked)
+        s["market_unlocked_hoods"] = list(unlocked)
         save(s)
-        visible = s["market"]
-    return jsonify({"listings": [enrich(p, s["day"]) for p in visible]})
+    return jsonify({"listings": [enrich(p, s["day"]) for p in s["market"]]})
 
 @app.route('/api/market/refresh', methods=['POST'])
 def api_market_refresh():
@@ -1236,6 +1279,13 @@ def api_buy():
         return jsonify({"error": "Not enough cash"}), 400
     s["cash"] -= prop["purchase_price"]
     prop["vacant_since"] = s["day"]   # start tracking vacancy from purchase day
+    # Roll special contractors immediately so they're available before the next day advance
+    rolled = {}
+    for key in SPECIAL_CONTRACTORS:
+        if random.random() < SPECIAL_CONTRACTOR_CHANCE:
+            prem_cost = int(UPGRADES[key]["base_cost"] * CONTRACTORS["premium"]["cost_mult"])
+            rolled[key] = {**SPECIAL_CONTRACTORS[key], "cost": prem_cost}
+    prop["special_contractors"] = rolled
     s["properties"].append(prop)
     s["market"] = [p for p in s["market"] if p["id"] != prop["id"]]
     s["log"].append({"day": s["day"], "type": "buy",
@@ -1575,11 +1625,20 @@ def api_applicants(pid):
         applicants = [{**t, "idx": i,
                        "damage_label": "Low" if t["damage_chance"] < 0.05 else ("Medium" if t["damage_chance"] < 0.10 else "High")}
                       for i, t in enumerate(picks)]
-        # Possibly inject The Phil — 5% chance, only if he's not already tenanting elsewhere and no cooldown
-        phil_active   = any((p.get("tenant") or {}).get("is_phil") for p in s["properties"])
-        phil_cooldown = s.get("phil_cooldown_until", 0) > s["day"]
-        if not phil_active and not phil_cooldown and random.random() < 0.05:
-            applicants.append({**THE_PHIL, "idx": len(applicants)})
+        # Possibly inject a special tenant — 5% chance per applicant list refresh.
+        # Only one special tenant appears at a time, chosen randomly from eligible ones.
+        special_pool = []
+        def _eligible(flag, cooldown_key):
+            active   = any((p.get("tenant") or {}).get(flag) for p in s["properties"])
+            cooldown = s.get(cooldown_key, 0) > s["day"]
+            return not active and not cooldown
+        if _eligible("is_phil",      "phil_cooldown_until"):     special_pool.append(THE_PHIL)
+        if _eligible("is_baileys",   "baileys_cooldown_until"):  special_pool.append(THE_BAILEYS)
+        if _eligible("is_goldbergs", "goldbergs_cooldown_until"):special_pool.append(THE_GOLDBERGS)
+        if _eligible("is_mystery",   "mystery_cooldown_until"):  special_pool.append(THE_MYSTERY)
+        if special_pool and random.random() < 0.05:
+            chosen = random.choice(special_pool)
+            applicants.append({**chosen, "idx": len(applicants)})
         s.setdefault("applicants_cache", {})[key] = applicants
         save(s)
     fair_weekly = calc_fair_weekly_rent(prop)
@@ -1625,10 +1684,20 @@ def api_rent():
         "recent_events":    [],   # {key, day} — prevents same event repeating within a season
         "missed_payments":  0,
     }
-    # Phil-specific initialisation
+    # Special tenant overrides — pin pay/damage, lock morale at 100
+    if _is_special_tenant(t):
+        prop["tenant"]["pay_chance"]    = 1.00
+        prop["tenant"]["damage_chance"] = 0.00
+        prop["tenant"]["morale"]        = 100
+    # Phil — passive renovation work
     if t.get("is_phil"):
         prop["tenant"]["next_phil_work_day"] = s["day"] + 7
-        prop["tenant"]["morale"] = 100
+    # Goldbergs — automatically pays 10× fair rent regardless of what player set
+    if t.get("is_goldbergs"):
+        goldbergs_rent = calc_fair_weekly_rent(prop) * 10
+        prop["tenant"]["rent"] = goldbergs_rent
+        s["log"][-1]["text"] = (s["log"][-1]["text"]
+            .replace(f"${weekly_rent:,}/wk", f"${goldbergs_rent:,}/wk (10× rent!)"))
     s.get("applicants_cache", {}).pop(key, None)
     s["log"].append({"day": s["day"], "type": "rent",
         "text": f"{t['name']} moved into {prop['type']} in {prop['neighborhood']} — ${weekly_rent:,}/wk ({tier['tier']} rent) for ~{stay_days} days"})
@@ -1646,8 +1715,10 @@ def api_evict():
     if s["cash"] < fee:
         return jsonify({"error": "Need $1,500 for legal fees"}), 400
     name = prop["tenant"]["name"]
-    if prop["tenant"].get("is_phil"):
-        s["phil_cooldown_until"] = s["day"] + DAYS_PER_SEASON * 4
+    if prop["tenant"].get("is_phil"):      s["phil_cooldown_until"]      = s["day"] + DAYS_PER_SEASON * 4
+    if prop["tenant"].get("is_baileys"):   s["baileys_cooldown_until"]   = s["day"] + DAYS_PER_SEASON * 2
+    if prop["tenant"].get("is_goldbergs"): s["goldbergs_cooldown_until"] = s["day"] + DAYS_PER_SEASON * 2
+    if prop["tenant"].get("is_mystery"):   s["mystery_cooldown_until"]   = s["day"] + DAYS_PER_SEASON * 2
     s["cash"] -= fee
     prop["tenant"] = None
     prop["vacant_since"] = s["day"]
@@ -1703,8 +1774,10 @@ def api_advance():
                                    "type": "info"})
                 else:
                     name = t["name"]
-                    if t.get("is_phil"):
-                        s["phil_cooldown_until"] = current_day + DAYS_PER_SEASON * 4
+                    if t.get("is_phil"):      s["phil_cooldown_until"]      = current_day + DAYS_PER_SEASON * 4
+                    if t.get("is_baileys"):   s["baileys_cooldown_until"]   = current_day + DAYS_PER_SEASON * 2
+                    if t.get("is_goldbergs"): s["goldbergs_cooldown_until"] = current_day + DAYS_PER_SEASON * 2
+                    if t.get("is_mystery"):   s["mystery_cooldown_until"]   = current_day + DAYS_PER_SEASON * 2
                     prop["tenant"] = None
                     prop["vacant_since"] = current_day
                     events.append({"prop": f"{prop['type']} — {prop['neighborhood']}",
@@ -1801,7 +1874,7 @@ def api_advance():
         # Each event type has a weight; same event can't repeat for a tenant within a season.
         # The Phil is excluded — he handles his own improvements separately.
         # To add a new event: add to TENANT_EVENTS and add an elif handler below.
-        tenant_props = [p for p in s["properties"] if p.get("tenant") and not p["tenant"].get("is_phil")]
+        tenant_props = [p for p in s["properties"] if p.get("tenant") and not _is_special_tenant(p["tenant"])]
         tenant_count = len(tenant_props)
         if tenant_count > 0:
             event_chance = min(0.35 + 0.01 * tenant_count, 0.90)
@@ -2076,8 +2149,10 @@ def api_advance():
             bank["loans"] = [l for l in bank["loans"] if l["id"] not in paid_off]
             s["bank"] = bank
 
-        # Refresh market each day advance
-        s["market"], s["next_id"] = _gen_market(s["next_id"])
+        # Refresh market each day advance for all currently unlocked neighborhoods
+        _adv_unlocked = get_unlocked_neighborhoods(s.get("level", 0))
+        s["market"], s["next_id"] = _gen_market(s["next_id"], hoods=_adv_unlocked)
+        s["market_unlocked_hoods"] = list(_adv_unlocked)
 
     # Restore energy (additive recharge capped at home max) and refresh jobs
     home = get_player_home(s)
@@ -2099,6 +2174,7 @@ def api_advance():
 
     _update_stock_prices(s, days)
     _roll_special_contractors(s)
+    s["applicants_cache"] = {}   # fresh tenant pool each advance
     s["day"] += days
     save(s)
     return jsonify({
@@ -2132,8 +2208,10 @@ def api_renewal_respond(pid):
             "text": f"{t['name']} renewed lease at {prop['type']} in {prop['neighborhood']} for {new_stay} more days"})
     else:
         name = t["name"]
-        if t.get("is_phil"):
-            s["phil_cooldown_until"] = s["day"] + DAYS_PER_SEASON * 4
+        if t.get("is_phil"):      s["phil_cooldown_until"]      = s["day"] + DAYS_PER_SEASON * 4
+        if t.get("is_baileys"):   s["baileys_cooldown_until"]   = s["day"] + DAYS_PER_SEASON * 2
+        if t.get("is_goldbergs"): s["goldbergs_cooldown_until"] = s["day"] + DAYS_PER_SEASON * 2
+        if t.get("is_mystery"):   s["mystery_cooldown_until"]   = s["day"] + DAYS_PER_SEASON * 2
         prop["tenant"]       = None
         prop["vacant_since"] = s["day"]
         s["log"].append({"day": s["day"], "type": "info",
