@@ -1297,7 +1297,7 @@ function randomMgType() { return ALL_MG_TYPES[Math.floor(Math.random() * ALL_MG_
 const WORK_MG_MAP = {
   // Renovation upgrades
   'paint':       'paintgame',    // Paint the Wall — drag to cover tiles
-  'flooring':    'colormatch',   // Match the Tile — picking & placing materials
+  'flooring':    'flooringgame', // Lay the Floor — pick a color, tap matching planks
   'windows':     'reactiontap',  // Level It Up — precision fitting
   'hvac':        'sweetspot',    // Tighten the Fitting — mechanical tensioning
   'bathrooms':   'colormatch',   // Match the Tile — tiling
@@ -1313,7 +1313,7 @@ const WORK_MG_MAP = {
   'hvac_fix':    'sweetspot',
   // Side job names
   'Paint a Room':        'paintgame',
-  'Lay Flooring':        'colormatch',
+  'Lay Flooring':        'flooringgame',
   'Patch the Roof':      'quicktap',
   'Fix a Plumbing Leak': 'sweetspot',
   'Install Windows':     'reactiontap',
@@ -1339,6 +1339,7 @@ function launchMgByType(mgType, upgradeKey) {
   else if (mgType === 'reactiontap') launchReactionTap(upgradeKey);
   else if (mgType === 'paintgame')    launchPaintGame(upgradeKey);
   else if (mgType === 'landscapegame') launchLandscapeGame(upgradeKey);
+  else if (mgType === 'flooringgame')  launchFlooringGame(upgradeKey);
 }
 
 async function showContractorModal(propId, upgradeKey) {
@@ -2149,6 +2150,201 @@ function lgFinish() {
 function lgClose() {
   clearTimeout(_mg.autoCloseId);
   const overlay = document.getElementById('lg-overlay');
+  if (!overlay) return;
+  overlay.remove();
+  finishDIY(_mg.upgradeKey, _mg.finalScore ?? 0);
+}
+
+// ── Mini-game: Lay the Flooring ──────────────────────────────────────────────
+// Board of planks each tagged with one of 4 colors. Tap a color from the bottom
+// palette, then tap matching planks to lay them. Score = planks laid / total.
+const FG_COLS     = 4;
+const FG_ROWS     = 8;
+const FG_TOTAL    = FG_COLS * FG_ROWS;  // 32 planks
+const FG_DURATION = 18;                 // seconds
+const FG_COLORS   = [
+  { id: 0, name: 'Oak',    bg: '#C9974A', dark: '#8A6428', grain: '#DDB96A' },
+  { id: 1, name: 'Walnut', bg: '#5A3018', dark: '#321A08', grain: '#7A4828' },
+  { id: 2, name: 'Cherry', bg: '#8C2418', dark: '#5C140A', grain: '#B44030' },
+  { id: 3, name: 'Ash',    bg: '#C8BEAE', dark: '#9A9080', grain: '#E0DCD2' },
+];
+
+function launchFlooringGame(upgradeKey) {
+  closeModal();
+
+  // Build balanced board: exactly 8 of each color, shuffled
+  const rawTargets = Array.from({ length: FG_TOTAL }, (_, i) => i % FG_COLORS.length);
+  for (let i = rawTargets.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [rawTargets[i], rawTargets[j]] = [rawTargets[j], rawTargets[i]];
+  }
+
+  _mg = { ..._mg, upgradeKey, placed: 0, selectedColor: null,
+          targets: rawTargets, timerId: null, running: false,
+          startTime: 0, locked: true, finalScore: 0 };
+
+  const old = document.getElementById('fg-overlay');
+  if (old) old.remove();
+
+  // Build board HTML
+  let boardHtml = '';
+  for (let i = 0; i < FG_TOTAL; i++) {
+    const c = FG_COLORS[rawTargets[i]];
+    boardHtml += `<div class="fg-plank" id="fgp-${i}" data-idx="${i}" data-target="${rawTargets[i]}"
+      style="--fg-target:${c.bg};--fg-grain:${c.grain};--fg-dark:${c.dark}"></div>`;
+  }
+
+  // Build palette HTML
+  let paletteHtml = '';
+  FG_COLORS.forEach(c => {
+    paletteHtml += `<button class="fg-color-btn" data-color="${c.id}"
+      style="--fg-btn-bg:${c.bg};--fg-btn-dark:${c.dark};--fg-btn-grain:${c.grain}"
+      ontouchstart="fgSelectColor(${c.id});event.preventDefault()"
+      onclick="fgSelectColor(${c.id})">
+      <span class="fg-btn-name">${c.name}</span>
+    </button>`;
+  });
+
+  const overlay     = document.createElement('div');
+  overlay.id        = 'fg-overlay';
+  overlay.className = 'fg-overlay';
+  overlay.innerHTML = `
+    <div class="fg-header">
+      <div class="fg-top-row">
+        <span class="fg-title">🪵 Lay the Flooring!</span>
+        <span class="fg-score" id="fg-score">🪵 0 / ${FG_TOTAL}</span>
+      </div>
+      <div class="fg-timer-track">
+        <div class="fg-timer-fill" id="fg-timer-fill"></div>
+      </div>
+      <div class="fg-time-label"><span id="fg-time">${FG_DURATION}</span>s remaining</div>
+    </div>
+    <div class="fg-board" id="fg-board">${boardHtml}</div>
+    <div class="fg-palette" id="fg-palette">${paletteHtml}</div>
+    <div class="fg-start-screen" id="fg-start-screen">
+      <div class="fg-start-card">
+        <div class="fg-start-icon">🪵</div>
+        <div class="fg-start-title">Lay the Flooring!</div>
+        <div class="fg-start-desc">Pick a color from the bottom<br>then tap the matching planks on the board!</div>
+        <button class="fg-start-btn" ontouchstart="fgStart();event.preventDefault()" onclick="fgStart()">🪵 Let's Go!</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  // Attach handlers to planks
+  overlay.querySelectorAll('.fg-plank').forEach(el => {
+    el.addEventListener('click', () => fgTapPlank(parseInt(el.dataset.idx)));
+    el.addEventListener('touchstart', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      fgTapPlank(parseInt(el.dataset.idx));
+    }, { passive: false });
+  });
+}
+
+function fgStart() {
+  const ss = document.getElementById('fg-start-screen');
+  if (ss) ss.style.display = 'none';
+  _mg.running   = true;
+  _mg.startTime = Date.now();
+  const endTime = _mg.startTime + FG_DURATION * 1000;
+
+  _mg.timerId = setInterval(() => {
+    const left = Math.max(0, endTime - Date.now());
+    const pct  = left / (FG_DURATION * 1000);
+    const fill  = document.getElementById('fg-timer-fill');
+    const timeEl = document.getElementById('fg-time');
+    if (fill) {
+      fill.style.width      = (pct * 100).toFixed(1) + '%';
+      fill.style.background = pct > 0.5 ? '#FF8C00' : pct > 0.25 ? '#FF6B00' : '#F44336';
+    }
+    if (timeEl) timeEl.textContent = Math.ceil(left / 1000);
+    if (left <= 0) {
+      clearInterval(_mg.timerId);
+      _mg.running = false;
+      fgFinish();
+    }
+  }, 50);
+}
+
+function fgSelectColor(colorId) {
+  if (!_mg.running) return;
+  _mg.selectedColor = colorId;
+  document.querySelectorAll('.fg-color-btn').forEach(btn => {
+    btn.classList.toggle('active', parseInt(btn.dataset.color) === colorId);
+  });
+}
+
+function fgTapPlank(idx) {
+  if (!_mg.running) return;
+
+  // No color selected — shake the palette as a hint
+  if (_mg.selectedColor === null) {
+    const pal = document.getElementById('fg-palette');
+    if (pal) { pal.classList.add('fg-shake'); setTimeout(() => pal.classList.remove('fg-shake'), 400); }
+    return;
+  }
+
+  const el = document.getElementById(`fgp-${idx}`);
+  if (!el || el.classList.contains('fg-placed')) return;
+
+  const target = parseInt(el.dataset.target);
+
+  if (_mg.selectedColor === target) {
+    // Correct placement
+    const c = FG_COLORS[target];
+    el.classList.add('fg-placed');
+    el.style.setProperty('--fg-placed-bg',    c.bg);
+    el.style.setProperty('--fg-placed-dark',  c.dark);
+    el.style.setProperty('--fg-placed-grain', c.grain);
+    _mg.placed++;
+    const scoreEl = document.getElementById('fg-score');
+    if (scoreEl) scoreEl.textContent = `🪵 ${_mg.placed} / ${FG_TOTAL}`;
+    // All done early?
+    if (_mg.placed >= FG_TOTAL) {
+      clearInterval(_mg.timerId);
+      _mg.running = false;
+      fgFinish();
+    }
+  } else {
+    // Wrong color — flash red
+    el.classList.add('fg-wrong');
+    setTimeout(() => el.classList.remove('fg-wrong'), 350);
+  }
+}
+
+function fgFinish() {
+  clearInterval(_mg.timerId);
+  _mg.locked = false;
+
+  const score    = Math.min(100, Math.round((_mg.placed / FG_TOTAL) * 100));
+  _mg.finalScore = score;
+
+  const msg = score >= 90 ? '🌟 Perfect install!'          :
+              score >= 70 ? '✅ Looking good!'              :
+              score >= 50 ? '👍 Halfway there!'             :
+                            '🪵 Back to the hardware store...';
+
+  const overlay = document.getElementById('fg-overlay');
+  if (overlay) {
+    const res     = document.createElement('div');
+    res.className = 'fg-result-overlay';
+    res.innerHTML = `
+      <div class="fg-result-card">
+        <div class="fg-result-score">${_mg.placed}</div>
+        <div class="fg-result-label">planks laid</div>
+        <div class="fg-result-pct">${score}%</div>
+        <div class="fg-result-msg">${msg}</div>
+      </div>`;
+    overlay.appendChild(res);
+  }
+
+  _mg.autoCloseId = setTimeout(fgClose, 2400);
+}
+
+function fgClose() {
+  clearTimeout(_mg.autoCloseId);
+  const overlay = document.getElementById('fg-overlay');
   if (!overlay) return;
   overlay.remove();
   finishDIY(_mg.upgradeKey, _mg.finalScore ?? 0);
