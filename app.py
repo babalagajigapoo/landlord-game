@@ -21,10 +21,64 @@ SAVINGS_TIERS = [
     {"min": 50_000, "label": "Elite",    "monthly_rate": 0.008, "apr": 9.6},
 ]
 
-PROPERTY_TYPES = ["Bungalow", "Ranch House", "Colonial", "Townhouse", "Condo", "Duplex"]
+PROPERTY_TYPES = ["Bungalow", "Ranch House", "Colonial", "Townhouse", "Condo", "Duplex", "Mansion"]
 PROPERTY_ICONS = {
-    "Bungalow": "🏡", "Ranch House": "🏘️", "Colonial": "🏛️",
-    "Townhouse": "🏙️", "Condo": "🏢", "Duplex": "🏠"
+    "Bungalow": "🏚️", "Ranch House": "🏠", "Colonial": "🏛️",
+    "Townhouse": "🏙️", "Condo": "🏢", "Duplex": "🏘️", "Mansion": "🏰"
+}
+
+# Street names per neighborhood for address generation
+HOOD_STREETS = {
+    "Midtown":   ["Oak St", "Pine Ave", "Elm St", "Main St", "1st Ave", "2nd St",
+                  "Market St", "Union Ave", "Canal St", "Bridge Rd", "Iron Ave", "Mill Rd"],
+    "Northside": ["Cedar Rd", "Birch Lane", "Spruce Dr", "North Ave", "Ridge Rd",
+                  "Valley Rd", "Hollow Rd", "Quarry Rd", "Depot Ave", "Gravel Rd"],
+    "Westwood":  ["Maple Ave", "Westwood Dr", "Oak Hill Rd", "Sunset Blvd", "Park Ave",
+                  "Clover Dr", "Hillcrest Rd", "Garden Way", "Pinewood Dr", "Orchard Ln"],
+    "Riverside": ["Riverside Dr", "Willow Lane", "Creekside Dr", "Waterway Blvd",
+                  "Bay St", "Harbor Rd", "Bluff Rd", "Brook Lane", "Cove Dr", "Tide Rd"],
+    "Newbay":    ["Grand Ave", "Harbor Blvd", "Bayview Dr", "Crest Rd", "Newport Way",
+                  "Marina Blvd", "Summit Dr", "Lakeshore Blvd", "Glenview Ct", "Prestige Way"],
+}
+
+# Per-neighborhood property generation config
+# cond_rolls: list of (low, high, weight) — condition ranges with relative weights
+HOOD_PROP_CONFIG = {
+    "Midtown": {
+        "types":      ["Bungalow", "Ranch House", "Condo"],
+        "beds":       (1, 2),
+        "baths_max":  1,
+        "sqft":       (380, 820),
+        "cond_rolls": [(15, 74, 50), (75, 160, 50)],   # ~50% below C
+    },
+    "Northside": {
+        "types":      ["Bungalow", "Ranch House", "Colonial", "Condo", "Duplex"],
+        "beds":       (1, 3),
+        "baths_max":  2,
+        "sqft":       (650, 1250),
+        "cond_rolls": [(20, 74, 50), (75, 175, 50)],   # ~50% below C
+    },
+    "Westwood": {
+        "types":      ["Ranch House", "Colonial", "Townhouse", "Duplex"],
+        "beds":       (2, 4),
+        "baths_max":  3,
+        "sqft":       (950, 1850),
+        "cond_rolls": [(30, 74, 50), (75, 200, 50)],   # ~50% below C
+    },
+    "Riverside": {
+        "types":      ["Colonial", "Townhouse", "Condo", "Duplex"],
+        "beds":       (2, 5),
+        "baths_max":  3,
+        "sqft":       (1300, 2700),
+        "cond_rolls": [(35, 74, 50), (75, 215, 50)],   # ~50% below C
+    },
+    "Newbay": {
+        "types":      ["Colonial", "Townhouse", "Mansion"],
+        "beds":       (3, 6),
+        "baths_max":  4,
+        "sqft":       (2000, 5500),
+        "cond_rolls": [(40, 74, 50), (175, 250, 50)],   # ~50% below C, but good ones are premium
+    },
 }
 
 NEIGHBORHOODS = {
@@ -238,14 +292,14 @@ def _pick_weighted_event(event_list):
     return event_list[-1]
 
 UPGRADES = {
-    "paint":       {"name": "Interior Paint",   "icon": "🎨", "base_cost": 1500,  "value_add": 3000,  "cond_boost": 15, "energy_cost": 1},
-    "landscaping": {"name": "Landscaping",       "icon": "🌿", "base_cost": 2000,  "value_add": 4500,  "cond_boost": 10, "energy_cost": 1},
-    "flooring":    {"name": "New Flooring",      "icon": "🪵", "base_cost": 4000,  "value_add": 8000,  "cond_boost": 20, "energy_cost": 2},
-    "windows":     {"name": "New Windows",       "icon": "🪟", "base_cost": 6000,  "value_add": 10000, "cond_boost": 12, "energy_cost": 2},
-    "hvac":        {"name": "HVAC System",       "icon": "❄️", "base_cost": 7000,  "value_add": 11000, "cond_boost": 15, "energy_cost": 3},
-    "bathrooms":   {"name": "Bathroom Remodel",  "icon": "🚿", "base_cost": 8000,  "value_add": 14000, "cond_boost": 20, "energy_cost": 3},
-    "roof":        {"name": "Roof Replacement",  "icon": "🏠", "base_cost": 10000, "value_add": 15000, "cond_boost": 18, "energy_cost": 4},
-    "kitchen":     {"name": "Kitchen Remodel",   "icon": "🍳", "base_cost": 12000, "value_add": 22000, "cond_boost": 25, "energy_cost": 4},
+    "paint":       {"name": "Interior Paint",   "icon": "🎨", "base_cost": 1500,  "value_add": 3000,  "cond_boost":  8, "energy_cost": 1},
+    "landscaping": {"name": "Landscaping",       "icon": "🌿", "base_cost": 2000,  "value_add": 4500,  "cond_boost": 12, "energy_cost": 1},
+    "flooring":    {"name": "New Flooring",      "icon": "🪵", "base_cost": 4000,  "value_add": 8000,  "cond_boost": 21, "energy_cost": 2},
+    "windows":     {"name": "New Windows",       "icon": "🪟", "base_cost": 6000,  "value_add": 10000, "cond_boost": 26, "energy_cost": 2},
+    "hvac":        {"name": "HVAC System",       "icon": "❄️", "base_cost": 7000,  "value_add": 11000, "cond_boost": 30, "energy_cost": 3},
+    "bathrooms":   {"name": "Bathroom Remodel",  "icon": "🚿", "base_cost": 8000,  "value_add": 14000, "cond_boost": 38, "energy_cost": 3},
+    "roof":        {"name": "Roof Replacement",  "icon": "🏠", "base_cost": 10000, "value_add": 15000, "cond_boost": 40, "energy_cost": 4},
+    "kitchen":     {"name": "Kitchen Remodel",   "icon": "🍳", "base_cost": 12000, "value_add": 22000, "cond_boost": 60, "energy_cost": 4},
 }
 
 # Premium upgrades — permanent additions that raise market value & fair rent.
@@ -284,9 +338,22 @@ TIER_GRADES = [
     {"key": "S+", "min_score": 90, "max_score": 100, "pct":  25},
 ]
 
-def tier_cond_change(tier):
-    """Convert a tier's pct to actual condition points (out of MAX_CONDITION)."""
-    return round(tier["pct"] / 100 * MAX_CONDITION)
+# Grade multipliers applied to each upgrade's cond_boost.
+# Designed so: starting at 0, A-grade on all 8 renovations → ~200 condition (S tier, not S+).
+GRADE_MULT = {
+    "F":  -0.40,   # actively damages — bad contractor makes things worse
+    "D":   0.00,   # wasted money, zero gain
+    "C":   0.28,
+    "B":   0.58,
+    "A":   0.85,   # all 8 at A = 200 condition from 0 (S tier)
+    "S":   1.00,   # all 8 at S = 235 (S+ territory — earns it)
+    "S+":  1.20,   # all 8 at S+ = 250 (capped max)
+}
+
+def tier_cond_change(tier, cond_boost):
+    """Return condition point change for a renovation given the grade tier and the
+    upgrade's base cond_boost.  Positive upgrades help; F grade actively hurts."""
+    return round(GRADE_MULT.get(tier["key"], 0) * cond_boost)
 
 JOB_TEMPLATES = [
     {"name": "Paint a Room",        "icon": "🎨", "desc": "Roll a fresh coat on interior walls"},
@@ -311,8 +378,9 @@ JOB_PAY_RANGES = {1: (100, 350), 2: (350, 700), 3: (700, 1200), 4: (1200, 2000)}
 
 # Creator / cheat codes — keys are lowercase for case-insensitive matching
 CREATOR_CODES = {
-    "cheatercheater": {"desc": "💰 $10,000,000 deposited!", "cash": 10_000_000},
-    "pumpkineater":   {"desc": "⭐ Max Level unlocked — all neighborhoods and homes available!", "level": MAX_LEVEL, "xp": XP_THRESHOLDS[MAX_LEVEL]},
+    "cheatercheater": {"desc": "Here you go cheater, here's 10 mill. Now leave me alone 💰", "cash": 10_000_000},
+    "pumpkineater":   {"desc": "Max level? Sweet! Now you ruined all the progression of the game... ⭐", "level": MAX_LEVEL, "xp": XP_THRESHOLDS[MAX_LEVEL]},
+    "69 bitches":     {"desc": "Real mature Alex... Real mature... 🙄"},
 }
 
 # Player homes — each tier increases max energy and daily recharge by 2
@@ -360,30 +428,33 @@ THE_PHIL = {
 
 # stay_min / stay_max are in DAYS
 TENANT_PROFILES = [
-    # ── Original profiles ──────────────────────────────────────────────────────
-    {"name": "Young Professional", "icon": "💼", "pay_chance": 0.97, "damage_chance": 0.03, "stay_min": 60,  "stay_max": 180},
-    {"name": "College Student",    "icon": "🎓", "pay_chance": 0.82, "damage_chance": 0.12, "stay_min": 30,  "stay_max": 90},
-    {"name": "Retired Couple",     "icon": "👴", "pay_chance": 0.99, "damage_chance": 0.01, "stay_min": 120, "stay_max": 365},
-    {"name": "Young Family",       "icon": "👨‍👩‍👧", "pay_chance": 0.93, "damage_chance": 0.07, "stay_min": 90,  "stay_max": 270},
-    {"name": "Freelancer",         "icon": "💻", "pay_chance": 0.85, "damage_chance": 0.05, "stay_min": 45,  "stay_max": 120},
-    {"name": "Section 8",          "icon": "🏛️", "pay_chance": 0.95, "damage_chance": 0.08, "stay_min": 60,  "stay_max": 180},
-    # ── Expanded profiles ──────────────────────────────────────────────────────
-    {"name": "Aspiring Chef",      "icon": "👨‍🍳", "pay_chance": 0.91, "damage_chance": 0.14, "stay_min": 60,  "stay_max": 180},
-    {"name": "The Minimalist",     "icon": "🧘", "pay_chance": 0.98, "damage_chance": 0.01, "stay_min": 90,  "stay_max": 240},
-    {"name": "Nurse (Night Shift)","icon": "🩺", "pay_chance": 0.96, "damage_chance": 0.02, "stay_min": 90,  "stay_max": 270},
-    {"name": "Grad Student",       "icon": "📚", "pay_chance": 0.79, "damage_chance": 0.06, "stay_min": 60,  "stay_max": 120},
-    {"name": "Single Parent",      "icon": "🧑‍👧", "pay_chance": 0.90, "damage_chance": 0.06, "stay_min": 90,  "stay_max": 300},
-    {"name": "Social Butterfly",   "icon": "🦋", "pay_chance": 0.88, "damage_chance": 0.11, "stay_min": 45,  "stay_max": 120},
-    {"name": "Veteran",            "icon": "🪖", "pay_chance": 0.99, "damage_chance": 0.02, "stay_min": 120, "stay_max": 365},
-    {"name": "Remote Worker",      "icon": "🖥️", "pay_chance": 0.94, "damage_chance": 0.04, "stay_min": 90,  "stay_max": 270},
-    {"name": "The Artist",         "icon": "🎨", "pay_chance": 0.80, "damage_chance": 0.15, "stay_min": 60,  "stay_max": 150},
-    {"name": "Doomsday Prepper",   "icon": "🥫", "pay_chance": 0.92, "damage_chance": 0.09, "stay_min": 120, "stay_max": 365},
-    {"name": "Trust Fund Kid",     "icon": "🛍️", "pay_chance": 0.99, "damage_chance": 0.13, "stay_min": 30,  "stay_max": 90},
-    {"name": "Teacher",            "icon": "🍎", "pay_chance": 0.93, "damage_chance": 0.03, "stay_min": 90,  "stay_max": 270},
-    {"name": "Outdoorsy Type",     "icon": "🏕️", "pay_chance": 0.95, "damage_chance": 0.02, "stay_min": 45,  "stay_max": 150},
-    {"name": "Band Member",        "icon": "🎸", "pay_chance": 0.78, "damage_chance": 0.16, "stay_min": 30,  "stay_max": 90},
-    {"name": "Influencer",         "icon": "📱", "pay_chance": 0.90, "damage_chance": 0.10, "stay_min": 30,  "stay_max": 90},
-    {"name": "The Handyman",       "icon": "🔧", "pay_chance": 0.91, "damage_chance": 0.01, "stay_min": 90,  "stay_max": 240},
+    # ── Budget tier (Midtown / Northside) ──────────────────────────────────────
+    {"name": "College Student",    "icon": "🎓", "pay_chance": 0.82, "damage_chance": 0.12, "stay_min": 30,  "stay_max": 90,  "tiers": ["budget"]},
+    {"name": "Grad Student",       "icon": "📚", "pay_chance": 0.79, "damage_chance": 0.06, "stay_min": 60,  "stay_max": 120, "tiers": ["budget"]},
+    {"name": "Band Member",        "icon": "🎸", "pay_chance": 0.78, "damage_chance": 0.16, "stay_min": 30,  "stay_max": 90,  "tiers": ["budget"]},
+    {"name": "Section 8",          "icon": "🏛️", "pay_chance": 0.95, "damage_chance": 0.08, "stay_min": 60,  "stay_max": 180, "tiers": ["budget"]},
+    # ── Budget + Mid ───────────────────────────────────────────────────────────
+    {"name": "The Artist",         "icon": "🎨", "pay_chance": 0.80, "damage_chance": 0.15, "stay_min": 60,  "stay_max": 150, "tiers": ["budget", "mid"]},
+    {"name": "Social Butterfly",   "icon": "🦋", "pay_chance": 0.88, "damage_chance": 0.11, "stay_min": 45,  "stay_max": 120, "tiers": ["budget", "mid"]},
+    {"name": "Single Parent",      "icon": "🧑‍👧", "pay_chance": 0.90, "damage_chance": 0.06, "stay_min": 90,  "stay_max": 300, "tiers": ["budget", "mid"]},
+    {"name": "Young Family",       "icon": "👨‍👩‍👧", "pay_chance": 0.93, "damage_chance": 0.07, "stay_min": 90,  "stay_max": 270, "tiers": ["budget", "mid"]},
+    {"name": "Freelancer",         "icon": "💻", "pay_chance": 0.85, "damage_chance": 0.05, "stay_min": 45,  "stay_max": 120, "tiers": ["budget", "mid"]},
+    {"name": "Aspiring Chef",      "icon": "👨‍🍳", "pay_chance": 0.91, "damage_chance": 0.14, "stay_min": 60,  "stay_max": 180, "tiers": ["budget", "mid"]},
+    {"name": "Outdoorsy Type",     "icon": "🏕️", "pay_chance": 0.95, "damage_chance": 0.02, "stay_min": 45,  "stay_max": 150, "tiers": ["budget", "mid"]},
+    # ── Mid tier (Westwood / Riverside) ───────────────────────────────────────
+    {"name": "Teacher",            "icon": "🍎", "pay_chance": 0.93, "damage_chance": 0.03, "stay_min": 90,  "stay_max": 270, "tiers": ["mid"]},
+    {"name": "Nurse (Night Shift)","icon": "🩺", "pay_chance": 0.96, "damage_chance": 0.02, "stay_min": 90,  "stay_max": 270, "tiers": ["mid"]},
+    {"name": "The Handyman",       "icon": "🔧", "pay_chance": 0.91, "damage_chance": 0.01, "stay_min": 90,  "stay_max": 240, "tiers": ["mid"]},
+    {"name": "Doomsday Prepper",   "icon": "🥫", "pay_chance": 0.92, "damage_chance": 0.09, "stay_min": 120, "stay_max": 365, "tiers": ["mid"]},
+    # ── Mid + Premium ──────────────────────────────────────────────────────────
+    {"name": "Young Professional", "icon": "💼", "pay_chance": 0.97, "damage_chance": 0.03, "stay_min": 60,  "stay_max": 180, "tiers": ["mid", "premium"]},
+    {"name": "Remote Worker",      "icon": "🖥️", "pay_chance": 0.94, "damage_chance": 0.04, "stay_min": 90,  "stay_max": 270, "tiers": ["mid", "premium"]},
+    {"name": "The Minimalist",     "icon": "🧘", "pay_chance": 0.98, "damage_chance": 0.01, "stay_min": 90,  "stay_max": 240, "tiers": ["mid", "premium"]},
+    {"name": "Veteran",            "icon": "🪖", "pay_chance": 0.99, "damage_chance": 0.02, "stay_min": 120, "stay_max": 365, "tiers": ["mid", "premium"]},
+    {"name": "Retired Couple",     "icon": "👴", "pay_chance": 0.99, "damage_chance": 0.01, "stay_min": 120, "stay_max": 365, "tiers": ["mid", "premium"]},
+    # ── Premium tier (Newbay) ─────────────────────────────────────────────────
+    {"name": "Trust Fund Kid",     "icon": "🛍️", "pay_chance": 0.99, "damage_chance": 0.13, "stay_min": 30,  "stay_max": 90,  "tiers": ["premium"]},
+    {"name": "Influencer",         "icon": "📱", "pay_chance": 0.90, "damage_chance": 0.10, "stay_min": 30,  "stay_max": 90,  "tiers": ["premium"]},
 ]
 
 # ── Game Logic ─────────────────────────────────────────────────────────────────
@@ -539,6 +610,7 @@ def enrich(prop, current_day=1):
     p["weekly_rent"]     = calc_fair_weekly_rent(prop)
     p["condition_label"] = condition_label(prop["condition"])
     p["icon"]            = PROPERTY_ICONS.get(prop["type"], "🏠")
+    p["address"]         = prop.get("address", f"{prop.get('type', 'Property')} — {prop.get('neighborhood', '')}")
     p["neighborhood_info"] = NEIGHBORHOODS[prop["neighborhood"]]
     p["deal"]            = p["market_value"] - prop["purchase_price"]
     if p.get("tenant"):
@@ -546,25 +618,53 @@ def enrich(prop, current_day=1):
         p["tenant_days_remaining"] = max(0, lease_end - current_day)
     return p
 
+def _roll_condition(cond_rolls):
+    """Pick a condition value using weighted ranges. cond_rolls = [(low, high, weight), ...]"""
+    population = [r[:2] for r in cond_rolls]
+    weights    = [r[2]  for r in cond_rolls]
+    lo, hi     = random.choices(population, weights=weights)[0]
+    return random.randint(lo, hi)
+
+def _make_address(hood):
+    """Generate a realistic street address for a neighborhood."""
+    number = random.randint(1, 99) * 100 + random.choice([0, 5, 8, 12, 17, 24, 35, 43, 51, 62, 76, 88])
+    number = max(100, min(9999, number))
+    street = random.choice(HOOD_STREETS.get(hood, ["Main St"]))
+    return f"{number} {street}"
+
 def generate_property(nid, hoods=None):
-    ptype = random.choice(PROPERTY_TYPES)
     hood  = random.choice(hoods if hoods else list(NEIGHBORHOODS.keys()))
-    beds  = random.randint(1, 5)
-    baths = random.randint(1, min(beds, 3))
-    sqft  = random.randint(600 + beds * 150, 900 + beds * 350)
-    cond  = random.randint(25, 212)   # scaled to 250-point system
-    prop  = {"id": nid, "type": ptype, "neighborhood": hood, "bedrooms": beds,
-             "bathrooms": baths, "sqft": sqft, "condition": cond, "upgrades": {},
-             "premium_upgrades": [], "squatter": None, "vacant_since": 1,
-             "pending_reno": None, "pending_premium": None,
-             "scheduled_reno": None, "scheduled_premium": None,
-             "tenant": None, "days_rented": 0,
-             "total_rent_collected": 0, "total_repair_costs": 0, "purchase_price": 0}
+    cfg   = HOOD_PROP_CONFIG.get(hood, {})
+
+    ptype = random.choice(cfg.get("types", PROPERTY_TYPES))
+
+    # Mansions get their own generous stats to guarantee $1M+ asking price
+    if ptype == "Mansion":
+        beds  = random.randint(5, 7)
+        baths = random.randint(3, min(beds, 5))
+        sqft  = random.randint(6000, 9000)
+        cond  = random.randint(185, 245)
+    else:
+        bed_min, bed_max = cfg.get("beds", (1, 5))
+        beds  = random.randint(bed_min, bed_max)
+        baths = random.randint(1, min(beds, cfg.get("baths_max", 3)))
+        sq_lo, sq_hi = cfg.get("sqft", (600, 1800))
+        sqft  = random.randint(sq_lo, sq_hi)
+        cond  = _roll_condition(cfg.get("cond_rolls", [(25, 212, 1)]))
+
+    address = _make_address(hood)
+    prop = {"id": nid, "type": ptype, "neighborhood": hood, "address": address,
+            "bedrooms": beds, "bathrooms": baths, "sqft": sqft, "condition": cond,
+            "upgrades": {}, "premium_upgrades": [], "squatter": None, "vacant_since": 1,
+            "pending_reno": None, "pending_premium": None,
+            "scheduled_reno": None, "scheduled_premium": None,
+            "tenant": None, "days_rented": 0,
+            "total_rent_collected": 0, "total_repair_costs": 0, "purchase_price": 0}
     prop["purchase_price"] = int(calc_market_value(prop) * random.uniform(0.88, 1.06))
     return prop
 
 def make_starter_home():
-    return {"id": 1, "type": "Bungalow", "neighborhood": "Midtown",
+    return {"id": 1, "type": "Bungalow", "neighborhood": "Midtown", "address": "412 Elm St",
             "bedrooms": 2, "bathrooms": 1, "sqft": 820, "condition": 61,
             "upgrades": {}, "premium_upgrades": [], "squatter": None, "vacant_since": 1,
             "pending_reno": None, "pending_premium": None,
@@ -803,7 +903,7 @@ def api_renovate():
         return jsonify({"error": "Not enough cash"}), 400
     quality      = random.randint(cont["q_min"], cont["q_max"])
     tier         = score_to_tier(quality)
-    cond_change  = tier_cond_change(tier)
+    cond_change  = tier_cond_change(tier, upg["cond_boost"])
     duration     = contractor_days(data["contractor_key"], upg.get("energy_cost", 1))
     complete_day = s["day"] + duration
     s["cash"] -= cost
@@ -922,7 +1022,7 @@ def api_schedule_reno(pid):
 
     quality     = random.randint(cont["q_min"], cont["q_max"])
     tier        = score_to_tier(quality)
-    cond_change = tier_cond_change(tier)
+    cond_change = tier_cond_change(tier, upg["cond_boost"])
     duration    = contractor_days(contractor_key, upg.get("energy_cost", 1))
 
     s["cash"] -= cost
@@ -1038,14 +1138,17 @@ def api_applicants(pid):
         return jsonify({"error": "Not found"}), 404
     key = str(pid)
     if key not in s.get("applicants_cache", {}):
-        picks = random.sample(TENANT_PROFILES, min(3, len(TENANT_PROFILES)))
+        # Filter tenant pool to profiles that match the property's neighborhood tier
+        hood_tier = NEIGHBORHOODS.get(prop.get("neighborhood", ""), {}).get("tier", "mid")
+        eligible  = [t for t in TENANT_PROFILES if hood_tier in t.get("tiers", ["budget", "mid", "premium"])]
+        picks     = random.sample(eligible, min(3, len(eligible)))
         applicants = [{**t, "idx": i,
                        "damage_label": "Low" if t["damage_chance"] < 0.05 else ("Medium" if t["damage_chance"] < 0.10 else "High")}
                       for i, t in enumerate(picks)]
-        # Possibly inject The Phil — only if nobody else has him and no cooldown
+        # Possibly inject The Phil — 5% chance, only if he's not already tenanting elsewhere and no cooldown
         phil_active   = any((p.get("tenant") or {}).get("is_phil") for p in s["properties"])
         phil_cooldown = s.get("phil_cooldown_until", 0) > s["day"]
-        if not phil_active and not phil_cooldown and random.random() < 0.20:
+        if not phil_active and not phil_cooldown and random.random() < 0.05:
             applicants.append({**THE_PHIL, "idx": len(applicants)})
         s.setdefault("applicants_cache", {})[key] = applicants
         save(s)
@@ -1240,10 +1343,10 @@ def api_advance():
                             if wtype == "u":
                                 quality     = random.randint(80, 100)
                                 tier_grade  = next(tr for tr in TIER_GRADES if tr["min_score"] <= quality <= tr["max_score"])
-                                cond_change = tier_cond_change(tier_grade)
+                                upg         = UPGRADES[wkey]
+                                cond_change = tier_cond_change(tier_grade, upg["cond_boost"])
                                 prop.setdefault("upgrades", {})[wkey] = {"quality": quality, "day": current_day}
                                 prop["condition"] = max(0, min(MAX_CONDITION, prop["condition"] + cond_change))
-                                upg = UPGRADES[wkey]
                                 events.append({"prop": f"{prop['type']} — {prop['neighborhood']}",
                                     "text": f"🔱 The Phil did: {upg['icon']} {upg['name']} — Grade {tier_grade['key']}!", "type": "positive"})
                                 s["log"].insert(0, {"day": current_day, "type": "renovate",
@@ -1726,7 +1829,7 @@ def api_diy_renovate():
         return jsonify({"error": f"Not enough energy — this renovation costs ⚡{energy_cost}"}), 400
     quality     = max(0, min(100, int(data["quality"])))
     tier        = score_to_tier(quality)
-    cond_change = tier_cond_change(tier)
+    cond_change = tier_cond_change(tier, upg["cond_boost"])
     s["energy"] = s.get("energy", DAILY_ENERGY) - energy_cost
     prop.setdefault("upgrades", {})[upgrade_key] = {"quality": quality, "day": s["day"]}
     prop["condition"] = max(0, min(MAX_CONDITION, prop["condition"] + cond_change))

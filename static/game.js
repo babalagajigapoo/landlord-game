@@ -272,8 +272,8 @@ function marketCardHtml(p) {
     <div class="card-header">
       <div class="card-icon">${p.icon}</div>
       <div style="flex:1">
-        <div class="card-title">${p.bedrooms}bd / ${p.bathrooms}ba ${p.type}</div>
-        <div class="card-subtitle">${p.sqft.toLocaleString()} sqft</div>
+        <div class="card-title">${p.address || p.type}</div>
+        <div class="card-subtitle">${p.bedrooms}bd / ${p.bathrooms}ba ${p.type} · ${p.sqft.toLocaleString()} sqft</div>
       </div>
     </div>
     <div class="condition-wrap">
@@ -474,8 +474,8 @@ function portfolioCardHtml(p) {
     <div class="card-header">
       <div class="card-icon">${p.icon}</div>
       <div style="flex:1">
-        <div class="card-title">${p.bedrooms}bd / ${p.bathrooms}ba ${p.type}</div>
-        <div class="card-subtitle">${p.neighborhood} · ${p.sqft.toLocaleString()} sqft</div>
+        <div class="card-title">${p.address || p.type}</div>
+        <div class="card-subtitle">${p.bedrooms}bd / ${p.bathrooms}ba ${p.type} · ${p.neighborhood}</div>
       </div>
       <div style="text-align:right">
         <div style="font-size:16px;font-weight:800">${fmt(p.market_value)}</div>
@@ -639,8 +639,8 @@ async function showPropertyDetail(id) {
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
       <span style="font-size:36px">${prop.icon}</span>
       <div>
-        <div style="font-size:18px;font-weight:800;margin-bottom:2px">${prop.bedrooms}bd / ${prop.bathrooms}ba ${prop.type}</div>
-        <div style="font-size:13px;color:var(--text-2)">${prop.neighborhood} · ${prop.sqft.toLocaleString()} sqft</div>
+        <div style="font-size:18px;font-weight:800;margin-bottom:2px">${prop.address || prop.type}</div>
+        <div style="font-size:13px;color:var(--text-2)">${prop.bedrooms}bd / ${prop.bathrooms}ba ${prop.type} · ${prop.neighborhood}</div>
       </div>
     </div>
     <div class="condition-wrap">
@@ -956,7 +956,7 @@ function sellProperty(id) {
   const prop = state.properties.find(p => p.id === id);
   if (!prop) return;
   showConfirmModal(
-    `Sell ${prop.type} in ${prop.neighborhood}?`,
+    `Sell ${prop.address || prop.type} in ${prop.neighborhood}?`,
     `Market value ~${fmt(prop.market_value)}. Final price varies ±5%.`,
     async () => {
       const res = await api('/sell', 'POST', { prop_id: id });
@@ -1003,7 +1003,7 @@ async function showTenantsModal(id) {
   openModal(`
     <div class="modal-handle"></div>
     <div class="modal-title">Choose a Tenant</div>
-    <div class="modal-subtitle">${prop.type} in ${prop.neighborhood} · Fair rent: ${fmt(_fairRent)}/wk</div>
+    <div class="modal-subtitle">${prop.address || prop.type} · ${prop.neighborhood} · Fair rent: ${fmt(_fairRent)}/wk</div>
     ${_applicants.map(t => t.is_phil ? `
       <div class="tenant-card" onclick="showRentSettingModal(${id}, ${t.idx})"
            style="border:2px solid gold;background:linear-gradient(135deg,#fffde7,#fff8e1)">
@@ -2509,11 +2509,16 @@ async function redeemCode() {
     msgEl.textContent = '❌ ' + res.error;
     msgEl.style.color = 'var(--negative)';
   } else {
-    input.value = '';
-    msgEl.textContent = '✅ ' + res.reward_desc;
-    msgEl.style.color = 'var(--positive)';
     await refreshState();
     renderSettings();
+    // Set message AFTER renderSettings rebuilds the DOM, otherwise it gets wiped
+    const msgElAfter = document.getElementById('creator-code-msg');
+    const inputAfter = document.getElementById('creator-code-input');
+    if (msgElAfter) {
+      msgElAfter.textContent = '✅ ' + res.reward_desc;
+      msgElAfter.style.color = 'var(--positive)';
+    }
+    if (inputAfter) inputAfter.value = '';
   }
 }
 
