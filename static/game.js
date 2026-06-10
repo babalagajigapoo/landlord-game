@@ -1832,7 +1832,7 @@ const PAINT_COLORS = [
 const PG_COLS     = 6;
 const PG_ROWS     = 8;
 const PG_TOTAL    = PG_COLS * PG_ROWS;  // 48 tiles
-const PG_DURATION = 3;                  // seconds
+const PG_DURATION = 2.5;                // seconds
 
 function launchPaintGame(upgradeKey) {
   closeModal();  // dismiss any open modal before going fullscreen
@@ -1988,8 +1988,8 @@ function pgClose() {
 // Weeds spawn across a grass field and speed up over time.
 // Tap them before they expire. Score = weeds pulled (15 = 100%).
 const LG_DURATION  = 16;    // seconds
-const LG_WEED_LIFE = 2500;  // ms before a weed expires on its own
-const LG_TARGET    = 25;    // pulls for 100%
+const LG_WEED_LIFE = 1600;  // ms before a weed expires on its own
+const LG_TARGET    = 30;    // pulls for 100%
 const LG_WEEDS     = ['🌿', '🌱', '🍃', '🌾'];
 
 function launchLandscapeGame(upgradeKey) {
@@ -2061,7 +2061,7 @@ function lgScheduleSpawn() {
   lgSpawnWeed();
   const elapsed  = Date.now() - _mg.startTime;
   const progress = Math.min(1, elapsed / (LG_DURATION * 1000));
-  const delay    = Math.max(220, 700 - progress * 720); // 700ms → 220ms (accelerates 50% faster)
+  const delay    = Math.max(160, 700 - progress * 720); // 700ms → 160ms (accelerates 50% faster)
   _mg.spawnId    = setTimeout(lgScheduleSpawn, delay);
 }
 
