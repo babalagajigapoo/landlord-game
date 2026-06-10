@@ -3250,7 +3250,7 @@ function plClose() {
 const RF_COLS     = 6;
 const RF_ROWS     = 9;
 const RF_TOTAL    = RF_COLS * RF_ROWS;  // 54 tiles
-const RF_DURATION = 30;                 // seconds
+const RF_DURATION = 8;                  // seconds
 
 function launchRoofGame(upgradeKey) {
   closeModal();
