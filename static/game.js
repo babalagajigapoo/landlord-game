@@ -3299,7 +3299,8 @@ function launchRoofGame(upgradeKey) {
   const grid = overlay.querySelector('#rf-grid');
   for (let r = 0; r < RF_ROWS; r++) {
     const row = document.createElement('div');
-    row.className = 'rf-row' + (r % 2 === 1 ? ' rf-row-odd' : '');
+    row.className = 'rf-row';
+    row.style.zIndex = r + 1; // lower rows (eave) sit on top of upper rows (ridge)
     for (let c = 0; c < RF_COLS; c++) {
       const tile = document.createElement('div');
       tile.className = 'rf-tile rf-old';
