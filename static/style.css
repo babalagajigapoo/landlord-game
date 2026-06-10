@@ -506,6 +506,54 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
 }
 .pg-time-label { font-size: 10px; color: rgba(255,255,255,0.4); text-align: right; }
 
+/* Wall wrapper — holds baseboards + grid together */
+.pg-wall-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: #2A2A42; /* same as unpainted tile so seams are invisible */
+}
+
+/* Baseboard trim — painted wood look */
+.pg-baseboard {
+  flex-shrink: 0;
+  height: 22px;
+  position: relative;
+}
+.pg-baseboard-top {
+  background: linear-gradient(180deg,
+    #F0EBE0 0%,
+    #E4DDD0 45%,
+    #CFC8B8 80%,
+    #BAB2A0 100%);
+  box-shadow:
+    inset 0 3px 0 rgba(255,255,255,0.7),
+    inset 0 -1px 0 rgba(0,0,0,0.12),
+    0 3px 6px rgba(0,0,0,0.35);
+}
+.pg-baseboard-bottom {
+  background: linear-gradient(180deg,
+    #BAB2A0 0%,
+    #CFC8B8 20%,
+    #E4DDD0 55%,
+    #F0EBE0 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(0,0,0,0.12),
+    inset 0 -3px 0 rgba(255,255,255,0.7),
+    0 -3px 6px rgba(0,0,0,0.35);
+}
+/* Thin groove line down the face of each baseboard */
+.pg-baseboard::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0;
+  height: 1px;
+  background: rgba(0,0,0,0.1);
+}
+.pg-baseboard-top::after    { bottom: 6px; }
+.pg-baseboard-bottom::after { top: 6px; }
+
 .pg-grid {
   flex: 1;
   display: grid;

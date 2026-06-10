@@ -1863,7 +1863,11 @@ function launchPaintGame(upgradeKey) {
       </div>
       <div class="pg-time-label"><span id="pg-time">${PG_DURATION}</span>s remaining</div>
     </div>
-    <div class="pg-grid" id="pg-grid"></div>
+    <div class="pg-wall-wrap">
+      <div class="pg-baseboard pg-baseboard-top"></div>
+      <div class="pg-grid" id="pg-grid"></div>
+      <div class="pg-baseboard pg-baseboard-bottom"></div>
+    </div>
     <div class="pg-start-screen" id="pg-start-screen">
       <div class="pg-start-card">
         <div class="pg-start-swatch" style="background:${paintColor.color}"></div>
