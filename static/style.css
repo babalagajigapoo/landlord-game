@@ -588,6 +588,146 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
 .pg-result-tiles { font-size: 18px; color: rgba(255,255,255,0.8); font-weight: 700; margin-bottom: 8px; }
 .pg-result-msg   { font-size: 20px; color: rgba(255,255,255,0.55); }
 
+/* ── Pull-the-Weeds mini-game ────────────────────────────────── */
+.lg-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  height: 100svh;
+  height: -webkit-fill-available;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  overscroll-behavior: none;
+}
+.lg-header {
+  padding: 10px 14px 8px;
+  background: #0f2e0f;
+  flex-shrink: 0;
+}
+.lg-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.lg-title  { font-size: 16px; font-weight: 900; color: #fff; }
+.lg-count  { font-size: 18px; font-weight: 900; color: #69F0AE; }
+.lg-timer-track {
+  height: 8px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+.lg-timer-fill {
+  height: 100%;
+  width: 100%;
+  background: #4CAF50;
+  border-radius: 4px;
+  transition: width 0.05s linear, background 0.4s;
+}
+.lg-time-label { font-size: 10px; color: rgba(255,255,255,0.4); text-align: right; }
+
+.lg-field {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+  background:
+    radial-gradient(ellipse 110% 35% at 50% 100%, #0a1f0a 0%, transparent 65%),
+    linear-gradient(180deg, #2d6e2d 0%, #1e5a1e 55%, #163f16 100%);
+}
+
+/* Weeds */
+.lg-weed {
+  position: absolute;
+  font-size: 42px;
+  line-height: 1;
+  cursor: pointer;
+  transform-origin: bottom center;
+  animation: lgGrow 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  touch-action: none;
+  /* Generous tap area */
+  padding: 12px;
+  box-sizing: content-box;
+  margin: -12px;
+  z-index: 1;
+}
+@keyframes lgGrow {
+  from { transform: scale(0) translateY(16px); opacity: 0; }
+  to   { transform: scale(1) translateY(0);    opacity: 1; }
+}
+.lg-weed.pulled {
+  animation: lgPull 0.28s ease-out forwards;
+  pointer-events: none;
+}
+@keyframes lgPull {
+  0%   { transform: scale(1);   opacity: 1; }
+  40%  { transform: scale(1.5); opacity: 0.9; }
+  100% { transform: scale(0) translateY(-40px); opacity: 0; }
+}
+.lg-weed.expired {
+  animation: lgWilt 0.35s ease-in forwards;
+  pointer-events: none;
+}
+@keyframes lgWilt {
+  0%   { transform: scale(1);    opacity: 1; filter: none; }
+  100% { transform: scaleY(0.1) scaleX(0.6); opacity: 0; filter: grayscale(1); }
+}
+
+/* Start screen */
+.lg-start-screen {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,15,0,0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+.lg-start-card {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px;
+  padding: 28px 24px;
+  text-align: center;
+  width: min(290px, 88vw);
+}
+.lg-start-icon  { font-size: 52px; margin-bottom: 12px; }
+.lg-start-title { font-size: 20px; font-weight: 900; color: #fff; margin-bottom: 10px; }
+.lg-start-desc  { font-size: 13px; color: rgba(255,255,255,0.6); line-height: 1.6; margin-bottom: 20px; }
+.lg-start-btn {
+  border: none;
+  background: #2E7D32;
+  color: #fff;
+  padding: 13px;
+  border-radius: 50px;
+  font-size: 16px;
+  font-weight: 900;
+  cursor: pointer;
+  width: 100%;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.35);
+}
+
+/* Result */
+.lg-result-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.87);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+  animation: pgFadeIn 0.3s ease-out;
+}
+.lg-result-card  { text-align: center; }
+.lg-result-score { font-size: 88px; font-weight: 900; color: #69F0AE; line-height: 1; margin-bottom: 6px; }
+.lg-result-label { font-size: 20px; color: rgba(255,255,255,0.7); font-weight: 700; margin-bottom: 10px; }
+.lg-result-msg   { font-size: 18px; color: rgba(255,255,255,0.5); }
+
 /* Cards inside a section sit flush under the header, grouped visually */
 .market-hood-body > .card { border-radius: 0; box-shadow: none; border-top: 1px solid var(--border); margin-bottom: 0; }
 .market-hood-body > .card:last-child { border-radius: 0 0 12px 12px; }

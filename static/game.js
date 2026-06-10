@@ -1303,7 +1303,7 @@ const WORK_MG_MAP = {
   'bathrooms':   'colormatch',   // Match the Tile — tiling
   'roof':        'quicktap',     // Drive the Nails — nailing shingles
   'kitchen':     'sweetspot',    // Tighten the Fitting — plumbing & fittings
-  'landscaping': 'reactiontap',  // Level It Up — grading and precision
+  'landscaping': 'landscapegame', // Pull the Weeds — tap weeds before they take over
   // Repair types
   'plumbing':    'sweetspot',
   'electrical':  'sequence',     // Wire It Up — connect wires in order
@@ -1323,7 +1323,7 @@ const WORK_MG_MAP = {
   'HVAC Maintenance':    'sweetspot',
   'Build a Fence':       'quicktap',
   'Pour Concrete':       'rapidpress',
-  'Landscaping Work':    'reactiontap',
+  'Landscaping Work':    'landscapegame',
   'Power Washing':       'rapidpress',
   'Install Cabinets':    'reactiontap',
   'Repair a Deck':       'quicktap',
@@ -1337,7 +1337,8 @@ function launchMgByType(mgType, upgradeKey) {
   else if (mgType === 'rapidpress')  launchRapidPress(upgradeKey);
   else if (mgType === 'colormatch')  launchColorMatch(upgradeKey);
   else if (mgType === 'reactiontap') launchReactionTap(upgradeKey);
-  else if (mgType === 'paintgame')   launchPaintGame(upgradeKey);
+  else if (mgType === 'paintgame')    launchPaintGame(upgradeKey);
+  else if (mgType === 'landscapegame') launchLandscapeGame(upgradeKey);
 }
 
 async function showContractorModal(propId, upgradeKey) {
@@ -1978,6 +1979,176 @@ function pgClose() {
   clearTimeout(_mg.autoCloseId);
   document.removeEventListener('mouseup', pgMouseUp);
   const overlay = document.getElementById('pg-overlay');
+  if (!overlay) return;
+  overlay.remove();
+  finishDIY(_mg.upgradeKey, _mg.finalScore ?? 0);
+}
+
+// ── Mini-game: Pull the Weeds (Landscaping) ──────────────────────────────────
+// Weeds spawn across a grass field and speed up over time.
+// Tap them before they expire. Score = weeds pulled (15 = 100%).
+const LG_DURATION  = 16;    // seconds
+const LG_WEED_LIFE = 2500;  // ms before a weed expires on its own
+const LG_TARGET    = 15;    // pulls for 100%
+const LG_WEEDS     = ['🌿', '🌱', '🍃', '🌾'];
+
+function launchLandscapeGame(upgradeKey) {
+  closeModal();
+  _mg = { ..._mg, upgradeKey, pulled: 0, weeds: {}, weedId: 0,
+          running: false, timerId: null, spawnId: null,
+          startTime: 0, locked: true, finalScore: 0 };
+
+  const old = document.getElementById('lg-overlay');
+  if (old) old.remove();
+
+  const overlay     = document.createElement('div');
+  overlay.id        = 'lg-overlay';
+  overlay.className = 'lg-overlay';
+  overlay.innerHTML = `
+    <div class="lg-header">
+      <div class="lg-top-row">
+        <span class="lg-title">🌿 Pull the Weeds!</span>
+        <span class="lg-count" id="lg-count">🌿 0</span>
+      </div>
+      <div class="lg-timer-track">
+        <div class="lg-timer-fill" id="lg-timer-fill"></div>
+      </div>
+      <div class="lg-time-label"><span id="lg-time">${LG_DURATION}</span>s remaining</div>
+    </div>
+    <div class="lg-field" id="lg-field"></div>
+    <div class="lg-start-screen" id="lg-start-screen">
+      <div class="lg-start-card">
+        <div class="lg-start-icon">🌿</div>
+        <div class="lg-start-title">Pull the Weeds!</div>
+        <div class="lg-start-desc">Tap every weed as fast as you can<br>before they take over the yard!</div>
+        <button class="lg-start-btn" onclick="lgStart()">🌿 Let's Go!</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+function lgStart() {
+  const ss = document.getElementById('lg-start-screen');
+  if (ss) ss.style.display = 'none';
+  _mg.running   = true;
+  _mg.startTime = Date.now();
+  const endTime = _mg.startTime + LG_DURATION * 1000;
+
+  // Countdown timer
+  _mg.timerId = setInterval(() => {
+    const left = Math.max(0, endTime - Date.now());
+    const pct  = left / (LG_DURATION * 1000);
+    const fill = document.getElementById('lg-timer-fill');
+    const timeEl = document.getElementById('lg-time');
+    if (fill) {
+      fill.style.width      = (pct * 100).toFixed(1) + '%';
+      fill.style.background = pct > 0.5 ? '#4CAF50' : pct > 0.25 ? '#FF9800' : '#F44336';
+    }
+    if (timeEl) timeEl.textContent = Math.ceil(left / 1000);
+    if (left <= 0) {
+      clearInterval(_mg.timerId);
+      clearTimeout(_mg.spawnId);
+      _mg.running = false;
+      lgFinish();
+    }
+  }, 50);
+
+  lgScheduleSpawn();
+}
+
+function lgScheduleSpawn() {
+  if (!_mg.running) return;
+  lgSpawnWeed();
+  const elapsed  = Date.now() - _mg.startTime;
+  const progress = Math.min(1, elapsed / (LG_DURATION * 1000));
+  const delay    = Math.max(220, 700 - progress * 720); // 700ms → 220ms (accelerates 50% faster)
+  _mg.spawnId    = setTimeout(lgScheduleSpawn, delay);
+}
+
+function lgSpawnWeed() {
+  const field = document.getElementById('lg-field');
+  if (!field || !_mg.running) return;
+
+  const id    = _mg.weedId++;
+  const emoji = LG_WEEDS[Math.floor(Math.random() * LG_WEEDS.length)];
+  const x     = 8  + Math.random() * 75;  // 8–83% left
+  const y     = 8  + Math.random() * 72;  // 8–80% top
+
+  const el       = document.createElement('div');
+  el.className   = 'lg-weed';
+  el.id          = `lgw-${id}`;
+  el.textContent = emoji;
+  el.style.left  = x + '%';
+  el.style.top   = y + '%';
+
+  el.addEventListener('click', () => lgPullWeed(id));
+  el.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    lgPullWeed(id);
+  }, { passive: false });
+
+  field.appendChild(el);
+  _mg.weeds[id] = el;
+
+  el._expireId = setTimeout(() => lgExpireWeed(id), LG_WEED_LIFE);
+}
+
+function lgPullWeed(id) {
+  const el = _mg.weeds[id];
+  if (!el || el.classList.contains('pulled') || el.classList.contains('expired')) return;
+  clearTimeout(el._expireId);
+  el.classList.add('pulled');
+  delete _mg.weeds[id];
+  _mg.pulled++;
+
+  const countEl = document.getElementById('lg-count');
+  if (countEl) countEl.textContent = '🌿 ' + _mg.pulled;
+
+  setTimeout(() => { if (el.parentNode) el.remove(); }, 300);
+}
+
+function lgExpireWeed(id) {
+  const el = _mg.weeds[id];
+  if (!el) return;
+  el.classList.add('expired');
+  delete _mg.weeds[id];
+  setTimeout(() => { if (el.parentNode) el.remove(); }, 400);
+}
+
+function lgFinish() {
+  clearInterval(_mg.timerId);
+  clearTimeout(_mg.spawnId);
+  Object.keys(_mg.weeds).forEach(id => lgExpireWeed(Number(id)));
+  _mg.locked = false;
+
+  const score    = Math.min(100, Math.round((_mg.pulled / LG_TARGET) * 100));
+  _mg.finalScore = score;
+
+  const msg = score >= 90 ? '🌟 Spotless yard!'              :
+              score >= 70 ? '✅ Nice work!'                   :
+              score >= 50 ? '👍 Getting there!'               :
+                            '🌿 Still a jungle out there...';
+
+  const overlay = document.getElementById('lg-overlay');
+  if (overlay) {
+    const res     = document.createElement('div');
+    res.className = 'lg-result-overlay';
+    res.innerHTML = `
+      <div class="lg-result-card">
+        <div class="lg-result-score">${_mg.pulled}</div>
+        <div class="lg-result-label">weeds pulled</div>
+        <div class="lg-result-msg">${msg}</div>
+      </div>`;
+    overlay.appendChild(res);
+  }
+
+  _mg.autoCloseId = setTimeout(lgClose, 2400);
+}
+
+function lgClose() {
+  clearTimeout(_mg.autoCloseId);
+  const overlay = document.getElementById('lg-overlay');
   if (!overlay) return;
   overlay.remove();
   finishDIY(_mg.upgradeKey, _mg.finalScore ?? 0);
