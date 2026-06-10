@@ -1302,7 +1302,7 @@ const WORK_MG_MAP = {
   'hvac':        'hvacgame',     // Run the HVAC Pipe — drag through attic maze
   'bathrooms':   'plumbinggame', // Tighten the Pipe — tap to stop the burst
   'roof':        'roofgame',     // Roof Replacement — scrape old, tap new
-  'kitchen':     'sweetspot',    // Tighten the Fitting — plumbing & fittings
+  'kitchen':     'groutgame',    // Grout the Backsplash — drag along every tile joint
   'landscaping': 'landscapegame', // Pull the Weeds — tap weeds before they take over
   // Repair types
   'plumbing':    'plumbinggame',
@@ -1344,6 +1344,7 @@ function launchMgByType(mgType, upgradeKey) {
   else if (mgType === 'hvacgame')      launchHvacGame(upgradeKey);
   else if (mgType === 'plumbinggame')  launchPlumbingGame(upgradeKey);
   else if (mgType === 'roofgame')      launchRoofGame(upgradeKey);
+  else if (mgType === 'groutgame')     launchGroutGame(upgradeKey);
 }
 
 async function showContractorModal(propId, upgradeKey) {
@@ -3429,6 +3430,301 @@ function rfFinish() {
         <div class="rf-result-score">${score}%</div>
         <div class="rf-result-label">roof completed</div>
         <div class="rf-result-msg">${msg}</div>
+      </div>`;
+    overlay.appendChild(res);
+    setTimeout(() => {
+      overlay.remove();
+      finishDIY(_mg.upgradeKey, score);
+    }, 2200);
+  } else {
+    finishDIY(_mg.upgradeKey, score);
+  }
+}
+
+// ── Mini-game: Grout the Backsplash ──────────────────────────────────────────
+// Canvas game — drag finger along every grout joint between tiles.
+// Dark mortar gaps turn to warm grey grout as you cover them.
+// Score = segments filled / total segments.
+const GR_COLS     = 5;
+const GR_ROWS     = 9;
+const GR_GROUT    = 10;  // grout line thickness in logical px
+const GR_DURATION = 12;  // seconds
+
+function grMakeTileColors() {
+  const whites  = ['#F4F0E8', '#EEEADE', '#F1EBE3', '#EAE4D8'];
+  const accents = ['#BFCFBF', '#C4D4DF', '#D4C8B4'];  // sage, soft blue, warm beige
+  return Array.from({ length: GR_ROWS }, (_, r) =>
+    Array.from({ length: GR_COLS }, (_, c) => {
+      const i = r * GR_COLS + c;
+      return (i % 9 === 4) ? accents[Math.floor(i / 9) % accents.length]
+                           : whites[(r + c) % whites.length];
+    })
+  );
+}
+
+function launchGroutGame(upgradeKey) {
+  closeModal();
+  const hTotal = (GR_ROWS - 1) * GR_COLS;
+  const vTotal = GR_ROWS * (GR_COLS - 1);
+  const total  = hTotal + vTotal;
+
+  _mg = {
+    locked: true, upgradeKey,
+    hGrouted: Array.from({ length: GR_ROWS - 1 }, () => new Array(GR_COLS).fill(false)),
+    vGrouted: Array.from({ length: GR_ROWS },     () => new Array(GR_COLS - 1).fill(false)),
+    total, filled: 0,
+    running: false, timerId: null,
+    logW: 0, logH: 0,
+    tileColors: grMakeTileColors(),
+    lastTouch: null,
+  };
+
+  const old = document.getElementById('gr-overlay');
+  if (old) old.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'gr-overlay';
+  overlay.innerHTML = `
+    <div class="gr-hud">
+      <div class="gr-hud-top">
+        <span class="gr-title">🧱 Grout the Backsplash!</span>
+        <span class="gr-time-box"><span id="gr-time">${GR_DURATION}</span>s</span>
+      </div>
+      <div class="gr-timer-track"><div class="gr-timer-fill" id="gr-timer-fill"></div></div>
+      <div class="gr-progress" id="gr-progress">0 / ${total} lines grouted</div>
+    </div>
+    <div class="gr-arena" id="gr-arena">
+      <canvas id="gr-canvas"></canvas>
+    </div>
+    <div id="gr-start-screen" class="gr-start-screen">
+      <div class="gr-start-card">
+        <div class="gr-start-icon">🧱</div>
+        <div class="gr-start-title">Grout the Backsplash</div>
+        <div class="gr-start-desc">Drag your finger along every grout line between the tiles before time runs out!</div>
+        <button class="gr-start-btn" id="gr-start-btn">Start Job</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  // Size canvas to arena after layout
+  requestAnimationFrame(() => {
+    const arena  = document.getElementById('gr-arena');
+    const canvas = document.getElementById('gr-canvas');
+    if (!arena || !canvas) return;
+    const dpr  = window.devicePixelRatio || 1;
+    const rect = arena.getBoundingClientRect();
+    _mg.logW = rect.width;
+    _mg.logH = rect.height;
+    canvas.width  = Math.round(rect.width  * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    canvas.style.width  = rect.width  + 'px';
+    canvas.style.height = rect.height + 'px';
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    grDraw(ctx);
+  });
+
+  document.getElementById('gr-start-btn').addEventListener('click', grStart);
+
+  const arena = overlay.querySelector('#gr-arena');
+  arena.addEventListener('touchstart', e => {
+    e.preventDefault();
+    if (!_mg.running) return;
+    Array.from(e.changedTouches).forEach(t => grHandleXY(t.clientX, t.clientY));
+  }, { passive: false });
+  arena.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (!_mg.running) return;
+    Array.from(e.changedTouches).forEach(t => grHandleXY(t.clientX, t.clientY));
+  }, { passive: false });
+  arena.addEventListener('touchend', () => { _mg.lastTouch = null; grRedraw(); });
+
+  arena.addEventListener('mousedown', e => { if (_mg.running) grHandleXY(e.clientX, e.clientY); });
+  arena.addEventListener('mousemove', e => { if (_mg.running && (e.buttons & 1)) grHandleXY(e.clientX, e.clientY); });
+  arena.addEventListener('mouseup',   () => { _mg.lastTouch = null; grRedraw(); });
+}
+
+function grHandleXY(clientX, clientY) {
+  const canvas = document.getElementById('gr-canvas');
+  if (!canvas || !_mg.logW) return;
+  const rect = canvas.getBoundingClientRect();
+  const px = clientX - rect.left;
+  const py = clientY - rect.top;
+  _mg.lastTouch = { px, py };
+
+  const W = _mg.logW, H = _mg.logH;
+  const gw = GR_GROUT;
+  const tw = (W - (GR_COLS - 1) * gw) / GR_COLS;
+  const th = (H - (GR_ROWS - 1) * gw) / GR_ROWS;
+  const cellW = tw + gw;
+  const cellH = th + gw;
+
+  const cx = Math.floor(px / cellW);
+  const cy = Math.floor(py / cellH);
+  if (cx < 0 || cy < 0 || cx >= GR_COLS || cy >= GR_ROWS) { grRedraw(); return; }
+
+  const ox = px - cx * cellW;
+  const oy = py - cy * cellH;
+  const inTileX  = ox < tw;
+  const inTileY  = oy < th;
+  const inVGrout = ox >= tw && cx < GR_COLS - 1;
+  const inHGrout = oy >= th && cy < GR_ROWS - 1;
+
+  let changed = false;
+
+  if (inVGrout && inTileY) {
+    if (!_mg.vGrouted[cy][cx]) { _mg.vGrouted[cy][cx] = true; _mg.filled++; changed = true; }
+  }
+  if (inHGrout && inTileX) {
+    if (!_mg.hGrouted[cy][cx]) { _mg.hGrouted[cy][cx] = true; _mg.filled++; changed = true; }
+  }
+  // Corner intersection — grout both adjacent segments
+  if (inVGrout && inHGrout) {
+    if (!_mg.vGrouted[cy][cx])   { _mg.vGrouted[cy][cx] = true;   _mg.filled++; changed = true; }
+    if (!_mg.hGrouted[cy][cx])   { _mg.hGrouted[cy][cx] = true;   _mg.filled++; changed = true; }
+  }
+
+  grRedraw();
+
+  if (changed) {
+    const prog = document.getElementById('gr-progress');
+    if (prog) prog.textContent = `${_mg.filled} / ${_mg.total} lines grouted`;
+    if (_mg.filled >= _mg.total) {
+      clearInterval(_mg.timerId);
+      _mg.running = false;
+      grFinish();
+    }
+  }
+}
+
+function grRedraw() {
+  const canvas = document.getElementById('gr-canvas');
+  if (!canvas || !_mg.logW) return;
+  grDraw(canvas.getContext('2d'));
+}
+
+function grDraw(ctx) {
+  const W  = _mg.logW, H = _mg.logH;
+  const gw = GR_GROUT;
+  const tw = (W - (GR_COLS - 1) * gw) / GR_COLS;
+  const th = (H - (GR_ROWS - 1) * gw) / GR_ROWS;
+
+  const UNFILLED = '#1A1410';   // dark mortar/adhesive
+  const FILLED   = '#B0A490';   // warm light grey grout
+  const CORNER   = '#A89E8C';   // slightly darker at intersections
+
+  // 1. Background = unfilled grout / mortar
+  ctx.fillStyle = UNFILLED;
+  ctx.fillRect(0, 0, W, H);
+
+  // 2. Filled horizontal segments
+  ctx.fillStyle = FILLED;
+  for (let r = 0; r < GR_ROWS - 1; r++) {
+    for (let c = 0; c < GR_COLS; c++) {
+      if (_mg.hGrouted[r][c]) {
+        ctx.fillRect(c * (tw + gw), r * (th + gw) + th, tw, gw);
+      }
+    }
+  }
+  // Filled vertical segments
+  for (let r = 0; r < GR_ROWS; r++) {
+    for (let c = 0; c < GR_COLS - 1; c++) {
+      if (_mg.vGrouted[r][c]) {
+        ctx.fillRect(c * (tw + gw) + tw, r * (th + gw), gw, th);
+      }
+    }
+  }
+
+  // 3. Corner intersections — always drawn as filled grout
+  ctx.fillStyle = CORNER;
+  for (let r = 0; r < GR_ROWS - 1; r++) {
+    for (let c = 0; c < GR_COLS - 1; c++) {
+      ctx.fillRect(c * (tw + gw) + tw, r * (th + gw) + th, gw, gw);
+    }
+  }
+
+  // 4. Tiles
+  for (let r = 0; r < GR_ROWS; r++) {
+    for (let c = 0; c < GR_COLS; c++) {
+      const x = c * (tw + gw);
+      const y = r * (th + gw);
+      // Tile base
+      ctx.fillStyle = _mg.tileColors[r][c];
+      ctx.fillRect(x, y, tw, th);
+      // Gloss highlight (top ~55%)
+      const shine = ctx.createLinearGradient(x, y, x, y + th * 0.55);
+      shine.addColorStop(0, 'rgba(255,255,255,0.3)');
+      shine.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = shine;
+      ctx.fillRect(x, y, tw, th * 0.55);
+      // Bottom edge shadow (depth / bevel)
+      ctx.fillStyle = 'rgba(0,0,0,0.09)';
+      ctx.fillRect(x, y + th * 0.78, tw, th * 0.22);
+    }
+  }
+
+  // 5. Glowing caulk-gun cursor at last touch point
+  if (_mg.lastTouch) {
+    const { px, py } = _mg.lastTouch;
+    ctx.save();
+    ctx.shadowColor = 'rgba(255,210,60,0.8)';
+    ctx.shadowBlur  = 10;
+    ctx.beginPath();
+    ctx.arc(px, py, 7, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,220,70,0.95)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function grStart() {
+  const ss = document.getElementById('gr-start-screen');
+  if (ss) ss.style.display = 'none';
+  _mg.running = true;
+
+  const endTime = Date.now() + GR_DURATION * 1000;
+  _mg.timerId = setInterval(() => {
+    const left = Math.max(0, endTime - Date.now());
+    const pct  = left / (GR_DURATION * 1000);
+    const fill  = document.getElementById('gr-timer-fill');
+    const timeEl = document.getElementById('gr-time');
+    if (fill) {
+      fill.style.width      = (pct * 100).toFixed(1) + '%';
+      fill.style.background = pct > 0.5 ? '#2196F3' : pct > 0.25 ? '#FF9800' : '#F44336';
+    }
+    if (timeEl) timeEl.textContent = Math.ceil(left / 1000);
+    if (left <= 0) {
+      clearInterval(_mg.timerId);
+      _mg.running = false;
+      grFinish();
+    }
+  }, 50);
+}
+
+function grFinish() {
+  clearInterval(_mg.timerId);
+  _mg.running = false;
+  _mg.locked  = false;
+
+  const score = Math.min(100, Math.round((_mg.filled / _mg.total) * 100));
+  const msg = score >= 100 ? '🌟 Perfectly grouted!'      :
+              score >= 75  ? '✅ Clean lines!'              :
+              score >= 40  ? '👍 Getting there!'            :
+                             '🧱 Missed a few spots...';
+
+  const overlay = document.getElementById('gr-overlay');
+  if (overlay) {
+    const res = document.createElement('div');
+    res.className = 'gr-result-overlay';
+    res.innerHTML = `
+      <div class="gr-result-card">
+        <div class="gr-result-score">${score}%</div>
+        <div class="gr-result-label">grouted</div>
+        <div class="gr-result-msg">${msg}</div>
       </div>`;
     overlay.appendChild(res);
     setTimeout(() => {

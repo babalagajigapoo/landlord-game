@@ -1646,6 +1646,92 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
 .rf-result-label { font-size: 20px; color: rgba(255,213,79,0.7); font-weight: 700; margin-bottom: 10px; }
 .rf-result-msg   { font-size: 18px; color: rgba(255,255,255,0.55); }
 
+/* ─── Grout the Backsplash ────────────────────────────────────────────────────── */
+#gr-overlay {
+  position: fixed; inset: 0;
+  height: 100svh; height: -webkit-fill-available;
+  z-index: 10000;
+  display: flex; flex-direction: column;
+  background: #1C1814;
+  touch-action: none; user-select: none;
+  overflow: hidden;
+}
+
+.gr-hud {
+  flex-shrink: 0;
+  padding: 12px 16px 8px;
+  background: rgba(0,0,0,0.55);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.gr-hud-top {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 6px;
+}
+.gr-title {
+  font-size: 15px; font-weight: 800; color: #EAD8B8;
+}
+.gr-time-box {
+  font-size: 22px; font-weight: 900; color: #fff;
+  min-width: 52px; text-align: right;
+}
+.gr-timer-track {
+  height: 6px; background: rgba(255,255,255,0.12);
+  border-radius: 3px; overflow: hidden; margin-bottom: 6px;
+}
+.gr-timer-fill {
+  height: 100%; width: 100%;
+  background: #2196F3; border-radius: 3px;
+  transition: width 0.05s linear, background 0.4s;
+}
+.gr-progress {
+  font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.55);
+  text-align: center; letter-spacing: 0.5px;
+}
+
+.gr-arena {
+  flex: 1; min-height: 0;
+  display: flex; position: relative;
+}
+#gr-canvas {
+  display: block; touch-action: none;
+  width: 100%; height: 100%;
+}
+
+/* Start screen */
+.gr-start-screen {
+  position: absolute; inset: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(12,9,6,0.92);
+  backdrop-filter: blur(4px);
+}
+.gr-start-card {
+  background: #28201A; border-radius: 18px;
+  padding: 32px 28px; text-align: center; width: 88%; max-width: 340px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.7);
+  border: 1px solid rgba(234,216,184,0.12);
+}
+.gr-start-icon  { font-size: 52px; margin-bottom: 8px; }
+.gr-start-title { font-size: 22px; font-weight: 900; color: #F0E8D8; margin-bottom: 12px; }
+.gr-start-desc  { font-size: 14px; color: rgba(240,232,216,0.65); line-height: 1.6; margin-bottom: 22px; }
+.gr-start-btn {
+  background: linear-gradient(135deg, #E8C84A, #C89A20);
+  border: none; border-radius: 50px; padding: 14px 40px;
+  font-size: 17px; font-weight: 900; color: #1a1200; cursor: pointer;
+  box-shadow: 0 4px 16px rgba(200,154,32,0.45);
+}
+
+/* Result overlay */
+.gr-result-overlay {
+  position: absolute; inset: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(10,8,5,0.92);
+  animation: pgFadeIn 0.3s ease-out;
+}
+.gr-result-card  { text-align: center; }
+.gr-result-score { font-size: 88px; font-weight: 900; color: #E8C84A; line-height: 1; margin-bottom: 6px; }
+.gr-result-label { font-size: 20px; color: rgba(232,200,74,0.7); font-weight: 700; margin-bottom: 10px; }
+.gr-result-msg   { font-size: 18px; color: rgba(255,255,255,0.55); }
+
 /* Cards inside a section sit flush under the header, grouped visually */
 .market-hood-body > .card { border-radius: 0; box-shadow: none; border-top: 1px solid var(--border); margin-bottom: 0; }
 .market-hood-body > .card:last-child { border-radius: 0 0 12px 12px; }
