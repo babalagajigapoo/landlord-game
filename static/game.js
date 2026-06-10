@@ -168,6 +168,7 @@ function navTo(page) {
   if (btnEl)  btnEl.classList.add('active');
   if (page === 'bank')     renderBank();
   if (page === 'settings') renderSettings();
+  if (page === 'stocks')   renderStocks();
 }
 
 // ── Render All ────────────────────────────────────────────────────────────────
@@ -175,8 +176,8 @@ function renderAll() {
   renderDashboard();
   renderMarket();
   renderProperties();
-  renderLog();
   if (currentPage === 'settings') renderSettings();
+  if (currentPage === 'stocks')   renderStocks();
 }
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
@@ -844,6 +845,29 @@ async function showScheduleRenoModal(propId, upgradeKey) {
 
     <div style="text-align:center;font-size:11px;color:var(--text-muted);margin-bottom:10px">── choose a contractor ──</div>
 
+    ${upg.special_contractor ? (() => {
+      const sc        = upg.special_contractor;
+      const days      = contractorDays('premium', upg.energy_cost || 1);
+      const canAfford = state.cash >= sc.cost;
+      return `<div class="contractor-card contractor-special" style="${!canAfford ? 'opacity:0.6' : ''}">
+        <div class="contractor-special-badge">⚡ SPECIAL — Guaranteed S+</div>
+        <div class="contractor-header">
+          <span class="contractor-icon">${sc.icon}</span>
+          <span class="contractor-name">${sc.name}</span>
+          <span class="contractor-cost" style="color:${canAfford ? 'inherit' : 'var(--negative)'}">
+            ${canAfford ? fmt(sc.cost) : `Need ${fmt(sc.cost)}`}
+          </span>
+        </div>
+        <div class="contractor-desc">${sc.desc}</div>
+        <div class="contractor-quality">Grade: <strong style="color:#7B1FA2">S+</strong> guaranteed · total wait ~${daysOut + days}d</div>
+        <button class="btn btn-sm btn-full ${canAfford ? 'btn-primary' : 'btn-ghost'} mt-8"
+          style="${!canAfford ? 'cursor:not-allowed' : ''};margin-top:8px"
+          ${canAfford ? `onclick="confirmScheduleReno(${propId},'${upgradeKey}','special',${availDay})"` : 'disabled'}>
+          ${canAfford ? `📅 Book · ${fmt(sc.cost)}` : `Not enough cash`}
+        </button>
+      </div>`;
+    })() : ''}
+
     ${Object.entries(upgData.contractors).map(([key, c]) => {
       const cost     = upg.costs[key];
       const days     = contractorDays(key, upg.energy_cost || 1);
@@ -1223,6 +1247,21 @@ async function showContractorModal(propId, upgradeKey) {
 
     <div style="text-align:center;font-size:11px;color:var(--text-muted);margin-bottom:8px">── or hire a contractor ──</div>
 
+    ${upg.special_contractor ? (() => {
+      const sc   = upg.special_contractor;
+      const days = contractorDays('premium', upg.energy_cost || 1);
+      return `<div class="contractor-card contractor-special" onclick="hireContractor('special')">
+        <div class="contractor-special-badge">⚡ SPECIAL — Guaranteed S+</div>
+        <div class="contractor-header">
+          <span class="contractor-icon">${sc.icon}</span>
+          <span class="contractor-name">${sc.name}</span>
+          <span class="contractor-cost">${fmt(sc.cost)}</span>
+        </div>
+        <div class="contractor-desc">${sc.desc}</div>
+        <div class="contractor-quality">Grade: <strong style="color:#7B1FA2">S+</strong> guaranteed · ⏱ ${days} day${days !== 1 ? 's' : ''}</div>
+      </div>`;
+    })() : ''}
+
     ${Object.entries(upgData.contractors).map(([key, c]) => {
       const days = contractorDays(key, upg.energy_cost || 1);
       return `
@@ -1274,7 +1313,7 @@ async function finishDIY(upgradeKey, score) {
 function contractorDays(contractorKey, energyCost) {
   if (contractorKey === 'budget')   return 1;
   if (contractorKey === 'standard') return energyCost <= 2 ? 2 : (energyCost === 3 ? 3 : 4);
-  return energyCost <= 2 ? 4 : (energyCost === 3 ? 5 : 6); // premium
+  return energyCost <= 2 ? 4 : (energyCost === 3 ? 5 : 6); // premium or special
 }
 
 async function hireContractor(contractorKey) {
@@ -2463,7 +2502,7 @@ function renderSettings() {
 
     <div class="card" style="margin-top:12px">
       <div style="font-size:14px;font-weight:800;margin-bottom:8px">🎁 Creator Codes</div>
-      <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">Got a code? Enter it below for special rewards.</p>
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">Got a code? Enter it below for special rewards. Or guess one...</p>
       <div style="display:flex;gap:8px">
         <input id="creator-code-input" type="text" placeholder="Enter code…"
           style="flex:1;padding:10px 12px;font-size:14px;border:1.5px solid var(--border);border-radius:10px;background:var(--bg-card);color:var(--text-primary);outline:none"
@@ -2477,7 +2516,13 @@ function renderSettings() {
       <div style="font-size:14px;font-weight:800;margin-bottom:8px">⚠️ Danger Zone</div>
       <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">This will permanently erase all progress and start a fresh game.</p>
       <button class="btn btn-danger btn-full" onclick="confirmReset()">🗑 Start New Game</button>
+    </div>
+
+    <div class="section-header" style="margin-top:16px"><span class="section-title">📋 Activity Log</span></div>
+    <div class="card">
+      <div id="log-list"></div>
     </div>`;
+  renderLog();
 }
 
 // ── Reset ─────────────────────────────────────────────────────────────────────
@@ -2514,12 +2559,223 @@ async function redeemCode() {
     // Set message AFTER renderSettings rebuilds the DOM, otherwise it gets wiped
     const msgElAfter = document.getElementById('creator-code-msg');
     const inputAfter = document.getElementById('creator-code-input');
+    const isBadWord  = res.cash_after === 0 && !res.level_up && res.reward_desc?.includes('naughty');
     if (msgElAfter) {
-      msgElAfter.textContent = '✅ ' + res.reward_desc;
-      msgElAfter.style.color = 'var(--positive)';
+      msgElAfter.textContent = (isBadWord ? '🤬 ' : '✅ ') + res.reward_desc;
+      msgElAfter.style.color = isBadWord ? 'var(--negative)' : 'var(--positive)';
     }
     if (inputAfter) inputAfter.value = '';
   }
+}
+
+// ── Stocks ────────────────────────────────────────────────────────────────────
+let stocksData = null;
+
+async function renderStocks() {
+  const el = document.getElementById('stocks-list');
+  if (!el) return;
+  el.innerHTML = '<div class="empty-state"><div class="empty-icon">💹</div><div class="empty-text">Loading…</div></div>';
+  const res = await api('/stocks', 'GET');
+  if (res.error) { el.innerHTML = `<div class="card">${res.error}</div>`; return; }
+  stocksData = res;
+  _renderStocksInner(res);
+}
+
+function _renderStocksInner(res) {
+  const el  = document.getElementById('stocks-list');
+  if (!el) return;
+  const lvl = res.level ?? (state ? (state.level || 0) : 0);
+
+  // ── Level lock ──
+  if (lvl < 5) {
+    el.innerHTML = `<div class="card stocks-locked-card">
+      <div class="stocks-lock-icon">🔒</div>
+      <div class="stocks-lock-msg">Stocks unlock at <strong>Level 5</strong></div>
+      <div class="stocks-lock-sub">Keep growing your property empire to gain access to the stock market.</div>
+    </div>`;
+    return;
+  }
+
+  let html = `<div class="stocks-section-header">
+    <span class="stocks-section-icon">📈</span>
+    <div>
+      <div class="stocks-section-title">Stock Market</div>
+      <div class="stocks-section-sub">6 companies · prices update each day</div>
+    </div>
+  </div>`;
+  html += res.instruments.map(i => stockCardHtml(i, res.cash)).join('');
+  el.innerHTML = html;
+}
+
+function stockCardHtml(inst, cash) {
+  const { ticker, name, icon, desc, price, history, shares, avg_cost, gain } = inst;
+  const spark   = sparklineSvg(history);
+  const trend   = history.length >= 2 ? history[history.length - 1] - history[history.length - 2] : 0;
+  const trendCls = trend > 0 ? 'stock-up' : trend < 0 ? 'stock-down' : '';
+  const trendIcon = trend > 0 ? '▲' : trend < 0 ? '▼' : '–';
+  const trendPct  = history.length >= 2 && history[history.length - 2] !== 0
+    ? ((trend / history[history.length - 2]) * 100).toFixed(1) + '%' : '0.0%';
+  const priceStr  = price < 10 ? '$' + price.toFixed(4) : '$' + price.toFixed(2);
+  const gainStr   = gain >= 0 ? `+$${gain.toFixed(2)}` : `-$${Math.abs(gain).toFixed(2)}`;
+  const gainCls   = gain > 0 ? 'positive' : gain < 0 ? 'negative' : '';
+  const canBuy    = cash >= price;
+
+  return `<div class="card stock-card">
+    <div class="stock-card-top">
+      <div class="stock-icon-wrap">${icon}</div>
+      <div class="stock-info">
+        <div class="stock-name">${name} <span class="stock-ticker">${ticker}</span></div>
+        <div class="stock-desc">${desc}</div>
+      </div>
+      <div class="stock-price-wrap">
+        <div class="stock-price">${priceStr}</div>
+        <div class="stock-trend ${trendCls}">${trendIcon} ${trendPct}</div>
+      </div>
+    </div>
+    <div class="stock-sparkline">${spark}</div>
+    ${shares > 0 ? `<div class="stock-holding">
+      <span>📦 ${shares} share${shares !== 1 ? 's' : ''}</span>
+      <span>Avg cost $${avg_cost.toFixed(2)}</span>
+      <span class="${gainCls}">${gainStr}</span>
+    </div>` : ''}
+    <div class="stock-actions">
+      <button class="btn btn-primary btn-sm" onclick="openStockBuyModal('${ticker}')" ${canBuy ? '' : 'disabled'}>Buy</button>
+      ${shares > 0 ? `<button class="btn btn-ghost btn-sm" onclick="openStockSellModal('${ticker}')">Sell</button>` : ''}
+    </div>
+  </div>`;
+}
+
+function sparklineSvg(history) {
+  if (!history || history.length < 2) return '';
+  const w = 260, h = 40, pad = 2;
+  const vals = history.slice(-20);
+  const min  = Math.min(...vals);
+  const max  = Math.max(...vals);
+  const range = max - min || 1;
+  const pts   = vals.map((v, i) => {
+    const x = pad + (i / (vals.length - 1)) * (w - pad * 2);
+    const y = h - pad - ((v - min) / range) * (h - pad * 2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  const trend = vals[vals.length - 1] >= vals[0];
+  const color = trend ? '#2E7D32' : '#C62828';
+  return `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:40px">
+    <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+  </svg>`;
+}
+
+function openStockBuyModal(ticker) {
+  if (!stocksData) return;
+  const inst = stocksData.instruments.find(i => i.ticker === ticker);
+  if (!inst) return;
+  const price    = inst.price;
+  const maxShares = Math.floor(stocksData.cash / price);
+  const priceStr  = price < 10 ? price.toFixed(4) : price.toFixed(2);
+
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">${inst.icon} Buy ${inst.name}</div>
+    <div class="modal-subtitle">${inst.ticker} · $${priceStr} per share</div>
+    <div style="margin:16px 0">
+      <label style="font-size:13px;font-weight:700;display:block;margin-bottom:6px">Shares to buy</label>
+      <input id="buy-shares-input" type="number" min="1" max="${maxShares}" value="1"
+        style="width:100%;padding:10px 12px;font-size:16px;border:1.5px solid var(--border);border-radius:10px;background:var(--bg-card);color:var(--text-primary);box-sizing:border-box;outline:none"
+        oninput="updateBuyCost(${price})" />
+      <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Max: ${maxShares} share${maxShares !== 1 ? 's' : ''} (${fmt(stocksData.cash)} available)</div>
+    </div>
+    <div id="buy-cost-display" style="font-size:15px;font-weight:800;margin-bottom:16px;color:var(--text-primary)">
+      Total cost: <span id="buy-cost-value">${fmt(price)}</span>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmBuyStock('${ticker}', ${price})">Buy</button>
+    </div>`);
+}
+
+function updateBuyCost(price) {
+  const input = document.getElementById('buy-shares-input');
+  const disp  = document.getElementById('buy-cost-value');
+  if (!input || !disp) return;
+  const shares = Math.max(0, parseInt(input.value) || 0);
+  const cost   = shares * price;
+  disp.textContent = cost < 10 ? '$' + cost.toFixed(4) : fmt(Math.round(cost));
+}
+
+async function confirmBuyStock(ticker, price) {
+  const input = document.getElementById('buy-shares-input');
+  const shares = parseInt(input?.value) || 0;
+  if (shares < 1) { toast('Enter at least 1 share', 'error'); return; }
+  const res = await api('/stocks/buy', 'POST', { ticker, shares });
+  if (res.error) { toast(res.error, 'error'); return; }
+  closeModal();
+  state.cash = res.cash;
+  updateHeader();
+  // refresh stocks data
+  const fresh = await api('/stocks', 'GET');
+  stocksData = fresh;
+  _renderStocksInner(fresh);
+  toast(`Bought ${shares}x ${ticker}!`, 'success');
+}
+
+function openStockSellModal(ticker) {
+  if (!stocksData) return;
+  const inst = stocksData.instruments.find(i => i.ticker === ticker);
+  if (!inst) return;
+  const price   = inst.price;
+  const priceStr = price < 10 ? price.toFixed(4) : price.toFixed(2);
+  const maxSell = inst.shares;
+
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">${inst.icon} Sell ${inst.name}</div>
+    <div class="modal-subtitle">${inst.ticker} · $${priceStr} per share · You own ${maxSell}</div>
+    <div style="margin:16px 0">
+      <label style="font-size:13px;font-weight:700;display:block;margin-bottom:6px">Shares to sell</label>
+      <input id="sell-shares-input" type="number" min="1" max="${maxSell}" value="${maxSell}"
+        style="width:100%;padding:10px 12px;font-size:16px;border:1.5px solid var(--border);border-radius:10px;background:var(--bg-card);color:var(--text-primary);box-sizing:border-box;outline:none"
+        oninput="updateSellProceeds(${price}, ${inst.avg_cost})" />
+    </div>
+    <div id="sell-proceeds-display" style="font-size:14px;font-weight:700;margin-bottom:16px">
+      <div>Proceeds: <span id="sell-proceeds-value" style="color:var(--text-primary)">${fmt(Math.round(maxSell * price))}</span></div>
+      <div id="sell-profit-line" style="font-size:13px;margin-top:2px"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmSellStock('${ticker}')">Sell</button>
+    </div>`);
+  updateSellProceeds(price, inst.avg_cost);
+}
+
+function updateSellProceeds(price, avgCost) {
+  const input   = document.getElementById('sell-shares-input');
+  const procEl  = document.getElementById('sell-proceeds-value');
+  const profEl  = document.getElementById('sell-profit-line');
+  if (!input || !procEl) return;
+  const shares   = Math.max(0, parseInt(input.value) || 0);
+  const proceeds = shares * price;
+  const profit   = proceeds - avgCost * shares;
+  procEl.textContent = proceeds < 10 ? '$' + proceeds.toFixed(4) : fmt(Math.round(proceeds));
+  if (profEl) {
+    const sign = profit >= 0 ? '+' : '';
+    profEl.textContent = `P&L: ${sign}${profit < 10 && profit > -10 ? '$' + profit.toFixed(4) : fmt(Math.round(profit))}`;
+    profEl.style.color = profit >= 0 ? 'var(--positive)' : 'var(--negative)';
+  }
+}
+
+async function confirmSellStock(ticker) {
+  const input  = document.getElementById('sell-shares-input');
+  const shares = parseInt(input?.value) || 0;
+  if (shares < 1) { toast('Enter at least 1 share', 'error'); return; }
+  const res = await api('/stocks/sell', 'POST', { ticker, shares });
+  if (res.error) { toast(res.error, 'error'); return; }
+  closeModal();
+  state.cash = res.cash;
+  updateHeader();
+  const fresh = await api('/stocks', 'GET');
+  stocksData = fresh;
+  _renderStocksInner(fresh);
+  const profitStr = res.profit >= 0 ? `+${fmt(Math.round(res.profit))}` : fmt(Math.round(res.profit));
+  toast(`Sold ${shares}x ${ticker} · P&L ${profitStr}`, res.profit >= 0 ? 'success' : '');
 }
 
 // ── Log ───────────────────────────────────────────────────────────────────────

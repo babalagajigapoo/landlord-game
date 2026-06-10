@@ -378,10 +378,378 @@ JOB_PAY_RANGES = {1: (100, 350), 2: (350, 700), 3: (700, 1200), 4: (1200, 2000)}
 
 # Creator / cheat codes — keys are lowercase for case-insensitive matching
 CREATOR_CODES = {
-    "cheatercheater": {"desc": "Here you go cheater, here's 10 mill. Now leave me alone 💰", "cash": 10_000_000},
-    "pumpkineater":   {"desc": "Max level? Sweet! Now you ruined all the progression of the game... ⭐", "level": MAX_LEVEL, "xp": XP_THRESHOLDS[MAX_LEVEL]},
-    "69 bitches":     {"desc": "Real mature Alex... Real mature... 🙄"},
+    "cheatercheater":  {"desc": "Here you go cheater, here's 10 mill. Now leave me alone 💰", "cash": 10_000_000},
+    "pumpkineater":    {"desc": "Max level? Sweet! Now you ruined all the progression of the game... ⭐", "level": MAX_LEVEL, "xp": XP_THRESHOLDS[MAX_LEVEL]},
+    "69 bitches":      {"desc": "Real mature Alex... Real mature... 🙄"},
+    "redmo":           {"desc": "Hey dummy, you spelt that wrong... it's Dremo"},
+    "dremo":           {"desc": "Wait... I thought it was spelt Redmo?"},
+    "toro":            {"desc": "Ask for the Big Dog... Cilda..."},
+    "david":           {"desc": "Did you mean Edgar?"},
+    "edgar":           {"desc": "Did you mean David?"},
+    "hannah":          {"desc": "My Love 🥰"},
+    "kelly":           {"desc": "Which one? There's three"},
+    "edwin":           {"desc": '"We have a little issue..."'},
+    "hallie":          {"desc": "MEAN"},
+    "alex":            {"desc": "Measures everyday, but doesn't know what 3 inches is"},
+    "kenney":          {"desc": "OMG... YOU KILLED KENNEY"},
+    "express":         {"desc": "ew"},
+    "express flooring":{"desc": "ew"},
+    "paul":            {"desc": "PABLO BLANCO"},
+    "nibbler":         {"desc": "KITTY KITTY"},
+    "cilda":           {"desc": "Yup, that's the big dog"},
+    "big dog":         {"desc": "Silly Cilda"},
+    "slumlord":        {"desc": "Sly dog, that's a code. Here is $50 on the house 🏠", "cash": 50},
+    "slumlord special":{"desc": "Wow, that's a code! Here's some extra cash! 💵", "cash": 10_000},
+    "cash":            {"desc": "good try..."},
+    "cheat":           {"desc": "You really think there's a cheat named cheat?", "cash": 1},
+    "money":           {"desc": "Money? What's that?"},
+    "guess":           {"desc": "Hey, good guess. I wouldn't have thought of that", "cash": 1_000},
+    "guess one":       {"desc": "Funny, you and I both thought of this", "cash": 1_000},
+    "one":             {"desc": "Oh, awesome, you guessed one. Here is One Dollar", "cash": 1},
+    "rachael":         {"desc": "Rachet"},
+    "help":            {"desc": "Need help with what?"},
+    "creator":         {"desc": "Yes, I am the Creator of this crappy game"},
+    "creator code":    {"desc": "Hmmm, you couldn't think of anything better?"},
+    "poop":            {"desc": "Real mature dude..."},
+    "hey":             {"desc": "what?"},
+    "what":            {"desc": "WHAT... do you want"},
+    "game":            {"desc": "Yup, that's what this is"},
+    "lulu":            {"desc": "She doesn't like tickles..."},
+    "white":           {"desc": "Like the color, race or Paul?"},
+    "life":            {"desc": "If ____ gives you lemons"},
+    "lemons":          {"desc": "If life gives you ______"},
+    "give":            {"desc": "I ain't giving you nothin' homie..."},
+    "weed":            {"desc": "Skunk"},
+    "flooring":        {"desc": "IT'S EVERYWHERE"},
+    "windows":         {"desc": "If you look out of one, you'll see outside..."},
+    "secret":          {"desc": "No secrets here friend..."},
+    "secrets":         {"desc": "What secrets? Are you keeping secrets?!?!"},
+    "whisper":         {"desc": "LIKE THIS!!!"},
+    "yell":            {"desc": "no thank you, try whisper"},
+    "chair":           {"desc": "Are you sitting in one?"},
+    "desk":            {"desc": "Yup, desk... how interesting."},
+    "computer":        {"desc": "Cool, that's what I used to make this game"},
+    "keyboard":        {"desc": "I type on those... Cool"},
+    "random":          {"desc": "It's random that you put this here"},
+    "tv":              {"desc": "Ya, I have one of those"},
+    "vape":            {"desc": "I should quit"},
+    "geek bar":        {"desc": "my favorite"},
+    "geek":            {"desc": "that's what I am! Wait, that's rude"},
+    "venus":           {"desc": "Peni... nevermind"},
+    "nevermind":       {"desc": "okay..."},
+    "buy":             {"desc": "what do you want to buy?"},
+    "sell":            {"desc": "what do you want to sell?"},
+    "late":            {"desc": "Pretty much everyday to work..."},
+    "if":              {"desc": "if what?"},
+    "chino":           {"desc": "Smelly booty dog"},
+    "caro":            {"desc": "He wants you... BAD"},
+    "cats":            {"desc": "Love and hate relationship"},
+    "dog":             {"desc": "What's up dog?"},
+    "look":            {"desc": "Look where?"},
+    "under there":     {"desc": "Underwear? Wait... I see what you did there"},
+    "joke":            {"desc": "I ain't got one... sorry"},
+    "tell me a joke":  {"desc": "Your face..."},
+    "face":            {"desc": "we all have one. Well, should have one."},
+    "lie":             {"desc": "You're beautiful"},
+    "beautiful":       {"desc": "Well thank you!"},
+    "ugly":            {"desc": "Yes you are"},
+    "radish":          {"desc": "We miss you little buddy"},
+    "meat":            {"desc": "Stop beating it and just play the game"},
+    "playstation":     {"desc": "Ya, this is never coming to Playstation"},
+    "xbox":            {"desc": "I'm a Playstation guy"},
+    "steam":           {"desc": "I like that platform"},
+    "battery":         {"desc": "What's yours at? Mine is 22%"},
+    "time":            {"desc": "Time for what?"},
+    "what time is it": {"desc": "Aren't you playing on a phone?"},
+    "phone":           {"desc": "Yes, that is what you are holding"},
+    "holding":         {"desc": "Holding what? Drugs?!?!"},
+    "drugs":           {"desc": "Say no to drugs, but only on weekdays"},
+    "week":            {"desc": "Usually 7 days long, I think..."},
+    "weekend":         {"desc": "PARTY TIME"},
+    "party":           {"desc": "Alrighty, we can party together"},
+    "weekday":         {"desc": "I hate those"},
+    "monday":          {"desc": "I hate Monday"},
+    "tuesday":         {"desc": "Second worse day of the week"},
+    "wednesday":       {"desc": "Isn't it called humpday?"},
+    "thursday":        {"desc": "Almost there"},
+    "friday":          {"desc": "TGIF"},
+    "saturday":        {"desc": "Time to put my feet up"},
+    "sunday":          {"desc": "The Lord's day"},
+    "work":            {"desc": "I hate that stuff"},
+    "enter":           {"desc": "So you typed that out, and clicked it, cool..."},
+    ".":               {"desc": "That is a period"},
+    "..":              {"desc": "That's two periods"},
+    "...":             {"desc": "..."},
+    "school":          {"desc": "I hated it. I bet you did too"},
+    "me":              {"desc": "Me or you? I'm confused"},
+    # ── My additions ──────────────────────────────────────────────────────────
+    "yes":             {"desc": "No."},
+    "no":              {"desc": "Yes."},
+    "okay":            {"desc": "Okay what?"},
+    "hello":           {"desc": "Hi. This is a code box, not a chat."},
+    "hi":              {"desc": "Hey. Still not how codes work."},
+    "bye":             {"desc": "Don't go, we're having fun"},
+    "please":          {"desc": "Well since you asked nicely... still nothing."},
+    "why":             {"desc": "Why not?"},
+    "how":             {"desc": "Very carefully"},
+    "password":        {"desc": "If I told you, it wouldn't be a password"},
+    "1234":            {"desc": "Real secure... that's your ATM pin isn't it"},
+    "test":            {"desc": "Test successful. Nothing happened."},
+    "404":             {"desc": "Error: code not found. Wait..."},
+    "420":             {"desc": "Ah yes, the magic number"},
+    "123":             {"desc": "...456"},
+    "abc":             {"desc": "...easy as 123"},
+    "qwerty":          {"desc": "Just slam the keyboard why don't ya"},
+    "asdf":            {"desc": "Hello keyboard face"},
+    "landlord":        {"desc": "That's you, buddy"},
+    "tenant":          {"desc": "Treat them well... or don't"},
+    "rent":            {"desc": "Pay yours on time"},
+    "pizza":           {"desc": "Now I'm hungry"},
+    "burger":          {"desc": "I could go for one"},
+    "taco":            {"desc": "Taco Tuesday baby"},
+    "coffee":          {"desc": "I run on this stuff"},
+    "beer":            {"desc": "I'll have one too"},
+    "cake":            {"desc": "The cake is a lie"},
+    "bread":           {"desc": "The best thing since... itself"},
+    "cheese":          {"desc": "Say it!"},
+    "snake":           {"desc": "SNAAAAKE"},
+    "spider":          {"desc": "NOPE"},
+    "bird":            {"desc": "Free bird"},
+    "fish":            {"desc": "...something smells fishy"},
+    "fire":            {"desc": "WHERE"},
+    "space":           {"desc": "The final frontier"},
+    "sun":             {"desc": "Don't look directly at it"},
+    "star":            {"desc": "You are one 🌟"},
+    "moon":            {"desc": "It's right there, just look up"},
+    "sleep":           {"desc": "Go to bed"},
+    "tired":           {"desc": "Same. All the time."},
+    "bored":           {"desc": "You're playing my game, so that tracks"},
+    "love":            {"desc": "Awww"},
+    "hate":            {"desc": "Strong word, but okay"},
+    "sad":             {"desc": "Come here, big hug"},
+    "angry":           {"desc": "Breathe"},
+    "idk":             {"desc": "same tbh"},
+    "bruh":            {"desc": "bruh"},
+    "sus":             {"desc": "Very sus that you typed that"},
+    "lmao":            {"desc": "I'm glad"},
+    "netflix":         {"desc": "You should be watching something instead"},
+    "youtube":         {"desc": "How'd you end up here?"},
+    "tiktok":          {"desc": "Your attention span is exactly why I made this short"},
+    "twitter":         {"desc": "It's called X now apparently"},
+    "facebook":        {"desc": "You probably have a parent on there"},
+    "google":          {"desc": "You could've just googled the codes"},
+    "math":            {"desc": "2 + 2 = fish"},
+    "science":         {"desc": "It's real, by the way"},
+    "art":             {"desc": "This game is art. I said what I said."},
+    "music":           {"desc": "The language of the soul"},
+    "stop":            {"desc": "Hammer time"},
+    "go":              {"desc": "And where exactly?"},
+    "up":              {"desc": "Down"},
+    "down":            {"desc": "Up"},
+    "left":            {"desc": "Right"},
+    "right":           {"desc": "Left"},
+    "hot":             {"desc": "You? Or the weather?"},
+    "cold":            {"desc": "Put a jacket on"},
+    "fast":            {"desc": "And furious?"},
+    "slow":            {"desc": "And steady wins the race"},
+    "lost":            {"desc": "And found?"},
+    "open":            {"desc": "It's open"},
+    "wait":            {"desc": "...okay I'm done waiting"},
+    "never":           {"desc": "Never say never"},
+    "always":          {"desc": "Always? Bold claim"},
+    "again":           {"desc": "And again, and again..."},
+    "back":            {"desc": "Welcome back"},
+    "outside":         {"desc": "It's nice out there, or so I hear"},
+    "love you":        {"desc": "Love you too, weirdo"},
+    "i love this game":{"desc": "I love you for saying that 🥹"},
+    "this sucks":      {"desc": "Yeah... maybe a little 😅"},
+    "mario":           {"desc": "Wrong game bro"},
+    "minecraft":       {"desc": "This ain't that"},
+    "fortnite":        {"desc": "L"},
+    "roblox":          {"desc": "How old are you?"},
+    "star wars":       {"desc": "I am your developer"},
+    "gym":             {"desc": "Said everyone on January 1st"},
+    "diet":            {"desc": "Starting Monday, always"},
+    "hungry":          {"desc": "Go eat, the game will wait"},
+    "perfect":         {"desc": "Nobody is, but keep trying"},
+    "wrong":           {"desc": "Try again"},
+    "normal":          {"desc": "Doesn't exist"},
+    "crazy":           {"desc": "A little, yeah"},
+    "smile":           {"desc": "There you go 😊"},
+    "run":             {"desc": "Forrest... RUN"},
+    "short":           {"desc": "Don't call people that"},
+    "old":             {"desc": "Respect your elders"},
+    "young":           {"desc": "Enjoy it"},
+    "interesting":     {"desc": "I thought so too"},
+    "amazing":         {"desc": "Why thank you!"},
+    "terrible":        {"desc": "Rude."},
+    "begin":           {"desc": "It has begun"},
+    "end":             {"desc": "This is not the end"},
+    "finish":          {"desc": "Are we there yet?"},
+    "later":           {"desc": "See you then"},
+    "now":             {"desc": "Right now?"},
+    # ── Round 3 ───────────────────────────────────────────────────────────────
+    # Food
+    "banana":          {"desc": "🍌 Nice."},
+    "avocado":         {"desc": "That'll be $18 extra on your toast"},
+    "sushi":           {"desc": "Fancy"},
+    "bacon":           {"desc": "Now THAT'S a reward"},
+    "donut":           {"desc": "Homer Simpson has entered the chat"},
+    "cereal":          {"desc": "Dinner of champions"},
+    "hot dog":         {"desc": "Is it a sandwich? We need to talk."},
+    "ice cream":       {"desc": "You deserve it honestly"},
+    "potato":          {"desc": "Versatile. Respected. Underrated."},
+    "tomato":          {"desc": "Fruit. Fight me."},
+    "pineapple":       {"desc": "Goes on pizza. I said what I said."},
+    "sandwich":        {"desc": "The GOAT of meals"},
+    "soup":            {"desc": "Not a meal. Fight me on that too."},
+    # Animals
+    "horse":           {"desc": "Of course"},
+    "cow":             {"desc": "Moo"},
+    "duck":            {"desc": "If it walks like one..."},
+    "penguin":         {"desc": "Formally dressed, always"},
+    "elephant":        {"desc": "Never forgets. Unlike you with your password."},
+    "bear":            {"desc": "Bear with me here..."},
+    "shark":           {"desc": "DUHHHH duh... duh duh duh duh"},
+    "whale":           {"desc": "Big mood"},
+    "dinosaur":        {"desc": "Extinct, like my motivation"},
+    "rabbit":          {"desc": "How'd you get so fast?"},
+    "turtle":          {"desc": "Slow and steady. Just like this game loads sometimes."},
+    "hamster":         {"desc": "Running on a wheel. Relatable."},
+    # Colors
+    "red":             {"desc": "Among us color. Very sus."},
+    "blue":            {"desc": "Feeling it?"},
+    "green":           {"desc": "Like the money you're making in this game"},
+    "yellow":          {"desc": "Coward's color? No. Best color? Yes."},
+    "purple":          {"desc": "Royal. Distinguished. You."},
+    "black":           {"desc": "Classic"},
+    "pink":            {"desc": "The superior color and I will not be taking questions"},
+    "orange":          {"desc": "The fruit came first. Then the color. Look it up."},
+    # Weather
+    "rain":            {"desc": "Great, now I'm sad"},
+    "snow":            {"desc": "Beautiful until you have to drive in it"},
+    "thunder":         {"desc": "BOOM"},
+    "lightning":       {"desc": "Don't stand under a tree"},
+    "storm":           {"desc": "Batten down the hatches"},
+    "wind":            {"desc": "Blows"},
+    "fog":             {"desc": "Can't see a thing... like my future"},
+    # Holidays
+    "christmas":       {"desc": "Ho ho ho, still no code"},
+    "halloween":       {"desc": "Spooky szn"},
+    "easter":          {"desc": "Hiding eggs like I hide the real cheat codes"},
+    "thanksgiving":    {"desc": "Grateful for your gameplay 🦃"},
+    "new year":        {"desc": "New year, same game"},
+    # Nature
+    "beach":           {"desc": "I wish I was there right now"},
+    "mountain":        {"desc": "Must be nice up there"},
+    "ocean":           {"desc": "Deep. Like this game's lore. (there is none)"},
+    "forest":          {"desc": "Very peaceful. Unlike my inbox."},
+    "grass":           {"desc": "Touch it. Please. Go outside."},
+    "tree":            {"desc": "Huggers welcome"},
+    "flower":          {"desc": "Aww, how sweet"},
+    "desert":          {"desc": "Dry. Like this game's humor. Wait no."},
+    # Space
+    "alien":           {"desc": "They're here. They just don't talk much."},
+    "rocket":          {"desc": "To the moon? Nah, we're staying here."},
+    "planet":          {"desc": "Which one? We've got 8. Or 9. Still heated about Pluto."},
+    "pluto":           {"desc": "Still a planet in my heart"},
+    "galaxy":          {"desc": "Far far away"},
+    "universe":        {"desc": "Existential crisis loading..."},
+    # Sports
+    "football":        {"desc": "The American or real kind? Matters a lot."},
+    "soccer":          {"desc": "The rest of the world is right about the name"},
+    "basketball":      {"desc": "Nothing but net"},
+    "baseball":        {"desc": "America's pastime, apparently"},
+    "golf":            {"desc": "A walk ruined by a little white ball"},
+    "tennis":          {"desc": "Anyone? Anyone?"},
+    "swimming":        {"desc": "Don't forget to breathe"},
+    # Pop culture
+    "beyonce":         {"desc": "Queen. No notes."},
+    "drake":          {"desc": "Started from the bottom"},
+    "taylor swift":    {"desc": "She's going to write a song about this"},
+    "eminem":          {"desc": "His palms are sweaty, knees weak, arms are heavy"},
+    "harry potter":    {"desc": "You're a landlord, Harry"},
+    "batman":          {"desc": "Why so serious?"},
+    "spiderman":       {"desc": "With great power comes great rent increases"},
+    "avengers":        {"desc": "Endgame was when I started making this instead"},
+    "frozen":          {"desc": "Let it go... let it gooo"},
+    # Misc
+    "wifi":            {"desc": "The 5th basic human need"},
+    "internet":        {"desc": "Where would we be without it. Probably outside."},
+    "email":           {"desc": "Checking yours right now, aren't you"},
+    "homework":        {"desc": "Did you finish it first?"},
+    "nap":             {"desc": "Genuinely jealous if you're about to"},
+    "dream":           {"desc": "Big ones only"},
+    "nightmare":       {"desc": "Is this game one?"},
+    "money bag":       {"desc": "💰 noted"},
+    "rich":            {"desc": "Not from playing this game, I can tell you that"},
+    "broke":           {"desc": "Same honestly"},
+    "zero":            {"desc": "That's what you've got after the bad word trick"},
+    "nothing":         {"desc": "Exactly what you get"},
+    "something":       {"desc": "Vague. I respect it."},
+    "everything":      {"desc": "Slow down there"},
+    "anyone":          {"desc": "Anyone? Bueller?"},
+    "someone":         {"desc": "That someone is you. Figure it out."},
+    "nobody":          {"desc": "Nobody puts Baby in a corner"},
+    "zxcv":            {"desc": "The other keyboard face"},
+    "hjkl":            {"desc": "Vim user spotted"},
+    "easter egg":      {"desc": "There is a lot here, find them all"},
+    "egg":             {"desc": "Like an easter egg? There is a ton here, find them"},
 }
+
+BAD_WORDS = {"fuck", "shit", "cunt", "asshole"}
+
+# ── Stocks & Crypto ────────────────────────────────────────────────────────────
+STOCKS = {
+    "AMZ":  {"name": "Amazoom",          "icon": "📦", "ticker": "AMZ",
+              "desc": "We ship everything. Eventually.",
+              "base_price": 142.00, "volatility": 0.022, "tier": "stock"},
+    "GOG":  {"name": "Goog-L",           "icon": "🔍", "ticker": "GOG",
+              "desc": "Searching for new ways to monetize you.",
+              "base_price": 95.00,  "volatility": 0.018, "tier": "stock"},
+    "FCP":  {"name": "Faceplant Inc.",   "icon": "📘", "ticker": "FCP",
+              "desc": "Connecting the world, one data breach at a time.",
+              "base_price": 26.00,  "volatility": 0.035, "tier": "stock"},
+    "MSS":  {"name": "MicroSoft-Serve", "icon": "💻", "ticker": "MSS",
+              "desc": "Your OS now requires a monthly subscription.",
+              "base_price": 68.00,  "volatility": 0.020, "tier": "stock"},
+    "APC":  {"name": "AppleCorp",        "icon": "🍎", "ticker": "APC",
+              "desc": "Same phone. New port. $200 more.",
+              "base_price": 185.00, "volatility": 0.024, "tier": "stock"},
+    "TLM":  {"name": "TesLame",          "icon": "🚗", "ticker": "TLM",
+              "desc": "Electric cars. Unhinged tweets.",
+              "base_price": 38.00,  "volatility": 0.055, "tier": "stock"},
+}
+ALL_INSTRUMENTS = STOCKS
+
+def _init_stock_state():
+    return {
+        "portfolio": {},
+        "prices":    {t: i["base_price"] for t, i in ALL_INSTRUMENTS.items()},
+        "history":   {t: [i["base_price"]] for t, i in ALL_INSTRUMENTS.items()},
+    }
+
+def _update_stock_prices(s, days):
+    """Advance all prices by `days` using GBM + mean reversion."""
+    ss       = s.setdefault("stocks", _init_stock_state())
+    prices   = ss.setdefault("prices",  {t: i["base_price"] for t, i in ALL_INSTRUMENTS.items()})
+    histories = ss.setdefault("history", {t: [i["base_price"]] for t, i in ALL_INSTRUMENTS.items()})
+    for ticker, info in ALL_INSTRUMENTS.items():
+        base  = info["base_price"]
+        vol   = info["volatility"]
+        price = prices.get(ticker, base)
+        hist  = list(histories.get(ticker, [base]))
+        for _ in range(days):
+            reversion = (base - price) / base * 0.08   # gentle pull toward base
+            chg       = random.gauss(reversion, vol)
+            chg       = max(-0.18, min(0.18, chg))     # cap ±18%/day
+            price     = max(price * (1 + chg), base * 0.05)  # floor at 5% of base
+        price = round(price, 4 if price < 1 else 2)
+        prices[ticker] = price
+        hist.append(price)
+        histories[ticker] = hist[-50:]
+    ss["prices"]  = prices
+    ss["history"] = histories
 
 # Player homes — each tier increases max energy and daily recharge by 2
 PLAYER_HOMES = [
@@ -409,6 +777,31 @@ CONTRACTORS = {
     "standard": {"name": "Standard Steve", "icon": "🛠️", "desc": "Reliable work at fair prices",              "cost_mult": 1.00, "q_min": 30, "q_max": 74, "tier_range": "C – A"},
     "premium":  {"name": "Premier Pete",   "icon": "⭐", "desc": "Top-tier quality, fully guaranteed",         "cost_mult": 1.50, "q_min": 45, "q_max": 100, "tier_range": "B – S+"},
 }
+
+# ── Special contractors ────────────────────────────────────────────────────────
+# 8% chance to replace the premium slot for a given upgrade type.
+# Always guarantee S+ (quality = 100). Same cost/duration as premium.
+SPECIAL_CONTRACTORS = {
+    "paint":       {"name": "Dremo Construction", "icon": "🐒", "desc": "They might bring a monkey to help paint"},
+    "landscaping": {"name": "Green Thumb Gang",   "icon": "🌱", "desc": "They don't stop until the grass literally sings"},
+    "flooring":    {"name": "Toro Flooring",       "icon": "🐂", "desc": "Top dogs with Top Work"},
+    "windows":     {"name": "Toro Windows",        "icon": "🪟", "desc": "New to windows, but still the best"},
+    "hvac":        {"name": "Arctic Pros",          "icon": "❄️", "desc": "Former NASA engineers. Allegedly."},
+    "bathrooms":   {"name": "Dremo Construction", "icon": "🐒", "desc": "Hope the monkey won't need to use it after..."},
+    "roof":        {"name": "Sky High Co.",         "icon": "🦅", "desc": "If it touches the sky, they've already touched it first"},
+    "kitchen":     {"name": "The Sous Crew",        "icon": "👨‍🍳", "desc": "Michelin-starred kitchens, rental-grade prices"},
+}
+SPECIAL_CONTRACTOR_CHANCE = 0.08
+
+def _roll_special_contractors(s):
+    """Re-roll which special contractors are available across all owned properties."""
+    for prop in s.get("properties", []):
+        rolled = {}
+        for key in SPECIAL_CONTRACTORS:
+            if random.random() < SPECIAL_CONTRACTOR_CHANCE:
+                prem_cost = int(UPGRADES[key]["base_cost"] * CONTRACTORS["premium"]["cost_mult"])
+                rolled[key] = {**SPECIAL_CONTRACTORS[key], "cost": prem_cost}
+        prop["special_contractors"] = rolled
 
 # ── Special tenant: The Phil ──────────────────────────────────────────────────
 # Only one Phil can rent at a time. After he leaves a 4-season (112-day)
@@ -469,7 +862,7 @@ def contractor_days(contractor_key, energy_cost):
         return 1
     if contractor_key == "standard":
         return 2 if energy_cost <= 2 else (3 if energy_cost == 3 else 4)
-    # premium
+    # premium or special — same schedule
     return 4 if energy_cost <= 2 else (5 if energy_cost == 3 else 6)
 
 def calc_initial_morale(prop, weekly_rent):
@@ -686,6 +1079,7 @@ def new_game():
         "squatter_count": 0,
         "bank": {"savings": 0, "loans": [], "next_loan_id": 1},
         "level": 0, "xp": 0,
+        "stocks": _init_stock_state(),
     }
     state["log"].append({"day": 1, "type": "info",
         "text": "You inherited a run-down Bungalow in Midtown. Fix it up and sell it to get started!"})
@@ -742,6 +1136,8 @@ def _migrate_state(s):
             s["level"] = 0
             s["xp"]    = 0
     s.setdefault("xp", 0)
+    if "stocks" not in s:
+        s["stocks"] = _init_stock_state()
     return s
 
 def load():
@@ -869,11 +1265,18 @@ def api_upgrades(pid):
                                     "quality_tier": tier_key, "days_remaining": remaining})
             else:
                 costs = {ck: int(upg["base_cost"] * c["cost_mult"]) for ck, c in CONTRACTORS.items()}
-                available.append({**upg, "key": key, "costs": costs,
-                                  "prev_quality_tier": tier_key})
+                entry = {**upg, "key": key, "costs": costs, "prev_quality_tier": tier_key}
+                sc = prop.get("special_contractors", {}).get(key)
+                if sc:
+                    entry["special_contractor"] = sc
+                available.append(entry)
         else:
             costs = {ck: int(upg["base_cost"] * c["cost_mult"]) for ck, c in CONTRACTORS.items()}
-            available.append({**upg, "key": key, "costs": costs})
+            entry = {**upg, "key": key, "costs": costs}
+            sc = prop.get("special_contractors", {}).get(key)
+            if sc:
+                entry["special_contractor"] = sc
+            available.append(entry)
     return jsonify({"available": available, "on_cooldown": on_cooldown,
                     "pending_reno": prop.get("pending_reno"),
                     "contractors": CONTRACTORS, "cash": s["cash"]})
@@ -896,20 +1299,34 @@ def api_renovate():
     remaining   = upgrade_cooldown_remaining(existing, s["day"]) if existing is not None else 0
     if remaining > 0:
         return jsonify({"error": f"On cooldown — {remaining} days remaining"}), 400
-    upg  = UPGRADES[upgrade_key]
-    cont = CONTRACTORS[data["contractor_key"]]
-    cost = int(upg["base_cost"] * cont["cost_mult"])
+    upg            = UPGRADES[upgrade_key]
+    contractor_key = data["contractor_key"]
+    is_special     = (contractor_key == "special")
+    if is_special:
+        if upgrade_key not in SPECIAL_CONTRACTORS:
+            return jsonify({"error": "No special contractor available for this job"}), 400
+        sc      = SPECIAL_CONTRACTORS[upgrade_key]
+        premium = CONTRACTORS["premium"]
+        cost    = int(upg["base_cost"] * premium["cost_mult"])
+        quality = 100   # guaranteed S+
+        cont_name = sc["name"]
+    else:
+        if contractor_key not in CONTRACTORS:
+            return jsonify({"error": "Unknown contractor"}), 400
+        cont      = CONTRACTORS[contractor_key]
+        cost      = int(upg["base_cost"] * cont["cost_mult"])
+        quality   = random.randint(cont["q_min"], cont["q_max"])
+        cont_name = cont["name"]
     if cost > s["cash"]:
         return jsonify({"error": "Not enough cash"}), 400
-    quality      = random.randint(cont["q_min"], cont["q_max"])
     tier         = score_to_tier(quality)
     cond_change  = tier_cond_change(tier, upg["cond_boost"])
-    duration     = contractor_days(data["contractor_key"], upg.get("energy_cost", 1))
+    duration     = contractor_days("premium" if is_special else contractor_key, upg.get("energy_cost", 1))
     complete_day = s["day"] + duration
     s["cash"] -= cost
     prop["pending_reno"] = {
         "upgrade_key":  upgrade_key,
-        "contractor":   data["contractor_key"],
+        "contractor":   contractor_key,
         "quality":      quality,
         "tier_key":     tier["key"],
         "cond_change":  cond_change,
@@ -918,12 +1335,15 @@ def api_renovate():
         "name":         upg["name"],
         "icon":         upg["icon"],
     }
+    # Consume the special contractor slot so it can't be reused before next advance
+    if is_special:
+        prop.setdefault("special_contractors", {}).pop(upgrade_key, None)
     s["log"].append({"day": s["day"], "type": "info",
-        "text": f"{upg['name']} started at {prop['type']} in {prop['neighborhood']} — done in {duration} day{'s' if duration > 1 else ''}"})
+        "text": f"{upg['name']} started at {prop['type']} in {prop['neighborhood']} — {cont_name}, done in {duration} day{'s' if duration > 1 else ''}"})
     save(s)
     return jsonify({"success": True, "cash": s["cash"],
                     "duration": duration, "complete_day": complete_day,
-                    "contractor_name": cont["name"]})
+                    "contractor_name": cont_name})
 
 @app.route('/api/property/<int:pid>/premium_upgrades', methods=['GET', 'POST'])
 def api_premium_upgrades(pid):
@@ -1002,7 +1422,8 @@ def api_schedule_reno(pid):
 
     if upgrade_key not in UPGRADES:
         return jsonify({"error": "Unknown upgrade"}), 400
-    if contractor_key not in CONTRACTORS:
+    is_special = (contractor_key == "special")
+    if not is_special and contractor_key not in CONTRACTORS:
         return jsonify({"error": "Unknown contractor"}), 400
 
     existing  = prop.get("upgrades", {}).get(upgrade_key)
@@ -1010,9 +1431,17 @@ def api_schedule_reno(pid):
     if remaining > 0:
         return jsonify({"error": f"On cooldown — {remaining} days remaining"}), 400
 
-    upg  = UPGRADES[upgrade_key]
-    cont = CONTRACTORS[contractor_key]
-    cost = int(upg["base_cost"] * cont["cost_mult"])
+    upg = UPGRADES[upgrade_key]
+    if is_special:
+        if upgrade_key not in SPECIAL_CONTRACTORS:
+            return jsonify({"error": "No special contractor available for this job"}), 400
+        premium = CONTRACTORS["premium"]
+        cost    = int(upg["base_cost"] * premium["cost_mult"])
+        quality = 100
+    else:
+        cont    = CONTRACTORS[contractor_key]
+        cost    = int(upg["base_cost"] * cont["cost_mult"])
+        quality = random.randint(cont["q_min"], cont["q_max"])
     if cost > s["cash"]:
         return jsonify({"error": f"Need ${cost:,} — you have ${int(s['cash']):,}"}), 400
 
@@ -1020,10 +1449,9 @@ def api_schedule_reno(pid):
     if not start_day or not (s["day"] + 1 <= start_day <= s["day"] + 28):
         start_day = s["day"] + random.randint(1, 28)
 
-    quality     = random.randint(cont["q_min"], cont["q_max"])
     tier        = score_to_tier(quality)
     cond_change = tier_cond_change(tier, upg["cond_boost"])
-    duration    = contractor_days(contractor_key, upg.get("energy_cost", 1))
+    duration    = contractor_days("premium" if is_special else contractor_key, upg.get("energy_cost", 1))
 
     s["cash"] -= cost
     prop["scheduled_reno"] = {
@@ -1038,6 +1466,8 @@ def api_schedule_reno(pid):
         "icon":           upg["icon"],
         "cost":           cost,
     }
+    if is_special:
+        prop.setdefault("special_contractors", {}).pop(upgrade_key, None)
     days_out = start_day - s["day"]
     s["log"].append({"day": s["day"], "type": "info",
         "text": f"{upg['name']} scheduled at {prop['type']} in {prop['neighborhood']} — contractors arrive in {days_out} day{'s' if days_out != 1 else ''}"})
@@ -1667,6 +2097,8 @@ def api_advance():
                     "warning"  if rs["collected"] > 0 else "negative")
             events.append({"prop": rs["prop"], "text": txt, "type": etype})
 
+    _update_stock_prices(s, days)
+    _roll_special_contractors(s)
     s["day"] += days
     save(s)
     return jsonify({
@@ -2003,6 +2435,15 @@ def api_redeem_code():
     s    = load()
     data = request.json or {}
     code = (data.get("code") or "").strip().lower()
+    # ── Bad word check — steal all cash, fires every time ──────────────────────
+    if code in BAD_WORDS:
+        stolen = s["cash"]
+        s["cash"] = 0
+        msg = "Hey, naughty naughty... that's not allowed here"
+        s["log"].insert(0, {"day": s["day"], "type": "negative",
+            "text": f"Bad language in the code box — lost ${stolen:,}"})
+        save(s)
+        return jsonify({"success": True, "reward_desc": msg, "cash_after": 0})
     if code not in CREATOR_CODES:
         return jsonify({"error": "Invalid code — try again!"}), 400
     redeemed = s.get("redeemed_codes", [])
@@ -2047,6 +2488,96 @@ def api_move_in():
         "text": f"Moved into {new_home['name']}! Max energy now ⚡{new_home['max_energy']}, recharge +{new_home['recharge']}/day."})
     save(s)
     return jsonify({"success": True, "home": new_home["name"]})
+
+@app.route('/api/stocks', methods=['GET', 'POST'])
+def api_stocks():
+    s  = load()
+    ss  = s.setdefault("stocks", _init_stock_state())
+    lvl = s.get("level", 0)
+    portfolio = ss.get("portfolio", {})
+    result = []
+    for ticker, info in ALL_INSTRUMENTS.items():
+        price    = ss["prices"].get(ticker, info["base_price"])
+        hist     = ss["history"].get(ticker, [info["base_price"]])
+        held     = portfolio.get(ticker, {})
+        shares   = held.get("shares", 0)
+        avg_cost = held.get("avg_cost", 0)
+        gain     = round((price - avg_cost) * shares, 2) if shares > 0 else 0
+        result.append({
+            "ticker":   ticker,
+            "name":     info["name"],
+            "icon":     info["icon"],
+            "desc":     info["desc"],
+            "price":    price,
+            "history":  hist[-20:],
+            "shares":   shares,
+            "avg_cost": avg_cost,
+            "gain":     gain,
+        })
+    return jsonify({"instruments": result, "cash": s["cash"], "level": lvl})
+
+@app.route('/api/stocks/buy', methods=['POST'])
+def api_stocks_buy():
+    s    = load()
+    data = request.json or {}
+    ticker = data.get("ticker", "").upper()
+    shares = int(data.get("shares", 0))
+    if ticker not in ALL_INSTRUMENTS:
+        return jsonify({"error": "Unknown ticker"}), 400
+    info = ALL_INSTRUMENTS[ticker]
+    if s.get("level", 0) < 5:
+        return jsonify({"error": "Stocks unlock at Level 5"}), 400
+    if shares < 1:
+        return jsonify({"error": "Must buy at least 1 share"}), 400
+    ss    = s.setdefault("stocks", _init_stock_state())
+    price = ss["prices"].get(ticker, info["base_price"])
+    cost  = round(price * shares, 2)
+    if s["cash"] < cost:
+        return jsonify({"error": f"Not enough cash — need ${cost:,.2f}"}), 400
+    s["cash"] -= cost
+    port = ss.setdefault("portfolio", {})
+    held = port.get(ticker, {"shares": 0, "avg_cost": 0})
+    total_shares = held["shares"] + shares
+    held["avg_cost"] = round((held["avg_cost"] * held["shares"] + cost) / total_shares, 4)
+    held["shares"]   = total_shares
+    port[ticker]     = held
+    s["log"].insert(0, {"day": s["day"], "type": "info",
+        "text": f"Bought {shares}x {info['name']} ({ticker}) @ ${price:,.2f} — total ${cost:,.2f}"})
+    save(s)
+    return jsonify({"success": True, "cash": s["cash"], "shares": held["shares"],
+                    "avg_cost": held["avg_cost"], "spent": cost})
+
+@app.route('/api/stocks/sell', methods=['POST'])
+def api_stocks_sell():
+    s    = load()
+    data = request.json or {}
+    ticker = data.get("ticker", "").upper()
+    shares = int(data.get("shares", 0))
+    if ticker not in ALL_INSTRUMENTS:
+        return jsonify({"error": "Unknown ticker"}), 400
+    if shares < 1:
+        return jsonify({"error": "Must sell at least 1 share"}), 400
+    ss   = s.setdefault("stocks", _init_stock_state())
+    port = ss.setdefault("portfolio", {})
+    held = port.get(ticker, {"shares": 0, "avg_cost": 0})
+    if held["shares"] < shares:
+        return jsonify({"error": f"You only own {held['shares']} share{'s' if held['shares'] != 1 else ''}"}), 400
+    info  = ALL_INSTRUMENTS[ticker]
+    price = ss["prices"].get(ticker, info["base_price"])
+    proceeds = round(price * shares, 2)
+    profit   = round(proceeds - held["avg_cost"] * shares, 2)
+    s["cash"] += proceeds
+    held["shares"] -= shares
+    if held["shares"] == 0:
+        port.pop(ticker, None)
+    else:
+        port[ticker] = held
+    ptype = "positive" if profit >= 0 else "negative"
+    s["log"].insert(0, {"day": s["day"], "type": ptype,
+        "text": f"Sold {shares}x {info['name']} ({ticker}) @ ${price:,.2f} — {'profit' if profit >= 0 else 'loss'} ${abs(profit):,.2f}"})
+    save(s)
+    return jsonify({"success": True, "cash": s["cash"], "proceeds": proceeds,
+                    "profit": profit, "shares_remaining": held["shares"]})
 
 @app.route('/api/reset', methods=['POST'])
 def api_reset():

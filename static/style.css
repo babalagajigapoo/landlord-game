@@ -254,6 +254,18 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
 .upgrade-cost { font-size: 11px; color: var(--text-muted); }
 .upgrade-quality { font-size: 11px; color: var(--positive); font-weight: 700; }
 
+/* ── Special Contractor ──────────────────────────────────────── */
+.contractor-special {
+  border: 2px solid #7B1FA2 !important;
+  background: linear-gradient(135deg, #F9F0FF 0%, #FFFFFF 60%) !important;
+  position: relative;
+}
+.contractor-special-badge {
+  font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px;
+  color: #7B1FA2; background: #EDE1F5; border-radius: 6px;
+  padding: 3px 8px; display: inline-block; margin-bottom: 8px;
+}
+
 /* ── Contractor Cards ────────────────────────────────────────── */
 .contractor-card {
   background: var(--surface);
@@ -582,6 +594,49 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
 }
 .mg-reaction-tap-btn:active { transform: scale(0.95); }
 .mg-reaction-tap-btn:disabled { background: var(--surface-2); color: var(--text-muted); }
+
+/* ── Stocks ──────────────────────────────────────────────────── */
+.stocks-section-header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 2px 6px; margin-bottom: 6px;
+}
+.stocks-section-icon { font-size: 22px; }
+.stocks-section-title { font-size: 15px; font-weight: 800; color: var(--text); }
+.stocks-section-sub   { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+
+.stock-card { padding: 14px 14px 10px; margin-bottom: 10px; }
+
+.stock-card-top { display: flex; align-items: flex-start; gap: 10px; }
+.stock-icon-wrap { font-size: 26px; line-height: 1; flex-shrink: 0; }
+.stock-info { flex: 1; min-width: 0; }
+.stock-name { font-size: 14px; font-weight: 800; color: var(--text); }
+.stock-ticker { font-size: 11px; font-weight: 600; color: var(--text-muted);
+  background: var(--surface-2); border-radius: 4px; padding: 1px 5px; margin-left: 4px; }
+.stock-desc { font-size: 11px; color: var(--text-muted); margin-top: 2px; line-height: 1.35; }
+.stock-price-wrap { text-align: right; flex-shrink: 0; }
+.stock-price { font-size: 16px; font-weight: 800; color: var(--text); }
+.stock-trend { font-size: 11px; font-weight: 700; margin-top: 2px; }
+.stock-trend.stock-up   { color: var(--positive); }
+.stock-trend.stock-down { color: var(--negative); }
+
+.stock-sparkline { margin: 8px 0 4px; opacity: 0.85; }
+
+.stock-holding {
+  display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+  font-size: 11px; font-weight: 700; color: var(--text-muted);
+  background: var(--surface-2); border-radius: 8px; padding: 6px 10px; margin: 4px 0;
+}
+.stock-holding .positive { color: var(--positive); }
+.stock-holding .negative { color: var(--negative); }
+
+.stock-actions { display: flex; gap: 8px; margin-top: 8px; }
+
+.stocks-locked-card {
+  text-align: center; padding: 28px 16px; margin-bottom: 10px;
+}
+.stocks-lock-icon { font-size: 36px; margin-bottom: 8px; }
+.stocks-lock-msg  { font-size: 15px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
+.stocks-lock-sub  { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
 
 /* ── Utility ─────────────────────────────────────────────────── */
 .hidden { display: none !important; }
