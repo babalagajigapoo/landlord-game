@@ -2434,6 +2434,7 @@ function launchWindowGame(upgradeKey) {
       e.preventDefault();
       e.stopPropagation();
       Array.from(e.changedTouches).forEach(t => {
+        if (Object.keys(_mg.touches).length >= 2) return; // max 2 fingers
         _mg.touches[t.identifier] = winId;
         wgHold(winId);
       });
