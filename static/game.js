@@ -2,6 +2,7 @@
 let state           = null;
 let marketListings  = [];
 let marketHoodOpen  = {};   // tracks which hood sections are expanded; undefined = open
+let currentFinTab   = 'bank'; // active sub-tab inside Finances
 let currentPage     = 'dashboard';
 let pendingUpgrade  = null;
 let _applicants     = [];
@@ -125,18 +126,18 @@ function updateHeader() {
   const levelBadge = document.getElementById('hdr-level');
   const xpBar      = document.getElementById('hdr-xp-bar');
   const xpNextLbl  = document.getElementById('hdr-level-next');
-  if (levelBadge) levelBadge.textContent = lvl >= 7 ? '⭐ Max Level' : `Level ${lvl}`;
+  if (levelBadge) levelBadge.textContent = lvl >= 14 ? '⭐ Max Level' : `Level ${lvl}`;
   if (xpBar)      xpBar.style.width = `${xpPct}%`;
   if (xpNextLbl) {
     if (lvl === 0)       xpNextLbl.textContent = 'Sell your first property';
-    else if (lvl >= 7)   xpNextLbl.textContent = 'Fully maxed out!';
+    else if (lvl >= 14)  xpNextLbl.textContent = 'Fully maxed out!';
     else                 xpNextLbl.textContent = `→ Level ${lvl + 1}`;
   }
 }
 
 // ── Level-up ──────────────────────────────────────────────────────────────────
 const LEVEL_HOOD_NAMES = ['', 'Midtown', 'Northside', 'Westwood', 'Riverside', 'Newbay'];
-const LEVEL_HOME_NAMES = ['', 'Studio Apartment', 'Starter House', 'Modern Condo', 'Suburban Home', 'Mansion', 'Castle'];
+const LEVEL_HOME_NAMES = ['', '', 'Studio Apartment', '', 'Starter House', '', 'Modern Condo', '', 'Suburban Home', '', 'Mansion', '', 'Castle', '', ''];
 
 function showLevelUpToast(newLevel) {
   const hood = LEVEL_HOOD_NAMES[newLevel] || null;
@@ -167,9 +168,8 @@ function navTo(page) {
   const btnEl  = document.querySelector(`.nav-btn[data-page="${page}"]`);
   if (pageEl) pageEl.classList.add('active');
   if (btnEl)  btnEl.classList.add('active');
-  if (page === 'bank')     renderBank();
+  if (page === 'finances') renderFinances();
   if (page === 'settings') renderSettings();
-  if (page === 'stocks')   renderStocks();
 }
 
 // ── Render All ────────────────────────────────────────────────────────────────
@@ -178,7 +178,7 @@ function renderAll() {
   renderMarket();
   renderProperties();
   if (currentPage === 'settings') renderSettings();
-  if (currentPage === 'stocks')   renderStocks();
+  if (currentPage === 'finances') renderFinances();
 }
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
@@ -1296,7 +1296,7 @@ function randomMgType() { return ALL_MG_TYPES[Math.floor(Math.random() * ALL_MG_
 // Maps renovation/repair/job context → the mini-game that fits the work
 const WORK_MG_MAP = {
   // Renovation upgrades
-  'paint':       'rapidpress',   // Roll It Out — painting is repetitive strokes
+  'paint':       'paintgame',    // Paint the Wall — drag to cover tiles
   'flooring':    'colormatch',   // Match the Tile — picking & placing materials
   'windows':     'reactiontap',  // Level It Up — precision fitting
   'hvac':        'sweetspot',    // Tighten the Fitting — mechanical tensioning
@@ -1312,7 +1312,7 @@ const WORK_MG_MAP = {
   'pest':        'reactiontap',
   'hvac_fix':    'sweetspot',
   // Side job names
-  'Paint a Room':        'rapidpress',
+  'Paint a Room':        'paintgame',
   'Lay Flooring':        'colormatch',
   'Patch the Roof':      'quicktap',
   'Fix a Plumbing Leak': 'sweetspot',
@@ -1337,6 +1337,7 @@ function launchMgByType(mgType, upgradeKey) {
   else if (mgType === 'rapidpress')  launchRapidPress(upgradeKey);
   else if (mgType === 'colormatch')  launchColorMatch(upgradeKey);
   else if (mgType === 'reactiontap') launchReactionTap(upgradeKey);
+  else if (mgType === 'paintgame')   launchPaintGame(upgradeKey);
 }
 
 async function showContractorModal(propId, upgradeKey) {
@@ -1812,6 +1813,174 @@ function seqPress(idx) {
 function seqFinish() {
   const score = Math.round((_mg.correct / _mg.totalRounds) * 100);
   setTimeout(() => finishDIY(_mg.upgradeKey, score), 400);
+}
+
+// ── Mini-game: Paint the Wall ────────────────────────────────────────────────
+// Drag finger across tiles to paint them before the timer runs out.
+// Score = % of tiles covered.
+const PAINT_COLORS = [
+  { name: 'Cerulean Blue',  color: '#1565C0', dark: '#0D47A1' },
+  { name: 'Forest Green',   color: '#2E7D32', dark: '#1B5E20' },
+  { name: 'Sunset Orange',  color: '#E65100', dark: '#BF360C' },
+  { name: 'Deep Purple',    color: '#6A1B9A', dark: '#4A148C' },
+  { name: 'Ruby Red',       color: '#C62828', dark: '#B71C1C' },
+  { name: 'Teal',           color: '#00695C', dark: '#004D40' },
+  { name: 'Goldenrod',      color: '#F57F17', dark: '#E65100' },
+];
+
+const PG_COLS     = 5;
+const PG_ROWS     = 6;
+const PG_TOTAL    = PG_COLS * PG_ROWS;  // 30 tiles
+const PG_DURATION = 3;                  // seconds
+
+function launchPaintGame(upgradeKey) {
+  closeModal();  // dismiss any open modal before going fullscreen
+  const paintColor = PAINT_COLORS[Math.floor(Math.random() * PAINT_COLORS.length)];
+  _mg = { ..._mg, upgradeKey, painted: new Set(), running: false, timerId: null,
+          paintColor, dragActive: false, finalScore: 0, locked: true };
+
+  // Remove any leftover overlay
+  const old = document.getElementById('pg-overlay');
+  if (old) old.remove();
+
+  const overlay     = document.createElement('div');
+  overlay.id        = 'pg-overlay';
+  overlay.className = 'pg-overlay';
+  overlay.innerHTML = `
+    <div class="pg-header">
+      <div class="pg-top-row">
+        <span class="pg-title">🎨 Paint the Wall!</span>
+        <span class="pg-pct-badge" id="pg-pct">0%</span>
+      </div>
+      <div class="pg-timer-track">
+        <div class="pg-timer-fill" id="pg-timer-fill"></div>
+      </div>
+      <div class="pg-time-label"><span id="pg-time">${PG_DURATION}</span>s remaining</div>
+    </div>
+    <div class="pg-grid" id="pg-grid"></div>
+    <div class="pg-start-screen" id="pg-start-screen">
+      <div class="pg-start-card">
+        <div class="pg-start-swatch" style="background:${paintColor.color}"></div>
+        <div class="pg-start-color">${paintColor.name}</div>
+        <div class="pg-start-desc">Drag your finger across every tile<br>before time runs out!</div>
+        <button class="pg-start-btn" style="background:${paintColor.color};box-shadow:0 4px 18px ${paintColor.dark}88" onclick="pgStart()">
+          🎨 Start Painting!
+        </button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  // Populate grid with unpainted tiles
+  const grid = document.getElementById('pg-grid');
+  for (let i = 0; i < PG_TOTAL; i++) {
+    const tile       = document.createElement('div');
+    tile.className   = 'pg-tile';
+    tile.dataset.idx = String(i);
+    grid.appendChild(tile);
+  }
+
+  // Attach drag events to the grid
+  grid.addEventListener('touchstart', pgTouchStart, { passive: false });
+  grid.addEventListener('touchmove',  pgTouchMove,  { passive: false });
+  grid.addEventListener('touchend',   pgTouchEnd,   { passive: false });
+  grid.addEventListener('mousedown',  pgMouseDown);
+  grid.addEventListener('mousemove',  pgMouseMove);
+  grid.addEventListener('mouseup',    pgMouseUp);
+  document.addEventListener('mouseup', pgMouseUp);
+}
+
+function pgStart() {
+  const ss = document.getElementById('pg-start-screen');
+  if (ss) ss.style.display = 'none';
+  _mg.running = true;
+  const endTime = Date.now() + PG_DURATION * 1000;
+
+  _mg.timerId = setInterval(() => {
+    const left = Math.max(0, endTime - Date.now());
+    const pct  = left / (PG_DURATION * 1000);
+    const fill = document.getElementById('pg-timer-fill');
+    const timeEl = document.getElementById('pg-time');
+    if (fill) {
+      fill.style.width      = (pct * 100).toFixed(1) + '%';
+      fill.style.background = pct > 0.5 ? '#4CAF50' : pct > 0.25 ? '#FF9800' : '#F44336';
+    }
+    if (timeEl) timeEl.textContent = Math.ceil(left / 1000);
+    if (left <= 0) { clearInterval(_mg.timerId); _mg.running = false; pgFinish(); }
+  }, 50);
+}
+
+function pgPaintTile(el) {
+  if (!_mg.running || !el || !el.classList.contains('pg-tile') || el.classList.contains('painted')) return;
+  el.classList.add('painted');
+  el.style.background = _mg.paintColor.color;
+  _mg.painted.add(el.dataset.idx);
+
+  const pct   = Math.round((_mg.painted.size / PG_TOTAL) * 100);
+  const pctEl = document.getElementById('pg-pct');
+  if (pctEl) pctEl.textContent = pct + '%';
+
+  if (_mg.painted.size >= PG_TOTAL) {
+    clearInterval(_mg.timerId);
+    _mg.running = false;
+    setTimeout(pgFinish, 300);
+  }
+}
+
+function pgTouchStart(e) {
+  e.preventDefault();
+  _mg.dragActive = true;
+  const t = e.touches[0];
+  pgPaintTile(document.elementFromPoint(t.clientX, t.clientY));
+}
+function pgTouchMove(e) {
+  e.preventDefault();
+  if (!_mg.dragActive) return;
+  const t = e.touches[0];
+  pgPaintTile(document.elementFromPoint(t.clientX, t.clientY));
+}
+function pgTouchEnd(e)  { e.preventDefault(); _mg.dragActive = false; }
+function pgMouseDown(e) { _mg.dragActive = true;  pgPaintTile(document.elementFromPoint(e.clientX, e.clientY)); }
+function pgMouseMove(e) { if (_mg.dragActive) pgPaintTile(document.elementFromPoint(e.clientX, e.clientY)); }
+function pgMouseUp()    { _mg.dragActive = false; }
+
+function pgFinish() {
+  clearInterval(_mg.timerId);
+  document.removeEventListener('mouseup', pgMouseUp);
+
+  const painted = _mg.painted.size;
+  const score   = Math.round((painted / PG_TOTAL) * 100);
+  _mg.finalScore = score;
+  _mg.locked     = false;
+
+  const msg   = score >= 90 ? '🌟 Flawless coverage!'  :
+                score >= 70 ? '✅ Solid coat!'           :
+                score >= 50 ? '👍 Getting there!'        :
+                              '🫤 Needs another coat...';
+  const color = _mg.paintColor.color;
+
+  const overlay = document.getElementById('pg-overlay');
+  if (overlay) {
+    const res       = document.createElement('div');
+    res.className   = 'pg-result-overlay';
+    res.innerHTML   = `
+      <div class="pg-result-card">
+        <div class="pg-result-score" style="color:${color}">${score}%</div>
+        <div class="pg-result-tiles">${painted} / ${PG_TOTAL} tiles painted</div>
+        <div class="pg-result-msg">${msg}</div>
+      </div>`;
+    overlay.appendChild(res);
+  }
+
+  _mg.autoCloseId = setTimeout(pgClose, 2400);
+}
+
+function pgClose() {
+  clearTimeout(_mg.autoCloseId);
+  document.removeEventListener('mouseup', pgMouseUp);
+  const overlay = document.getElementById('pg-overlay');
+  if (!overlay) return;
+  overlay.remove();
+  finishDIY(_mg.upgradeKey, _mg.finalScore ?? 0);
 }
 
 // ── Mini-game: Rapid Press ────────────────────────────────────────────────────
@@ -2404,6 +2573,23 @@ async function ignoreRepair() {
 }
 
 // ── Bank ──────────────────────────────────────────────────────────────────────
+// ── Finances Tab ──────────────────────────────────────────────────────────────
+function switchFinTab(tab) {
+  currentFinTab = tab;
+  ['bank', 'stocks', 'taxes'].forEach(t => {
+    const el  = document.getElementById('fin-' + t);
+    const btn = document.querySelector(`.fin-tab[data-fin="${t}"]`);
+    if (el)  el.style.display = t === tab ? '' : 'none';
+    if (btn) btn.classList.toggle('active', t === tab);
+  });
+  if (tab === 'bank')   renderBank();
+  if (tab === 'stocks') renderStocks();
+}
+
+function renderFinances() {
+  switchFinTab(currentFinTab);
+}
+
 async function renderBank() {
   const data = await api('/bank/products');
   const bank = state.bank || { savings: 0, loans: [] };
@@ -2963,6 +3149,7 @@ function showConfirmModal(title, subtitle, onConfirm) {
 }
 
 document.getElementById('modal-overlay').addEventListener('click', function(e) {
+  if (_mg.locked) return;   // block dismiss during active mini-game
   if (e.target === this) closeModal();
 });
 

@@ -93,8 +93,8 @@ NEIGHBORHOODS = {
 # XP_THRESHOLDS[level] = cumulative XP required to reach that level.
 # Level 0 → 1 is a special trigger (guaranteed on first property sale).
 # Levels 1 → 7 are earned through gameplay.
-XP_THRESHOLDS         = [0, 0, 150, 450, 1050, 2250, 4750, 9750]
-MAX_LEVEL             = 7
+XP_THRESHOLDS         = [0, 0, 150, 450, 1050, 2250, 4750, 9750, 17250, 27250, 42250, 62250, 92250, 132250, 187250]
+MAX_LEVEL             = 14
 
 # Neighborhood unlocked at each level (index 0 → level 1, index 1 → level 2, …)
 NEIGHBORHOOD_UNLOCK_ORDER = ["Midtown", "Northside", "Westwood", "Riverside", "Newbay"]
@@ -924,10 +924,12 @@ def get_unlocked_neighborhoods(level):
     return NEIGHBORHOOD_UNLOCK_ORDER[:min(level, len(NEIGHBORHOOD_UNLOCK_ORDER))]
 
 def get_unlocked_home_keys(level):
-    """Return list of personal home keys the player can purchase at this level."""
+    """Return list of personal home keys the player can purchase at this level.
+    Homes unlock every other level starting at level 2 (2, 4, 6, 8, 10, 12)."""
     base = ["moms_basement"]
     if level == 0: return base
-    return base + HOME_UNLOCK_ORDER[:min(level, len(HOME_UNLOCK_ORDER))]
+    count = min(level // 2, len(HOME_UNLOCK_ORDER))
+    return base + HOME_UNLOCK_ORDER[:count]
 
 def add_xp(s, amount):
     """Add XP to the player. Returns new level if a level-up occurred, else None.

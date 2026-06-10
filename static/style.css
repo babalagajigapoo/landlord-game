@@ -432,7 +432,165 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
   white-space: nowrap;
 }
 
+.market-hood-chevron { font-size: 11px; opacity: 0.6; margin-left: 8px; flex-shrink: 0; }
+.market-hood-toggle  { cursor: pointer; user-select: none; }
+.market-hood-toggle:active { opacity: 0.8; }
+
+/* ── Finances sub-nav ────────────────────────────────────────── */
+.fin-subnav {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.fin-tab {
+  flex: 1;
+  padding: 9px 4px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.fin-tab.active {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #fff;
+}
+.fin-tab:not(.active):active { opacity: 0.7; }
+
+/* ── Paint-the-Wall mini-game ────────────────────────────────── */
+.pg-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  /* Use svh so mobile browser chrome doesn't eat into the game */
+  height: 100svh;
+  height: -webkit-fill-available;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  background: #1C1C2E;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  overscroll-behavior: none;
+}
+.pg-header {
+  padding: 10px 14px 8px;
+  background: #12122A;
+  flex-shrink: 0;
+}
+.pg-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.pg-title      { font-size: 16px; font-weight: 900; color: #fff; }
+.pg-pct-badge  { font-size: 18px; font-weight: 900; color: #4CAF50; min-width: 44px; text-align: right; }
+.pg-timer-track {
+  height: 8px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+.pg-timer-fill {
+  height: 100%;
+  width: 100%;
+  background: #4CAF50;
+  border-radius: 4px;
+  transition: width 0.05s linear, background 0.4s;
+}
+.pg-time-label { font-size: 10px; color: rgba(255,255,255,0.4); text-align: right; }
+
+.pg-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  grid-template-rows: repeat(6, 1fr);
+  gap: 5px;
+  padding: 10px;
+  min-height: 0;   /* critical — lets flex shrink the grid correctly */
+  touch-action: none;
+}
+.pg-tile {
+  border-radius: 10px;
+  background: #2A2A42;
+  cursor: crosshair;
+  touch-action: none;
+  transition: background 0.06s;
+}
+.pg-tile.painted { animation: pgPop 0.12s ease-out; }
+@keyframes pgPop {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+/* Start screen */
+.pg-start-screen {
+  position: absolute;
+  inset: 0;
+  background: rgba(10,10,20,0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+.pg-start-card {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px;
+  padding: 28px 24px;
+  text-align: center;
+  width: min(290px, 88vw);
+}
+.pg-start-swatch {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  margin: 0 auto 10px;
+  border: 3px solid rgba(255,255,255,0.25);
+}
+.pg-start-color { font-size: 16px; font-weight: 900; color: #fff; margin-bottom: 8px; }
+.pg-start-desc  { font-size: 13px; color: rgba(255,255,255,0.6); line-height: 1.6; margin-bottom: 20px; }
+.pg-start-btn {
+  border: none;
+  color: #fff;
+  padding: 13px;
+  border-radius: 50px;
+  font-size: 16px;
+  font-weight: 900;
+  cursor: pointer;
+  width: 100%;
+}
+
+/* Result overlay */
+.pg-result-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+  animation: pgFadeIn 0.3s ease-out;
+}
+@keyframes pgFadeIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.pg-result-card  { text-align: center; }
+.pg-result-score { font-size: 80px; font-weight: 900; line-height: 1; margin-bottom: 10px; }
+.pg-result-tiles { font-size: 18px; color: rgba(255,255,255,0.8); font-weight: 700; margin-bottom: 8px; }
+.pg-result-msg   { font-size: 20px; color: rgba(255,255,255,0.55); }
+
 /* Cards inside a section sit flush under the header, grouped visually */
+.market-hood-body > .card { border-radius: 0; box-shadow: none; border-top: 1px solid var(--border); margin-bottom: 0; }
+.market-hood-body > .card:last-child { border-radius: 0 0 12px 12px; }
 .market-hood-section > .card {
   border-radius: 0;
   box-shadow: none;

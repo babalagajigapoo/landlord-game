@@ -98,19 +98,39 @@
       <div id="property-list"></div>
     </div>
 
-    <!-- Bank -->
-    <div id="page-bank" class="page">
-      <div id="bank-savings-section"></div>
-      <div id="bank-loans-section"></div>
-      <div id="bank-products-section"></div>
+    <!-- Finances (Bank + Stocks + Taxes) -->
+    <div id="page-finances" class="page">
+      <div class="fin-subnav">
+        <button class="fin-tab active" data-fin="bank"   onclick="switchFinTab('bank')">🏦 Bank</button>
+        <button class="fin-tab"        data-fin="stocks" onclick="switchFinTab('stocks')">💹 Stocks</button>
+        <button class="fin-tab"        data-fin="taxes"  onclick="switchFinTab('taxes')">🧾 Taxes</button>
+      </div>
+      <div id="fin-bank">
+        <div id="bank-savings-section"></div>
+        <div id="bank-loans-section"></div>
+        <div id="bank-products-section"></div>
+      </div>
+      <div id="fin-stocks" style="display:none">
+        <div id="stocks-list"></div>
+      </div>
+      <div id="fin-taxes" style="display:none">
+        <div class="section-header"><span class="section-title">🧾 Taxes</span></div>
+        <div class="card" style="text-align:center;padding:32px 16px">
+          <div style="font-size:40px;margin-bottom:10px">🚧</div>
+          <div style="font-weight:800;font-size:16px;margin-bottom:6px">Coming Soon</div>
+          <div style="font-size:13px;color:var(--text-muted)">The taxman is on his way.</div>
+        </div>
+      </div>
     </div>
 
-    <!-- Stocks -->
-    <div id="page-stocks" class="page">
-      <div class="section-header">
-        <span class="section-title">📈 Stocks &amp; Crypto</span>
+    <!-- Business -->
+    <div id="page-business" class="page">
+      <div class="section-header"><span class="section-title">💼 Business</span></div>
+      <div class="card" style="text-align:center;padding:32px 16px">
+        <div style="font-size:40px;margin-bottom:10px">🚧</div>
+        <div style="font-weight:800;font-size:16px;margin-bottom:6px">Coming Soon</div>
+        <div style="font-size:13px;color:var(--text-muted)">Big things are being built here.</div>
       </div>
-      <div id="stocks-list"></div>
     </div>
 
     <!-- Settings -->
@@ -132,13 +152,13 @@
       <span class="nav-icon">🏠</span>
       My Props
     </button>
-    <button class="nav-btn" data-page="bank">
-      <span class="nav-icon">🏦</span>
-      Bank
+    <button class="nav-btn" data-page="finances">
+      <span class="nav-icon">💰</span>
+      Finances
     </button>
-    <button class="nav-btn" data-page="stocks">
-      <span class="nav-icon">💹</span>
-      Stocks
+    <button class="nav-btn" data-page="business">
+      <span class="nav-icon">💼</span>
+      Business
     </button>
     <button class="nav-btn" data-page="settings">
       <span class="nav-icon">⚙️</span>
