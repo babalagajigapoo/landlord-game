@@ -511,23 +511,23 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
   display: grid;
   grid-template-columns: repeat(6, 1fr);
   grid-template-rows: repeat(8, 1fr);
-  gap: 5px;
-  padding: 10px;
+  gap: 0;
+  padding: 0;
   min-height: 0;   /* critical — lets flex shrink the grid correctly */
   touch-action: none;
 }
 .pg-tile {
-  border-radius: 10px;
+  border-radius: 0;
   background: #2A2A42;
   cursor: crosshair;
   touch-action: none;
   transition: background 0.06s;
 }
-.pg-tile.painted { animation: pgPop 0.12s ease-out; }
+.pg-tile.painted { animation: pgPop 0.15s ease-out; }
 @keyframes pgPop {
-  0%   { transform: scale(1); }
-  50%  { transform: scale(1.1); }
-  100% { transform: scale(1); }
+  0%   { filter: brightness(1); }
+  40%  { filter: brightness(1.6); }
+  100% { filter: brightness(1); }
 }
 
 /* Start screen */
@@ -778,8 +778,8 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
 .fg-board {
   flex: 1;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  grid-template-rows: repeat(8, 1fr);
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(5, 1fr);
   gap: 3px;
   padding: 8px;
   min-height: 0;
@@ -797,24 +797,24 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
   touch-action: none;
   transition: transform 0.08s;
 }
-/* Target color stripe */
+/* Target color stripe — top edge for vertical planks */
 .fg-plank::before {
   content: '';
   position: absolute;
-  left: 0; top: 0; bottom: 0;
-  width: 7px;
+  left: 0; right: 0; top: 0;
+  height: 7px;
   background: var(--fg-target);
-  border-radius: 1px 0 0 1px;
+  border-radius: 1px 1px 0 0;
 }
-/* Wood grain lines */
+/* Wood grain lines — horizontal, running along the plank length */
 .fg-plank::after {
   content: '';
   position: absolute;
   inset: 0;
   background: repeating-linear-gradient(
-    90deg,
-    transparent 0px, transparent 16px,
-    rgba(0,0,0,0.15) 16px, rgba(0,0,0,0.15) 17px
+    180deg,
+    transparent 0px, transparent 18px,
+    rgba(0,0,0,0.15) 18px, rgba(0,0,0,0.15) 19px
   );
   pointer-events: none;
 }
@@ -830,9 +830,9 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
 .fg-plank.fg-placed::before { display: none; }
 .fg-plank.fg-placed::after {
   background: repeating-linear-gradient(
-    90deg,
-    transparent 0px, transparent 16px,
-    rgba(255,255,255,0.09) 16px, rgba(255,255,255,0.09) 17px
+    180deg,
+    transparent 0px, transparent 18px,
+    rgba(255,255,255,0.09) 18px, rgba(255,255,255,0.09) 19px
   );
 }
 @keyframes fgPlace {

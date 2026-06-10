@@ -1864,7 +1864,7 @@ function launchPaintGame(upgradeKey) {
       <div class="pg-start-card">
         <div class="pg-start-swatch" style="background:${paintColor.color}"></div>
         <div class="pg-start-color">${paintColor.name}</div>
-        <div class="pg-start-desc">Drag your finger across every tile<br>before time runs out!</div>
+        <div class="pg-start-desc">Drag your finger across the whole wall<br>before time runs out!</div>
         <button class="pg-start-btn" style="background:${paintColor.color};box-shadow:0 4px 18px ${paintColor.dark}88" onclick="pgStart()">
           🎨 Start Painting!
         </button>
@@ -1967,7 +1967,7 @@ function pgFinish() {
     res.innerHTML   = `
       <div class="pg-result-card">
         <div class="pg-result-score" style="color:${color}">${score}%</div>
-        <div class="pg-result-tiles">${painted} / ${PG_TOTAL} tiles painted</div>
+        <div class="pg-result-tiles">${painted} / ${PG_TOTAL} wall sections painted</div>
         <div class="pg-result-msg">${msg}</div>
       </div>`;
     overlay.appendChild(res);
@@ -2158,10 +2158,10 @@ function lgClose() {
 // ── Mini-game: Lay the Flooring ──────────────────────────────────────────────
 // Board of planks each tagged with one of 4 colors. Tap a color from the bottom
 // palette, then tap matching planks to lay them. Score = planks laid / total.
-const FG_COLS     = 4;
-const FG_ROWS     = 8;
-const FG_TOTAL    = FG_COLS * FG_ROWS;  // 32 planks
-const FG_DURATION = 18;                 // seconds
+const FG_COLS     = 8;
+const FG_ROWS     = 5;
+const FG_TOTAL    = FG_COLS * FG_ROWS;  // 40 planks
+const FG_DURATION = 10;                 // seconds
 const FG_COLORS   = [
   { id: 0, name: 'Oak',    bg: '#C9974A', dark: '#8A6428', grain: '#DDB96A' },
   { id: 1, name: 'Walnut', bg: '#5A3018', dark: '#321A08', grain: '#7A4828' },
