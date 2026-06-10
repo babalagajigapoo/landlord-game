@@ -509,8 +509,8 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
 .pg-grid {
   flex: 1;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  grid-template-rows: repeat(6, 1fr);
+  grid-template-columns: repeat(6, 1fr);
+  grid-template-rows: repeat(8, 1fr);
   gap: 5px;
   padding: 10px;
   min-height: 0;   /* critical — lets flex shrink the grid correctly */

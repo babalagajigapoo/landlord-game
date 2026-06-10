@@ -1829,9 +1829,9 @@ const PAINT_COLORS = [
   { name: 'Goldenrod',      color: '#F57F17', dark: '#E65100' },
 ];
 
-const PG_COLS     = 5;
-const PG_ROWS     = 6;
-const PG_TOTAL    = PG_COLS * PG_ROWS;  // 30 tiles
+const PG_COLS     = 6;
+const PG_ROWS     = 8;
+const PG_TOTAL    = PG_COLS * PG_ROWS;  // 48 tiles
 const PG_DURATION = 3;                  // seconds
 
 function launchPaintGame(upgradeKey) {
@@ -1989,7 +1989,7 @@ function pgClose() {
 // Tap them before they expire. Score = weeds pulled (15 = 100%).
 const LG_DURATION  = 16;    // seconds
 const LG_WEED_LIFE = 2500;  // ms before a weed expires on its own
-const LG_TARGET    = 15;    // pulls for 100%
+const LG_TARGET    = 25;    // pulls for 100%
 const LG_WEEDS     = ['🌿', '🌱', '🍃', '🌾'];
 
 function launchLandscapeGame(upgradeKey) {
