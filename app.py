@@ -1636,7 +1636,7 @@ def api_applicants(pid):
         if _eligible("is_baileys",   "baileys_cooldown_until"):  special_pool.append(THE_BAILEYS)
         if _eligible("is_goldbergs", "goldbergs_cooldown_until"):special_pool.append(THE_GOLDBERGS)
         if _eligible("is_mystery",   "mystery_cooldown_until"):  special_pool.append(THE_MYSTERY)
-        if special_pool and random.random() < 0.05:
+        if special_pool and random.random() < 0.35:
             chosen = random.choice(special_pool)
             applicants.append({**chosen, "idx": len(applicants)})
         s.setdefault("applicants_cache", {})[key] = applicants
