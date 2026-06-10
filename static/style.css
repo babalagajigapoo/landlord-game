@@ -1436,7 +1436,8 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
   height: 100svh; height: -webkit-fill-available;
   z-index: 10000;
   display: flex; flex-direction: column;
-  background: linear-gradient(180deg, #1a2a3a 0%, #2c3e50 40%, #3d2b1f 100%);
+  /* Brighter daytime sky → warm wood roof deck */
+  background: linear-gradient(180deg, #3a6186 0%, #89a0b8 30%, #6b4c30 65%, #4a3020 100%);
   touch-action: none; user-select: none;
   overflow: hidden;
 }
@@ -1445,8 +1446,8 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
 .rf-hud {
   flex-shrink: 0;
   padding: 12px 16px 8px;
-  background: rgba(0,0,0,0.45);
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  background: rgba(0,0,0,0.5);
+  border-bottom: 1px solid rgba(255,255,255,0.1);
 }
 .rf-hud-top {
   display: flex; align-items: center; justify-content: space-between;
@@ -1454,13 +1455,13 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
 }
 .rf-phase-badge {
   font-size: 14px; font-weight: 800; color: #FFD54F;
-  background: rgba(255,213,79,0.15);
+  background: rgba(255,213,79,0.18);
   padding: 4px 10px; border-radius: 20px;
   transition: background 0.3s, color 0.3s;
 }
 .rf-badge-new {
   color: #81C784 !important;
-  background: rgba(129,199,132,0.15) !important;
+  background: rgba(129,199,132,0.18) !important;
 }
 .rf-time-box {
   font-size: 22px; font-weight: 900; color: #fff;
@@ -1477,106 +1478,131 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
   transition: width 0.05s linear, background 0.4s;
 }
 .rf-progress {
-  font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.55);
+  font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.6);
   text-align: center; letter-spacing: 0.5px;
 }
 
-/* Play area */
+/* Play area — clip the staggered rows cleanly */
 .rf-play-area {
   flex: 1;
   display: flex; flex-direction: column;
-  padding: 6px 8px 8px;
+  padding: 6px 0 0;   /* no side padding — tiles go edge to edge */
   min-height: 0;
   overflow: hidden;
 }
+
+/* Ridge cap — full-width beam across the top */
 .rf-ridge-row {
-  display: flex; justify-content: center;
+  flex-shrink: 0;
+  height: 20px;
+  background: linear-gradient(180deg, #3E2A16 0%, #5D4025 50%, #3E2A16 100%);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.55);
   margin-bottom: 3px;
+  position: relative;
 }
-.rf-ridge-triangle {
-  width: 0; height: 0;
-  border-left: 28px solid transparent;
-  border-right: 28px solid transparent;
-  border-bottom: 18px solid #5D4037;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+.rf-ridge-row::after {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 3px;
+  background: rgba(255,255,255,0.12);
 }
 
-/* Tile grid */
+/* Tile grid — overflow hidden clips staggered row edges cleanly */
 .rf-grid {
   flex: 1;
   display: flex; flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   min-height: 0;
   overflow: hidden;
+  padding: 0 0 6px;
 }
 .rf-row {
   display: flex; flex-direction: row;
-  gap: 2px; flex: 1;
+  gap: 3px; flex: 1;
+  /* small side margins so tiles don't butt up against the screen edge */
+  margin: 0 6px;
 }
-.rf-row-odd { margin-left: calc(100% / 13); } /* offset by ~half a tile */
+/* Stagger: offset odd rows by exactly half a tile (1/10 of row width for 5 cols) */
+.rf-row-odd { margin-left: calc(50% / 5 + 6px); margin-right: 6px; }
 
 .rf-tile {
-  flex: 1; border-radius: 2px;
+  flex: 1;
+  border-radius: 3px;
   position: relative; overflow: hidden;
-  transition: transform 0.1s, filter 0.15s;
+  transition: transform 0.08s, filter 0.12s;
+  /* Minimum tap target height for mobile */
+  min-height: 44px;
 }
 
-/* Old weathered shingle */
+/* ── Old weathered shingle ── */
 .rf-old {
-  background: linear-gradient(160deg, #8D6E2A 0%, #A07C30 35%, #6B5018 70%, #7A5C20 100%);
+  background: linear-gradient(175deg,
+    #C49A3C 0%, #A07830 25%,
+    #8A6220 55%, #6B4C12 80%, #7A5820 100%);
   border: 1px solid #4A3410;
-  box-shadow: inset 0 -2px 3px rgba(0,0,0,0.35), inset 0 1px 2px rgba(255,255,255,0.08);
+  box-shadow:
+    inset 0 3px 0 rgba(255,220,100,0.18),  /* top highlight — the exposed tab */
+    inset 0 -2px 3px rgba(0,0,0,0.4);
 }
-/* Crack lines on old shingles */
+/* Crack lines */
 .rf-old::before {
   content: '';
   position: absolute; inset: 0;
   background:
-    linear-gradient(118deg, transparent 38%, rgba(0,0,0,0.22) 39%, rgba(0,0,0,0.22) 40%, transparent 41%),
-    linear-gradient(52deg,  transparent 55%, rgba(0,0,0,0.15) 56%, rgba(0,0,0,0.15) 57%, transparent 58%);
+    linear-gradient(112deg, transparent 40%, rgba(0,0,0,0.28) 41%, rgba(0,0,0,0.28) 42%, transparent 43%),
+    linear-gradient(58deg,  transparent 52%, rgba(0,0,0,0.18) 53%, rgba(0,0,0,0.18) 54%, transparent 55%);
 }
-/* Moss / age stain */
+/* Moss / dark bottom edge */
 .rf-old::after {
   content: '';
   position: absolute; bottom: 0; left: 0; right: 0;
-  height: 30%;
-  background: rgba(60,80,40,0.25);
+  height: 28%;
+  background: linear-gradient(180deg, transparent, rgba(40,65,20,0.35));
 }
 
-/* Bare roof deck (scraped) */
+/* ── Bare roof deck (scraped) ── */
 .rf-scraped {
-  background: linear-gradient(160deg, #3E2B1A 0%, #4A3320 100%);
-  border: 1px solid #2A1A0A;
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+  background: linear-gradient(175deg, #5A3E20 0%, #3E2A10 60%, #2E1E08 100%);
+  border: 1px solid #1E1008;
+  box-shadow: inset 0 2px 5px rgba(0,0,0,0.6);
 }
 
-/* Fresh new shingle */
+/* ── Fresh new shingle ── */
 .rf-new {
-  background: linear-gradient(160deg, #2E2E2E 0%, #3D3D3D 40%, #1C1C1C 100%);
-  border: 1px solid #111;
+  background: linear-gradient(175deg,
+    #484848 0%, #383838 30%,
+    #222 65%, #181818 100%);
+  border: 1px solid #0A0A0A;
   box-shadow:
-    inset 0 -2px 3px rgba(0,0,0,0.6),
-    inset 0 1px 2px rgba(255,255,255,0.07);
+    inset 0 3px 0 rgba(255,255,255,0.1),   /* top tab highlight */
+    inset 0 -2px 4px rgba(0,0,0,0.7);
 }
+/* Granule texture suggestion */
 .rf-new::before {
   content: '';
-  position: absolute; top: 0; left: 0; right: 0;
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at 30% 40%, rgba(255,255,255,0.04) 0%, transparent 50%),
+              radial-gradient(circle at 70% 70%, rgba(255,255,255,0.03) 0%, transparent 40%);
+}
+/* Bottom shadow line (shingle overlap) */
+.rf-new::after {
+  content: '';
+  position: absolute; bottom: 0; left: 0; right: 0;
   height: 4px;
-  background: linear-gradient(90deg, rgba(255,255,255,0.06), rgba(255,255,255,0.12), rgba(255,255,255,0.06));
-  border-radius: 2px 2px 0 0;
+  background: rgba(0,0,0,0.5);
 }
 
-/* Pop animation when laying a new tile */
+/* Pop animation */
 @keyframes rfPop {
-  0%   { transform: scale(0.8); filter: brightness(2); }
-  60%  { transform: scale(1.06); }
-  100% { transform: scale(1);   filter: brightness(1); }
+  0%   { transform: scale(0.75); filter: brightness(2.2); }
+  60%  { transform: scale(1.08); }
+  100% { transform: scale(1);    filter: brightness(1); }
 }
 .rf-pop { animation: rfPop 0.28s cubic-bezier(0.34,1.56,0.64,1) forwards; }
 
 /* Phase transition flash */
 @keyframes rfFlash {
-  0%   { background: rgba(255,255,255,0.18); }
+  0%   { background: rgba(255,255,255,0.2); }
   100% { background: transparent; }
 }
 .rf-phase-flash::after {

@@ -2603,7 +2603,7 @@ function wgClose() {
 // Score = % of solution path completed (100% only if you reach the END).
 const HV_COLS     = 5;   // logical maze columns
 const HV_ROWS     = 9;   // logical maze rows
-const HV_DURATION = 3;   // seconds
+const HV_DURATION = 5;   // seconds
 const HV_WALL     = 8;   // wall thickness in logical pixels
 
 // ── Maze generation (recursive backtracker) ──────────────────────────────────
@@ -3251,9 +3251,9 @@ function plClose() {
 // Phase 1: drag to scrape off old weathered shingles
 // Phase 2: tap every bare spot to lay fresh shingles
 // One shared timer across both phases; score = new tiles laid / total
-const RF_COLS     = 6;
-const RF_ROWS     = 9;
-const RF_TOTAL    = RF_COLS * RF_ROWS;  // 54 tiles
+const RF_COLS     = 5;
+const RF_ROWS     = 8;
+const RF_TOTAL    = RF_COLS * RF_ROWS;  // 40 tiles
 const RF_DURATION = 8;                  // seconds
 
 function launchRoofGame(upgradeKey) {
@@ -3277,9 +3277,7 @@ function launchRoofGame(upgradeKey) {
       <div class="rf-progress" id="rf-progress">Scraped: 0 / ${RF_TOTAL}</div>
     </div>
     <div class="rf-play-area">
-      <div class="rf-ridge-row">
-        <div class="rf-ridge-triangle"></div>
-      </div>
+      <div class="rf-ridge-row"></div>
       <div id="rf-grid" class="rf-grid"></div>
     </div>
     <div id="rf-start-screen" class="rf-start-screen">
