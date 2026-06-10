@@ -1523,6 +1523,10 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
 }
 /* Each row overlaps the one above it — like real shingles */
 .rf-row:not(:first-child) { margin-top: -10px; }
+/* Symmetric stagger — translateX shifts visually only, tiles stay same width,
+   both left and right edges clip evenly via overflow:hidden on .rf-grid */
+.rf-row-even { transform: translateX(-9%); }
+.rf-row-odd  { transform: translateX( 9%); }
 
 .rf-tile {
   flex: 1;

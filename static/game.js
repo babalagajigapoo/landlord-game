@@ -3299,7 +3299,7 @@ function launchRoofGame(upgradeKey) {
   const grid = overlay.querySelector('#rf-grid');
   for (let r = 0; r < RF_ROWS; r++) {
     const row = document.createElement('div');
-    row.className = 'rf-row';
+    row.className = 'rf-row ' + (r % 2 === 0 ? 'rf-row-even' : 'rf-row-odd');
     row.style.zIndex = r + 1; // lower rows (eave) sit on top of upper rows (ridge)
     for (let c = 0; c < RF_COLS; c++) {
       const tile = document.createElement('div');
@@ -3448,7 +3448,7 @@ function rfFinish() {
 // Score = segments filled / total segments.
 const GR_COLS     = 5;
 const GR_ROWS     = 9;
-const GR_GROUT    = 10;  // grout line thickness in logical px
+const GR_GROUT    = 13;  // grout line thickness in logical px
 const GR_DURATION = 12;  // seconds
 
 function grMakeTileColors() {
