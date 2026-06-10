@@ -1298,7 +1298,7 @@ const WORK_MG_MAP = {
   // Renovation upgrades
   'paint':       'paintgame',    // Paint the Wall — drag to cover tiles
   'flooring':    'flooringgame', // Lay the Floor — pick a color, tap matching planks
-  'windows':     'reactiontap',  // Level It Up — precision fitting
+  'windows':     'windowgame',   // Level the Windows — hold to level, they drift back
   'hvac':        'sweetspot',    // Tighten the Fitting — mechanical tensioning
   'bathrooms':   'colormatch',   // Match the Tile — tiling
   'roof':        'quicktap',     // Drive the Nails — nailing shingles
@@ -1316,7 +1316,7 @@ const WORK_MG_MAP = {
   'Lay Flooring':        'flooringgame',
   'Patch the Roof':      'quicktap',
   'Fix a Plumbing Leak': 'sweetspot',
-  'Install Windows':     'reactiontap',
+  'Install Windows':     'windowgame',
   'Tile a Bathroom':     'colormatch',
   'Hang Drywall':        'quicktap',
   'Electrical Work':     'sequence',
@@ -1340,6 +1340,7 @@ function launchMgByType(mgType, upgradeKey) {
   else if (mgType === 'paintgame')    launchPaintGame(upgradeKey);
   else if (mgType === 'landscapegame') launchLandscapeGame(upgradeKey);
   else if (mgType === 'flooringgame')  launchFlooringGame(upgradeKey);
+  else if (mgType === 'windowgame')    launchWindowGame(upgradeKey);
 }
 
 async function showContractorModal(propId, upgradeKey) {
@@ -1830,9 +1831,9 @@ const PAINT_COLORS = [
   { name: 'Goldenrod',      color: '#F57F17', dark: '#E65100' },
 ];
 
-const PG_COLS     = 6;
-const PG_ROWS     = 8;
-const PG_TOTAL    = PG_COLS * PG_ROWS;  // 48 tiles
+const PG_COLS     = 8;
+const PG_ROWS     = 10;
+const PG_TOTAL    = PG_COLS * PG_ROWS;  // 80 tiles
 const PG_DURATION = 2.5;                // seconds
 
 function launchPaintGame(upgradeKey) {
@@ -2345,6 +2346,238 @@ function fgFinish() {
 function fgClose() {
   clearTimeout(_mg.autoCloseId);
   const overlay = document.getElementById('fg-overlay');
+  if (!overlay) return;
+  overlay.remove();
+  finishDIY(_mg.upgradeKey, _mg.finalScore ?? 0);
+}
+
+// ── Mini-game: Level the Windows ─────────────────────────────────────────────
+// 6 windows slowly tilt off-level on their own. Hold a window to bring it back
+// to level. The moment you let go it starts drifting again. Score = average
+// levelness of all 6 windows when time runs out.
+const WG_COUNT       = 6;
+const WG_MAX_TILT    = 38;  // max degrees off level
+const WG_LEVEL_SPEED = 60;  // degrees/sec when held (leveling rate)
+const WG_DRIFT_BASE  = 12;  // degrees/sec initial drift
+const WG_DRIFT_MAX   = 40;  // degrees/sec at end of timer
+const WG_DURATION    = 18;  // seconds
+
+function launchWindowGame(upgradeKey) {
+  closeModal();
+
+  // 6 windows: random start tilt ±0–7°, random drift direction, slight speed variation
+  const windows = Array.from({ length: WG_COUNT }, () => ({
+    tilt:  (Math.random() * 7) * (Math.random() < 0.5 ? 1 : -1),
+    dir:   Math.random() < 0.5 ? 1 : -1,
+    speed: WG_DRIFT_BASE + Math.random() * 4,
+    held:  false,
+  }));
+
+  _mg = { ..._mg, upgradeKey, windows, rafId: null, timerId: null,
+          running: false, startTime: 0, lastFrame: 0,
+          locked: true, finalScore: 0, touches: {} };
+
+  const old = document.getElementById('wg-overlay');
+  if (old) old.remove();
+
+  let cardsHtml = '';
+  for (let i = 0; i < WG_COUNT; i++) {
+    cardsHtml += `
+      <div class="wg-card" id="wgw-${i}" data-win="${i}">
+        <div class="wg-frame-wrap">
+          <div class="wg-frame" id="wgf-${i}">
+            <div class="wg-pane"></div><div class="wg-pane"></div>
+            <div class="wg-pane"></div><div class="wg-pane"></div>
+          </div>
+        </div>
+        <div class="wg-gauge">
+          <div class="wg-gauge-tube">
+            <div class="wg-center-tick"></div>
+            <div class="wg-bubble" id="wgb-${i}"></div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  const overlay = document.createElement('div');
+  overlay.id        = 'wg-overlay';
+  overlay.className = 'wg-overlay';
+  overlay.innerHTML = `
+    <div class="wg-header">
+      <div class="wg-top-row">
+        <span class="wg-title">🪟 Level the Windows!</span>
+        <span class="wg-hint">Hold to level</span>
+      </div>
+      <div class="wg-timer-track">
+        <div class="wg-timer-fill" id="wg-timer-fill"></div>
+      </div>
+      <div class="wg-time-label"><span id="wg-time">${WG_DURATION}</span>s remaining</div>
+    </div>
+    <div class="wg-board">${cardsHtml}</div>
+    <div class="wg-start-screen" id="wg-start-screen">
+      <div class="wg-start-card">
+        <div class="wg-start-icon">🪟</div>
+        <div class="wg-start-title">Level the Windows!</div>
+        <div class="wg-start-desc">Hold each window to level it.<br>They won't stay straight for long!</div>
+        <button class="wg-start-btn" ontouchstart="wgStart();event.preventDefault()" onclick="wgStart()">🪟 Let's Go!</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  // Attach hold/release handlers to each card
+  overlay.querySelectorAll('.wg-card').forEach(card => {
+    const winId = parseInt(card.dataset.win);
+    card.addEventListener('mousedown',  e => { e.preventDefault(); wgHold(winId); });
+    card.addEventListener('mouseup',    ()  => wgRelease(winId));
+    card.addEventListener('mouseleave', ()  => wgRelease(winId));
+    card.addEventListener('touchstart', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      Array.from(e.changedTouches).forEach(t => {
+        _mg.touches[t.identifier] = winId;
+        wgHold(winId);
+      });
+    }, { passive: false });
+  });
+
+  // Catch finger lifts anywhere on the overlay
+  overlay.addEventListener('touchend', e => {
+    Array.from(e.changedTouches).forEach(t => {
+      const winId = _mg.touches[t.identifier];
+      if (winId !== undefined) {
+        delete _mg.touches[t.identifier];
+        if (!Object.values(_mg.touches).includes(winId)) wgRelease(winId);
+      }
+    });
+  }, { passive: false });
+
+  overlay.addEventListener('touchcancel', e => {
+    Array.from(e.changedTouches).forEach(t => {
+      const winId = _mg.touches[t.identifier];
+      if (winId !== undefined) {
+        delete _mg.touches[t.identifier];
+        if (!Object.values(_mg.touches).includes(winId)) wgRelease(winId);
+      }
+    });
+  }, { passive: false });
+}
+
+function wgHold(winId)    { if (_mg.running && _mg.windows[winId]) _mg.windows[winId].held = true; }
+function wgRelease(winId) { if (_mg.windows[winId]) _mg.windows[winId].held = false; }
+
+function wgStart() {
+  const ss = document.getElementById('wg-start-screen');
+  if (ss) ss.style.display = 'none';
+  _mg.running   = true;
+  _mg.startTime = Date.now();
+  _mg.lastFrame = Date.now();
+  const endTime = _mg.startTime + WG_DURATION * 1000;
+
+  _mg.timerId = setInterval(() => {
+    const left = Math.max(0, endTime - Date.now());
+    const pct  = left / (WG_DURATION * 1000);
+    const fill  = document.getElementById('wg-timer-fill');
+    const timeEl = document.getElementById('wg-time');
+    if (fill) {
+      fill.style.width      = (pct * 100).toFixed(1) + '%';
+      fill.style.background = pct > 0.5 ? '#2196F3' : pct > 0.25 ? '#FF9800' : '#F44336';
+    }
+    if (timeEl) timeEl.textContent = Math.ceil(left / 1000);
+    if (left <= 0) {
+      clearInterval(_mg.timerId);
+      cancelAnimationFrame(_mg.rafId);
+      _mg.running = false;
+      wgFinish();
+    }
+  }, 50);
+
+  _mg.rafId = requestAnimationFrame(wgLoop);
+}
+
+function wgLoop() {
+  if (!_mg.running) return;
+  const now      = Date.now();
+  const dt       = Math.min((now - _mg.lastFrame) / 1000, 0.05); // cap delta
+  _mg.lastFrame  = now;
+  const progress = Math.min(1, (now - _mg.startTime) / (WG_DURATION * 1000));
+
+  _mg.windows.forEach((win, i) => {
+    if (win.held) {
+      // Bring tilt toward 0
+      const move = WG_LEVEL_SPEED * dt;
+      win.tilt   = Math.abs(win.tilt) <= move ? 0 : win.tilt - Math.sign(win.tilt) * move;
+    } else {
+      // Drift away — accelerates as timer runs down
+      const speed = WG_DRIFT_BASE + (WG_DRIFT_MAX - WG_DRIFT_BASE) * progress;
+      win.tilt += win.dir * speed * dt;
+      if (win.tilt >= WG_MAX_TILT)  { win.tilt =  WG_MAX_TILT; win.dir = -1; }
+      if (win.tilt <= -WG_MAX_TILT) { win.tilt = -WG_MAX_TILT; win.dir =  1; }
+    }
+    wgUpdateCard(i);
+  });
+
+  _mg.rafId = requestAnimationFrame(wgLoop);
+}
+
+function wgUpdateCard(i) {
+  const win      = _mg.windows[i];
+  const frameEl  = document.getElementById(`wgf-${i}`);
+  const bubbleEl = document.getElementById(`wgb-${i}`);
+  const cardEl   = document.getElementById(`wgw-${i}`);
+  if (!frameEl) return;
+
+  frameEl.style.transform = `rotate(${win.tilt}deg)`;
+
+  // Bubble: 50% = centre, shifts ±42% of tube width
+  if (bubbleEl) bubbleEl.style.left = `calc(${50 + (win.tilt / WG_MAX_TILT) * 42}% - 10px)`;
+
+  // Color: green near level, yellow getting off, red bad
+  const abs   = Math.abs(win.tilt);
+  const color = abs < 4 ? '#4CAF50' : abs < 14 ? '#FF9800' : '#F44336';
+  if (cardEl) {
+    cardEl.style.borderColor = color;
+    cardEl.style.boxShadow   = win.held
+      ? `0 0 0 3px ${color}, 0 0 18px ${color}55`
+      : `0 0 0 1px ${color}55`;
+  }
+  if (bubbleEl) bubbleEl.style.background = color;
+}
+
+function wgFinish() {
+  clearInterval(_mg.timerId);
+  cancelAnimationFrame(_mg.rafId);
+  _mg.locked = false;
+
+  // Score = average levelness across all 6 windows
+  const avg   = _mg.windows.reduce((s, w) =>
+    s + Math.max(0, 100 - (Math.abs(w.tilt) / WG_MAX_TILT * 100)), 0) / WG_COUNT;
+  const score = Math.round(avg);
+  _mg.finalScore = score;
+
+  const msg = score >= 90 ? '🌟 Perfectly plumb!'    :
+              score >= 70 ? '✅ Looking straight!'     :
+              score >= 50 ? '👍 Getting there!'        :
+                            '🪟 Crooked as ever...';
+
+  const overlay = document.getElementById('wg-overlay');
+  if (overlay) {
+    const res = document.createElement('div');
+    res.className = 'wg-result-overlay';
+    res.innerHTML = `
+      <div class="wg-result-card">
+        <div class="wg-result-score">${score}%</div>
+        <div class="wg-result-label">average level</div>
+        <div class="wg-result-msg">${msg}</div>
+      </div>`;
+    overlay.appendChild(res);
+  }
+
+  _mg.autoCloseId = setTimeout(wgClose, 2400);
+}
+
+function wgClose() {
+  clearTimeout(_mg.autoCloseId);
+  const overlay = document.getElementById('wg-overlay');
   if (!overlay) return;
   overlay.remove();
   finishDIY(_mg.upgradeKey, _mg.finalScore ?? 0);

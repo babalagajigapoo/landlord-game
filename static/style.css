@@ -509,8 +509,8 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
 .pg-grid {
   flex: 1;
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  grid-template-rows: repeat(8, 1fr);
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(10, 1fr);
   gap: 0;
   padding: 0;
   min-height: 0;   /* critical — lets flex shrink the grid correctly */
@@ -962,6 +962,187 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
 .fg-result-label { font-size: 20px; color: rgba(232,200,138,0.7); font-weight: 700; margin-bottom: 6px; }
 .fg-result-pct   { font-size: 32px; font-weight: 900; color: #fff; margin-bottom: 10px; }
 .fg-result-msg   { font-size: 18px; color: rgba(255,255,255,0.5); }
+
+/* ── Window Leveling Game ───────────────────────────────────────────────────── */
+.wg-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  height: 100svh;
+  height: -webkit-fill-available;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  background: #161d2a;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  overscroll-behavior: none;
+}
+.wg-header {
+  padding: 10px 14px 8px;
+  background: #0d121c;
+  flex-shrink: 0;
+}
+.wg-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.wg-title { font-size: 16px; font-weight: 900; color: #fff; }
+.wg-hint  { font-size: 12px; color: rgba(255,255,255,0.4); font-style: italic; }
+.wg-timer-track {
+  height: 8px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+.wg-timer-fill {
+  height: 100%;
+  width: 100%;
+  background: #2196F3;
+  border-radius: 4px;
+  transition: width 0.05s linear, background 0.4s;
+}
+.wg-time-label { font-size: 10px; color: rgba(255,255,255,0.35); text-align: right; }
+
+/* 2×3 board */
+.wg-board {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: repeat(3, 1fr);
+  gap: 10px;
+  padding: 10px;
+  min-height: 0;
+}
+
+/* Individual window card */
+.wg-card {
+  background: #1e2840;
+  border: 2px solid rgba(244,67,54,0.5);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px 10px 12px;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Window frame graphic */
+.wg-frame-wrap { display: flex; align-items: center; justify-content: center; }
+.wg-frame {
+  width: 66px;
+  height: 70px;
+  border: 3px solid #78909C;
+  border-radius: 4px;
+  display: grid;
+  grid-template: 1fr 1fr / 1fr 1fr;
+  gap: 3px;
+  padding: 4px;
+  background: #263238;
+  position: relative;
+  will-change: transform;
+}
+/* Window sill */
+.wg-frame::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: -7px; right: -7px;
+  height: 5px;
+  background: #78909C;
+  border-radius: 2px;
+}
+.wg-pane {
+  background: rgba(144,202,249,0.3);
+  border-radius: 2px;
+}
+
+/* Spirit-level gauge */
+.wg-gauge { width: 100%; padding: 0 4px; }
+.wg-gauge-tube {
+  height: 16px;
+  background: rgba(0,0,0,0.4);
+  border-radius: 8px;
+  border: 1.5px solid rgba(255,255,255,0.12);
+  position: relative;
+  overflow: hidden;
+}
+.wg-center-tick {
+  position: absolute;
+  left: 50%; top: 3px; bottom: 3px;
+  width: 2px;
+  margin-left: -1px;
+  background: rgba(255,255,255,0.5);
+  border-radius: 1px;
+  z-index: 1;
+}
+.wg-bubble {
+  position: absolute;
+  top: 3px;
+  width: 20px;
+  height: 10px;
+  border-radius: 5px;
+  background: #F44336;
+  transition: background 0.15s;
+  z-index: 2;
+}
+
+/* Start screen */
+.wg-start-screen {
+  position: absolute;
+  inset: 0;
+  background: rgba(5,8,18,0.93);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+}
+.wg-start-card {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(100,160,255,0.2);
+  border-radius: 20px;
+  padding: 28px 24px;
+  text-align: center;
+  width: min(290px, 88vw);
+}
+.wg-start-icon  { font-size: 52px; margin-bottom: 12px; }
+.wg-start-title { font-size: 20px; font-weight: 900; color: #fff; margin-bottom: 10px; }
+.wg-start-desc  { font-size: 13px; color: rgba(255,255,255,0.6); line-height: 1.6; margin-bottom: 20px; }
+.wg-start-btn {
+  border: none;
+  background: linear-gradient(135deg, #1976D2 0%, #0D47A1 100%);
+  color: #fff;
+  padding: 13px;
+  border-radius: 50px;
+  font-size: 16px;
+  font-weight: 900;
+  cursor: pointer;
+  width: 100%;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+  touch-action: none;
+}
+
+/* Result */
+.wg-result-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 6;
+  animation: pgFadeIn 0.3s ease-out;
+}
+.wg-result-card  { text-align: center; }
+.wg-result-score { font-size: 88px; font-weight: 900; color: #90CAF9; line-height: 1; margin-bottom: 6px; }
+.wg-result-label { font-size: 20px; color: rgba(144,202,249,0.7); font-weight: 700; margin-bottom: 10px; }
+.wg-result-msg   { font-size: 18px; color: rgba(255,255,255,0.5); }
 
 /* Cards inside a section sit flush under the header, grouped visually */
 .market-hood-body > .card { border-radius: 0; box-shadow: none; border-top: 1px solid var(--border); margin-bottom: 0; }
