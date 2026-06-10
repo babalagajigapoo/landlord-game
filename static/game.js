@@ -2511,8 +2511,8 @@ function wgLoop() {
       // Drift away — accelerates as timer runs down
       const speed = WG_DRIFT_BASE + (WG_DRIFT_MAX - WG_DRIFT_BASE) * progress;
       win.tilt += win.dir * speed * dt;
-      if (win.tilt >= WG_MAX_TILT)  { win.tilt =  WG_MAX_TILT; win.dir = -1; }
-      if (win.tilt <= -WG_MAX_TILT) { win.tilt = -WG_MAX_TILT; win.dir =  1; }
+      if (win.tilt >= WG_MAX_TILT)  { win.tilt =  WG_MAX_TILT; }
+      if (win.tilt <= -WG_MAX_TILT) { win.tilt = -WG_MAX_TILT; }
     }
     wgUpdateCard(i);
   });
