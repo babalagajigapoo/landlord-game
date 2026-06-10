@@ -1382,6 +1382,196 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
 .pl-result-label { font-size: 20px; color: rgba(144,202,249,0.7); font-weight: 700; margin-bottom: 10px; }
 .pl-result-msg   { font-size: 18px; color: rgba(255,255,255,0.5); }
 
+/* ─── Roof Replacement Game ─────────────────────────────────────────────────── */
+#rf-overlay {
+  position: fixed; inset: 0;
+  height: 100svh; height: -webkit-fill-available;
+  z-index: 10000;
+  display: flex; flex-direction: column;
+  background: linear-gradient(180deg, #1a2a3a 0%, #2c3e50 40%, #3d2b1f 100%);
+  touch-action: none; user-select: none;
+  overflow: hidden;
+}
+
+/* HUD */
+.rf-hud {
+  flex-shrink: 0;
+  padding: 12px 16px 8px;
+  background: rgba(0,0,0,0.45);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.rf-hud-top {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 6px;
+}
+.rf-phase-badge {
+  font-size: 14px; font-weight: 800; color: #FFD54F;
+  background: rgba(255,213,79,0.15);
+  padding: 4px 10px; border-radius: 20px;
+  transition: background 0.3s, color 0.3s;
+}
+.rf-badge-new {
+  color: #81C784 !important;
+  background: rgba(129,199,132,0.15) !important;
+}
+.rf-time-box {
+  font-size: 22px; font-weight: 900; color: #fff;
+  min-width: 52px; text-align: right;
+}
+.rf-timer-track {
+  height: 6px; background: rgba(255,255,255,0.12);
+  border-radius: 3px; overflow: hidden; margin-bottom: 6px;
+}
+.rf-timer-fill {
+  height: 100%; width: 100%;
+  background: #2196F3;
+  border-radius: 3px;
+  transition: width 0.05s linear, background 0.4s;
+}
+.rf-progress {
+  font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.55);
+  text-align: center; letter-spacing: 0.5px;
+}
+
+/* Play area */
+.rf-play-area {
+  flex: 1;
+  display: flex; flex-direction: column;
+  padding: 6px 8px 8px;
+  min-height: 0;
+  overflow: hidden;
+}
+.rf-ridge-row {
+  display: flex; justify-content: center;
+  margin-bottom: 3px;
+}
+.rf-ridge-triangle {
+  width: 0; height: 0;
+  border-left: 28px solid transparent;
+  border-right: 28px solid transparent;
+  border-bottom: 18px solid #5D4037;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+}
+
+/* Tile grid */
+.rf-grid {
+  flex: 1;
+  display: flex; flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  overflow: hidden;
+}
+.rf-row {
+  display: flex; flex-direction: row;
+  gap: 2px; flex: 1;
+}
+.rf-row-odd { margin-left: calc(100% / 13); } /* offset by ~half a tile */
+
+.rf-tile {
+  flex: 1; border-radius: 2px;
+  position: relative; overflow: hidden;
+  transition: transform 0.1s, filter 0.15s;
+}
+
+/* Old weathered shingle */
+.rf-old {
+  background: linear-gradient(160deg, #8D6E2A 0%, #A07C30 35%, #6B5018 70%, #7A5C20 100%);
+  border: 1px solid #4A3410;
+  box-shadow: inset 0 -2px 3px rgba(0,0,0,0.35), inset 0 1px 2px rgba(255,255,255,0.08);
+}
+/* Crack lines on old shingles */
+.rf-old::before {
+  content: '';
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(118deg, transparent 38%, rgba(0,0,0,0.22) 39%, rgba(0,0,0,0.22) 40%, transparent 41%),
+    linear-gradient(52deg,  transparent 55%, rgba(0,0,0,0.15) 56%, rgba(0,0,0,0.15) 57%, transparent 58%);
+}
+/* Moss / age stain */
+.rf-old::after {
+  content: '';
+  position: absolute; bottom: 0; left: 0; right: 0;
+  height: 30%;
+  background: rgba(60,80,40,0.25);
+}
+
+/* Bare roof deck (scraped) */
+.rf-scraped {
+  background: linear-gradient(160deg, #3E2B1A 0%, #4A3320 100%);
+  border: 1px solid #2A1A0A;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+}
+
+/* Fresh new shingle */
+.rf-new {
+  background: linear-gradient(160deg, #2E2E2E 0%, #3D3D3D 40%, #1C1C1C 100%);
+  border: 1px solid #111;
+  box-shadow:
+    inset 0 -2px 3px rgba(0,0,0,0.6),
+    inset 0 1px 2px rgba(255,255,255,0.07);
+}
+.rf-new::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.06), rgba(255,255,255,0.12), rgba(255,255,255,0.06));
+  border-radius: 2px 2px 0 0;
+}
+
+/* Pop animation when laying a new tile */
+@keyframes rfPop {
+  0%   { transform: scale(0.8); filter: brightness(2); }
+  60%  { transform: scale(1.06); }
+  100% { transform: scale(1);   filter: brightness(1); }
+}
+.rf-pop { animation: rfPop 0.28s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+
+/* Phase transition flash */
+@keyframes rfFlash {
+  0%   { background: rgba(255,255,255,0.18); }
+  100% { background: transparent; }
+}
+.rf-phase-flash::after {
+  content: '';
+  position: absolute; inset: 0; pointer-events: none;
+  animation: rfFlash 0.35s ease-out forwards;
+  z-index: 1;
+}
+
+/* Start screen */
+.rf-start-screen {
+  position: absolute; inset: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(15,20,28,0.88);
+  backdrop-filter: blur(4px);
+}
+.rf-start-card {
+  background: #1e2d3d; border-radius: 18px;
+  padding: 32px 28px; text-align: center; width: 88%; max-width: 340px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+}
+.rf-start-icon  { font-size: 52px; margin-bottom: 8px; }
+.rf-start-title { font-size: 22px; font-weight: 900; color: #fff; margin-bottom: 12px; }
+.rf-start-desc  { font-size: 14px; color: rgba(255,255,255,0.65); line-height: 1.55; margin-bottom: 22px; }
+.rf-start-btn {
+  background: linear-gradient(135deg, #FFD54F, #FF8F00);
+  border: none; border-radius: 50px; padding: 14px 40px;
+  font-size: 17px; font-weight: 900; color: #1a1200; cursor: pointer;
+  box-shadow: 0 4px 16px rgba(255,143,0,0.4);
+}
+
+/* Result overlay */
+.rf-result-overlay {
+  position: absolute; inset: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(15,20,28,0.9);
+  animation: pgFadeIn 0.3s ease-out;
+}
+.rf-result-card  { text-align: center; }
+.rf-result-score { font-size: 88px; font-weight: 900; color: #FFD54F; line-height: 1; margin-bottom: 6px; }
+.rf-result-label { font-size: 20px; color: rgba(255,213,79,0.7); font-weight: 700; margin-bottom: 10px; }
+.rf-result-msg   { font-size: 18px; color: rgba(255,255,255,0.55); }
+
 /* Cards inside a section sit flush under the header, grouped visually */
 .market-hood-body > .card { border-radius: 0; box-shadow: none; border-top: 1px solid var(--border); margin-bottom: 0; }
 .market-hood-body > .card:last-child { border-radius: 0 0 12px 12px; }

@@ -1301,20 +1301,20 @@ const WORK_MG_MAP = {
   'windows':     'windowgame',   // Level the Windows — hold to level, they drift back
   'hvac':        'hvacgame',     // Run the HVAC Pipe — drag through attic maze
   'bathrooms':   'plumbinggame', // Tighten the Pipe — tap to stop the burst
-  'roof':        'quicktap',     // Drive the Nails — nailing shingles
+  'roof':        'roofgame',     // Roof Replacement — scrape old, tap new
   'kitchen':     'sweetspot',    // Tighten the Fitting — plumbing & fittings
   'landscaping': 'landscapegame', // Pull the Weeds — tap weeds before they take over
   // Repair types
   'plumbing':    'plumbinggame',
   'electrical':  'sequence',     // Wire It Up — connect wires in order
   'appliance':   'sweetspot',
-  'roof_patch':  'quicktap',
+  'roof_patch':  'roofgame',
   'pest':        'reactiontap',
   'hvac_fix':    'sweetspot',
   // Side job names
   'Paint a Room':        'paintgame',
   'Lay Flooring':        'flooringgame',
-  'Patch the Roof':      'quicktap',
+  'Patch the Roof':      'roofgame',
   'Fix a Plumbing Leak': 'plumbinggame',
   'Install Windows':     'windowgame',
   'Tile a Bathroom':     'colormatch',
@@ -1343,6 +1343,7 @@ function launchMgByType(mgType, upgradeKey) {
   else if (mgType === 'windowgame')    launchWindowGame(upgradeKey);
   else if (mgType === 'hvacgame')      launchHvacGame(upgradeKey);
   else if (mgType === 'plumbinggame')  launchPlumbingGame(upgradeKey);
+  else if (mgType === 'roofgame')      launchRoofGame(upgradeKey);
 }
 
 async function showContractorModal(propId, upgradeKey) {
@@ -3240,6 +3241,201 @@ function plClose() {
   if (!overlay) return;
   overlay.remove();
   finishDIY(_mg.upgradeKey, _mg.finalScore ?? 0);
+}
+
+// ── Mini-game: Roof Replacement ───────────────────────────────────────────────
+// Phase 1: drag to scrape off old weathered shingles
+// Phase 2: tap every bare spot to lay fresh shingles
+// One shared timer across both phases; score = new tiles laid / total
+const RF_COLS     = 6;
+const RF_ROWS     = 9;
+const RF_TOTAL    = RF_COLS * RF_ROWS;  // 54 tiles
+const RF_DURATION = 30;                 // seconds
+
+function launchRoofGame(upgradeKey) {
+  closeModal();
+  _mg = {
+    locked: true, upgradeKey,
+    phase: 1, scraped: 0, laid: 0,
+    running: false, dragging: false,
+    timerId: null,
+  };
+
+  const overlay = document.createElement('div');
+  overlay.id = 'rf-overlay';
+  overlay.innerHTML = `
+    <div class="rf-hud">
+      <div class="rf-hud-top">
+        <span class="rf-phase-badge" id="rf-phase-badge">⛏ Scrape Old Shingles</span>
+        <span class="rf-time-box"><span id="rf-time">${RF_DURATION}</span>s</span>
+      </div>
+      <div class="rf-timer-track"><div class="rf-timer-fill" id="rf-timer-fill"></div></div>
+      <div class="rf-progress" id="rf-progress">Scraped: 0 / ${RF_TOTAL}</div>
+    </div>
+    <div class="rf-play-area">
+      <div class="rf-ridge-row">
+        <div class="rf-ridge-triangle"></div>
+      </div>
+      <div id="rf-grid" class="rf-grid"></div>
+    </div>
+    <div id="rf-start-screen" class="rf-start-screen">
+      <div class="rf-start-card">
+        <div class="rf-start-icon">🏚️</div>
+        <div class="rf-start-title">Roof Replacement</div>
+        <div class="rf-start-desc">
+          <b>Phase 1:</b> Drag your finger to scrape off all the old shingles<br><br>
+          <b>Phase 2:</b> Tap every bare spot to lay fresh shingles
+        </div>
+        <button class="rf-start-btn" id="rf-start-btn">Start Job</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  // Build staggered tile rows
+  const grid = overlay.querySelector('#rf-grid');
+  for (let r = 0; r < RF_ROWS; r++) {
+    const row = document.createElement('div');
+    row.className = 'rf-row' + (r % 2 === 1 ? ' rf-row-odd' : '');
+    for (let c = 0; c < RF_COLS; c++) {
+      const tile = document.createElement('div');
+      tile.className = 'rf-tile rf-old';
+      tile.dataset.idx = String(r * RF_COLS + c);
+      row.appendChild(tile);
+    }
+    grid.appendChild(row);
+  }
+
+  overlay.querySelector('#rf-start-btn').addEventListener('click', rfStart);
+}
+
+function rfStart() {
+  const ss = document.getElementById('rf-start-screen');
+  if (ss) ss.style.display = 'none';
+  _mg.running = true;
+
+  const overlay = document.getElementById('rf-overlay');
+  const grid    = overlay.querySelector('#rf-grid');
+
+  // ── Unified tile handler: scrape in phase 1, lay in phase 2 ──
+  function rfHandle(el) {
+    if (!_mg.running || !el || !el.classList.contains('rf-tile')) return;
+    if (_mg.phase === 1 && el.classList.contains('rf-old')) {
+      el.classList.replace('rf-old', 'rf-scraped');
+      _mg.scraped++;
+      const prog = document.getElementById('rf-progress');
+      if (prog) prog.textContent = `Scraped: ${_mg.scraped} / ${RF_TOTAL}`;
+      if (_mg.scraped >= RF_TOTAL) rfPhase2();
+    } else if (_mg.phase === 2 && el.classList.contains('rf-scraped')) {
+      el.classList.replace('rf-scraped', 'rf-new');
+      el.classList.add('rf-pop');
+      setTimeout(() => el.classList.remove('rf-pop'), 280);
+      _mg.laid++;
+      const prog = document.getElementById('rf-progress');
+      if (prog) prog.textContent = `Laid: ${_mg.laid} / ${RF_TOTAL}`;
+      if (_mg.laid >= RF_TOTAL) {
+        clearInterval(_mg.timerId);
+        _mg.running = false;
+        rfFinish();
+      }
+    }
+  }
+
+  // Touch drag (works for both phases — drag is fine for laying too)
+  grid.addEventListener('touchstart', e => {
+    e.preventDefault();
+    _mg.dragging = true;
+    Array.from(e.changedTouches).forEach(t =>
+      rfHandle(document.elementFromPoint(t.clientX, t.clientY))
+    );
+  }, { passive: false });
+
+  grid.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (!_mg.dragging) return;
+    Array.from(e.changedTouches).forEach(t =>
+      rfHandle(document.elementFromPoint(t.clientX, t.clientY))
+    );
+  }, { passive: false });
+
+  grid.addEventListener('touchend', () => { _mg.dragging = false; });
+
+  // Mouse (desktop testing)
+  grid.addEventListener('mousedown', e => { _mg.dragging = true; rfHandle(e.target); });
+  grid.addEventListener('mousemove', e => { if (_mg.dragging) rfHandle(e.target); });
+  document.addEventListener('mouseup', () => { _mg.dragging = false; });
+
+  // Timer
+  const endTime = Date.now() + RF_DURATION * 1000;
+  _mg.timerId = setInterval(() => {
+    const left = Math.max(0, endTime - Date.now());
+    const pct  = left / (RF_DURATION * 1000);
+    const fill  = document.getElementById('rf-timer-fill');
+    const timeEl = document.getElementById('rf-time');
+    if (fill) {
+      fill.style.width      = (pct * 100).toFixed(1) + '%';
+      fill.style.background = pct > 0.5 ? '#2196F3' : pct > 0.25 ? '#FF9800' : '#F44336';
+    }
+    if (timeEl) timeEl.textContent = Math.ceil(left / 1000);
+    if (left <= 0) {
+      clearInterval(_mg.timerId);
+      _mg.running = false;
+      rfFinish();
+    }
+  }, 50);
+}
+
+function rfPhase2() {
+  if (_mg.phase !== 1) return;
+  _mg.phase = 2;
+
+  const badge = document.getElementById('rf-phase-badge');
+  if (badge) {
+    badge.textContent = '🔨 Lay New Shingles';
+    badge.classList.add('rf-badge-new');
+  }
+  const prog = document.getElementById('rf-progress');
+  if (prog) prog.textContent = `Laid: 0 / ${RF_TOTAL}`;
+
+  // Quick flash to signal the phase change
+  const overlay = document.getElementById('rf-overlay');
+  overlay.classList.add('rf-phase-flash');
+  setTimeout(() => overlay.classList.remove('rf-phase-flash'), 350);
+}
+
+function rfFinish() {
+  clearInterval(_mg.timerId);
+  _mg.running = false;
+  _mg.locked  = false;
+
+  // Score weights both phases: finishing scrape = 20%, laying tiles = 80%
+  const scrapeContrib = (_mg.scraped / RF_TOTAL) * 20;
+  const layContrib    = (_mg.laid    / RF_TOTAL) * 80;
+  const score = Math.min(100, Math.round(scrapeContrib + layContrib));
+
+  const msg = score >= 100 ? '🌟 Flawless roof job!'    :
+              score >= 75  ? '✅ Solid work!'             :
+              score >= 40  ? '👍 Most tiles down!'        :
+                             '🏚️ Still some bare spots...';
+
+  const overlay = document.getElementById('rf-overlay');
+  if (overlay) {
+    const res = document.createElement('div');
+    res.className = 'rf-result-overlay';
+    res.innerHTML = `
+      <div class="rf-result-card">
+        <div class="rf-result-score">${score}%</div>
+        <div class="rf-result-label">roof completed</div>
+        <div class="rf-result-msg">${msg}</div>
+      </div>`;
+    overlay.appendChild(res);
+    setTimeout(() => {
+      overlay.remove();
+      finishDIY(_mg.upgradeKey, score);
+    }, 2200);
+  } else {
+    finishDIY(_mg.upgradeKey, score);
+  }
 }
 
 // ── Mini-game: Rapid Press ────────────────────────────────────────────────────
