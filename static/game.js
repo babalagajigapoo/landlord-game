@@ -1306,7 +1306,7 @@ const WORK_MG_MAP = {
   'landscaping': 'landscapegame', // Pull the Weeds — tap weeds before they take over
   // Repair types
   'plumbing':    'plumbinggame',
-  'electrical':  'sequence',     // Wire It Up — connect wires in order
+  'electrical':  'electricalgame', // Wire the Panel — match wire colors to terminals
   'appliance':   'sweetspot',
   'roof_patch':  'roofgame',
   'pest':        'reactiontap',
@@ -1319,7 +1319,7 @@ const WORK_MG_MAP = {
   'Install Windows':     'windowgame',
   'Tile a Bathroom':     'colormatch',
   'Hang Drywall':        'quicktap',
-  'Electrical Work':     'sequence',
+  'Electrical Work':     'electricalgame',
   'HVAC Maintenance':    'hvacgame',
   'Build a Fence':       'quicktap',
   'Pour Concrete':       'rapidpress',
@@ -1344,7 +1344,8 @@ function launchMgByType(mgType, upgradeKey) {
   else if (mgType === 'hvacgame')      launchHvacGame(upgradeKey);
   else if (mgType === 'plumbinggame')  launchPlumbingGame(upgradeKey);
   else if (mgType === 'roofgame')      launchRoofGame(upgradeKey);
-  else if (mgType === 'groutgame')     launchGroutGame(upgradeKey);
+  else if (mgType === 'groutgame')      launchGroutGame(upgradeKey);
+  else if (mgType === 'electricalgame') launchElectricalGame(upgradeKey);
 }
 
 async function showContractorModal(propId, upgradeKey) {
@@ -3732,6 +3733,251 @@ function grFinish() {
       overlay.remove();
       finishDIY(_mg.upgradeKey, score);
     }, 2200);
+  } else {
+    finishDIY(_mg.upgradeKey, score);
+  }
+}
+
+// ── Mini-game: Wire the Circuit Panel ─────────────────────────────────────────
+// Tap a wire on the left, then tap the matching terminal on the right.
+// 5 color-coded wires shuffled against 5 terminals. Score = connections made.
+const EL_DURATION = 3;
+const EL_WIRES = [
+  { id: 'red',    color: '#E53935', text: '#fff',     label: 'HOT  L1'  },
+  { id: 'black',  color: '#37474F', text: '#fff',     label: 'HOT  L2'  },
+  { id: 'white',  color: '#ECEFF1', text: '#263238',  label: 'NEUTRAL'  },
+  { id: 'green',  color: '#2E7D32', text: '#fff',     label: 'GROUND'   },
+  { id: 'yellow', color: '#F9A825', text: '#263238',  label: '3-WAY'    },
+];
+
+function launchElectricalGame(upgradeKey) {
+  closeModal();
+  const shuffled = [...EL_WIRES].sort(() => Math.random() - 0.5);
+  _mg = {
+    locked: true, upgradeKey,
+    selected: null,
+    connected: new Set(),
+    total: EL_WIRES.length,
+    running: false, timerId: null,
+    shuffled,
+  };
+
+  const old = document.getElementById('el-overlay');
+  if (old) old.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'el-overlay';
+  overlay.innerHTML = `
+    <div class="el-hud">
+      <div class="el-hud-top">
+        <span class="el-title">⚡ Wire the Panel</span>
+        <span class="el-time-box"><span id="el-time">${EL_DURATION}</span>s</span>
+      </div>
+      <div class="el-timer-track"><div class="el-timer-fill" id="el-timer-fill"></div></div>
+      <div class="el-progress" id="el-progress">0 / ${EL_WIRES.length} wires connected</div>
+    </div>
+    <div class="el-panel" id="el-panel">
+      <svg id="el-svg" class="el-svg"></svg>
+
+      <div class="el-row el-wires-row">
+        <div class="el-row-label">WIRES</div>
+        <div class="el-row-items">
+        ${EL_WIRES.map(w => `
+          <div class="el-wire" id="elw-${w.id}" data-id="${w.id}"
+               style="--wc:${w.color};--wt:${w.text}">
+            <div class="el-wire-body">${w.label}</div>
+            <div class="el-wire-nub"></div>
+          </div>`).join('')}
+        </div>
+      </div>
+
+      <div class="el-divider">
+        <span>⚡ MAIN PANEL ⚡</span>
+      </div>
+
+      <div class="el-row el-terminals-row">
+        <div class="el-row-label">TERMINALS</div>
+        <div class="el-row-items">
+        ${shuffled.map(w => `
+          <div class="el-terminal" id="elt-${w.id}" data-id="${w.id}"
+               style="--wc:${w.color};--wt:${w.text}">
+            <div class="el-terminal-screw"><div class="el-terminal-slot"></div></div>
+            <div class="el-terminal-body">${w.label}</div>
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>
+    <div id="el-start-screen" class="el-start-screen">
+      <div class="el-start-card">
+        <div class="el-start-icon">⚡</div>
+        <div class="el-start-title">Wire the Panel</div>
+        <div class="el-start-desc">Tap a wire on top, then tap the matching terminal on the bottom to connect it!</div>
+        <button class="el-start-btn" id="el-start-btn">Start Job</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  overlay.querySelectorAll('.el-wire').forEach(el => {
+    el.addEventListener('click', () => elTapWire(el.dataset.id));
+    el.addEventListener('touchstart', e => { e.preventDefault(); elTapWire(el.dataset.id); }, { passive: false });
+  });
+  overlay.querySelectorAll('.el-terminal').forEach(el => {
+    el.addEventListener('click', () => elTapTerminal(el.dataset.id));
+    el.addEventListener('touchstart', e => { e.preventDefault(); elTapTerminal(el.dataset.id); }, { passive: false });
+  });
+
+  document.getElementById('el-start-btn').addEventListener('click', elStart);
+}
+
+function elClearSelection() {
+  document.querySelectorAll('.el-wire.el-selected, .el-terminal.el-selected').forEach(el => el.classList.remove('el-selected'));
+  _mg.selected = null;
+}
+
+function elTryConnect(wireId, termId) {
+  const termEl = document.getElementById(`elt-${termId}`);
+  const wireEl = document.getElementById(`elw-${wireId}`);
+  if (wireId === termId) {
+    // ✅ Correct match
+    const wire = EL_WIRES.find(w => w.id === wireId);
+    wireEl?.classList.remove('el-selected');
+    wireEl?.classList.add('el-connected');
+    termEl?.classList.remove('el-selected');
+    termEl?.classList.add('el-connected');
+    _mg.connected.add(wireId);
+    elDrawLine(wireId, wire.color);
+    _mg.selected = null;
+
+    const prog = document.getElementById('el-progress');
+    if (prog) prog.textContent = `${_mg.connected.size} / ${_mg.total} wires connected`;
+    if (_mg.connected.size >= _mg.total) {
+      clearInterval(_mg.timerId);
+      _mg.running = false;
+      elFinish();
+    }
+  } else {
+    // ❌ Wrong match — flash both red, deselect
+    wireEl?.classList.add('el-wrong');
+    termEl?.classList.add('el-wrong');
+    setTimeout(() => { wireEl?.classList.remove('el-wrong'); termEl?.classList.remove('el-wrong'); }, 450);
+    elClearSelection();
+  }
+}
+
+function elTapWire(wireId) {
+  if (!_mg.running || _mg.connected.has(wireId)) return;
+  if (_mg.selected?.type === 'terminal') {
+    elTryConnect(wireId, _mg.selected.id);
+  } else if (_mg.selected?.id === wireId) {
+    elClearSelection();
+  } else {
+    elClearSelection();
+    _mg.selected = { id: wireId, type: 'wire' };
+    document.getElementById(`elw-${wireId}`)?.classList.add('el-selected');
+  }
+}
+
+function elTapTerminal(termId) {
+  if (!_mg.running || _mg.connected.has(termId)) return;
+  if (_mg.selected?.type === 'wire') {
+    elTryConnect(_mg.selected.id, termId);
+  } else if (_mg.selected?.id === termId) {
+    elClearSelection();
+  } else {
+    elClearSelection();
+    _mg.selected = { id: termId, type: 'terminal' };
+    document.getElementById(`elt-${termId}`)?.classList.add('el-selected');
+  }
+}
+
+function elDrawLine(wireId, color) {
+  const svg      = document.getElementById('el-svg');
+  const panel    = document.getElementById('el-panel');
+  const wireEl   = document.getElementById(`elw-${wireId}`);
+  const termEl   = document.getElementById(`elt-${wireId}`);
+  if (!svg || !panel || !wireEl || !termEl) return;
+
+  const pr = panel.getBoundingClientRect();
+  const wr = wireEl.getBoundingClientRect();
+  const tr = termEl.getBoundingClientRect();
+
+  const x1 = wr.left + wr.width / 2 - pr.left;
+  const y1 = wr.bottom - pr.top;
+  const x2 = tr.left + tr.width / 2 - pr.left;
+  const y2 = tr.top - pr.top;
+  const my = (y1 + y2) / 2;
+
+  // Glow layer underneath
+  const glow = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  glow.setAttribute('d', `M ${x1} ${y1} C ${x1} ${my} ${x2} ${my} ${x2} ${y2}`);
+  glow.setAttribute('stroke', color);
+  glow.setAttribute('stroke-width', '12');
+  glow.setAttribute('fill', 'none');
+  glow.setAttribute('stroke-linecap', 'round');
+  glow.setAttribute('opacity', '0.3');
+  svg.appendChild(glow);
+
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', `M ${x1} ${y1} C ${x1} ${my} ${x2} ${my} ${x2} ${y2}`);
+  path.setAttribute('stroke', color);
+  path.setAttribute('stroke-width', '6');
+  path.setAttribute('fill', 'none');
+  path.setAttribute('stroke-linecap', 'round');
+  path.setAttribute('opacity', '1');
+  svg.appendChild(path);
+
+  // Animate draw
+  const len = path.getTotalLength();
+  [path, glow].forEach(p => {
+    p.style.strokeDasharray  = len;
+    p.style.strokeDashoffset = len;
+    p.style.transition       = 'stroke-dashoffset 0.35s ease-out';
+  });
+  requestAnimationFrame(() => {
+    path.style.strokeDashoffset = '0';
+    glow.style.strokeDashoffset = '0';
+  });
+}
+
+function elStart() {
+  document.getElementById('el-start-screen').style.display = 'none';
+  _mg.running = true;
+  const endTime = Date.now() + EL_DURATION * 1000;
+  _mg.timerId = setInterval(() => {
+    const left = Math.max(0, endTime - Date.now());
+    const pct  = left / (EL_DURATION * 1000);
+    const fill  = document.getElementById('el-timer-fill');
+    const timeEl = document.getElementById('el-time');
+    if (fill)   { fill.style.width = (pct * 100).toFixed(1) + '%'; fill.style.background = pct > 0.5 ? '#2196F3' : pct > 0.25 ? '#FF9800' : '#F44336'; }
+    if (timeEl) timeEl.textContent = Math.ceil(left / 1000);
+    if (left <= 0) { clearInterval(_mg.timerId); _mg.running = false; elFinish(); }
+  }, 50);
+}
+
+function elFinish() {
+  clearInterval(_mg.timerId);
+  _mg.running = false;
+  _mg.locked  = false;
+
+  const score = Math.min(100, Math.round((_mg.connected.size / _mg.total) * 100));
+  const msg = score >= 100 ? '🌟 Panel fully wired!'      :
+              score >= 75  ? '✅ Almost there!'             :
+              score >= 40  ? '👍 Getting the hang of it!'  :
+                             '⚡ A few loose wires...';
+
+  const overlay = document.getElementById('el-overlay');
+  if (overlay) {
+    const res = document.createElement('div');
+    res.className = 'el-result-overlay';
+    res.innerHTML = `
+      <div class="el-result-card">
+        <div class="el-result-score">${score}%</div>
+        <div class="el-result-label">wired up</div>
+        <div class="el-result-msg">${msg}</div>
+      </div>`;
+    overlay.appendChild(res);
+    setTimeout(() => { overlay.remove(); finishDIY(_mg.upgradeKey, score); }, 2200);
   } else {
     finishDIY(_mg.upgradeKey, score);
   }

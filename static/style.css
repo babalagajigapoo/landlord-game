@@ -1650,6 +1650,205 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
 .rf-result-label { font-size: 20px; color: rgba(255,213,79,0.7); font-weight: 700; margin-bottom: 10px; }
 .rf-result-msg   { font-size: 18px; color: rgba(255,255,255,0.55); }
 
+/* ─── Wire the Circuit Panel ──────────────────────────────────────────────────── */
+#el-overlay {
+  position: fixed; inset: 0;
+  height: 100svh; height: -webkit-fill-available;
+  z-index: 10000;
+  display: flex; flex-direction: column;
+  background: #1A1A1A;
+  touch-action: none; user-select: none;
+  overflow: hidden;
+  font-family: 'Courier New', monospace;
+}
+.el-hud {
+  flex-shrink: 0;
+  padding: 10px 14px 6px;
+  background: #111;
+  border-bottom: 2px solid #333;
+}
+.el-hud-top {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 6px;
+}
+.el-title {
+  font-size: 1rem; font-weight: 700; color: #FFD600; letter-spacing: 1px;
+}
+.el-time-box {
+  font-size: 1.15rem; font-weight: 700; color: #fff;
+  background: #222; border: 1px solid #555; border-radius: 6px;
+  padding: 2px 10px;
+}
+.el-timer-track {
+  height: 6px; background: #333; border-radius: 3px; overflow: hidden;
+  margin-bottom: 5px;
+}
+.el-timer-fill {
+  height: 100%; width: 100%; background: #2196F3;
+  border-radius: 3px; transition: width 0.05s linear, background 0.4s;
+}
+.el-progress {
+  font-size: 0.78rem; color: #aaa; text-align: center;
+}
+
+/* Panel body */
+.el-panel {
+  flex: 1; position: relative;
+  display: flex; flex-direction: column; align-items: stretch;
+  gap: 0; min-height: 0; overflow: hidden;
+  padding: 8px 10px;
+}
+.el-svg {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  pointer-events: none; z-index: 2;
+  overflow: visible;
+}
+
+/* Rows (wires on top, terminals on bottom) */
+.el-row {
+  flex: 1; display: flex; flex-direction: column;
+  min-height: 0; z-index: 3;
+}
+.el-row-label {
+  font-size: 0.65rem; font-weight: 700; letter-spacing: 2px;
+  color: #666; text-align: center; margin-bottom: 6px;
+}
+.el-row-items {
+  display: flex; flex-direction: row;
+  gap: 10px; align-items: stretch; flex: 1;
+}
+
+/* Divider */
+.el-divider {
+  flex-shrink: 0; height: 32px; margin: 6px 0;
+  display: flex; flex-direction: row;
+  align-items: center; justify-content: center; gap: 8px;
+  color: #FFD600; font-size: 0.75rem; font-weight: 700;
+  letter-spacing: 2px; text-align: center;
+  background: #111; border-top: 2px solid #333; border-bottom: 2px solid #333;
+  z-index: 3;
+}
+
+/* Wire cards — vertical orientation, nub on bottom */
+.el-wire {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  background: #222; border: 2px solid #444;
+  border-radius: 10px; cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s, opacity 0.2s;
+  overflow: hidden; position: relative; min-width: 0;
+  padding-bottom: 8px;
+}
+.el-wire:active { transform: scale(0.97); }
+.el-wire.el-selected {
+  border-color: #FFD600;
+  box-shadow: 0 0 0 3px rgba(255,214,0,0.35);
+}
+.el-wire.el-connected { opacity: 0.4; pointer-events: none; }
+.el-wire.el-wrong {
+  border-color: #F44336;
+  box-shadow: 0 0 0 3px rgba(244,67,54,0.4);
+  animation: el-shake 0.35s ease;
+}
+.el-wire-body {
+  width: 100%; flex: 1;
+  padding: 10px 4px;
+  font-size: 0.65rem; font-weight: 700; letter-spacing: 0.3px;
+  background: var(--wc); color: var(--wt);
+  text-align: center; display: flex; align-items: center; justify-content: center;
+  writing-mode: vertical-lr; text-orientation: mixed;
+}
+.el-wire-nub {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--wc);
+  margin: 6px 0 0;
+  border: 2px solid rgba(255,255,255,0.3);
+  box-shadow: 0 0 8px var(--wc);
+  flex-shrink: 0;
+}
+
+/* Terminal cards — vertical orientation, screw on top */
+.el-terminal {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  background: #2A2A2A; border: 2px solid #555;
+  border-radius: 10px; cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s, opacity 0.2s;
+  overflow: hidden; position: relative; min-width: 0;
+  padding-top: 8px;
+}
+.el-terminal:active { transform: scale(0.97); }
+.el-terminal.el-connected { opacity: 0.4; pointer-events: none; }
+.el-terminal.el-wrong {
+  border-color: #F44336;
+  box-shadow: 0 0 0 3px rgba(244,67,54,0.4);
+  animation: el-shake 0.35s ease;
+}
+@keyframes el-shake {
+  0%,100% { transform: translateY(0); }
+  20%      { transform: translateY(-4px); }
+  50%      { transform: translateY(4px); }
+  80%      { transform: translateY(-2px); }
+}
+.el-terminal-screw {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: #888; border: 2px solid #aaa;
+  margin: 0 0 6px; flex-shrink: 0; position: relative;
+  display: flex; align-items: center; justify-content: center;
+}
+.el-terminal-slot {
+  width: 10px; height: 2px; background: #444; border-radius: 1px;
+  transform: rotate(45deg);
+}
+.el-terminal-body {
+  width: 100%; flex: 1;
+  padding: 10px 4px;
+  font-size: 0.65rem; font-weight: 700; letter-spacing: 0.3px;
+  background: var(--wc); color: var(--wt);
+  text-align: center; display: flex; align-items: center; justify-content: center;
+  writing-mode: vertical-lr; text-orientation: mixed;
+}
+
+/* Start screen */
+.el-start-screen {
+  position: absolute; inset: 0; z-index: 20;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.75);
+}
+.el-start-card {
+  background: #1E1E1E; border: 2px solid #FFD600;
+  border-radius: 16px; padding: 28px 24px;
+  text-align: center; max-width: 280px; width: 90%;
+}
+.el-start-icon { font-size: 2.5rem; margin-bottom: 8px; }
+.el-start-title { font-size: 1.1rem; font-weight: 700; color: #FFD600; margin-bottom: 8px; }
+.el-start-desc { font-size: 0.82rem; color: #ccc; line-height: 1.5; margin-bottom: 18px; }
+.el-start-btn {
+  background: #FFD600; color: #111; font-weight: 700;
+  font-size: 0.95rem; border: none; border-radius: 10px;
+  padding: 12px 28px; cursor: pointer; width: 100%;
+}
+.el-start-btn:active { transform: scale(0.97); }
+
+/* Result overlay */
+.el-result-overlay {
+  position: absolute; inset: 0; z-index: 30;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.7);
+  animation: el-fade-in 0.3s ease;
+}
+@keyframes el-fade-in { from { opacity:0; } to { opacity:1; } }
+.el-result-card {
+  background: #1E1E1E; border: 2px solid #FFD600;
+  border-radius: 20px; padding: 32px 28px;
+  text-align: center; min-width: 200px;
+}
+.el-result-score {
+  font-size: 3.5rem; font-weight: 900; color: #FFD600;
+}
+.el-result-label {
+  font-size: 0.85rem; color: #888; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px;
+}
+.el-result-msg { font-size: 1rem; color: #fff; }
+
 /* ─── Grout the Backsplash ────────────────────────────────────────────────────── */
 #gr-overlay {
   position: fixed; inset: 0;

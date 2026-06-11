@@ -763,13 +763,11 @@ PLAYER_HOMES = [
 ]
 
 def generate_jobs():
-    """Pick 3 random jobs with guaranteed varied energy costs."""
-    templates    = random.sample(JOB_TEMPLATES, 3)
-    energy_costs = random.sample([1, 2, 3, 4], 3)   # always 3 different tiers
+    """TEST MODE: all job types available, zero energy cost."""
     jobs = []
-    for i, (t, ec) in enumerate(zip(templates, energy_costs)):
-        lo, hi = JOB_PAY_RANGES[ec]
-        jobs.append({**t, "id": i, "energy_cost": ec, "base_pay": random.randint(lo, hi)})
+    lo, hi = JOB_PAY_RANGES[2]
+    for i, t in enumerate(JOB_TEMPLATES):
+        jobs.append({**t, "id": i, "energy_cost": 0, "base_pay": random.randint(lo, hi)})
     return jobs
 
 CONTRACTORS = {
