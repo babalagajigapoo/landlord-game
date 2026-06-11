@@ -4436,7 +4436,7 @@ function launchDeckGame(upgradeKey) {
   // health = taps remaining per rotted plank
   const health = planks.map(p => p === 'rotted' ? DK_TAPS : 0);
 
-  _mg = { locked: true, upgradeKey, running: false, timerId: null, planks, health, fixed: 0, spreadTimer: null };
+  _mg = { locked: true, upgradeKey, running: false, timerId: null, planks, health, fixed: 0 };
 
   const old = document.getElementById('dk-overlay');
   if (old) old.remove();
@@ -4503,30 +4503,12 @@ function dkStart() {
     const timeEl = document.getElementById('dk-time');
     if (fill)   { fill.style.width = (pct * 100).toFixed(1) + '%'; fill.style.background = pct > 0.5 ? '#8D6E63' : pct > 0.25 ? '#FF9800' : '#F44336'; }
     if (timeEl) timeEl.textContent = Math.ceil(left / 1000);
-    if (left <= 0) { clearInterval(_mg.timerId); clearInterval(_mg.spreadTimer); _mg.running = false; dkFinish(); }
+    if (left <= 0) { clearInterval(_mg.timerId); _mg.running = false; dkFinish(); }
   }, 50);
 
-  // Spread rot every 2 seconds
-  _mg.spreadTimer = setInterval(() => {
-    if (!_mg.running) return;
-    const newPlanks = [..._mg.planks];
-    const newHealth = [..._mg.health];
-    for (let i = 0; i < DK_TOTAL; i++) {
-      if (_mg.planks[i] !== 'rotted') continue;
-      [i - DK_COLS, i + DK_COLS].forEach(n => {
-        if (n >= 0 && n < DK_TOTAL && newPlanks[n] === 'ok') {
-          newPlanks[n] = 'rotted';
-          newHealth[n] = DK_TAPS;
-        }
-      });
-    }
-    _mg.planks = newPlanks;
-    _mg.health = newHealth;
-    dkRenderPlanks();
-    const rotCount = _mg.planks.filter(p => p === 'rotted').length;
-    const scoreEl = document.getElementById('dk-score');
-    if (scoreEl) scoreEl.textContent = `${rotCount} rotted plank${rotCount !== 1 ? 's' : ''} remaining`;
-  }, 2000);
+  const rotCount = _mg.planks.filter(p => p === 'rotted').length;
+  const scoreEl = document.getElementById('dk-score');
+  if (scoreEl) scoreEl.textContent = `${rotCount} rotted plank${rotCount !== 1 ? 's' : ''} remaining`;
 }
 
 function dkTap(idx) {
@@ -4543,7 +4525,7 @@ function dkTap(idx) {
   const rotCount = _mg.planks.filter(p => p === 'rotted').length;
   const scoreEl = document.getElementById('dk-score');
   if (scoreEl) scoreEl.textContent = `${rotCount} rotted plank${rotCount !== 1 ? 's' : ''} remaining`;
-  if (rotCount === 0) { clearInterval(_mg.timerId); clearInterval(_mg.spreadTimer); _mg.running = false; dkFinish(); }
+  if (rotCount === 0) { clearInterval(_mg.timerId); _mg.running = false; dkFinish(); }
 }
 
 function dkRenderPlanks() {
@@ -4566,7 +4548,6 @@ function dkRenderPlanks() {
 
 function dkFinish() {
   clearInterval(_mg.timerId);
-  clearInterval(_mg.spreadTimer);
   _mg.running = false; _mg.locked = false;
   const rotLeft = _mg.planks.filter(p => p === 'rotted').length;
   const score   = Math.min(100, Math.round(((DK_TOTAL - rotLeft) / DK_TOTAL) * 100));
