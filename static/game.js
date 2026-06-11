@@ -18,6 +18,7 @@ let _pendingJob           = null; // side job being played
 let _pendingSquatter      = null; // squatter event queued after repairs
 let _pendingMoraleEvents  = [];   // morale-choice events queued after repairs
 let _pendingRenewalOffers = [];   // lease renewal offers queued after advancing
+let _pendingTaxEvent      = null; // tax-due event queued after advancing
 
 // ── Tenant window cache ───────────────────────────────────────────────────────
 // Stores the maintenance window day per property, keyed by propId.
@@ -86,8 +87,68 @@ async function api(path, method = 'GET', body = null) {
   return data;
 }
 
+// ── Forced Reset (one-time tax man wipe) ──────────────────────────────────────
+const RESET_FLAG = 'landlord_reset_taxman_v1';
+
+function checkForcedReset() {
+  if (localStorage.getItem(RESET_FLAG)) return false;  // already wiped, skip
+  return true;
+}
+
+function showForcedResetScreen() {
+  const overlay = document.createElement('div');
+  overlay.id = 'taxman-overlay';
+  overlay.style.cssText = `
+    position:fixed;inset:0;z-index:99999;
+    background:linear-gradient(160deg,#1a0a00,#2d1200,#0a0a0a);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:24px;text-align:center;
+  `;
+  overlay.innerHTML = `
+    <div style="font-size:72px;margin-bottom:16px;animation:taxShake 0.6s infinite">🏛️</div>
+    <div style="font-size:22px;font-weight:900;color:#FFD700;margin-bottom:12px;letter-spacing:1px">
+      NOTICE FROM THE IRS
+    </div>
+    <div style="max-width:420px;font-size:14px;line-height:1.7;color:#ddd;margin-bottom:24px">
+      The tax man came by and noticed you haven't been paying up.<br><br>
+      Unfortunately, <strong style="color:#FFD700">Uncle Sam doesn't care</strong> that he's never heard of you,
+      that your LLC is definitely legit, or that you've been
+      "reinvesting profits" into a very serious vending machine business.<br><br>
+      <strong style="color:#FF6B6B">Your entire real estate empire has been seized.<br>
+      Every property. Every dollar. Every tenant.</strong><br>
+      Even Phil.<br><br>
+      <span style="font-size:12px;color:#aaa">
+        The government thanks you for your service.<br>
+        Please start over and try to be less suspicious this time.
+      </span>
+    </div>
+    <button id="taxman-btn" style="
+      background:#FFD700;color:#1a0a00;border:none;border-radius:12px;
+      padding:16px 32px;font-size:16px;font-weight:900;cursor:pointer;
+      letter-spacing:.5px;box-shadow:0 4px 20px rgba(255,215,0,0.4);
+    ">
+      🏳️ Accept Defeat &amp; Start Fresh
+    </button>
+    <div style="font-size:11px;color:#555;margin-top:16px">
+      You cannot appeal this decision.
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  document.getElementById('taxman-btn').addEventListener('click', () => {
+    clearLocalState();
+    localStorage.setItem(RESET_FLAG, '1');
+    overlay.remove();
+    init();
+  });
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
+  if (checkForcedReset()) {
+    showForcedResetScreen();
+    return;
+  }
   setupNav();          // nav first — independent of async data
   await refreshState();
   await loadMarket();
@@ -470,7 +531,9 @@ function portfolioCardHtml(p) {
   const pendingDaysLeft = activePending ? Math.max(0, activePending.complete_day - state.day) : 0;
   const scheduledWork   = p.scheduled_reno || p.scheduled_premium;
   const scheduledDaysOut = scheduledWork ? Math.max(0, scheduledWork.start_day - state.day) : 0;
-  const tenantBadge = p.squatter
+  const tenantBadge = p.reno_payment_owed
+    ? `<span class="vacant-chip" style="background:#FFF3E0;color:#E65100;border-color:#FFCC80;font-weight:800">💸 Pay Contractor: ${fmt(p.reno_payment_owed.amount)}</span>`
+    : p.squatter
     ? `<span class="vacant-chip" style="background:#FFEBEE;color:#C62828;border-color:#EF9A9A">🚨 Squatter</span>`
     : activePending
     ? `<span class="vacant-chip" style="background:#E3F2FD;color:#1565C0;border-color:#90CAF9">🔨 ${activePending.name} · ${pendingDaysLeft}d left</span>`
@@ -533,6 +596,39 @@ async function showPropertyDetail(id) {
   const profitStr = profit >= 0
     ? `<span style="color:var(--positive)">+${fmt(profit)}</span>`
     : `<span style="color:var(--negative)">${fmt(profit)}</span>`;
+
+  const contractorPayment = (() => {
+    if (!prop.reno_payment_owed) return '';
+    const owed       = prop.reno_payment_owed;
+    const daysOverdue = Math.max(0, state.day - owed.due_since_day);
+    const daysLeft    = Math.max(0, 28 - daysOverdue);
+    const canAfford   = state.cash >= owed.amount;
+    const urgencyColor = daysLeft <= 7 ? '#C62828' : '#E65100';
+    const urgencyNote  = daysLeft <= 7
+      ? `<div style="font-size:12px;font-weight:700;color:#C62828;margin-top:6px">⚠️ ${daysLeft} day${daysLeft !== 1 ? 's' : ''} left — contractor destroys the home at day 28!</div>`
+      : daysOverdue > 3
+      ? `<div style="font-size:12px;color:#E65100;margin-top:6px">📈 Growing 10%/day · ${daysLeft} days until destruction</div>`
+      : '';
+    return `
+      <div class="card" style="margin-bottom:10px;border:2px solid ${urgencyColor};background:#FFF3E0">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+          <span style="font-size:30px">💸</span>
+          <div style="flex:1">
+            <div style="font-size:15px;font-weight:800;color:${urgencyColor}">Contractor Payment Due</div>
+            <div style="font-size:13px;color:var(--text-muted);margin-top:2px">${owed.icon} ${owed.name} is complete — grade hidden until paid</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:20px;font-weight:900;color:${urgencyColor}">${fmt(owed.amount)}</div>
+            <div style="font-size:11px;color:var(--text-muted)">owed</div>
+          </div>
+        </div>
+        ${urgencyNote}
+        ${canAfford
+          ? `<button class="btn btn-full" style="background:${urgencyColor};color:#fff;font-weight:800;margin-top:8px" onclick="payContractor(${id})">💸 Pay ${fmt(owed.amount)}</button>`
+          : `<button class="btn btn-full" disabled style="opacity:0.5;margin-top:8px;cursor:not-allowed">💸 Need ${fmt(owed.amount - state.cash)} more to pay</button>`
+        }
+      </div>`;
+  })();
 
   const renoInProgress = prop.pending_reno
     ? `<div class="card" style="margin-bottom:10px;border:2px solid #1565C0">
@@ -715,6 +811,7 @@ async function showPropertyDetail(id) {
     <div class="money-row"><span class="mr-label">Purchase Price</span><span class="mr-value">${fmt(prop.purchase_price)}</span></div>
     <div class="money-row"><span class="mr-label">Unrealized Gain/Loss</span><div>${profitStr}</div></div>
     <div class="money-row" style="margin-bottom:12px"><span class="mr-label">Fair Weekly Rent</span><span class="mr-value green">${fmt(prop.weekly_rent)}/wk</span></div>
+    ${contractorPayment}
     ${renoInProgress}
     ${tenantSection}
     <div class="section-header"><span class="section-title">Renovations</span></div>
@@ -1474,6 +1571,7 @@ async function hireContractor(contractorKey) {
   if (res.error) { toast(res.error, 'error'); return; }
   pendingUpgrade = null;
   const d = res.duration;
+  const isDeferred = res.deferred_payment;
   openModal(`
     <div class="modal-handle"></div>
     <div class="modal-title">🔨 Work Underway!</div>
@@ -1483,11 +1581,23 @@ async function hireContractor(contractorKey) {
       <div style="font-size:22px;font-weight:900;margin-top:8px">${d} Day${d !== 1 ? 's' : ''}</div>
       <div style="font-size:13px;color:var(--text-muted)">until completion</div>
     </div>
-    <p style="font-size:13px;color:var(--text-muted);text-align:center;margin-bottom:16px">Advance time to complete the renovation. The result will be revealed when they finish.</p>
-    <div class="money-row"><span class="mr-label">Cash Remaining</span><span class="mr-value">${fmt(res.cash)}</span></div>
+    ${isDeferred
+      ? `<div style="background:#FFF3E0;border:2px solid #E65100;border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:12px;font-size:13px;font-weight:700;color:#E65100">
+           💸 Payment due when work is complete — come back and pay then.</div>`
+      : `<div class="money-row"><span class="mr-label">Cash Remaining</span><span class="mr-value">${fmt(res.cash)}</span></div>`
+    }
     <button class="btn btn-primary btn-full mt-8" onclick="closeModal()">Got It</button>`);
   await refreshState();
   renderAll();
+}
+
+async function payContractor(propId) {
+  const res = await api(`/property/${propId}/pay_contractor`, 'POST', {});
+  if (res.error) { toast(res.error, 'error'); return; }
+  toast(`Paid ${fmt(res.amount_paid)} — ${res.upgrade_name} Grade ${res.tier_key}!`, 'success');
+  await refreshState();
+  renderAll();
+  showPropertyDetail(propId);
 }
 
 // ── Side Jobs ─────────────────────────────────────────────────────────────────
@@ -5297,6 +5407,7 @@ async function advanceDays(days) {
   _pendingMoraleEvents  = res.morale_events  || [];
   _pendingRenewalOffers = res.renewal_offers || [];
   _pendingSquatter      = (res.events || []).find(e => e.type === 'squatter') || null;
+  _pendingTaxEvent      = (res.tax_event && res.tax_event.amount >= 0) ? res.tax_event : null;
   const totalPending    = _pendingRepairs.length + _pendingMoraleEvents.length + _pendingRenewalOffers.length;
   const repairNote = _pendingRepairs.length > 0
     ? `<div style="background:var(--warning-bg,#FFF8E1);border:2px solid var(--warning);border-radius:var(--radius-sm);padding:10px 12px;margin-top:12px;font-size:13px;font-weight:700">
@@ -5309,6 +5420,10 @@ async function advanceDays(days) {
   const renewalNote = _pendingRenewalOffers.length > 0
     ? `<div style="background:#E8F5E9;border:2px solid #66BB6A;border-radius:var(--radius-sm);padding:10px 12px;margin-top:8px;font-size:13px;font-weight:700">
         🔄 ${_pendingRenewalOffers.length} lease renewal${_pendingRenewalOffers.length > 1 ? 's' : ''} to review!</div>`
+    : '';
+  const taxNote = _pendingTaxEvent
+    ? `<div style="background:#FFEBEE;border:2px solid #C62828;border-radius:var(--radius-sm);padding:10px 12px;margin-top:8px;font-size:13px;font-weight:700">
+        🧾 Tax Day! ${fmt(_pendingTaxEvent.amount)} owed — you must respond before continuing.</div>`
     : '';
 
   const btnLabel = _pendingRepairs.length > 0
@@ -5330,6 +5445,7 @@ async function advanceDays(days) {
     ${repairNote}
     ${moraleNote}
     ${renewalNote}
+    ${taxNote}
     <button class="btn btn-primary btn-full mt-8" onclick="continueFromEvents()">${btnLabel}</button>`);
 
   await refreshState();
@@ -5348,6 +5464,10 @@ function continueFromEvents() {
     const sq = _pendingSquatter;
     _pendingSquatter = null;
     showSquatterModal(sq.prop_id, sq.bribe, sq.prop_name);
+  } else if (_pendingTaxEvent) {
+    const te = _pendingTaxEvent;
+    _pendingTaxEvent = null;
+    showTaxModal(te);
   } else {
     closeModal();
   }
@@ -5394,6 +5514,55 @@ async function briberSquatter(propId) {
   closeModal();
   await refreshState();
   renderAll();
+}
+
+// ── Tax Modal ─────────────────────────────────────────────────────────────────
+function showTaxModal(taxEvent) {
+  _mg.locked = true;   // prevent dismiss by tapping outside
+  const amount = taxEvent.amount;
+  const income = taxEvent.flip_income;
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">🧾 Tax Day</div>
+    <div class="modal-subtitle">Winter Day 28 — You must respond before continuing</div>
+    <div class="card" style="margin-bottom:14px">
+      <div class="money-row">
+        <span class="mr-label">🏠 Flip income this year</span>
+        <span class="mr-value green">${fmt(income)}</span>
+      </div>
+      <div class="money-row">
+        <span class="mr-label">📊 Tax rate</span>
+        <span class="mr-value">10%</span>
+      </div>
+      <div class="money-row" style="border-top:1px solid var(--border);padding-top:10px;margin-top:6px;font-weight:800">
+        <span class="mr-label">Taxes owed</span>
+        <span class="mr-value" style="color:#C62828">${fmt(amount)}</span>
+      </div>
+    </div>
+    <button class="btn btn-danger btn-full" style="margin-bottom:10px" onclick="payTaxes()">💸 Pay ${fmt(amount)} Now</button>
+    <button class="btn btn-secondary btn-full" onclick="fileTaxExtension()">📋 File for Extension — pay on Spring Day 7</button>
+    <p style="font-size:11px;color:var(--text-muted);text-align:center;margin-top:10px">Rent income is never taxed — only profits from selling properties.</p>
+  `);
+}
+
+async function payTaxes() {
+  const res = await api('/pay_taxes', 'POST', {});
+  if (res.error) { toast(res.error, 'error'); return; }
+  _mg.locked = false;
+  await refreshState();
+  renderAll();
+  closeModal();
+  toast(`Taxes paid: ${fmt(res.tax_paid)}`, 'warning');
+}
+
+async function fileTaxExtension() {
+  const res = await api('/file_tax_extension', 'POST', {});
+  if (res.error) { toast(res.error, 'error'); return; }
+  _mg.locked = false;
+  await refreshState();
+  renderAll();
+  closeModal();
+  toast(`Extension filed — ${fmt(res.tax_owed)} due by Spring Day 7`, 'info');
 }
 
 // ── Morale Events ─────────────────────────────────────────────────────────────
@@ -5639,10 +5808,71 @@ function switchFinTab(tab) {
   });
   if (tab === 'bank')   renderBank();
   if (tab === 'stocks') renderStocks();
+  if (tab === 'taxes')  renderTaxes();
 }
 
 function renderFinances() {
   switchFinTab(currentFinTab);
+}
+
+function renderTaxes() {
+  const el = document.getElementById('fin-taxes');
+  if (!el) return;
+  const s          = getLocalState();
+  if (!s) return;
+  const flipIncome = s.tax_year_flip_income || 0;
+  const rentIncome = s.tax_year_rent_income || 0;
+  const totalIncome = flipIncome + rentIncome;
+  const estimated  = Math.floor(flipIncome * 0.10);
+  const extFiled   = s.tax_extension_filed  || false;
+  const taxOwed    = s.tax_owed             || 0;
+  el.innerHTML = `
+    <div class="section-header"><span class="section-title">🧾 Taxes</span></div>
+    <div class="card" style="margin-bottom:12px">
+      <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:10px">Income This Year</div>
+      <div class="money-row">
+        <span class="mr-label">🏠 Rent collected</span>
+        <span class="mr-value green">${fmt(rentIncome)}</span>
+      </div>
+      <div class="money-row">
+        <span class="mr-label">💰 Flip profits (taxable)</span>
+        <span class="mr-value green">${fmt(flipIncome)}</span>
+      </div>
+      <div class="money-row" style="border-top:1px solid var(--border);padding-top:10px;margin-top:6px;font-weight:800">
+        <span class="mr-label">Total income</span>
+        <span class="mr-value green">${fmt(totalIncome)}</span>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:12px">
+      <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:10px">Tax Summary</div>
+      <div class="money-row">
+        <span class="mr-label">Taxable income (flip only)</span>
+        <span class="mr-value">${fmt(flipIncome)}</span>
+      </div>
+      <div class="money-row">
+        <span class="mr-label">Tax rate</span>
+        <span class="mr-value">10%</span>
+      </div>
+      <div class="money-row" style="font-weight:800">
+        <span class="mr-label">Est. taxes owed</span>
+        <span class="mr-value" style="color:${estimated > 0 ? '#C62828' : 'var(--text-muted)'}">
+          ${fmt(estimated)}
+        </span>
+      </div>
+    </div>
+    ${extFiled ? `
+    <div class="card" style="background:#FFF8E1;border:2px solid var(--warning);margin-bottom:12px">
+      <div style="font-size:14px;font-weight:800;margin-bottom:6px">⏳ Extension Filed</div>
+      <div class="money-row">
+        <span class="mr-label">Amount due Spring Day 7</span>
+        <span class="mr-value" style="color:#C62828">${fmt(taxOwed)}</span>
+      </div>
+    </div>` : ''}
+    <div class="card" style="font-size:12px;color:var(--text-muted)">
+      💡 Rent income is <strong>never taxed</strong>. Only profits from selling properties are taxed at 10%.<br><br>
+      📅 Tax Day is <strong>Winter Day 28</strong>. You'll get a 7-day heads-up. Pay immediately or file a free extension (due Spring Day 7).
+    </div>
+  `;
 }
 
 async function renderBank() {

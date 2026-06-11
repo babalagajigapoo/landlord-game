@@ -1169,8 +1169,15 @@ def _migrate_state(s):
             s["level"] = 0
             s["xp"]    = 0
     s.setdefault("xp", 0)
+    s.setdefault("tax_year_flip_income", 0)
+    s.setdefault("tax_year_rent_income", 0)
+    s.setdefault("tax_extension_filed", False)
+    s.setdefault("tax_owed", 0)
     if "stocks" not in s:
         s["stocks"] = _init_stock_state()
+    # Ensure new per-property fields exist on old saves
+    for prop in s.get("properties", []):
+        prop.setdefault("reno_payment_owed", None)
     # One-time roll for any property that has never had special contractors set
     for prop in s.get("properties", []):
         if "special_contractors" not in prop:
@@ -1367,23 +1374,28 @@ def api_renovate():
         cost      = int(upg["base_cost"] * cont["cost_mult"])
         quality   = random.randint(cont["q_min"], cont["q_max"])
         cont_name = cont["name"]
-    if cost > s["cash"]:
+    is_vacant    = not prop.get("tenant")
+    # Vacant homes: pay contractor on completion, not upfront
+    if not is_vacant and cost > s["cash"]:
         return jsonify({"error": "Not enough cash"}), 400
     tier         = score_to_tier(quality)
     cond_change  = tier_cond_change(tier, upg["cond_boost"])
     duration     = contractor_days("premium" if is_special else contractor_key, upg.get("energy_cost", 1))
     complete_day = s["day"] + duration
-    s["cash"] -= cost
+    if not is_vacant:
+        s["cash"] -= cost
     prop["pending_reno"] = {
-        "upgrade_key":  upgrade_key,
-        "contractor":   contractor_key,
-        "quality":      quality,
-        "tier_key":     tier["key"],
-        "cond_change":  cond_change,
-        "complete_day": complete_day,
-        "duration":     duration,
-        "name":         upg["name"],
-        "icon":         upg["icon"],
+        "upgrade_key":      upgrade_key,
+        "contractor":       contractor_key,
+        "quality":          quality,
+        "tier_key":         tier["key"],
+        "cond_change":      cond_change,
+        "complete_day":     complete_day,
+        "duration":         duration,
+        "name":             upg["name"],
+        "icon":             upg["icon"],
+        "deferred_payment": is_vacant,
+        "cost":             cost,
     }
     # Consume the special contractor slot so it can't be reused before next advance
     if is_special:
@@ -1393,7 +1405,8 @@ def api_renovate():
     save(s)
     return jsonify({"success": True, "cash": s["cash"],
                     "duration": duration, "complete_day": complete_day,
-                    "contractor_name": cont_name})
+                    "contractor_name": cont_name,
+                    "deferred_payment": is_vacant})
 
 @app.route('/api/property/<int:pid>/premium_upgrades', methods=['GET', 'POST'])
 def api_premium_upgrades(pid):
@@ -1589,6 +1602,8 @@ def api_sell():
     sale   = int(calc_market_value(prop) * random.uniform(0.95, 1.05))
     profit = sale - prop["purchase_price"]
     s["cash"] += sale
+    if profit > 0:
+        s["tax_year_flip_income"] = s.get("tax_year_flip_income", 0) + profit
     s["properties"] = [p for p in s["properties"] if p["id"] != prop["id"]]
     s["log"].append({"day": s["day"], "type": "sell" if profit >= 0 else "loss",
         "text": f"Sold {prop['type']} in {prop['neighborhood']} for ${sale:,} ({'profit' if profit >= 0 else 'loss'}: ${abs(profit):,})"})
@@ -1727,6 +1742,13 @@ def api_evict():
     save(s)
     return jsonify({"success": True, "cash": s["cash"]})
 
+def _season_info(game_day):
+    """Returns (season_idx, day_in_season). 0=Spring, 1=Summer, 2=Fall, 3=Winter."""
+    season_idx    = (game_day - 1) // DAYS_PER_SEASON % 4
+    day_in_season = (game_day - 1) % DAYS_PER_SEASON + 1
+    return season_idx, day_in_season
+
+
 @app.route('/api/advance', methods=['POST'])
 def api_advance():
     data     = request.json
@@ -1738,6 +1760,8 @@ def api_advance():
     new_renewal_offers = []
     rent_log           = {}   # prop_id -> summary dict
     squatter_spawned   = False
+
+    tax_event = None
 
     for d in range(days):
         current_day       = s["day"] + d + 1
@@ -1816,15 +1840,17 @@ def api_advance():
                                      "collected": 0, "partial": 0, "missed": 0}
                 roll = random.random()
                 if roll < t["pay_chance"]:
-                    s["cash"]                   += rent
-                    prop["total_rent_collected"] += rent
-                    rent_log[pid]["collected"]   += rent
+                    s["cash"]                       += rent
+                    prop["total_rent_collected"]    += rent
+                    rent_log[pid]["collected"]      += rent
+                    s["tax_year_rent_income"]        = s.get("tax_year_rent_income", 0) + rent
                 elif roll < t["pay_chance"] + 0.06:
                     partial = int(rent * 0.5)
-                    s["cash"]                   += partial
-                    prop["total_rent_collected"] += partial
-                    rent_log[pid]["collected"]   += partial
-                    rent_log[pid]["partial"]     += 1
+                    s["cash"]                       += partial
+                    prop["total_rent_collected"]    += partial
+                    rent_log[pid]["collected"]      += partial
+                    rent_log[pid]["partial"]        += 1
+                    s["tax_year_rent_income"]        = s.get("tax_year_rent_income", 0) + partial
                 else:
                     rent_log[pid]["missed"] += 1
                     t["missed_payments"] = t.get("missed_payments", 0) + 1
@@ -2031,22 +2057,61 @@ def api_advance():
         for prop in s["properties"]:
             reno = prop.get("pending_reno")
             if reno and current_day >= reno["complete_day"]:
-                prop.setdefault("upgrades", {})[reno["upgrade_key"]] = {
-                    "quality": reno["quality"], "day": reno["complete_day"]}
-                prop["condition"]   = max(0, min(MAX_CONDITION, prop["condition"] + reno["cond_change"]))
+                prop["condition"]    = max(0, min(MAX_CONDITION, prop["condition"] + reno["cond_change"]))
                 prop["pending_reno"] = None
                 new_val = calc_market_value(prop)
-                # Tenant morale boost — they appreciate the improvement
-                if prop.get("tenant"):
-                    prop["tenant"]["morale"] = min(100, prop["tenant"].get("morale", 50) + 8)
-                else:
-                    # Vacant — protect against squatters for 3 days
+                if reno.get("deferred_payment"):
+                    # Vacant hire: work is done but upgrade not recorded until contractor is paid
+                    prop["reno_payment_owed"] = {
+                        "amount":      reno["cost"],
+                        "name":        reno["name"],
+                        "icon":        reno["icon"],
+                        "upgrade_key": reno["upgrade_key"],
+                        "quality":     reno["quality"],
+                        "tier_key":    reno["tier_key"],
+                        "cond_change": reno["cond_change"],
+                        "due_since_day": current_day,
+                    }
                     prop["reno_protected_until"] = current_day + 3
+                    events.append({"prop": f"{prop['type']} — {prop['neighborhood']}",
+                                    "text": f"🔨 {reno['name']} is done — pay the contractor ${reno['cost']:,} to see the grade!",
+                                    "type": "warning"})
+                    s["log"].insert(0, {"day": current_day, "type": "renovate",
+                        "text": f"{reno['name']} at {prop['type']} in {prop['neighborhood']} done — contractor payment of ${reno['cost']:,} due"})
+                else:
+                    # Tenant present at hire time — already paid upfront, record immediately
+                    prop.setdefault("upgrades", {})[reno["upgrade_key"]] = {
+                        "quality": reno["quality"], "day": reno["complete_day"]}
+                    prop["tenant"]["morale"] = min(100, prop["tenant"].get("morale", 50) + 8)
+                    events.append({"prop": f"{prop['type']} — {prop['neighborhood']}",
+                                    "text": f"✅ {reno['name']} finished! Grade {reno['tier_key']}",
+                                    "type": "positive"})
+                    s["log"].insert(0, {"day": current_day, "type": "renovate",
+                        "text": f"{reno['name']} at {prop['type']} in {prop['neighborhood']} completed — grade {reno['tier_key']}, value now ${new_val:,}"})
+
+        # Contractor payment: interest after 3 days, destruction after 28
+        for prop in s["properties"]:
+            owed = prop.get("reno_payment_owed")
+            if not owed:
+                continue
+            days_overdue = current_day - owed["due_since_day"]
+            if days_overdue >= 28:
+                # Contractor destroys the home — set to F condition, debt forgiven
+                prop["condition"]         = 0
+                prop["reno_payment_owed"] = None
+                # Remove the upgrade record if it somehow got added
+                prop.get("upgrades", {}).pop(owed["upgrade_key"], None)
                 events.append({"prop": f"{prop['type']} — {prop['neighborhood']}",
-                                "text": f"✅ {reno['name']} finished! Grade {reno['tier_key']}",
-                                "type": "positive"})
-                s["log"].insert(0, {"day": current_day, "type": "renovate",
-                    "text": f"{reno['name']} at {prop['type']} in {prop['neighborhood']} completed — grade {reno['tier_key']}, value now ${new_val:,}"})
+                                "text": f"🔥 Contractor destroyed {prop['type']} — unpaid for 28 days! Condition reset to F, debt forgiven.",
+                                "type": "negative"})
+                s["log"].insert(0, {"day": current_day, "type": "warning",
+                    "text": f"Contractor destroyed {prop['type']} in {prop['neighborhood']} after 28 days without payment — condition set to F"})
+            elif days_overdue > 3:
+                new_amount = int(owed["amount"] * 1.03)
+                owed["amount"] = new_amount
+                events.append({"prop": f"{prop['type']} — {prop['neighborhood']}",
+                                "text": f"📈 Contractor payment grew 10% — now ${new_amount:,} owed ({28 - days_overdue} days left)",
+                                "type": "negative"})
 
         # Premium upgrade completion
         for prop in s["properties"]:
@@ -2092,6 +2157,7 @@ def api_advance():
             eligible = [p for p in s["properties"]
                         if not p.get("tenant") and not p.get("squatter")
                         and not p.get("pending_reno") and not p.get("pending_premium")
+                        and not p.get("reno_payment_owed")
                         and (current_day - p.get("vacant_since", 1)) >= 3
                         and current_day > p.get("reno_protected_until", 0)]
             if eligible and random.random() < spawn_chance:
@@ -2149,6 +2215,48 @@ def api_advance():
             bank["loans"] = [l for l in bank["loans"] if l["id"] not in paid_off]
             s["bank"] = bank
 
+        # ── Tax system ────────────────────────────────────────────────────────
+        _si, _di = _season_info(current_day)
+
+        # Winter day 21: 7-day heads-up
+        if _si == 3 and _di == 21:
+            _flip = s.get("tax_year_flip_income", 0)
+            _est  = int(_flip * 0.10)
+            events.append({
+                "prop": "Tax Notice",
+                "text": f"📋 Tax Day is 7 days away (Winter Day 28)! Flip income this year: ${_flip:,} · Est. taxes: ${_est:,}",
+                "type": "warning",
+            })
+            s["log"].insert(0, {"day": current_day, "type": "warning",
+                "text": f"Tax reminder: ~${_est:,} due on Winter Day 28 from ${_flip:,} in flip profits"})
+
+        # Winter day 28: tax due (only if no extension already filed)
+        if _si == 3 and _di == 28 and not s.get("tax_extension_filed", False):
+            _flip = s.get("tax_year_flip_income", 0)
+            _owed = int(_flip * 0.10)
+            tax_event = {"amount": _owed, "flip_income": _flip}
+            events.append({
+                "prop": "IRS",
+                "text": f"🧾 Tax Day! ${_owed:,} owed on ${_flip:,} in flip profits — pay now or file for extension.",
+                "type": "warning",
+            })
+
+        # Spring day 7: collect deferred extension tax
+        if _si == 0 and _di == 7 and s.get("tax_extension_filed", False):
+            _owed = s.get("tax_owed", 0)
+            s["cash"] -= _owed
+            s["tax_extension_filed"]  = False
+            s["tax_year_flip_income"] = 0
+            s["tax_year_rent_income"] = 0
+            s["tax_owed"]             = 0
+            events.append({
+                "prop": "IRS",
+                "text": f"🧾 Tax extension due today: -${_owed:,} collected",
+                "type": "negative",
+            })
+            s["log"].insert(0, {"day": current_day, "type": "warning",
+                "text": f"Tax extension payment of ${_owed:,} collected (Spring Day 7)"})
+
         # Refresh market each day advance for all currently unlocked neighborhoods
         _adv_unlocked = get_unlocked_neighborhoods(s.get("level", 0))
         s["market"], s["next_id"] = _gen_market(s["next_id"], hoods=_adv_unlocked)
@@ -2186,7 +2294,61 @@ def api_advance():
         "repairs":       new_repairs,
         "morale_events":  new_morale_events,
         "renewal_offers": new_renewal_offers,
+        "tax_event":      tax_event,
     })
+
+
+@app.route('/api/property/<int:pid>/pay_contractor', methods=['POST'])
+def api_pay_contractor(pid):
+    s    = load()
+    prop = next((p for p in s["properties"] if p["id"] == pid), None)
+    if not prop:
+        return jsonify({"error": "Property not found"}), 404
+    owed = prop.get("reno_payment_owed")
+    if not owed:
+        return jsonify({"error": "No contractor payment owed"}), 400
+    amount = owed["amount"]
+    if s["cash"] < amount:
+        return jsonify({"error": f"Not enough cash — you need ${amount:,}"}), 400
+    s["cash"] -= amount
+    # Now officially record the upgrade
+    prop.setdefault("upgrades", {})[owed["upgrade_key"]] = {
+        "quality": owed["quality"], "day": s["day"]}
+    prop["reno_payment_owed"] = None
+    s["log"].insert(0, {"day": s["day"], "type": "info",
+        "text": f"Paid ${amount:,} for {owed['name']} at {prop['type']} in {prop['neighborhood']} — Grade {owed['tier_key']}"})
+    save(s)
+    return jsonify({"success": True, "amount_paid": amount, "cash": s["cash"],
+                    "tier_key": owed["tier_key"], "upgrade_name": owed["name"]})
+
+
+@app.route('/api/pay_taxes', methods=['POST'])
+def api_pay_taxes():
+    s = load()
+    flip_income = s.get("tax_year_flip_income", 0)
+    tax_owed    = int(flip_income * 0.10)
+    s["cash"]  -= tax_owed
+    s["tax_year_flip_income"] = 0
+    s["tax_year_rent_income"] = 0
+    s["tax_extension_filed"]  = False
+    s["tax_owed"]             = 0
+    s["log"].insert(0, {"day": s["day"], "type": "warning",
+        "text": f"Paid ${tax_owed:,} in taxes (10% of ${flip_income:,} flip income)"})
+    save(s)
+    return jsonify({"success": True, "tax_paid": tax_owed, "cash": s["cash"]})
+
+
+@app.route('/api/file_tax_extension', methods=['POST'])
+def api_file_tax_extension():
+    s = load()
+    flip_income = s.get("tax_year_flip_income", 0)
+    tax_owed    = int(flip_income * 0.10)
+    s["tax_extension_filed"] = True
+    s["tax_owed"]            = tax_owed
+    s["log"].insert(0, {"day": s["day"], "type": "info",
+        "text": f"Filed tax extension — ${tax_owed:,} due on Spring Day 7"})
+    save(s)
+    return jsonify({"success": True, "tax_owed": tax_owed, "cash": s["cash"]})
 
 
 @app.route('/api/property/<int:pid>/renewal_respond', methods=['POST'])
