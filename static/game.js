@@ -4218,7 +4218,6 @@ function launchWashGame(upgradeKey) {
     <div class="ws-scene">
       <div class="ws-house-wrap">
         <div class="ws-grid" id="ws-grid"></div>
-        <div class="ws-roof-cap"></div>
         <div class="ws-door-frame"></div>
         <div class="ws-win-frame ws-win-left"></div>
         <div class="ws-win-frame ws-win-right"></div>

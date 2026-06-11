@@ -1772,7 +1772,7 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
   height:100%; max-width:100%;
   aspect-ratio:10/16;
   clip-path: polygon(50% 0%, 100% 20%, 100% 100%, 0% 100%, 0% 20%);
-  background:#D4C4A0; /* siding color — shows through transparent roof tiles */
+  background:#2A1A0C; /* shingle color — shows through transparent roof tiles at peak */
   overflow:hidden;
 }
 
@@ -1792,13 +1792,6 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
 .ws-clean     { background:linear-gradient(180deg,#DCD0A8 0%,#E8DEB8 55%,#C8BC90 100%); box-shadow:inset 0 -1px 0 rgba(0,0,0,0.12); }
 .ws-door-tile { background:linear-gradient(180deg,#5C3318,#2A1205); }
 .ws-winpane   { background:linear-gradient(145deg,#A8C8E4 0%,#C8E0F4 50%,#88B0D0 100%); }
-
-/* Roof cap — covers tile area above the roofline with shingle look */
-.ws-roof-cap {
-  position:absolute; top:0; left:0; right:0; height:22%;
-  background:linear-gradient(180deg,#1A0E06 0%,#2E1A0C 50%,#3C2414 100%);
-  z-index:8; pointer-events:all;
-}
 
 /* Door */
 .ws-door-frame {
