@@ -1317,16 +1317,16 @@ const WORK_MG_MAP = {
   'Patch the Roof':      'roofgame',
   'Fix a Plumbing Leak': 'plumbinggame',
   'Install Windows':     'windowgame',
-  'Tile a Bathroom':     'colormatch',
-  'Hang Drywall':        'quicktap',
+  'Tile a Bathroom':     'tilegame',
+  'Hang Drywall':        'drywallgame',
   'Electrical Work':     'electricalgame',
   'HVAC Maintenance':    'hvacgame',
-  'Build a Fence':       'quicktap',
-  'Pour Concrete':       'rapidpress',
+  'Build a Fence':       'fencegame',
+  'Pour Concrete':       'concretegame',
   'Landscaping Work':    'landscapegame',
-  'Power Washing':       'rapidpress',
-  'Install Cabinets':    'reactiontap',
-  'Repair a Deck':       'quicktap',
+  'Power Washing':       'washgame',
+  'Install Cabinets':    'cabinetgame',
+  'Repair a Deck':       'deckgame',
 };
 function selectMgType(context) { return WORK_MG_MAP[context] || randomMgType(); }
 
@@ -1336,6 +1336,7 @@ function launchMgByType(mgType, upgradeKey) {
   else if (mgType === 'sequence')    launchSequence(upgradeKey);
   else if (mgType === 'rapidpress')  launchRapidPress(upgradeKey);
   else if (mgType === 'colormatch')  launchColorMatch(upgradeKey);
+  else if (mgType === 'tilegame')    launchTileGame(upgradeKey);
   else if (mgType === 'reactiontap') launchReactionTap(upgradeKey);
   else if (mgType === 'paintgame')    launchPaintGame(upgradeKey);
   else if (mgType === 'landscapegame') launchLandscapeGame(upgradeKey);
@@ -1346,6 +1347,13 @@ function launchMgByType(mgType, upgradeKey) {
   else if (mgType === 'roofgame')      launchRoofGame(upgradeKey);
   else if (mgType === 'groutgame')      launchGroutGame(upgradeKey);
   else if (mgType === 'electricalgame') launchElectricalGame(upgradeKey);
+  else if (mgType === 'tilegame')       launchTileGame(upgradeKey);
+  else if (mgType === 'drywallgame')    launchDrywallGame(upgradeKey);
+  else if (mgType === 'fencegame')      launchFenceGame(upgradeKey);
+  else if (mgType === 'concretegame')   launchConcreteGame(upgradeKey);
+  else if (mgType === 'washgame')       launchWashGame(upgradeKey);
+  else if (mgType === 'cabinetgame')    launchCabinetGame(upgradeKey);
+  else if (mgType === 'deckgame')       launchDeckGame(upgradeKey);
 }
 
 async function showContractorModal(propId, upgradeKey) {
@@ -3733,6 +3741,1024 @@ function grFinish() {
       overlay.remove();
       finishDIY(_mg.upgradeKey, score);
     }, 2200);
+  } else {
+    finishDIY(_mg.upgradeKey, score);
+  }
+}
+
+// ── Mini-game: Hang Drywall ────────────────────────────────────────────────────
+// A panel slides in from the side — tap+hold to press it flat, release on the sweet spot.
+const DW_DURATION = 12, DW_PANELS = 8;
+
+function launchDrywallGame(upgradeKey) {
+  closeModal();
+  _mg = { locked: true, upgradeKey, running: false, timerId: null, placed: 0, panelActive: false };
+
+  const old = document.getElementById('dw-overlay');
+  if (old) old.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'dw-overlay';
+  overlay.innerHTML = `
+    <div class="dw-hud">
+      <div class="dw-hud-top">
+        <span class="dw-title">🧱 Hang Drywall</span>
+        <span class="dw-time-box"><span id="dw-time">${DW_DURATION}</span>s</span>
+      </div>
+      <div class="dw-timer-track"><div class="dw-timer-fill" id="dw-timer-fill"></div></div>
+      <div class="dw-score" id="dw-score">0 / ${DW_PANELS} panels hung</div>
+    </div>
+    <div class="dw-arena" id="dw-arena">
+      <div class="dw-wall" id="dw-wall"></div>
+      <div class="dw-panel-wrap" id="dw-panel-wrap">
+        <div class="dw-panel" id="dw-panel"></div>
+        <div class="dw-zone-bar">
+          <div class="dw-zone-track">
+            <div class="dw-zone-sweet"></div>
+            <div class="dw-zone-marker" id="dw-marker"></div>
+          </div>
+        </div>
+      </div>
+      <div class="dw-instruction" id="dw-instruction">Hold to press flat — release on the green zone!</div>
+    </div>
+    <div id="dw-start-screen" class="dw-start-screen">
+      <div class="dw-start-card">
+        <div class="dw-start-icon">🧱</div>
+        <div class="dw-start-title">Hang Drywall</div>
+        <div class="dw-start-desc">Hold the panel to press it flat. Release when the marker hits the green zone!</div>
+        <button class="dw-start-btn" id="dw-start-btn">Start Job</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const arena = document.getElementById('dw-arena');
+  arena.addEventListener('pointerdown', dwPress);
+  arena.addEventListener('pointerup',   dwRelease);
+  arena.addEventListener('touchstart',  e => { e.preventDefault(); dwPress(); },   { passive: false });
+  arena.addEventListener('touchend',    e => { e.preventDefault(); dwRelease(); }, { passive: false });
+  document.getElementById('dw-start-btn').addEventListener('click', dwStart);
+}
+
+function dwStart() {
+  document.getElementById('dw-start-screen').style.display = 'none';
+  _mg.running = true;
+  const endTime = Date.now() + DW_DURATION * 1000;
+  _mg.timerId = setInterval(() => {
+    const left = Math.max(0, endTime - Date.now());
+    const pct  = left / (DW_DURATION * 1000);
+    const fill = document.getElementById('dw-timer-fill');
+    const timeEl = document.getElementById('dw-time');
+    if (fill)   { fill.style.width = (pct * 100).toFixed(1) + '%'; fill.style.background = pct > 0.5 ? '#78909C' : pct > 0.25 ? '#FF9800' : '#F44336'; }
+    if (timeEl) timeEl.textContent = Math.ceil(left / 1000);
+    if (left <= 0) { clearInterval(_mg.timerId); _mg.running = false; dwFinish(); }
+  }, 50);
+  dwNextPanel();
+}
+
+function dwNextPanel() {
+  if (!_mg.running || _mg.placed >= DW_PANELS) { dwFinish(); return; }
+  const panel = document.getElementById('dw-panel');
+  const wrap  = document.getElementById('dw-panel-wrap');
+  if (!panel || !wrap) return;
+
+  // Reset panel sliding in from left
+  panel.style.transition = 'none';
+  panel.style.transform  = 'translateX(-110%)';
+  wrap.style.opacity     = '1';
+
+  // Animate slide in
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      panel.style.transition = 'transform 0.5s ease-out';
+      panel.style.transform  = 'translateX(0)';
+    });
+  });
+
+  // Start oscillating marker
+  _mg.panelActive = true;
+  _mg.holding     = false;
+  _mg.markerPos   = 0;
+  _mg.markerDir   = 1;
+  dwAnimateMarker();
+
+  const inst = document.getElementById('dw-instruction');
+  if (inst) inst.textContent = 'Hold to press flat — release on the green zone!';
+}
+
+function dwAnimateMarker() {
+  if (!_mg.panelActive) return;
+  const speed = 1.8 + _mg.placed * 0.25;
+  _mg.markerPos += _mg.markerDir * speed;
+  if (_mg.markerPos >= 100) { _mg.markerPos = 100; _mg.markerDir = -1; }
+  if (_mg.markerPos <= 0)   { _mg.markerPos = 0;   _mg.markerDir = 1;  }
+  const marker = document.getElementById('dw-marker');
+  if (marker) marker.style.left = _mg.markerPos + '%';
+  _mg.markerRaf = requestAnimationFrame(dwAnimateMarker);
+}
+
+function dwPress() {
+  if (!_mg.running || !_mg.panelActive || _mg.holding) return;
+  _mg.holding = true;
+  const panel = document.getElementById('dw-panel');
+  if (panel) panel.classList.add('dw-panel-pressing');
+}
+
+function dwRelease() {
+  if (!_mg.running || !_mg.panelActive || !_mg.holding) return;
+  _mg.holding     = false;
+  _mg.panelActive = false;
+  cancelAnimationFrame(_mg.markerRaf);
+
+  const pos = _mg.markerPos;
+  const panel = document.getElementById('dw-panel');
+  const wrap  = document.getElementById('dw-panel-wrap');
+  panel?.classList.remove('dw-panel-pressing');
+
+  // Sweet zone is 35–65
+  if (pos >= 35 && pos <= 65) {
+    panel?.classList.add('dw-panel-success');
+    const inst = document.getElementById('dw-instruction');
+    if (inst) inst.textContent = '✅ Perfect fit!';
+    _mg.placed++;
+    const score = document.getElementById('dw-score');
+    if (score) score.textContent = `${_mg.placed} / ${DW_PANELS} panels hung`;
+    setTimeout(() => { panel?.classList.remove('dw-panel-success'); if (wrap) wrap.style.opacity = '0'; setTimeout(dwNextPanel, 200); }, 400);
+  } else {
+    panel?.classList.add('dw-panel-fail');
+    const inst = document.getElementById('dw-instruction');
+    if (inst) inst.textContent = '❌ Crooked! Try again.';
+    setTimeout(() => { panel?.classList.remove('dw-panel-fail'); _mg.panelActive = true; _mg.markerPos = 0; _mg.markerDir = 1; dwAnimateMarker(); }, 500);
+  }
+}
+
+function dwFinish() {
+  cancelAnimationFrame(_mg.markerRaf);
+  clearInterval(_mg.timerId);
+  _mg.running = false; _mg.locked = false;
+  const score = Math.min(100, Math.round((_mg.placed / DW_PANELS) * 100));
+  const msg   = score >= 100 ? '🌟 Walls done!' : score >= 75 ? '✅ Solid work!' : score >= 40 ? '👍 Coming along!' : '🧱 A few crooked panels...';
+  const overlay = document.getElementById('dw-overlay');
+  if (overlay) {
+    const res = document.createElement('div');
+    res.className = 'dw-result-overlay';
+    res.innerHTML = `<div class="dw-result-card"><div class="dw-result-score">${score}%</div><div class="dw-result-label">panels hung</div><div class="dw-result-msg">${msg}</div></div>`;
+    overlay.appendChild(res);
+    setTimeout(() => { overlay.remove(); finishDIY(_mg.upgradeKey, score); }, 2200);
+  } else { finishDIY(_mg.upgradeKey, score); }
+}
+
+// ── Mini-game: Build a Fence ───────────────────────────────────────────────────
+// Posts appear and wobble — tap when they're upright to hammer them in.
+const FN_DURATION = 14, FN_POSTS = 10;
+
+function launchFenceGame(upgradeKey) {
+  closeModal();
+  _mg = { locked: true, upgradeKey, running: false, timerId: null, hammered: 0, postActive: false };
+
+  const old = document.getElementById('fn-overlay');
+  if (old) old.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'fn-overlay';
+  overlay.innerHTML = `
+    <div class="fn-hud">
+      <div class="fn-hud-top">
+        <span class="fn-title">🪚 Build a Fence</span>
+        <span class="fn-time-box"><span id="fn-time">${FN_DURATION}</span>s</span>
+      </div>
+      <div class="fn-timer-track"><div class="fn-timer-fill" id="fn-timer-fill"></div></div>
+      <div class="fn-score" id="fn-score">0 / ${FN_POSTS} posts set</div>
+    </div>
+    <div class="fn-arena" id="fn-arena">
+      <div class="fn-ground"></div>
+      <div class="fn-post-wrap" id="fn-post-wrap">
+        <div class="fn-post" id="fn-post">
+          <div class="fn-post-top"></div>
+          <div class="fn-post-body"></div>
+        </div>
+        <div class="fn-upright-zone" id="fn-upright-zone"></div>
+      </div>
+      <div class="fn-instruction" id="fn-instruction">Tap when the post is upright!</div>
+    </div>
+    <div id="fn-start-screen" class="fn-start-screen">
+      <div class="fn-start-card">
+        <div class="fn-start-icon">🪚</div>
+        <div class="fn-start-title">Build a Fence</div>
+        <div class="fn-start-desc">Tap the post when it's standing upright to hammer it in!</div>
+        <button class="fn-start-btn" id="fn-start-btn">Start Job</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const arena = document.getElementById('fn-arena');
+  arena.addEventListener('click',      fnTap);
+  arena.addEventListener('touchstart', e => { e.preventDefault(); fnTap(); }, { passive: false });
+  document.getElementById('fn-start-btn').addEventListener('click', fnStart);
+}
+
+function fnStart() {
+  document.getElementById('fn-start-screen').style.display = 'none';
+  _mg.running = true;
+  const endTime = Date.now() + FN_DURATION * 1000;
+  _mg.timerId = setInterval(() => {
+    const left = Math.max(0, endTime - Date.now());
+    const pct  = left / (FN_DURATION * 1000);
+    const fill = document.getElementById('fn-timer-fill');
+    const timeEl = document.getElementById('fn-time');
+    if (fill)   { fill.style.width = (pct * 100).toFixed(1) + '%'; fill.style.background = pct > 0.5 ? '#8D6E63' : pct > 0.25 ? '#FF9800' : '#F44336'; }
+    if (timeEl) timeEl.textContent = Math.ceil(left / 1000);
+    if (left <= 0) { clearInterval(_mg.timerId); _mg.running = false; fnFinish(); }
+  }, 50);
+  fnNextPost();
+}
+
+function fnNextPost() {
+  if (!_mg.running || _mg.hammered >= FN_POSTS) { fnFinish(); return; }
+  const post = document.getElementById('fn-post');
+  const wrap = document.getElementById('fn-post-wrap');
+  if (!post || !wrap) return;
+
+  wrap.style.display = 'flex';
+  post.classList.remove('fn-post-success', 'fn-post-fail');
+  _mg.postActive = true;
+  _mg.wobbleAngle = 0;
+  _mg.wobbleDir   = 1;
+  fnWobble();
+  const inst = document.getElementById('fn-instruction');
+  if (inst) inst.textContent = 'Tap when the post is upright!';
+}
+
+function fnWobble() {
+  if (!_mg.postActive) return;
+  const speed = 1.5 + _mg.hammered * 0.2;
+  const maxTilt = Math.max(15, 40 - _mg.hammered * 2);
+  _mg.wobbleAngle += _mg.wobbleDir * speed;
+  if (_mg.wobbleAngle >= maxTilt)  { _mg.wobbleAngle = maxTilt;  _mg.wobbleDir = -1; }
+  if (_mg.wobbleAngle <= -maxTilt) { _mg.wobbleAngle = -maxTilt; _mg.wobbleDir = 1;  }
+  const post = document.getElementById('fn-post');
+  if (post) post.style.transform = `rotate(${_mg.wobbleAngle}deg)`;
+  _mg.wobbleRaf = requestAnimationFrame(fnWobble);
+}
+
+function fnTap() {
+  if (!_mg.running || !_mg.postActive) return;
+  _mg.postActive = false;
+  cancelAnimationFrame(_mg.wobbleRaf);
+
+  const angle = Math.abs(_mg.wobbleAngle);
+  const post  = document.getElementById('fn-post');
+  const inst  = document.getElementById('fn-instruction');
+
+  if (angle <= 12) {
+    post?.classList.add('fn-post-success');
+    if (inst) inst.textContent = '✅ Hammered in!';
+    _mg.hammered++;
+    const score = document.getElementById('fn-score');
+    if (score) score.textContent = `${_mg.hammered} / ${FN_POSTS} posts set`;
+    setTimeout(() => { const wrap = document.getElementById('fn-post-wrap'); if (wrap) wrap.style.display = 'none'; setTimeout(fnNextPost, 250); }, 400);
+  } else {
+    post?.classList.add('fn-post-fail');
+    if (inst) inst.textContent = '❌ Too crooked! Try again.';
+    setTimeout(() => { post?.classList.remove('fn-post-fail'); post.style.transform = 'rotate(0deg)'; _mg.wobbleAngle = 0; _mg.wobbleDir = 1; _mg.postActive = true; fnWobble(); }, 500);
+  }
+}
+
+function fnFinish() {
+  cancelAnimationFrame(_mg.wobbleRaf);
+  clearInterval(_mg.timerId);
+  _mg.running = false; _mg.locked = false;
+  const score = Math.min(100, Math.round((_mg.hammered / FN_POSTS) * 100));
+  const msg   = score >= 100 ? '🌟 Fence is solid!' : score >= 75 ? '✅ Good work!' : score >= 40 ? '👍 Getting there!' : '🪚 A few wobbly posts...';
+  const overlay = document.getElementById('fn-overlay');
+  if (overlay) {
+    const res = document.createElement('div');
+    res.className = 'fn-result-overlay';
+    res.innerHTML = `<div class="fn-result-card"><div class="fn-result-score">${score}%</div><div class="fn-result-label">posts set</div><div class="fn-result-msg">${msg}</div></div>`;
+    overlay.appendChild(res);
+    setTimeout(() => { overlay.remove(); finishDIY(_mg.upgradeKey, score); }, 2200);
+  } else { finishDIY(_mg.upgradeKey, score); }
+}
+
+// ── Mini-game: Pour Concrete ───────────────────────────────────────────────────
+// Drag a slider to tilt the bucket — fill each section of the mold evenly.
+const CN_DURATION = 18, CN_SECTIONS = 5;
+
+function launchConcreteGame(upgradeKey) {
+  closeModal();
+  _mg = {
+    locked: true, upgradeKey, running: false, timerId: null,
+    levels: Array(CN_SECTIONS).fill(0), // 0–100 fill per section
+    bucketX: 50, // 0–100 horizontal position
+    pouring: false,
+    score: 0,
+  };
+
+  const old = document.getElementById('cn-overlay');
+  if (old) old.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'cn-overlay';
+  overlay.innerHTML = `
+    <div class="cn-hud">
+      <div class="cn-hud-top">
+        <span class="cn-title">🏗️ Pour Concrete</span>
+        <span class="cn-time-box"><span id="cn-time">${CN_DURATION}</span>s</span>
+      </div>
+      <div class="cn-timer-track"><div class="cn-timer-fill" id="cn-timer-fill"></div></div>
+      <div class="cn-score" id="cn-score">Fill all sections evenly!</div>
+    </div>
+    <div class="cn-arena" id="cn-arena">
+      <div class="cn-bucket-wrap" id="cn-bucket-wrap">
+        <div class="cn-bucket" id="cn-bucket">🪣</div>
+        <div class="cn-stream" id="cn-stream"></div>
+      </div>
+      <div class="cn-mold" id="cn-mold">
+        ${Array(CN_SECTIONS).fill(0).map((_, i) => `
+          <div class="cn-section" id="cn-sec-${i}">
+            <div class="cn-fill" id="cn-fill-${i}"></div>
+            <div class="cn-overflow" id="cn-overflow-${i}"></div>
+          </div>`).join('')}
+      </div>
+      <div class="cn-slider-wrap">
+        <input type="range" id="cn-slider" class="cn-slider" min="0" max="100" value="50">
+        <div class="cn-slider-label">← Drag to move bucket →</div>
+      </div>
+    </div>
+    <div id="cn-start-screen" class="cn-start-screen">
+      <div class="cn-start-card">
+        <div class="cn-start-icon">🏗️</div>
+        <div class="cn-start-title">Pour Concrete</div>
+        <div class="cn-start-desc">Drag the slider to move the bucket. Hold the pour button to fill each section — don't overflow!</div>
+        <button class="cn-start-btn" id="cn-start-btn">Start Job</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const slider = document.getElementById('cn-slider');
+  slider.addEventListener('input', () => { _mg.bucketX = parseFloat(slider.value); cnUpdateBucket(); });
+
+  const arena = document.getElementById('cn-arena');
+  arena.addEventListener('pointerdown', e => { if (e.target !== slider) { e.preventDefault(); _mg.pouring = true; cnUpdateStream(true); } });
+  arena.addEventListener('pointerup',   () => { _mg.pouring = false; cnUpdateStream(false); });
+  arena.addEventListener('touchstart',  e => { if (e.target !== slider) { e.preventDefault(); _mg.pouring = true; cnUpdateStream(true); } }, { passive: false });
+  arena.addEventListener('touchend',    () => { _mg.pouring = false; cnUpdateStream(false); });
+
+  document.getElementById('cn-start-btn').addEventListener('click', cnStart);
+}
+
+function cnUpdateBucket() {
+  const wrap = document.getElementById('cn-bucket-wrap');
+  if (wrap) wrap.style.left = _mg.bucketX + '%';
+}
+
+function cnUpdateStream(active) {
+  const stream = document.getElementById('cn-stream');
+  if (stream) stream.style.opacity = active ? '1' : '0';
+}
+
+function cnStart() {
+  document.getElementById('cn-start-screen').style.display = 'none';
+  _mg.running = true;
+  cnUpdateBucket();
+
+  const endTime = Date.now() + CN_DURATION * 1000;
+  _mg.timerId = setInterval(() => {
+    const left = Math.max(0, endTime - Date.now());
+    const pct  = left / (CN_DURATION * 1000);
+    const fill = document.getElementById('cn-timer-fill');
+    const timeEl = document.getElementById('cn-time');
+    if (fill)   { fill.style.width = (pct * 100).toFixed(1) + '%'; fill.style.background = pct > 0.5 ? '#90A4AE' : pct > 0.25 ? '#FF9800' : '#F44336'; }
+    if (timeEl) timeEl.textContent = Math.ceil(left / 1000);
+
+    // Pour into nearest section
+    if (_mg.pouring) {
+      const secW = 100 / CN_SECTIONS;
+      const secIdx = Math.min(CN_SECTIONS - 1, Math.floor(_mg.bucketX / secW));
+      if (_mg.levels[secIdx] < 110) {
+        _mg.levels[secIdx] += 1.2;
+        cnUpdateFill(secIdx);
+      }
+    }
+    if (left <= 0) { clearInterval(_mg.timerId); _mg.running = false; cnFinish(); }
+  }, 50);
+}
+
+function cnUpdateFill(idx) {
+  const fillEl    = document.getElementById(`cn-fill-${idx}`);
+  const overflowEl = document.getElementById(`cn-overflow-${idx}`);
+  const lvl       = Math.min(_mg.levels[idx], 100);
+  if (fillEl) fillEl.style.height = lvl + '%';
+  if (overflowEl) overflowEl.style.opacity = _mg.levels[idx] > 100 ? '1' : '0';
+}
+
+function cnFinish() {
+  clearInterval(_mg.timerId);
+  _mg.running = false; _mg.locked = false;
+  // Score: average fill, penalize overflow
+  let total = 0;
+  for (let i = 0; i < CN_SECTIONS; i++) {
+    const lvl = _mg.levels[i];
+    const s   = lvl > 100 ? Math.max(0, 100 - (lvl - 100) * 3) : lvl;
+    total += s;
+  }
+  const score = Math.min(100, Math.round(total / CN_SECTIONS));
+  const msg   = score >= 90 ? '🌟 Perfectly poured!' : score >= 70 ? '✅ Solid slab!' : score >= 40 ? '👍 Getting the hang of it!' : '🏗️ Uneven pour...';
+  const overlay = document.getElementById('cn-overlay');
+  if (overlay) {
+    const res = document.createElement('div');
+    res.className = 'cn-result-overlay';
+    res.innerHTML = `<div class="cn-result-card"><div class="cn-result-score">${score}%</div><div class="cn-result-label">evenly filled</div><div class="cn-result-msg">${msg}</div></div>`;
+    overlay.appendChild(res);
+    setTimeout(() => { overlay.remove(); finishDIY(_mg.upgradeKey, score); }, 2200);
+  } else { finishDIY(_mg.upgradeKey, score); }
+}
+
+// ── Mini-game: Power Washing ───────────────────────────────────────────────────
+// Dirty wall — drag finger to scrub away grime patches.
+const WS_COLS = 6, WS_ROWS = 8, WS_TOTAL = WS_COLS * WS_ROWS, WS_DURATION = 12;
+
+function launchWashGame(upgradeKey) {
+  closeModal();
+  _mg = { locked: true, upgradeKey, running: false, timerId: null, cleaned: 0 };
+
+  const old = document.getElementById('ws-overlay');
+  if (old) old.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'ws-overlay';
+  overlay.innerHTML = `
+    <div class="ws-hud">
+      <div class="ws-hud-top">
+        <span class="ws-title">💧 Power Washing</span>
+        <span class="ws-time-box"><span id="ws-time">${WS_DURATION}</span>s</span>
+      </div>
+      <div class="ws-timer-track"><div class="ws-timer-fill" id="ws-timer-fill"></div></div>
+      <div class="ws-score" id="ws-score">0% cleaned</div>
+    </div>
+    <div class="ws-wall-wrap">
+      <div class="ws-grid" id="ws-grid"></div>
+    </div>
+    <div id="ws-start-screen" class="ws-start-screen">
+      <div class="ws-start-card">
+        <div class="ws-start-icon">💧</div>
+        <div class="ws-start-title">Power Washing</div>
+        <div class="ws-start-desc">Drag your finger across the wall to blast away all the grime!</div>
+        <button class="ws-start-btn" id="ws-start-btn">Start Job</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const grid = document.getElementById('ws-grid');
+  for (let i = 0; i < WS_TOTAL; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'ws-cell ws-dirty';
+    cell.dataset.idx = i;
+    grid.appendChild(cell);
+  }
+
+  let pressing = false;
+  grid.addEventListener('pointerdown', e => { pressing = true; wsClean(e); });
+  grid.addEventListener('pointermove', e => { if (pressing) wsClean(e); });
+  grid.addEventListener('pointerup',   () => { pressing = false; });
+  grid.addEventListener('touchstart',  e => { e.preventDefault(); pressing = true; wsCleanTouch(e); }, { passive: false });
+  grid.addEventListener('touchmove',   e => { e.preventDefault(); if (pressing) wsCleanTouch(e); }, { passive: false });
+  grid.addEventListener('touchend',    () => { pressing = false; });
+
+  document.getElementById('ws-start-btn').addEventListener('click', wsStart);
+}
+
+function wsClean(e) {
+  if (!_mg.running) return;
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  wsCleanCell(el);
+}
+function wsCleanTouch(e) {
+  if (!_mg.running) return;
+  for (const t of e.touches) {
+    const el = document.elementFromPoint(t.clientX, t.clientY);
+    wsCleanCell(el);
+  }
+}
+function wsCleanCell(el) {
+  if (!el || !el.classList.contains('ws-dirty')) return;
+  el.classList.remove('ws-dirty');
+  el.classList.add('ws-clean');
+  _mg.cleaned++;
+  const pct = Math.round((_mg.cleaned / WS_TOTAL) * 100);
+  const score = document.getElementById('ws-score');
+  if (score) score.textContent = `${pct}% cleaned`;
+  if (_mg.cleaned >= WS_TOTAL) { clearInterval(_mg.timerId); _mg.running = false; wsFinish(); }
+}
+
+function wsStart() {
+  document.getElementById('ws-start-screen').style.display = 'none';
+  _mg.running = true;
+  const endTime = Date.now() + WS_DURATION * 1000;
+  _mg.timerId = setInterval(() => {
+    const left = Math.max(0, endTime - Date.now());
+    const pct  = left / (WS_DURATION * 1000);
+    const fill = document.getElementById('ws-timer-fill');
+    const timeEl = document.getElementById('ws-time');
+    if (fill)   { fill.style.width = (pct * 100).toFixed(1) + '%'; fill.style.background = pct > 0.5 ? '#29B6F6' : pct > 0.25 ? '#FF9800' : '#F44336'; }
+    if (timeEl) timeEl.textContent = Math.ceil(left / 1000);
+    if (left <= 0) { clearInterval(_mg.timerId); _mg.running = false; wsFinish(); }
+  }, 50);
+}
+
+function wsFinish() {
+  clearInterval(_mg.timerId);
+  _mg.running = false; _mg.locked = false;
+  const score = Math.min(100, Math.round((_mg.cleaned / WS_TOTAL) * 100));
+  const msg   = score >= 100 ? '🌟 Spotless!' : score >= 80 ? '✅ Nice and clean!' : score >= 50 ? '👍 Mostly clean!' : '💧 Still pretty grimy...';
+  const overlay = document.getElementById('ws-overlay');
+  if (overlay) {
+    const res = document.createElement('div');
+    res.className = 'ws-result-overlay';
+    res.innerHTML = `<div class="ws-result-card"><div class="ws-result-score">${score}%</div><div class="ws-result-label">cleaned</div><div class="ws-result-msg">${msg}</div></div>`;
+    overlay.appendChild(res);
+    setTimeout(() => { overlay.remove(); finishDIY(_mg.upgradeKey, score); }, 2200);
+  } else { finishDIY(_mg.upgradeKey, score); }
+}
+
+// ── Mini-game: Install Cabinets ────────────────────────────────────────────────
+// Cabinet drops from top — slide it left/right to align with the bracket, then tap to lock.
+const CB_DURATION = 16, CB_COUNT = 6;
+
+function launchCabinetGame(upgradeKey) {
+  closeModal();
+  _mg = { locked: true, upgradeKey, running: false, timerId: null, installed: 0, cabinetActive: false };
+
+  const old = document.getElementById('cb-overlay');
+  if (old) old.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'cb-overlay';
+  overlay.innerHTML = `
+    <div class="cb-hud">
+      <div class="cb-hud-top">
+        <span class="cb-title">🍳 Install Cabinets</span>
+        <span class="cb-time-box"><span id="cb-time">${CB_DURATION}</span>s</span>
+      </div>
+      <div class="cb-timer-track"><div class="cb-timer-fill" id="cb-timer-fill"></div></div>
+      <div class="cb-score" id="cb-score">0 / ${CB_COUNT} installed</div>
+    </div>
+    <div class="cb-arena" id="cb-arena">
+      <div class="cb-wall">
+        <div class="cb-bracket" id="cb-bracket"></div>
+      </div>
+      <div class="cb-cabinet" id="cb-cabinet">
+        <div class="cb-cabinet-body">
+          <div class="cb-cabinet-handle"></div>
+        </div>
+        <div class="cb-align-indicator" id="cb-align"></div>
+      </div>
+      <div class="cb-slider-wrap">
+        <input type="range" id="cb-slider" class="cb-slider" min="5" max="95" value="50">
+        <div class="cb-slider-label">← Slide to align →</div>
+      </div>
+      <div class="cb-instruction" id="cb-instruction">Align the cabinet with the bracket, then tap!</div>
+    </div>
+    <div id="cb-start-screen" class="cb-start-screen">
+      <div class="cb-start-card">
+        <div class="cb-start-icon">🍳</div>
+        <div class="cb-start-title">Install Cabinets</div>
+        <div class="cb-start-desc">Slide to align the cabinet with the bracket, then tap to lock it in!</div>
+        <button class="cb-start-btn" id="cb-start-btn">Start Job</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const slider = document.getElementById('cb-slider');
+  slider.addEventListener('input', () => { _mg.cabinetPos = parseFloat(slider.value); cbUpdateCabinet(); });
+
+  const arena = document.getElementById('cb-arena');
+  arena.addEventListener('click',      e => { if (e.target !== slider) cbTap(); });
+  arena.addEventListener('touchstart', e => { if (e.target !== slider) { e.preventDefault(); cbTap(); } }, { passive: false });
+
+  document.getElementById('cb-start-btn').addEventListener('click', cbStart);
+}
+
+function cbStart() {
+  document.getElementById('cb-start-screen').style.display = 'none';
+  _mg.running = true;
+  const endTime = Date.now() + CB_DURATION * 1000;
+  _mg.timerId = setInterval(() => {
+    const left = Math.max(0, endTime - Date.now());
+    const pct  = left / (CB_DURATION * 1000);
+    const fill = document.getElementById('cb-timer-fill');
+    const timeEl = document.getElementById('cb-time');
+    if (fill)   { fill.style.width = (pct * 100).toFixed(1) + '%'; fill.style.background = pct > 0.5 ? '#A1887F' : pct > 0.25 ? '#FF9800' : '#F44336'; }
+    if (timeEl) timeEl.textContent = Math.ceil(left / 1000);
+    if (left <= 0) { clearInterval(_mg.timerId); _mg.running = false; cbFinish(); }
+  }, 50);
+  cbNextCabinet();
+}
+
+function cbNextCabinet() {
+  if (!_mg.running || _mg.installed >= CB_COUNT) { cbFinish(); return; }
+  // Random bracket position
+  _mg.bracketPos  = 20 + Math.random() * 60;
+  _mg.cabinetPos  = 50;
+  _mg.cabinetActive = true;
+
+  const bracket = document.getElementById('cb-bracket');
+  const slider  = document.getElementById('cb-slider');
+  const cabinet = document.getElementById('cb-cabinet');
+  if (bracket) bracket.style.left = _mg.bracketPos + '%';
+  if (slider)  { slider.value = '50'; }
+  if (cabinet) { cabinet.style.opacity = '1'; cabinet.classList.remove('cb-locked', 'cb-fail'); }
+  cbUpdateCabinet();
+  const inst = document.getElementById('cb-instruction');
+  if (inst) inst.textContent = 'Align the cabinet with the bracket, then tap!';
+}
+
+function cbUpdateCabinet() {
+  const cabinet = document.getElementById('cb-cabinet');
+  const align   = document.getElementById('cb-align');
+  if (cabinet) cabinet.style.left = _mg.cabinetPos + '%';
+  const diff = Math.abs((_mg.cabinetPos || 50) - (_mg.bracketPos || 50));
+  if (align) {
+    align.style.background = diff <= 5 ? '#4CAF50' : diff <= 12 ? '#FF9800' : '#F44336';
+    align.textContent = diff <= 5 ? '✓' : diff <= 12 ? '~' : '✗';
+  }
+}
+
+function cbTap() {
+  if (!_mg.running || !_mg.cabinetActive) return;
+  const diff = Math.abs((_mg.cabinetPos || 50) - (_mg.bracketPos || 50));
+  const cabinet = document.getElementById('cb-cabinet');
+  const inst    = document.getElementById('cb-instruction');
+  _mg.cabinetActive = false;
+
+  if (diff <= 8) {
+    cabinet?.classList.add('cb-locked');
+    if (inst) inst.textContent = '✅ Locked in!';
+    _mg.installed++;
+    const score = document.getElementById('cb-score');
+    if (score) score.textContent = `${_mg.installed} / ${CB_COUNT} installed`;
+    setTimeout(() => { if (cabinet) cabinet.style.opacity = '0'; setTimeout(cbNextCabinet, 250); }, 500);
+  } else {
+    cabinet?.classList.add('cb-fail');
+    if (inst) inst.textContent = '❌ Misaligned! Try again.';
+    setTimeout(() => { cabinet?.classList.remove('cb-fail'); _mg.cabinetActive = true; }, 500);
+  }
+}
+
+function cbFinish() {
+  clearInterval(_mg.timerId);
+  _mg.running = false; _mg.locked = false;
+  const score = Math.min(100, Math.round((_mg.installed / CB_COUNT) * 100));
+  const msg   = score >= 100 ? '🌟 Kitchen looks great!' : score >= 75 ? '✅ Nice work!' : score >= 40 ? '👍 Getting there!' : '🍳 A few gaps in the kitchen...';
+  const overlay = document.getElementById('cb-overlay');
+  if (overlay) {
+    const res = document.createElement('div');
+    res.className = 'cb-result-overlay';
+    res.innerHTML = `<div class="cb-result-card"><div class="cb-result-score">${score}%</div><div class="cb-result-label">installed</div><div class="cb-result-msg">${msg}</div></div>`;
+    overlay.appendChild(res);
+    setTimeout(() => { overlay.remove(); finishDIY(_mg.upgradeKey, score); }, 2200);
+  } else { finishDIY(_mg.upgradeKey, score); }
+}
+
+// ── Mini-game: Repair a Deck ───────────────────────────────────────────────────
+// Rotted planks (red) spread to neighbors — tap them to replace before the deck falls apart.
+const DK_COLS = 5, DK_ROWS = 6, DK_TOTAL = DK_COLS * DK_ROWS, DK_DURATION = 20;
+
+function launchDeckGame(upgradeKey) {
+  closeModal();
+  const planks = Array(DK_TOTAL).fill('ok');
+  // Seed a few rotted planks
+  [2, 8, 17, 22, 27].forEach(i => { planks[i] = 'rotted'; });
+
+  _mg = { locked: true, upgradeKey, running: false, timerId: null, planks, fixed: 0, spreadTimer: null };
+
+  const old = document.getElementById('dk-overlay');
+  if (old) old.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'dk-overlay';
+  overlay.innerHTML = `
+    <div class="dk-hud">
+      <div class="dk-hud-top">
+        <span class="dk-title">🪜 Repair a Deck</span>
+        <span class="dk-time-box"><span id="dk-time">${DK_DURATION}</span>s</span>
+      </div>
+      <div class="dk-timer-track"><div class="dk-timer-fill" id="dk-timer-fill"></div></div>
+      <div class="dk-score" id="dk-score">Tap the rotted planks!</div>
+    </div>
+    <div class="dk-arena">
+      <div class="dk-grid" id="dk-grid"></div>
+    </div>
+    <div id="dk-start-screen" class="dk-start-screen">
+      <div class="dk-start-card">
+        <div class="dk-start-icon">🪜</div>
+        <div class="dk-start-title">Repair a Deck</div>
+        <div class="dk-start-desc">Tap the red rotted planks to replace them — they'll spread to neighbors if you wait too long!</div>
+        <button class="dk-start-btn" id="dk-start-btn">Start Job</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const grid = document.getElementById('dk-grid');
+  for (let i = 0; i < DK_TOTAL; i++) {
+    const cell = document.createElement('div');
+    cell.className = `dk-plank dk-${planks[i]}`;
+    cell.dataset.idx = i;
+    cell.addEventListener('click',      () => dkTap(i));
+    cell.addEventListener('touchstart', e => { e.preventDefault(); dkTap(i); }, { passive: false });
+    grid.appendChild(cell);
+  }
+
+  document.getElementById('dk-start-btn').addEventListener('click', dkStart);
+}
+
+function dkStart() {
+  document.getElementById('dk-start-screen').style.display = 'none';
+  _mg.running = true;
+  const endTime = Date.now() + DK_DURATION * 1000;
+  _mg.timerId = setInterval(() => {
+    const left = Math.max(0, endTime - Date.now());
+    const pct  = left / (DK_DURATION * 1000);
+    const fill = document.getElementById('dk-timer-fill');
+    const timeEl = document.getElementById('dk-time');
+    if (fill)   { fill.style.width = (pct * 100).toFixed(1) + '%'; fill.style.background = pct > 0.5 ? '#8D6E63' : pct > 0.25 ? '#FF9800' : '#F44336'; }
+    if (timeEl) timeEl.textContent = Math.ceil(left / 1000);
+    if (left <= 0) { clearInterval(_mg.timerId); clearInterval(_mg.spreadTimer); _mg.running = false; dkFinish(); }
+  }, 50);
+
+  // Spread rot every 2.5 seconds
+  _mg.spreadTimer = setInterval(() => {
+    if (!_mg.running) return;
+    const newPlanks = [..._mg.planks];
+    for (let i = 0; i < DK_TOTAL; i++) {
+      if (_mg.planks[i] !== 'rotted') continue;
+      const neighbors = [i - 1, i + 1, i - DK_COLS, i + DK_COLS].filter(n => n >= 0 && n < DK_TOTAL);
+      neighbors.forEach(n => { if (_mg.planks[n] === 'ok') newPlanks[n] = 'spreading'; });
+    }
+    for (let i = 0; i < DK_TOTAL; i++) {
+      if (_mg.planks[i] === 'spreading') newPlanks[i] = 'rotted';
+    }
+    _mg.planks = newPlanks;
+    dkRenderPlanks();
+
+    // Check if all rotted
+    const rotCount = _mg.planks.filter(p => p === 'rotted').length;
+    const score = document.getElementById('dk-score');
+    if (score) score.textContent = `${rotCount} rotted plank${rotCount !== 1 ? 's' : ''} remaining`;
+    if (rotCount === 0) { clearInterval(_mg.timerId); clearInterval(_mg.spreadTimer); _mg.running = false; dkFinish(); }
+  }, 2500);
+}
+
+function dkTap(idx) {
+  if (!_mg.running || _mg.planks[idx] !== 'rotted') return;
+  _mg.planks[idx] = 'fixed';
+  _mg.fixed++;
+  dkRenderPlanks();
+  const rotCount = _mg.planks.filter(p => p === 'rotted').length;
+  const score = document.getElementById('dk-score');
+  if (score) score.textContent = `${rotCount} rotted plank${rotCount !== 1 ? 's' : ''} remaining`;
+  if (rotCount === 0) { clearInterval(_mg.timerId); clearInterval(_mg.spreadTimer); _mg.running = false; dkFinish(); }
+}
+
+function dkRenderPlanks() {
+  for (let i = 0; i < DK_TOTAL; i++) {
+    const cell = document.querySelector(`[data-idx="${i}"].dk-plank`);
+    if (cell) cell.className = `dk-plank dk-${_mg.planks[i]}`;
+  }
+}
+
+function dkFinish() {
+  clearInterval(_mg.timerId);
+  clearInterval(_mg.spreadTimer);
+  _mg.running = false; _mg.locked = false;
+  const rotLeft = _mg.planks.filter(p => p === 'rotted').length;
+  const score   = Math.min(100, Math.round(((DK_TOTAL - rotLeft) / DK_TOTAL) * 100));
+  const msg     = score >= 95 ? '🌟 Deck is solid!' : score >= 75 ? '✅ Good repair!' : score >= 50 ? '👍 Mostly fixed!' : '🪜 Rot got out of hand...';
+  const overlay = document.getElementById('dk-overlay');
+  if (overlay) {
+    const res = document.createElement('div');
+    res.className = 'dk-result-overlay';
+    res.innerHTML = `<div class="dk-result-card"><div class="dk-result-score">${score}%</div><div class="dk-result-label">repaired</div><div class="dk-result-msg">${msg}</div></div>`;
+    overlay.appendChild(res);
+    setTimeout(() => { overlay.remove(); finishDIY(_mg.upgradeKey, score); }, 2200);
+  } else { finishDIY(_mg.upgradeKey, score); }
+}
+
+// ── Mini-game: Tile the Bathroom ──────────────────────────────────────────────
+const TL_COLS = 4, TL_ROWS = 6, TL_DURATION = 15, TL_TARGET = 20;
+const TL_COLORS = ['#E8E0D0','#D4C9B8','#B8CDD4','#C8D4B8','#D4B8C8','#CCC8B8'];
+const TL_FALL_START = 1400; // ms for tile to fall, decreases with score
+
+function launchTileGame(upgradeKey) {
+  closeModal();
+  _mg = {
+    locked: true, upgradeKey,
+    running: false, timerId: null,
+    placed: 0, missed: 0,
+    cols: Array(TL_COLS).fill(0), // tiles placed per column
+    fallingTile: null,  // { col, el, startTime, duration, color, raf }
+    speed: TL_FALL_START,
+  };
+
+  const old = document.getElementById('tl-overlay');
+  if (old) old.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'tl-overlay';
+  overlay.innerHTML = `
+    <div class="tl-hud">
+      <div class="tl-hud-top">
+        <span class="tl-title">🚿 Tile the Bathroom</span>
+        <span class="tl-time-box"><span id="tl-time">${TL_DURATION}</span>s</span>
+      </div>
+      <div class="tl-timer-track"><div class="tl-timer-fill" id="tl-timer-fill"></div></div>
+      <div class="tl-score" id="tl-score">0 tiles set</div>
+    </div>
+    <div class="tl-arena" id="tl-arena">
+      <div class="tl-grid" id="tl-grid"></div>
+    </div>
+    <div id="tl-start-screen" class="tl-start-screen">
+      <div class="tl-start-card">
+        <div class="tl-start-icon">🚿</div>
+        <div class="tl-start-title">Tile the Bathroom</div>
+        <div class="tl-start-desc">Tap the falling tile to set it before it hits the floor!</div>
+        <button class="tl-start-btn" id="tl-start-btn">Start Job</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  // Build grid of already-placed tiles (bottom half pre-filled for aesthetics)
+  const grid = document.getElementById('tl-grid');
+  for (let r = 0; r < TL_ROWS; r++) {
+    for (let c = 0; c < TL_COLS; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'tl-cell';
+      cell.dataset.row = r;
+      cell.dataset.col = c;
+      cell.id = `tl-cell-${r}-${c}`;
+      grid.appendChild(cell);
+    }
+  }
+
+  document.getElementById('tl-start-btn').addEventListener('click', tlStart);
+}
+
+function tlStart() {
+  document.getElementById('tl-start-screen').style.display = 'none';
+  _mg.running = true;
+  const endTime = Date.now() + TL_DURATION * 1000;
+  _mg.timerId = setInterval(() => {
+    const left = Math.max(0, endTime - Date.now());
+    const pct  = left / (TL_DURATION * 1000);
+    const fill   = document.getElementById('tl-timer-fill');
+    const timeEl = document.getElementById('tl-time');
+    if (fill)   { fill.style.width = (pct * 100).toFixed(1) + '%'; fill.style.background = pct > 0.5 ? '#4CAF50' : pct > 0.25 ? '#FF9800' : '#F44336'; }
+    if (timeEl) timeEl.textContent = Math.ceil(left / 1000);
+    if (left <= 0) { clearInterval(_mg.timerId); _mg.running = false; tlFinish(); }
+  }, 50);
+  tlDropNext();
+}
+
+function tlDropNext() {
+  if (!_mg.running) return;
+
+  // Pick a column that isn't full
+  const openCols = [];
+  for (let c = 0; c < TL_COLS; c++) {
+    if (_mg.cols[c] < TL_ROWS) openCols.push(c);
+  }
+  if (openCols.length === 0) { tlFinish(); return; }
+
+  const col   = openCols[Math.floor(Math.random() * openCols.length)];
+  const color = TL_COLORS[Math.floor(Math.random() * TL_COLORS.length)];
+  const arena = document.getElementById('tl-arena');
+  const grid  = document.getElementById('tl-grid');
+  if (!arena || !grid) return;
+
+  const gridRect  = grid.getBoundingClientRect();
+  const arenaRect = arena.getBoundingClientRect();
+  const colW      = gridRect.width / TL_COLS;
+  const tileSize  = colW - 6;
+  const startX    = gridRect.left - arenaRect.left + col * colW + 3;
+
+  const tile = document.createElement('div');
+  tile.className = 'tl-falling';
+  tile.style.cssText = `left:${startX}px; top:-${tileSize}px; width:${tileSize}px; height:${tileSize}px; background:${color};`;
+  arena.appendChild(tile);
+
+  // Target row = top of this column's stack
+  const targetRow = TL_ROWS - 1 - _mg.cols[col];
+  const targetY   = gridRect.top - arenaRect.top + targetRow * (gridRect.height / TL_ROWS) + 3;
+  const floorY    = gridRect.bottom - arenaRect.top;
+
+  const startTime = performance.now();
+  const speed     = Math.max(500, _mg.speed - _mg.placed * 30);
+
+  _mg.fallingTile = { col, color, el: tile, targetRow, targetY, floorY, startTime, speed, done: false };
+
+  function animate(now) {
+    if (!_mg.fallingTile || _mg.fallingTile.done) return;
+    const elapsed = now - startTime;
+    const progress = Math.min(elapsed / speed, 1);
+    const currentY = -tileSize + (floorY + tileSize) * progress;
+    tile.style.top = currentY + 'px';
+
+    if (progress >= 1) {
+      // Missed — tile hits floor
+      tlMiss();
+    } else {
+      _mg.fallingTile.raf = requestAnimationFrame(animate);
+    }
+  }
+  _mg.fallingTile.raf = requestAnimationFrame(animate);
+
+  // Tap handler
+  function onTap(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!_mg.fallingTile || _mg.fallingTile.done) return;
+    tlPlace();
+  }
+  tile.addEventListener('click', onTap);
+  tile.addEventListener('touchstart', onTap, { passive: false });
+}
+
+function tlPlace() {
+  const ft = _mg.fallingTile;
+  if (!ft || ft.done) return;
+  ft.done = true;
+  cancelAnimationFrame(ft.raf);
+
+  const tile = ft.el;
+  const grid = document.getElementById('tl-grid');
+  if (!grid) { tile.remove(); tlDropNext(); return; }
+
+  // Snap tile into the grid cell
+  const cell = document.getElementById(`tl-cell-${ft.targetRow}-${ft.col}`);
+  if (cell) {
+    cell.style.background = ft.color;
+    cell.classList.add('tl-cell-placed');
+  }
+  tile.remove();
+  _mg.cols[ft.col]++;
+  _mg.placed++;
+  _mg.fallingTile = null;
+
+  const score = document.getElementById('tl-score');
+  if (score) score.textContent = `${_mg.placed} tile${_mg.placed !== 1 ? 's' : ''} set`;
+
+  if (_mg.placed >= TL_TARGET) { clearInterval(_mg.timerId); _mg.running = false; tlFinish(); return; }
+  setTimeout(tlDropNext, 180);
+}
+
+function tlMiss() {
+  const ft = _mg.fallingTile;
+  if (!ft || ft.done) return;
+  ft.done = true;
+  cancelAnimationFrame(ft.raf);
+
+  const tile = ft.el;
+  tile.classList.add('tl-shatter');
+  setTimeout(() => tile.remove(), 400);
+  _mg.missed++;
+  _mg.fallingTile = null;
+  setTimeout(tlDropNext, 300);
+}
+
+function tlFinish() {
+  if (_mg.fallingTile && !_mg.fallingTile.done) {
+    _mg.fallingTile.done = true;
+    cancelAnimationFrame(_mg.fallingTile.raf);
+    _mg.fallingTile.el?.remove();
+  }
+  clearInterval(_mg.timerId);
+  _mg.running = false;
+  _mg.locked  = false;
+
+  const score = Math.min(100, Math.round((_mg.placed / TL_TARGET) * 100));
+  const msg   = score >= 100 ? '🌟 Perfect tiling!'       :
+                score >= 75  ? '✅ Looks great!'            :
+                score >= 40  ? '👍 Getting there!'          :
+                               '🚿 A few gaps in the floor...';
+
+  const overlay = document.getElementById('tl-overlay');
+  if (overlay) {
+    const res = document.createElement('div');
+    res.className = 'tl-result-overlay';
+    res.innerHTML = `
+      <div class="tl-result-card">
+        <div class="tl-result-score">${score}%</div>
+        <div class="tl-result-label">tiles set</div>
+        <div class="tl-result-msg">${msg}</div>
+      </div>`;
+    overlay.appendChild(res);
+    setTimeout(() => { overlay.remove(); finishDIY(_mg.upgradeKey, score); }, 2200);
   } else {
     finishDIY(_mg.upgradeKey, score);
   }
