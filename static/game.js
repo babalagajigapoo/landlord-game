@@ -4425,16 +4425,18 @@ function cbFinish() {
 }
 
 // ── Mini-game: Repair a Deck ───────────────────────────────────────────────────
-// Rotted planks (red) spread to neighbors — tap them to replace before the deck falls apart.
-const DK_COLS = 5, DK_ROWS = 6, DK_TOTAL = DK_COLS * DK_ROWS, DK_DURATION = 20;
+// Tap rotted planks multiple times to pry them out before rot spreads.
+const DK_COLS = 4, DK_ROWS = 7, DK_TOTAL = DK_COLS * DK_ROWS, DK_DURATION = 6, DK_TAPS = 3;
 
 function launchDeckGame(upgradeKey) {
   closeModal();
-  const planks = Array(DK_TOTAL).fill('ok');
-  // Seed a few rotted planks
-  [2, 8, 17, 22, 27].forEach(i => { planks[i] = 'rotted'; });
 
-  _mg = { locked: true, upgradeKey, running: false, timerId: null, planks, fixed: 0, spreadTimer: null };
+  // Random seed: ~25% of planks start rotted
+  const planks = Array(DK_TOTAL).fill(0).map(() => Math.random() < 0.25 ? 'rotted' : 'ok');
+  // health = taps remaining per rotted plank
+  const health = planks.map(p => p === 'rotted' ? DK_TAPS : 0);
+
+  _mg = { locked: true, upgradeKey, running: false, timerId: null, planks, health, fixed: 0, spreadTimer: null };
 
   const old = document.getElementById('dk-overlay');
   if (old) old.remove();
@@ -4448,7 +4450,7 @@ function launchDeckGame(upgradeKey) {
         <span class="dk-time-box"><span id="dk-time">${DK_DURATION}</span>s</span>
       </div>
       <div class="dk-timer-track"><div class="dk-timer-fill" id="dk-timer-fill"></div></div>
-      <div class="dk-score" id="dk-score">Tap the rotted planks!</div>
+      <div class="dk-score" id="dk-score">Tap rotted planks to pry them out!</div>
     </div>
     <div class="dk-arena">
       <div class="dk-grid" id="dk-grid"></div>
@@ -4457,7 +4459,7 @@ function launchDeckGame(upgradeKey) {
       <div class="dk-start-card">
         <div class="dk-start-icon">🪜</div>
         <div class="dk-start-title">Repair a Deck</div>
-        <div class="dk-start-desc">Tap the red rotted planks to replace them — they'll spread to neighbors if you wait too long!</div>
+        <div class="dk-start-desc">Tap the rotted planks multiple times to pry them out — rot spreads if you wait!</div>
         <button class="dk-start-btn" id="dk-start-btn">Start Job</button>
       </div>
     </div>
@@ -4466,15 +4468,28 @@ function launchDeckGame(upgradeKey) {
 
   const grid = document.getElementById('dk-grid');
   for (let i = 0; i < DK_TOTAL; i++) {
+    const row = Math.floor(i / DK_COLS);
     const cell = document.createElement('div');
-    cell.className = `dk-plank dk-${planks[i]}`;
+    // Stagger alternate rows like real deck boards
+    cell.className = `dk-plank dk-${planks[i]} ${row % 2 === 1 ? 'dk-stagger' : ''}`;
     cell.dataset.idx = i;
+    // Wood grain variation per plank
+    const grain = Math.floor(Math.random() * 4);
+    cell.dataset.grain = grain;
     cell.addEventListener('click',      () => dkTap(i));
     cell.addEventListener('touchstart', e => { e.preventDefault(); dkTap(i); }, { passive: false });
+    if (planks[i] === 'rotted') dkSetHealth(cell, DK_TAPS);
     grid.appendChild(cell);
   }
 
   document.getElementById('dk-start-btn').addEventListener('click', dkStart);
+}
+
+function dkSetHealth(cell, hp) {
+  // Show pip indicators for remaining taps
+  let pips = cell.querySelector('.dk-pips');
+  if (!pips) { pips = document.createElement('div'); pips.className = 'dk-pips'; cell.appendChild(pips); }
+  pips.innerHTML = Array(DK_TAPS).fill(0).map((_, i) => `<span class="dk-pip ${i < hp ? 'dk-pip-full' : 'dk-pip-empty'}"></span>`).join('');
 }
 
 function dkStart() {
@@ -4491,44 +4506,61 @@ function dkStart() {
     if (left <= 0) { clearInterval(_mg.timerId); clearInterval(_mg.spreadTimer); _mg.running = false; dkFinish(); }
   }, 50);
 
-  // Spread rot every 2.5 seconds
+  // Spread rot every 2 seconds
   _mg.spreadTimer = setInterval(() => {
     if (!_mg.running) return;
     const newPlanks = [..._mg.planks];
+    const newHealth = [..._mg.health];
     for (let i = 0; i < DK_TOTAL; i++) {
       if (_mg.planks[i] !== 'rotted') continue;
-      const neighbors = [i - 1, i + 1, i - DK_COLS, i + DK_COLS].filter(n => n >= 0 && n < DK_TOTAL);
-      neighbors.forEach(n => { if (_mg.planks[n] === 'ok') newPlanks[n] = 'spreading'; });
-    }
-    for (let i = 0; i < DK_TOTAL; i++) {
-      if (_mg.planks[i] === 'spreading') newPlanks[i] = 'rotted';
+      [i - DK_COLS, i + DK_COLS].forEach(n => {
+        if (n >= 0 && n < DK_TOTAL && newPlanks[n] === 'ok') {
+          newPlanks[n] = 'rotted';
+          newHealth[n] = DK_TAPS;
+        }
+      });
     }
     _mg.planks = newPlanks;
+    _mg.health = newHealth;
     dkRenderPlanks();
-
-    // Check if all rotted
     const rotCount = _mg.planks.filter(p => p === 'rotted').length;
-    const score = document.getElementById('dk-score');
-    if (score) score.textContent = `${rotCount} rotted plank${rotCount !== 1 ? 's' : ''} remaining`;
-    if (rotCount === 0) { clearInterval(_mg.timerId); clearInterval(_mg.spreadTimer); _mg.running = false; dkFinish(); }
-  }, 2500);
+    const scoreEl = document.getElementById('dk-score');
+    if (scoreEl) scoreEl.textContent = `${rotCount} rotted plank${rotCount !== 1 ? 's' : ''} remaining`;
+  }, 2000);
 }
 
 function dkTap(idx) {
   if (!_mg.running || _mg.planks[idx] !== 'rotted') return;
-  _mg.planks[idx] = 'fixed';
-  _mg.fixed++;
-  dkRenderPlanks();
+  _mg.health[idx]--;
+  const cell = document.querySelector(`#dk-grid .dk-plank[data-idx="${idx}"]`);
+  if (_mg.health[idx] <= 0) {
+    _mg.planks[idx] = 'fixed';
+    _mg.fixed++;
+    if (cell) { cell.className = cell.className.replace(/dk-rotted|dk-spreading/, 'dk-fixed'); const pips = cell.querySelector('.dk-pips'); if (pips) pips.remove(); }
+  } else {
+    if (cell) { cell.classList.add('dk-hit'); dkSetHealth(cell, _mg.health[idx]); setTimeout(() => cell.classList.remove('dk-hit'), 200); }
+  }
   const rotCount = _mg.planks.filter(p => p === 'rotted').length;
-  const score = document.getElementById('dk-score');
-  if (score) score.textContent = `${rotCount} rotted plank${rotCount !== 1 ? 's' : ''} remaining`;
+  const scoreEl = document.getElementById('dk-score');
+  if (scoreEl) scoreEl.textContent = `${rotCount} rotted plank${rotCount !== 1 ? 's' : ''} remaining`;
   if (rotCount === 0) { clearInterval(_mg.timerId); clearInterval(_mg.spreadTimer); _mg.running = false; dkFinish(); }
 }
 
 function dkRenderPlanks() {
   for (let i = 0; i < DK_TOTAL; i++) {
-    const cell = document.querySelector(`[data-idx="${i}"].dk-plank`);
-    if (cell) cell.className = `dk-plank dk-${_mg.planks[i]}`;
+    const cell = document.querySelector(`#dk-grid .dk-plank[data-idx="${i}"]`);
+    if (!cell) continue;
+    const row = Math.floor(i / DK_COLS);
+    const stagger = row % 2 === 1 ? 'dk-stagger' : '';
+    const grain = cell.dataset.grain || '0';
+    cell.className = `dk-plank dk-${_mg.planks[i]} ${stagger} dk-grain-${grain}`;
+    cell.dataset.grain = grain;
+    if (_mg.planks[i] === 'rotted') {
+      dkSetHealth(cell, _mg.health[i]);
+    } else {
+      const pips = cell.querySelector('.dk-pips');
+      if (pips) pips.remove();
+    }
   }
 }
 

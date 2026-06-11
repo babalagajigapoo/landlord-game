@@ -1820,15 +1820,51 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
 .dk-timer-track { height:6px;background:#333;border-radius:3px;overflow:hidden;margin-bottom:5px; }
 .dk-timer-fill  { height:100%;width:100%;background:#8D6E63;border-radius:3px;transition:width 0.05s linear,background 0.4s; }
 .dk-score { font-size:0.82rem;color:#aaa;text-align:center; }
-.dk-arena { flex:1;min-height:0;padding:10px; }
-.dk-grid { width:100%;height:100%;display:grid;grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(6,1fr);gap:5px; }
-.dk-plank { border-radius:4px;cursor:pointer;transition:background 0.2s,transform 0.1s;border:1px solid rgba(0,0,0,0.2); }
-.dk-plank:active { transform:scale(0.94); }
-.dk-ok      { background:linear-gradient(180deg,#D4A96A 0%,#8D6040 50%,#C8A06A 100%); }
-.dk-rotted  { background:linear-gradient(180deg,#5A3A18 0%,#8B2500 50%,#5A3A18 100%);box-shadow:inset 0 0 8px rgba(0,0,0,0.6);animation:dk-pulse 1.2s ease-in-out infinite; }
-.dk-spreading { background:linear-gradient(180deg,#7A4A28,#A03500);animation:dk-pulse 0.8s ease-in-out infinite; }
-.dk-fixed   { background:linear-gradient(180deg,#E8D4A0 0%,#C8A870 50%,#D4B880 100%);box-shadow:inset 0 1px 3px rgba(255,255,255,0.2); }
-@keyframes dk-pulse { 0%,100%{filter:brightness(1)} 50%{filter:brightness(1.3)} }
+.dk-arena { flex:1;min-height:0;padding:8px;overflow:hidden; }
+.dk-grid {
+  width:100%; height:100%;
+  display:grid;
+  grid-template-columns: repeat(4,1fr);
+  grid-template-rows: repeat(7,1fr);
+  gap:4px;
+}
+/* Stagger every other row like real deck boards */
+.dk-stagger { transform: translateX(12%); }
+
+/* Base plank — long horizontal board look */
+.dk-plank {
+  border-radius: 3px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.1s, filter 0.15s;
+  border-top: 1px solid rgba(255,255,255,0.12);
+  border-bottom: 2px solid rgba(0,0,0,0.35);
+}
+.dk-plank:active { transform: scale(0.93) !important; }
+
+/* Wood grain variants */
+.dk-ok.dk-grain-0 { background: linear-gradient(90deg, #C8934A 0%, #D4A96A 18%, #B87840 35%, #D4A96A 52%, #C09050 68%, #D4A96A 85%, #B87840 100%); }
+.dk-ok.dk-grain-1 { background: linear-gradient(90deg, #B87840 0%, #C8934A 22%, #D4B870 40%, #B87840 58%, #D4A96A 75%, #C09050 100%); }
+.dk-ok.dk-grain-2 { background: linear-gradient(90deg, #D4A96A 0%, #B87840 30%, #C8934A 50%, #D4B870 70%, #B87840 90%, #D4A96A 100%); }
+.dk-ok.dk-grain-3 { background: linear-gradient(90deg, #C09050 0%, #D4A96A 25%, #B07030 45%, #C8934A 65%, #D4A96A 80%, #C09050 100%); }
+
+/* Rotted — dark reddish with grain still visible */
+.dk-rotted { background: linear-gradient(90deg, #3A1A08 0%, #6B2500 20%, #4A1A08 40%, #8B3500 60%, #3A1A08 80%, #5A2000 100%) !important; box-shadow: inset 0 0 10px rgba(0,0,0,0.7); animation: dk-pulse 1s ease-in-out infinite; }
+.dk-hit { animation: dk-hit-flash 0.2s ease !important; }
+@keyframes dk-hit-flash { 0%,100%{filter:brightness(1)} 50%{filter:brightness(2) saturate(0.5)} }
+
+/* Fixed — fresh bright wood */
+.dk-fixed { background: linear-gradient(90deg, #E8D090 0%, #F0DC9A 25%, #D8C080 50%, #ECD494 75%, #E0C888 100%) !important; box-shadow: inset 0 1px 0 rgba(255,255,255,0.3); animation: none !important; }
+
+@keyframes dk-pulse { 0%,100%{filter:brightness(1) saturate(1)} 50%{filter:brightness(1.4) saturate(1.5)} }
+
+/* Tap health pips */
+.dk-pips { position:absolute;bottom:3px;left:50%;transform:translateX(-50%);display:flex;gap:3px;pointer-events:none; }
+.dk-pip { width:6px;height:6px;border-radius:50%;border:1px solid rgba(0,0,0,0.4); }
+.dk-pip-full  { background:#FF6B35; }
+.dk-pip-empty { background:rgba(0,0,0,0.3); }
+
 .dk-start-screen { position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.75); }
 .dk-start-card { background:#1A1008;border:2px solid #D4A96A;border-radius:16px;padding:28px 24px;text-align:center;max-width:280px;width:90%; }
 .dk-start-icon { font-size:2.5rem;margin-bottom:8px; }
