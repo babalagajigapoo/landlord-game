@@ -2079,10 +2079,13 @@ def api_advance():
                     s["log"].insert(0, {"day": current_day, "type": "renovate",
                         "text": f"{reno['name']} at {prop['type']} in {prop['neighborhood']} done — contractor payment of ${reno['cost']:,} due"})
                 else:
-                    # Tenant present at hire time — already paid upfront, record immediately
+                    # Paid upfront — record upgrade immediately
                     prop.setdefault("upgrades", {})[reno["upgrade_key"]] = {
                         "quality": reno["quality"], "day": reno["complete_day"]}
-                    prop["tenant"]["morale"] = min(100, prop["tenant"].get("morale", 50) + 8)
+                    if prop.get("tenant"):
+                        prop["tenant"]["morale"] = min(100, prop["tenant"].get("morale", 50) + 8)
+                    else:
+                        prop["reno_protected_until"] = current_day + 3
                     events.append({"prop": f"{prop['type']} — {prop['neighborhood']}",
                                     "text": f"✅ {reno['name']} finished! Grade {reno['tier_key']}",
                                     "type": "positive"})
