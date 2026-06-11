@@ -4177,12 +4177,29 @@ function cnFinish() {
 }
 
 // ── Mini-game: Power Washing ───────────────────────────────────────────────────
-// Dirty wall — drag finger to scrub away grime patches.
-const WS_COLS = 6, WS_ROWS = 8, WS_TOTAL = WS_COLS * WS_ROWS, WS_DURATION = 12;
+// Drag to blast grime off a house facade — roof angle clips top tiles,
+// door and windows are non-cleanable structure.
+const WS_COLS = 10, WS_ROWS = 16, WS_DURATION = 18;
 
 function launchWashGame(upgradeKey) {
   closeModal();
-  _mg = { locked: true, upgradeKey, running: false, timerId: null, cleaned: 0 };
+
+  // Classify every tile
+  const types = [];
+  let totalDirty = 0;
+  for (let r = 0; r < WS_ROWS; r++) {
+    for (let c = 0; c < WS_COLS; c++) {
+      const xf    = (c + 0.5) / WS_COLS;
+      const yRoof = Math.abs(xf - 0.5) * 0.40; // eaves at 20% of height, peak at top-center
+      if (r / WS_ROWS < yRoof)                                         { types.push('roof');      continue; }
+      if (c >= 4 && c <= 5 && r >= 12)                                 { types.push('door-tile'); continue; }
+      if (((c >= 1 && c <= 2) || (c >= 7 && c <= 8)) && r >= 5 && r <= 7) { types.push('winpane');   continue; }
+      types.push('wall');
+      totalDirty++;
+    }
+  }
+
+  _mg = { locked: true, upgradeKey, running: false, timerId: null, cleaned: 0, totalDirty };
 
   const old = document.getElementById('ws-overlay');
   if (old) old.remove();
@@ -4198,14 +4215,20 @@ function launchWashGame(upgradeKey) {
       <div class="ws-timer-track"><div class="ws-timer-fill" id="ws-timer-fill"></div></div>
       <div class="ws-score" id="ws-score">0% cleaned</div>
     </div>
-    <div class="ws-wall-wrap">
-      <div class="ws-grid" id="ws-grid"></div>
+    <div class="ws-scene">
+      <div class="ws-house-wrap">
+        <div class="ws-grid" id="ws-grid"></div>
+        <div class="ws-roof-cap"></div>
+        <div class="ws-door-frame"></div>
+        <div class="ws-win-frame ws-win-left"></div>
+        <div class="ws-win-frame ws-win-right"></div>
+      </div>
     </div>
     <div id="ws-start-screen" class="ws-start-screen">
       <div class="ws-start-card">
         <div class="ws-start-icon">💧</div>
         <div class="ws-start-title">Power Washing</div>
-        <div class="ws-start-desc">Drag your finger across the wall to blast away all the grime!</div>
+        <div class="ws-start-desc">Drag your finger to blast the grime off the house!</div>
         <button class="ws-start-btn" id="ws-start-btn">Start Job</button>
       </div>
     </div>
@@ -4213,45 +4236,41 @@ function launchWashGame(upgradeKey) {
   document.body.appendChild(overlay);
 
   const grid = document.getElementById('ws-grid');
-  for (let i = 0; i < WS_TOTAL; i++) {
+  for (let i = 0; i < types.length; i++) {
     const cell = document.createElement('div');
-    cell.className = 'ws-cell ws-dirty';
-    cell.dataset.idx = i;
+    cell.className = `ws-cell ws-${types[i]}`;
     grid.appendChild(cell);
   }
 
   let pressing = false;
-  grid.addEventListener('pointerdown', e => { pressing = true; wsClean(e); });
-  grid.addEventListener('pointermove', e => { if (pressing) wsClean(e); });
-  grid.addEventListener('pointerup',   () => { pressing = false; });
-  grid.addEventListener('touchstart',  e => { e.preventDefault(); pressing = true; wsCleanTouch(e); }, { passive: false });
-  grid.addEventListener('touchmove',   e => { e.preventDefault(); if (pressing) wsCleanTouch(e); }, { passive: false });
-  grid.addEventListener('touchend',    () => { pressing = false; });
+  const scene = overlay.querySelector('.ws-scene');
+  scene.addEventListener('pointerdown', e => { pressing = true; wsClean(e); });
+  scene.addEventListener('pointermove', e => { if (pressing) wsClean(e); });
+  scene.addEventListener('pointerup',   () => { pressing = false; });
+  scene.addEventListener('touchstart',  e => { e.preventDefault(); pressing = true; wsCleanTouch(e); }, { passive: false });
+  scene.addEventListener('touchmove',   e => { e.preventDefault(); if (pressing) wsCleanTouch(e); }, { passive: false });
+  scene.addEventListener('touchend',    () => { pressing = false; });
 
   document.getElementById('ws-start-btn').addEventListener('click', wsStart);
 }
 
 function wsClean(e) {
   if (!_mg.running) return;
-  const el = document.elementFromPoint(e.clientX, e.clientY);
-  wsCleanCell(el);
+  wsCleanCell(document.elementFromPoint(e.clientX, e.clientY));
 }
 function wsCleanTouch(e) {
   if (!_mg.running) return;
-  for (const t of e.touches) {
-    const el = document.elementFromPoint(t.clientX, t.clientY);
-    wsCleanCell(el);
-  }
+  for (const t of e.touches) wsCleanCell(document.elementFromPoint(t.clientX, t.clientY));
 }
 function wsCleanCell(el) {
-  if (!el || !el.classList.contains('ws-dirty')) return;
-  el.classList.remove('ws-dirty');
+  if (!el || !el.classList.contains('ws-wall')) return;
+  el.classList.remove('ws-wall');
   el.classList.add('ws-clean');
   _mg.cleaned++;
-  const pct = Math.round((_mg.cleaned / WS_TOTAL) * 100);
-  const score = document.getElementById('ws-score');
-  if (score) score.textContent = `${pct}% cleaned`;
-  if (_mg.cleaned >= WS_TOTAL) { clearInterval(_mg.timerId); _mg.running = false; wsFinish(); }
+  const pct = Math.round((_mg.cleaned / _mg.totalDirty) * 100);
+  const scoreEl = document.getElementById('ws-score');
+  if (scoreEl) scoreEl.textContent = `${pct}% cleaned`;
+  if (_mg.cleaned >= _mg.totalDirty) { clearInterval(_mg.timerId); _mg.running = false; wsFinish(); }
 }
 
 function wsStart() {
@@ -4272,7 +4291,7 @@ function wsStart() {
 function wsFinish() {
   clearInterval(_mg.timerId);
   _mg.running = false; _mg.locked = false;
-  const score = Math.min(100, Math.round((_mg.cleaned / WS_TOTAL) * 100));
+  const score = Math.min(100, Math.round((_mg.cleaned / _mg.totalDirty) * 100));
   const msg   = score >= 100 ? '🌟 Spotless!' : score >= 80 ? '✅ Nice and clean!' : score >= 50 ? '👍 Mostly clean!' : '💧 Still pretty grimy...';
   const overlay = document.getElementById('ws-overlay');
   if (overlay) {

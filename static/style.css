@@ -1751,27 +1751,112 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
 .cn-result-msg { font-size:1rem;color:#fff; }
 
 /* ─── Power Washing ───────────────────────────────────────────────────────────── */
-#ws-overlay { position:fixed;inset:0;height:100svh;height:-webkit-fill-available;z-index:10000;display:flex;flex-direction:column;background:#1A2A35;touch-action:none;user-select:none;overflow:hidden; }
-.ws-hud { flex-shrink:0;padding:10px 14px 6px;background:#111A22;border-bottom:2px solid #29B6F6; }
+#ws-overlay { position:fixed;inset:0;height:100svh;height:-webkit-fill-available;z-index:10000;display:flex;flex-direction:column;background:#0A1018;touch-action:none;user-select:none;overflow:hidden; }
+.ws-hud { flex-shrink:0;padding:10px 14px 6px;background:#060C12;border-bottom:2px solid #29B6F6; }
 .ws-hud-top { display:flex;align-items:center;justify-content:space-between;margin-bottom:6px; }
 .ws-title { font-size:1rem;font-weight:700;color:#29B6F6;letter-spacing:1px; }
 .ws-time-box { font-size:1.15rem;font-weight:700;color:#fff;background:#222;border:1px solid #555;border-radius:6px;padding:2px 10px; }
 .ws-timer-track { height:6px;background:#333;border-radius:3px;overflow:hidden;margin-bottom:5px; }
 .ws-timer-fill  { height:100%;width:100%;background:#29B6F6;border-radius:3px;transition:width 0.05s linear,background 0.4s; }
 .ws-score { font-size:0.82rem;color:#aaa;text-align:center; }
-.ws-wall-wrap { flex:1;min-height:0;padding:10px; }
-.ws-grid { width:100%;height:100%;display:grid;grid-template-columns:repeat(6,1fr);grid-template-rows:repeat(8,1fr);gap:3px; }
-.ws-cell { border-radius:3px;transition:background 0.15s; }
-.ws-dirty { background:radial-gradient(circle at 40% 40%,#5A4A30,#3A2A18);box-shadow:inset 0 1px 3px rgba(0,0,0,0.5); }
-.ws-clean { background:#E8F4F8;box-shadow:inset 0 1px 2px rgba(41,182,246,0.2); }
+
+/* Scene — centers the house */
+.ws-scene {
+  flex:1; display:flex; align-items:center; justify-content:center;
+  padding:10px; min-height:0; background:#0A1018;
+}
+
+/* House shape — clip-path creates peaked roof at top */
+.ws-house-wrap {
+  position:relative;
+  height:100%; max-width:100%;
+  aspect-ratio:10/16;
+  clip-path: polygon(50% 0%, 100% 20%, 100% 100%, 0% 100%, 0% 20%);
+  background:#D4C4A0; /* siding color — shows through transparent roof tiles */
+  overflow:hidden;
+}
+
+/* Full-area tile grid, no gaps */
+.ws-grid {
+  position:absolute; inset:0;
+  display:grid;
+  grid-template-columns:repeat(10,1fr);
+  grid-template-rows:repeat(16,1fr);
+  gap:0;
+}
+
+/* Tile types */
+.ws-cell { transition:background 0.08s; }
+.ws-roof      { background:transparent; pointer-events:none; }
+.ws-wall      { background:radial-gradient(circle at 55% 35%, #5A4A28, #3A2812); cursor:crosshair; }
+.ws-clean     { background:linear-gradient(180deg,#DCD0A8 0%,#E8DEB8 55%,#C8BC90 100%); box-shadow:inset 0 -1px 0 rgba(0,0,0,0.12); }
+.ws-door-tile { background:linear-gradient(180deg,#5C3318,#2A1205); }
+.ws-winpane   { background:linear-gradient(145deg,#A8C8E4 0%,#C8E0F4 50%,#88B0D0 100%); }
+
+/* Roof cap — covers tile area above the roofline with shingle look */
+.ws-roof-cap {
+  position:absolute; top:0; left:0; right:0; height:22%;
+  background:linear-gradient(180deg,#1A0E06 0%,#2E1A0C 50%,#3C2414 100%);
+  z-index:8; pointer-events:all;
+}
+
+/* Door */
+.ws-door-frame {
+  position:absolute;
+  left:40%; width:20%; bottom:0; height:25%;
+  background:linear-gradient(180deg,#6B3C1E 0%,#3A1E08 100%);
+  border:2px solid #8B5030; border-bottom:none;
+  border-radius:6px 6px 0 0;
+  z-index:5; pointer-events:all;
+}
+/* Doorknob */
+.ws-door-frame::before {
+  content:''; position:absolute;
+  right:14%; top:52%;
+  width:10%; padding-bottom:10%;
+  background:radial-gradient(circle at 35% 35%, #F0D060, #C89020);
+  border-radius:50%;
+}
+/* Door panel detail */
+.ws-door-frame::after {
+  content:''; position:absolute;
+  left:15%; right:15%; top:12%; bottom:45%;
+  border:2px solid rgba(255,255,255,0.15);
+  border-radius:3px;
+}
+
+/* Windows */
+.ws-win-frame {
+  position:absolute;
+  width:20%; height:19%; top:31.25%;
+  background:#A8C8E8;
+  border:4px solid #F0F0F0;
+  border-radius:3px;
+  z-index:5; pointer-events:all;
+  overflow:hidden;
+}
+.ws-win-left  { left:10%; }
+.ws-win-right { left:70%; }
+/* Mullion cross */
+.ws-win-frame::before {
+  content:''; position:absolute;
+  left:50%; top:0; bottom:0; width:3px;
+  background:rgba(255,255,255,0.8); transform:translateX(-50%);
+}
+.ws-win-frame::after {
+  content:''; position:absolute;
+  top:50%; left:0; right:0; height:3px;
+  background:rgba(255,255,255,0.8); transform:translateY(-50%);
+}
+
 .ws-start-screen { position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.75); }
-.ws-start-card { background:#1A2A35;border:2px solid #29B6F6;border-radius:16px;padding:28px 24px;text-align:center;max-width:280px;width:90%; }
+.ws-start-card { background:#0A1018;border:2px solid #29B6F6;border-radius:16px;padding:28px 24px;text-align:center;max-width:280px;width:90%; }
 .ws-start-icon { font-size:2.5rem;margin-bottom:8px; }
 .ws-start-title { font-size:1.1rem;font-weight:700;color:#29B6F6;margin-bottom:8px; }
 .ws-start-desc { font-size:0.82rem;color:#ccc;line-height:1.5;margin-bottom:18px; }
 .ws-start-btn { background:#29B6F6;color:#111;font-weight:700;font-size:0.95rem;border:none;border-radius:10px;padding:12px 28px;cursor:pointer;width:100%; }
 .ws-result-overlay { position:absolute;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.7); }
-.ws-result-card { background:#1A2A35;border:2px solid #29B6F6;border-radius:20px;padding:32px 28px;text-align:center;min-width:200px; }
+.ws-result-card { background:#0A1018;border:2px solid #29B6F6;border-radius:20px;padding:32px 28px;text-align:center;min-width:200px; }
 .ws-result-score { font-size:3.5rem;font-weight:900;color:#29B6F6; }
 .ws-result-label { font-size:0.85rem;color:#888;margin-bottom:10px;text-transform:uppercase;letter-spacing:1px; }
 .ws-result-msg { font-size:1rem;color:#fff; }
