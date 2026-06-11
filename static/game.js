@@ -1504,18 +1504,16 @@ function renderJobs() {
     labelEl.style.color = energy === 0 ? 'var(--negative)' : energy <= 3 ? 'var(--warning)' : 'var(--text-muted)';
   }
   el.innerHTML = `
-  <div class="card" style="display:flex;align-items:center;gap:14px">
+  <div class="card" style="display:flex;align-items:center;gap:14px;opacity:0.6">
     <div style="font-size:34px;line-height:1">💼</div>
     <div style="flex:1">
       <div style="font-size:15px;font-weight:800">Side Jobs</div>
       <div style="font-size:12px;color:var(--text-muted);margin-top:2px">
-        ${jobs.length > 0
-          ? `${jobs.length} job${jobs.length !== 1 ? 's' : ''} available · ${available} you can take`
-          : 'No jobs — advance the day for new listings'}
+        🚧 Coming soon — check back later!
       </div>
     </div>
-    <button class="btn btn-primary btn-sm" onclick="showJobsModal()" ${jobs.length === 0 ? 'disabled style="opacity:0.4"' : ''}>
-      Browse →
+    <button class="btn btn-primary btn-sm" disabled style="opacity:0.4;cursor:not-allowed">
+      Locked
     </button>
   </div>`;
 }
@@ -4179,7 +4177,7 @@ function cnFinish() {
 // ── Mini-game: Power Washing ───────────────────────────────────────────────────
 // Drag to blast grime off a house facade — roof angle clips top tiles,
 // door and windows are non-cleanable structure.
-const WS_COLS = 10, WS_ROWS = 16, WS_DURATION = 18;
+const WS_COLS = 10, WS_ROWS = 16, WS_DURATION = 9;
 
 function launchWashGame(upgradeKey) {
   closeModal();
