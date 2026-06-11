@@ -1940,7 +1940,7 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
 @keyframes dk-hit-flash { 0%,100%{filter:brightness(1)} 50%{filter:brightness(2) saturate(0.5)} }
 
 /* Fixed — fresh bright wood */
-.dk-fixed { background: linear-gradient(90deg, #E8D090 0%, #F0DC9A 25%, #D8C080 50%, #ECD494 75%, #E0C888 100%) !important; box-shadow: inset 0 1px 0 rgba(255,255,255,0.3); animation: none !important; }
+.dk-fixed { background: linear-gradient(90deg, #C8934A 0%, #D4A96A 20%, #B87840 38%, #D4A96A 55%, #C09050 72%, #D4A96A 88%, #B87840 100%) !important; box-shadow: inset 0 1px 0 rgba(255,255,255,0.15); animation: none !important; }
 
 @keyframes dk-pulse { 0%,100%{filter:brightness(1) saturate(1)} 50%{filter:brightness(1.4) saturate(1.5)} }
 
