@@ -1,5 +1,12 @@
 // ── State ─────────────────────────────────────────────────────────────────────
 let state           = null;
+
+function starterSquatterActive() {
+  return !!(state?.properties?.find(p => p.squatter?.starter));
+}
+function firstSaleDone() {
+  return (state?.level || 0) >= 1;
+}
 let marketListings  = [];
 let marketHoodOpen  = {};   // tracks which hood sections are expanded; undefined = open
 let currentFinTab   = 'bank'; // active sub-tab inside Finances
@@ -12,6 +19,12 @@ let _pendingConfirm = null;
 
 // ── Mini-game state ───────────────────────────────────────────────────────────
 let _mg             = {};   // active mini-game state
+let _modalLocked          = false; // true while event flow is in progress (repairs/morale/tax/etc.)
+let _propDetailId         = null;  // id of the property currently open in detail modal
+let _inPropSubModal       = false; // true when a sub-modal inside a property detail is open
+let _propHoodOpen         = {};    // { 'Maplewood Heights': false } — collapsed neighborhoods
+let _propHoodTab          = {};    // { 'Maplewood Heights': 'vacant' } — active sub-tab per hood
+let _pendingLevelUp       = null;  // new level number waiting to be shown after all other modals
 let _pendingRepairs       = [];   // repair events queued after advancing
 let _currentRepair        = null; // repair being handled right now
 let _pendingJob           = null; // side job being played
@@ -46,13 +59,13 @@ const DAILY_ENERGY    = 10;  // fallback only; real max comes from state.max_ene
 const DAYS_PER_YEAR   = DAYS_PER_SEASON * 4;  // 112
 
 const PLAYER_HOME_DATA = [
-  { key: 'moms_basement', name: "The Shed",         icon: '🛖',  cost:       0, max_energy: 10, recharge:  2, desc: "Your in-laws' backyard shed. No rent, no dignity." },
-  { key: 'studio_apt',    name: 'Studio Apartment', icon: '🏠',  cost:    80000, max_energy: 12, recharge:  4, desc: 'Your own place — finally.' },
-  { key: 'starter_house', name: 'Starter House',    icon: '🏡',  cost:   150000, max_energy: 14, recharge:  6, desc: 'A real house with a yard. Moving up!' },
-  { key: 'modern_condo',  name: 'Modern Condo',     icon: '🏢',  cost:   200000, max_energy: 16, recharge:  8, desc: 'High-rise living with city views.' },
-  { key: 'suburban_home', name: 'Suburban Home',    icon: '🏘️',  cost:   500000, max_energy: 18, recharge: 10, desc: 'Quiet neighborhood, big garage.' },
-  { key: 'luxury_villa',  name: 'Mansion',          icon: '🏛️',  cost:  1000000, max_energy: 20, recharge: 12, desc: "Sprawling estate. You've made it." },
-  { key: 'mansion',       name: 'Castle',           icon: '🏰',  cost: 10000000, max_energy: 30, recharge: 30, desc: 'Absolute excess. Full energy, every single day.' },
+  { key: 'grandmas_basement', name: "Grandma's Basement", icon: '🛋️', cost:       0, max_energy:  8, recharge:  1, unlock_level:  0, desc: "Grandma's got a cot, a leaky fridge, and opinions about your life choices. Free rent — if you can survive the casserole." },
+  { key: 'small_apt',         name: 'Small Apartment',    icon: '🏠',  cost:   80000, max_energy: 10, recharge:  3, unlock_level:  1, desc: 'Thin walls, no dishwasher, and a neighbor who practices drums at midnight. Still yours.' },
+  { key: 'condo',             name: 'Condo',              icon: '🏢',  cost:  150000, max_energy: 12, recharge:  5, unlock_level:  3, desc: 'An HOA fee and a parking sticker — welcome to adulthood.' },
+  { key: 'small_home',        name: 'Small Home',         icon: '🏡',  cost:  250000, max_energy: 15, recharge:  7, unlock_level:  5, desc: 'A real yard. A real mortgage. A real lawn to mow at 7am on a Saturday.' },
+  { key: 'suburban_home',     name: 'Suburban Home',      icon: '🏘️',  cost:  400000, max_energy: 18, recharge: 11, unlock_level:  7, desc: 'Cul-de-sac living with a two-car garage and a wave-hello relationship with the neighbors.' },
+  { key: 'luxury_villa',      name: 'Luxury Villa',       icon: '🏛️',  cost:  750000, max_energy: 24, recharge: 19, unlock_level:  9, desc: 'Heated floors, a wine cellar, and someone else mows the lawn.' },
+  { key: 'mansion',           name: 'Mansion',            icon: '🏰',  cost: 1500000, max_energy: 58, recharge: 60, unlock_level: 12, desc: "You have a butler named Gerald and a room you've never entered. Peak existence." },
 ];
 
 function getSeasonInfo(day) {
@@ -92,6 +105,7 @@ const RESET_FLAG = 'landlord_reset_taxman_v1';
 
 function checkForcedReset() {
   if (localStorage.getItem(RESET_FLAG)) return false;  // already wiped, skip
+  if (!localStorage.getItem('landlord_save')) return false;  // brand new player, nothing to wipe
   return true;
 }
 
@@ -149,8 +163,112 @@ async function init() {
     showForcedResetScreen();
     return;
   }
-  setupNav();          // nav first — independent of async data
+  setupNav();
   await refreshState();
+  if (!state.intro_seen) {
+    showIntroScreen();
+    return;
+  }
+  await loadMarket();
+  renderAll();
+}
+
+function showIntroScreen() {
+  if (!document.getElementById('intro-styles')) {
+    const s = document.createElement('style');
+    s.id = 'intro-styles';
+    s.textContent = `
+      @keyframes introBtnReveal {
+        from { opacity:0; transform:translate(-50%,-50%) scale(0.9); }
+        to   { opacity:1; transform:translate(-50%,-50%) scale(1);   }
+      }
+      @keyframes introBtnPulse {
+        0%,100% { opacity:1;    transform:translate(-50%,-50%) scale(1);    }
+        50%     { opacity:0.25; transform:translate(-50%,-50%) scale(0.96); }
+      }
+      #intro-btn.visible {
+        animation: introBtnReveal 1.2s ease forwards,
+                   introBtnPulse  2.4s ease-in-out 1.2s infinite;
+        pointer-events: auto !important;
+      }
+    `;
+    document.head.appendChild(s);
+  }
+
+  const overlay = document.createElement('div');
+  overlay.id = 'intro-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;height:100svh;height:-webkit-fill-available;z-index:10000;background:#0d0d0d;overflow:hidden;';
+  overlay.innerHTML = `
+    <div style="height:100%;max-width:480px;margin:0 auto;padding:28px 24px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between;">
+
+      <div style="text-align:center">
+        <div style="font-size:22px;line-height:1;margin-bottom:6px">🏚️</div>
+        <div style="font-family:'Rubik Dirt',cursive;font-size:40px;color:#b8a898;line-height:1;letter-spacing:0.01em">SlumLord</div>
+        <div style="font-family:'Great Vibes',cursive;font-size:30px;color:#e8ddd0;line-height:1.1">Special</div>
+        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.16em;color:#444;margin-top:5px">Work In Progress</div>
+      </div>
+
+      <p style="font-size:11px;color:#444;font-style:italic;text-align:center;margin:0">tap tap tap</p>
+
+      <p style="font-size:13px;color:#e8e8e8;line-height:1.55;margin:0">
+        <strong style="color:#fff">"Hey. Hey! Wake up."</strong>
+      </p>
+
+      <p style="font-size:12px;color:#666;line-height:1.55;margin:0">
+        Grandma's at the top of the basement stairs, dish towel over her shoulder, already judging you.
+      </p>
+
+      <p style="font-size:13px;color:#e8e8e8;line-height:1.55;margin:0">
+        <strong style="color:#fff">"You can stay down here as long as you like. This is your home too."</strong> A pause. <strong style="color:#fff">"Lord knows you don't have another one."</strong>
+      </p>
+
+      <p style="font-size:12px;color:#666;line-height:1.55;margin:0">
+        She reaches into her apron and pulls out a wrinkled envelope.
+      </p>
+
+      <p style="font-size:13px;color:#e8e8e8;line-height:1.55;margin:0">
+        <strong style="color:#fff">"I remember when you were little — you'd point at those beat-up apartments on Elm Street and say you were gonna own all of them someday and charge people too much to live there. You were seven. I was worried. But here we are."</strong>
+      </p>
+
+      <p style="font-size:13px;color:#e8e8e8;line-height:1.55;margin:0">
+        <strong style="color:#fff">"I'm leaving you the deed to my old place in Midtown. There's a squatter in it. Police went by twice — useless. You'll have to handle that yourself."</strong>
+      </p>
+
+      <p style="font-size:13px;color:#e8e8e8;line-height:1.55;margin:0">
+        <strong style="color:#fff">"Get them out and the house is yours. Start that little slumlord empire you always dreamed about."</strong> A slow shake of the head. <strong style="color:#fff">"Still not sure where I went wrong."</strong>
+      </p>
+
+      <p style="font-size:12px;color:#666;line-height:1.55;margin:0">She heads back upstairs.</p>
+
+      <p style="font-size:13px;color:#e8e8e8;line-height:1.55;margin:0">
+        <strong style="color:#fff">"My casserole's almost ready. Come up when you're done feeling sorry for yourself."</strong>
+      </p>
+
+    </div>
+
+    <button id="intro-btn" onclick="dismissIntro()"
+      style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+             opacity:0;pointer-events:none;
+             padding:20px 56px;background:var(--primary);color:#fff;
+             border:none;border-radius:16px;font-size:19px;font-weight:800;
+             cursor:pointer;white-space:nowrap;letter-spacing:0.03em;
+             box-shadow:0 8px 36px rgba(0,0,0,0.8);
+             -webkit-tap-highlight-color:transparent">
+      I'm Ready
+    </button>`;
+
+  document.body.appendChild(overlay);
+
+  setTimeout(() => {
+    const btn = document.getElementById('intro-btn');
+    if (btn) btn.classList.add('visible');
+  }, 10000);
+}
+
+async function dismissIntro() {
+  await api('/intro/seen', 'POST');
+  const overlay = document.getElementById('intro-overlay');
+  if (overlay) overlay.remove();
   await loadMarket();
   renderAll();
 }
@@ -160,9 +278,16 @@ async function refreshState() {
   state = await api('/state');
   updateHeader();
   if (prevLevel !== null && state.level > prevLevel) {
-    showLevelUpToast(state.level);
-    await loadMarket();  // reload market since new neighborhoods may have unlocked
+    _pendingLevelUp = state.level;
+    await loadMarket();
     renderMarket();
+    // Show immediately only if no modal is currently open (non-advance flow)
+    if (!document.getElementById('modal-overlay').classList.contains('open')) {
+      const lvl   = _pendingLevelUp;
+      _pendingLevelUp = null;
+      showLevelUpModal(lvl);
+    }
+    // Otherwise: continueFromEvents or closeModal will pick it up
   }
 }
 
@@ -197,21 +322,54 @@ function updateHeader() {
 }
 
 // ── Level-up ──────────────────────────────────────────────────────────────────
-const LEVEL_HOOD_NAMES = ['', 'Midtown', 'Northside', 'Westwood', 'Riverside', 'Newbay'];
-const LEVEL_HOME_NAMES = ['', '', 'Studio Apartment', '', 'Starter House', '', 'Modern Condo', '', 'Suburban Home', '', 'Mansion', '', 'Castle', '', ''];
+const LEVEL_UNLOCKS = {
+  1:  { joke: "I've sold Grandma's old house. I think I'm ready to take these slums over.",
+        unlocks: ["🏪 The Market is open — you can now buy properties", "🔨 Renovations unlocked — hire contractors on any property", "🧰 DIY unlocked for Landscaping & Interior Paint", "🏠 Small Apartment available in Personal → Homes ($80,000)", "🌆 Midtown neighborhood open"] },
+  2:  { joke: "Two whole levels in. Still no idea what you're doing. Confidence unaffected.",
+        unlocks: ["🌆 Northside neighborhood unlocked in the Market", "📚 Flooring Installation Class available in Personal → Skill Classes (⚡10)", "📚 Window Installation Class available in Personal → Skill Classes (⚡10)"] },
+  3:  { joke: "An HOA fee and a parking sticker. Congratulations, you're basically an adult.",
+        unlocks: ["🌆 Westwood neighborhood unlocked in the Market", "🏢 Condo home available in Personal → Homes ($150,000)", "📚 Remodeling Class available in Personal → Skill Classes (⚡12)"] },
+  4:  { joke: "I'm ready to patch more roofs than I have friends. This is fine.",
+        unlocks: ["🌊 Riverside neighborhood unlocked in the Market", "📚 HVAC System Course available in Personal → Skill Classes (⚡14)", "📚 Roof Replacement Course available in Personal → Skill Classes (⚡14)"] },
+  5:  { joke: "Premium upgrades unlocked. Because apparently your tenants deserve slightly nicer things.",
+        unlocks: ["🌆 Newbay neighborhood unlocked in the Market", "🏡 Small Home available in Personal → Homes ($250,000)", "⭐ Premium Upgrades unlocked on all properties"] },
+  6:  { joke: "No new shiny things this level. Just respect. And money. Mostly money.",
+        unlocks: ["📈 Pure progression — keep building your empire"] },
+  7:  { joke: "A cul-de-sac and a two-car garage. You're practically a suburb now.",
+        unlocks: ["🏘️ Suburban Home available in Personal → Homes ($400,000)"] },
+  8:  { joke: "The bank calls you by your first name. That's either a great sign or a sign you owe them money.",
+        unlocks: ["📈 Keep scaling — the premium districts are yours to dominate"] },
+  9:  { joke: "Heated floors. A wine cellar. Someone else mows the lawn. You made it.",
+        unlocks: ["🏛️ Luxury Villa available in Personal → Homes ($750,000)"] },
+  10: { joke: "Double digits. Gerald can already smell the ambition from here.",
+        unlocks: ["📈 Endgame territory — maximize every income stream"] },
+  11: { joke: "The Mansion is one level away. Try not to trip over your own net worth.",
+        unlocks: ["📈 Almost there — one more push for the Mansion"] },
+  12: { joke: "There's a room in the Mansion you've never entered. Gerald has been living there.",
+        unlocks: ["🏰 Mansion available in Personal → Homes ($1,500,000)"] },
+  13: { joke: "Thirteen. The city is basically yours at this point. Don't tell the tenants.",
+        unlocks: ["📈 The empire is yours — squeeze every dollar from it"] },
+  14: { joke: "Maximum level. You built an empire from a basement casserole. Grandma is complicated about it.",
+        unlocks: ["🏆 Max level reached — the empire is complete"] },
+};
 
-function showLevelUpToast(newLevel) {
-  const hood = LEVEL_HOOD_NAMES[newLevel] || null;
-  const home = LEVEL_HOME_NAMES[newLevel] || null;
-  let unlocks = [];
-  if (hood) unlocks.push(`🏙️ ${hood}`);
-  if (home) unlocks.push(`🏠 ${home}`);
-  const unlockLine = unlocks.length ? `<br><small style="opacity:0.85">Unlocked: ${unlocks.join(' · ')}</small>` : '';
-  const el = document.createElement('div');
-  el.className = 'toast success level-up-toast';
-  el.innerHTML = `<span>⭐</span>Level ${newLevel} Reached!${unlockLine}`;
-  document.getElementById('toast-container').appendChild(el);
-  setTimeout(() => el.remove(), 5000);
+function showLevelUpModal(newLevel) {
+  const data    = LEVEL_UNLOCKS[newLevel] || { joke: "Something unlocked. Probably important.", unlocks: [] };
+  const listHtml = data.unlocks.map(u => `
+    <div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:16px;line-height:1.4">${u.split(' ')[0]}</span>
+      <span style="font-size:13px;color:var(--text)">${u.split(' ').slice(1).join(' ')}</span>
+    </div>`).join('');
+  openModal(`
+    <div class="modal-handle"></div>
+    <div style="text-align:center;padding:16px 0 8px">
+      <div style="font-size:52px;line-height:1">⭐</div>
+      <div style="font-size:24px;font-weight:900;margin-top:8px;color:var(--primary)">Level ${newLevel}!</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-top:6px;font-style:italic">${data.joke}</div>
+    </div>
+    <div style="margin:12px 0 4px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted)">What's unlocked</div>
+    <div style="border-top:1px solid var(--border)">${listHtml}</div>
+    <button class="btn btn-primary btn-full mt-8" onclick="closeModal()">Let's Go! 🚀</button>`);
 }
 
 // ── Navigation ────────────────────────────────────────────────────────────────
@@ -219,6 +377,20 @@ function setupNav() {
   document.querySelectorAll('.nav-btn').forEach(btn => {
     btn.addEventListener('click', () => navTo(btn.dataset.page));
   });
+  slideNavIndicator('dashboard');
+}
+
+function slideNavIndicator(page) {
+  const indicator = document.getElementById('nav-indicator');
+  if (!indicator) return;
+  const btns = Array.from(document.querySelectorAll('.nav-btn'));
+  const idx  = btns.findIndex(b => b.dataset.page === page);
+  if (idx >= 0) {
+    indicator.style.opacity   = '1';
+    indicator.style.transform = `translateX(${idx * 100}%)`;
+  } else {
+    indicator.style.opacity = '0';
+  }
 }
 
 function navTo(page) {
@@ -229,8 +401,10 @@ function navTo(page) {
   const btnEl  = document.querySelector(`.nav-btn[data-page="${page}"]`);
   if (pageEl) pageEl.classList.add('active');
   if (btnEl)  btnEl.classList.add('active');
+  slideNavIndicator(page);
   if (page === 'finances') renderFinances();
   if (page === 'settings') renderSettings();
+  if (page === 'personal') renderPersonal();
 }
 
 // ── Render All ────────────────────────────────────────────────────────────────
@@ -240,6 +414,7 @@ function renderAll() {
   renderProperties();
   if (currentPage === 'settings') renderSettings();
   if (currentPage === 'finances') renderFinances();
+  if (currentPage === 'personal') renderPersonal();
 }
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
@@ -265,6 +440,24 @@ function renderDashboard() {
       <div class="condition-bar" style="margin-top:8px">
         <div class="condition-fill cond-great" style="width:${(s.seasonDay / DAYS_PER_SEASON) * 100}%"></div>
       </div>`;
+  }
+
+  // Advance button lock state
+  const advBtn = document.querySelector('.next-month-btn');
+  if (advBtn) {
+    const locked = starterSquatterActive();
+    advBtn.disabled = locked;
+    advBtn.style.opacity = locked ? '0.45' : '';
+    let note = document.getElementById('squatter-advance-note');
+    if (locked && !note) {
+      note = document.createElement('div');
+      note.id = 'squatter-advance-note';
+      note.style.cssText = 'text-align:center;font-size:12px;color:var(--negative);margin-top:6px;font-weight:700';
+      note.textContent = '🚨 Get rid of the squatter before advancing time';
+      advBtn.insertAdjacentElement('afterend', note);
+    } else if (!locked && note) {
+      note.remove();
+    }
   }
 
   // Side jobs
@@ -397,7 +590,6 @@ async function buyProperty(id) {
 async function refreshMarketListings() {
   const data = await api('/market/refresh', 'POST');
   marketListings = data.listings || [];
-  marketHoodOpen = {};   // reset — all sections open after a day advance
   renderMarket();
 }
 
@@ -405,24 +597,75 @@ async function refreshMarketListings() {
 function renderProperties() {
   const el = document.getElementById('property-list');
   if (!el) return;
-  const homeCard = playerHomeCardHtml();
   if (!state.properties || state.properties.length === 0) {
-    el.innerHTML = homeCard + `<div class="empty-state">
+    el.innerHTML = `<div class="empty-state">
       <div class="empty-icon">🏗️</div>
       <div class="empty-text">No rental properties yet</div>
       <div class="empty-sub">Head to the Market tab to buy your first property</div>
     </div>`;
     return;
   }
-  el.innerHTML = homeCard + state.properties.map(p => portfolioCardHtml(p)).join('');
+
+  // Group by neighborhood
+  const byHood = {};
+  state.properties.forEach(p => {
+    if (!byHood[p.neighborhood]) byHood[p.neighborhood] = [];
+    byHood[p.neighborhood].push(p);
+  });
+
+  el.innerHTML = Object.entries(byHood).map(([hood, props]) => {
+    const isOpen  = _propHoodOpen[hood] !== false; // default open
+    const rented  = props.filter(p =>  p.tenant);
+    const vacant  = props.filter(p => !p.tenant);
+    // Default to rented tab if there are rented props, otherwise vacant
+    const tab     = _propHoodTab[hood] || (rented.length > 0 ? 'rented' : 'vacant');
+    const shown   = tab === 'rented' ? rented : vacant;
+    const hoodId  = hood.replace(/\s+/g, '_');
+
+    return `
+    <div class="hood-section">
+      <div class="hood-header" onclick="toggleHoodSection('${hood}')">
+        <span class="hood-name">${hood}</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:11px;color:var(--text-muted)">${props.length} prop${props.length !== 1 ? 's' : ''}</span>
+          <span class="hood-chevron">${isOpen ? '▲' : '▼'}</span>
+        </div>
+      </div>
+      ${isOpen ? `
+      <div class="hood-tabs">
+        <button class="hood-tab ${tab === 'vacant' ? 'active' : ''}" onclick="switchHoodTab('${hood}','vacant');event.stopPropagation()">
+          ⚪ Vacant <span class="hood-tab-count">${vacant.length}</span>
+        </button>
+        <button class="hood-tab ${tab === 'rented' ? 'active' : ''}" onclick="switchHoodTab('${hood}','rented');event.stopPropagation()">
+          👤 Rented <span class="hood-tab-count">${rented.length}</span>
+        </button>
+      </div>
+      <div class="hood-props">
+        ${shown.length === 0
+          ? `<div class="hood-empty">No ${tab} properties in ${hood}</div>`
+          : shown.map(p => portfolioCardHtml(p)).join('')
+        }
+      </div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function toggleHoodSection(hood) {
+  _propHoodOpen[hood] = _propHoodOpen[hood] === false ? true : false;
+  renderProperties();
+}
+
+function switchHoodTab(hood, tab) {
+  _propHoodTab[hood] = tab;
+  renderProperties();
 }
 
 function playerHomeCardHtml() {
-  const homeKey = state.player_home || 'moms_basement';
-  const maxE    = state.max_energy || 10;
-  const recharge = state.energy_recharge || 2;
-  const home    = PLAYER_HOME_DATA.find(h => h.key === homeKey) || PLAYER_HOME_DATA[0];
-  const isMax   = homeKey === 'mansion';
+  const homeKey  = state.player_home || 'grandmas_basement';
+  const maxE     = state.max_energy || 6;
+  const recharge = state.energy_recharge || 1;
+  const home     = PLAYER_HOME_DATA.find(h => h.key === homeKey) || PLAYER_HOME_DATA[0];
+  const isMax    = homeKey === 'mansion';
   return `
   <div class="section-header" style="margin-bottom:8px">
     <span class="section-title">🏠 My Home</span>
@@ -446,13 +689,11 @@ function playerHomeCardHtml() {
 }
 
 function showPlayerHomeModal() {
-  const homeKey       = state.player_home || 'moms_basement';
+  const homeKey       = state.player_home || 'grandmas_basement';
   const currentIdx    = PLAYER_HOME_DATA.findIndex(h => h.key === homeKey);
   const current       = PLAYER_HOME_DATA[currentIdx] || PLAYER_HOME_DATA[0];
-  const unlockedKeys  = state.unlocked_homes || ['moms_basement'];
-  // Show all upgrades above current; mark locked ones
-  const allUpgrades   = PLAYER_HOME_DATA.slice(currentIdx + 1);
-  const upgrades      = allUpgrades;
+  const unlockedKeys  = state.unlocked_homes || ['grandmas_basement'];
+  const upgrades      = PLAYER_HOME_DATA.slice(currentIdx + 1);
 
   openModal(`
     <div class="modal-handle"></div>
@@ -482,7 +723,11 @@ function showPlayerHomeModal() {
          ${upgrades.map(h => {
            const isLocked  = !unlockedKeys.includes(h.key);
            const canAfford = !isLocked && state.cash >= h.cost;
-           const reqLevel  = PLAYER_HOME_DATA.indexOf(h); // 1-indexed unlock level
+           const reqLevel  = h.unlock_level || 0;
+           const hIdx      = PLAYER_HOME_DATA.indexOf(h);
+           const prev      = PLAYER_HOME_DATA[hIdx - 1];
+           const deltaE    = prev ? h.max_energy - prev.max_energy : h.max_energy;
+           const deltaR    = prev ? h.recharge   - prev.recharge   : h.recharge;
            return `
            <div class="card" style="margin-bottom:10px;opacity:${isLocked ? '0.45' : (!canAfford ? '0.6' : '1')}">
              <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
@@ -497,11 +742,11 @@ function showPlayerHomeModal() {
              </div>
              <div style="display:flex;gap:8px;margin-bottom:10px">
                <div style="flex:1;text-align:center;padding:6px;background:var(--surface-2);border-radius:6px">
-                 <div style="font-size:15px;font-weight:800;color:var(--positive)">⚡ ${h.max_energy}</div>
+                 <div style="font-size:15px;font-weight:800;color:var(--positive)">${deltaE > 0 ? '+' : ''}${deltaE} ⚡ max</div>
                  <div style="font-size:10px;color:var(--text-muted)">Max Energy</div>
                </div>
                <div style="flex:1;text-align:center;padding:6px;background:var(--surface-2);border-radius:6px">
-                 <div style="font-size:15px;font-weight:800;color:var(--primary)">+${h.recharge}/day</div>
+                 <div style="font-size:15px;font-weight:800;color:var(--primary)">${deltaR > 0 ? '+' : ''}${deltaR}/day</div>
                  <div style="font-size:10px;color:var(--text-muted)">Daily Recharge</div>
                </div>
              </div>
@@ -522,8 +767,264 @@ async function moveIn(homeKey) {
   closeModal();
   await refreshState();
   renderAll();
+  renderPersonal();
   const home = PLAYER_HOME_DATA.find(h => h.key === homeKey);
   toast(`🏠 Moved into ${home ? home.name : 'new home'}! Energy max & recharge increased.`);
+}
+
+// ── Personal Tab ──────────────────────────────────────────────────────────────
+
+const STORE_ITEM_DATA = [
+  { key: 'coffee_maker', name: 'Coffee Maker', icon: '☕',  cost:  499, bonus: '+2 ⚡ max energy',   desc: 'A decent drip machine. Never run on empty again.' },
+  { key: 'new_bed',      name: 'New Bed',       icon: '🛏️', cost: 4999, bonus: '+1 ⚡/day recharge', desc: 'Memory foam. You wake up ready to hustle.' },
+];
+
+const DIY_CLASS_DATA = [
+  { key: 'flooring_class', name: 'Flooring Installation Class', icon: '🪵', energy: 10, unlock_level: 2, unlocks: ['flooring'],             desc: 'Learn to lay hardwood and tile yourself.' },
+  { key: 'windows_class',  name: 'Window Installation Class',   icon: '🪟', energy: 10, unlock_level: 2, unlocks: ['windows'],              desc: 'Master framing, sealing, and fitting new windows.' },
+  { key: 'remodel_class',  name: 'Remodeling Class',            icon: '🛠️', energy: 12, unlock_level: 3, unlocks: ['bathrooms', 'kitchen'], desc: 'Full course covering bathroom and kitchen remodels.' },
+  { key: 'hvac_class',     name: 'HVAC System Course',          icon: '❄️', energy: 14, unlock_level: 4, unlocks: ['hvac'],                 desc: 'Certification-level HVAC installation and maintenance.' },
+  { key: 'roof_class',     name: 'Roof Replacement Course',     icon: '🏠', energy: 14, unlock_level: 4, unlocks: ['roof'],                 desc: 'Safety and technique for full residential roof replacement.' },
+];
+
+// Maps upgrade key → the DIY class required; landscaping + paint are always free at lvl 1+
+const DIY_REQUIRES_CLASS = {
+  flooring:  'flooring_class',
+  windows:   'windows_class',
+  bathrooms: 'remodel_class',
+  kitchen:   'remodel_class',
+  hvac:      'hvac_class',
+  roof:      'roof_class',
+};
+
+function diyUnlocked(upgradeKey) {
+  if ((state.level || 0) < 1) return false;
+  if (upgradeKey === 'landscaping' || upgradeKey === 'paint') return true;
+  const classKey = DIY_REQUIRES_CLASS[upgradeKey];
+  return classKey ? !!((state.diy_classes || {})[classKey]) : true;
+}
+
+let _personalOpen = { homes: false, classes: false, store: false };
+
+function renderPersonal() {
+  const el = document.getElementById('page-personal');
+  if (!el || !state) return;
+
+  const homeKey      = state.player_home || 'grandmas_basement';
+  const current      = PLAYER_HOME_DATA.find(h => h.key === homeKey) || PLAYER_HOME_DATA[0];
+  const currentIdx   = PLAYER_HOME_DATA.indexOf(current);
+  const unlockedKeys = state.unlocked_homes || ['grandmas_basement'];
+  const ownedItems   = state.owned_items || {};
+  const maxE         = state.max_energy || 6;
+  const recharge     = state.energy_recharge || 1;
+  const curEnergy    = state.energy ?? 0;
+  const diyClasses   = state.diy_classes || {};
+
+  // ── Home upgrade rows ─────────────────────────────────────────
+  const homeRows = PLAYER_HOME_DATA.map((h, idx) => {
+    const isCurrent  = h.key === homeKey;
+    const isPast     = idx < currentIdx;
+    const isUnlocked = unlockedKeys.includes(h.key);
+    const canAfford  = !isCurrent && !isPast && isUnlocked && state.cash >= h.cost;
+    const lockLevel  = h.unlock_level || 0;
+    const prev       = PLAYER_HOME_DATA[idx - 1];
+    const deltaE     = prev ? h.max_energy - prev.max_energy : 0;
+    const deltaR     = prev ? h.recharge   - prev.recharge   : 0;
+
+    const opacity = isCurrent ? '1' : isPast ? '0.4' : !isUnlocked ? '0.4' : !canAfford ? '0.65' : '1';
+
+    let badge = '';
+    if (isCurrent)     badge = `<span style="background:var(--primary);color:#fff;border-radius:5px;font-size:10px;padding:2px 7px;font-weight:700">CURRENT</span>`;
+    else if (!isUnlocked) badge = `<span style="background:#555;color:#fff;border-radius:5px;font-size:10px;padding:2px 7px;font-weight:700">🔒 LVL ${lockLevel}</span>`;
+
+    let actionBtn = '';
+    if (!isCurrent && !isPast) {
+      if (!isUnlocked) {
+        actionBtn = `<button class="btn btn-ghost btn-sm" disabled style="font-size:11px">Lvl ${lockLevel}</button>`;
+      } else if (!canAfford) {
+        actionBtn = `<button class="btn btn-ghost btn-sm" disabled style="font-size:11px">Need ${fmt(h.cost)}</button>`;
+      } else {
+        actionBtn = `<button class="btn btn-primary btn-sm" onclick="moveIn('${h.key}')" style="font-size:11px">Move In</button>`;
+      }
+    }
+
+    const statLine = idx === 0
+      ? `⚡${h.max_energy} max · +${h.recharge}/day recharge`
+      : `${deltaE >= 0 ? '+' : ''}${deltaE}⚡ max · ${deltaR >= 0 ? '+' : ''}${deltaR}/day recharge`;
+
+    return `
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);opacity:${opacity}">
+      <div style="font-size:22px;line-height:1;flex-shrink:0">${isUnlocked || isCurrent ? h.icon : '🔒'}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="font-size:13px;font-weight:800">${h.name}</span>
+          ${badge}
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px;line-height:1.4">${isUnlocked || isCurrent ? h.desc : `Unlocks at Level ${lockLevel}`}</div>
+        <div style="font-size:10px;color:var(--text-muted);margin-top:3px;font-weight:700">${statLine}</div>
+      </div>
+      <div style="flex-shrink:0">
+        ${h.cost > 0 && !isCurrent && !isPast ? `<div style="font-size:11px;font-weight:800;color:var(--primary);text-align:right;margin-bottom:3px">${fmt(h.cost)}</div>` : ''}
+        ${actionBtn}
+      </div>
+    </div>`;
+  }).join('');
+
+  // ── Class rows ─────────────────────────────────────────────────
+  const classRows = DIY_CLASS_DATA.map(cls => {
+    const owned       = !!diyClasses[cls.key];
+    const levelOk     = (state.level || 0) >= cls.unlock_level;
+    const hasEnergy   = curEnergy >= cls.energy;
+    const canBuy      = !owned && levelOk && hasEnergy;
+    const unlockLabel = cls.unlocks.map(k => {
+      const names = { landscaping:'Landscaping', paint:'Interior Paint', flooring:'New Flooring',
+                      windows:'New Windows', bathrooms:'Bathroom Remodel', kitchen:'Kitchen Remodel',
+                      hvac:'HVAC System', roof:'Roof Replacement' };
+      return names[k] || k;
+    }).join(' & ');
+
+    const opacity = owned ? '0.6' : !levelOk ? '0.4' : '1';
+
+    let badge = '';
+    if (owned)        badge = `<span style="background:var(--positive);color:#fff;border-radius:5px;font-size:10px;padding:2px 7px;font-weight:700">✓ Done</span>`;
+    else if (!levelOk) badge = `<span style="background:#555;color:#fff;border-radius:5px;font-size:10px;padding:2px 7px;font-weight:700">🔒 LVL ${cls.unlock_level}</span>`;
+
+    let actionBtn = '';
+    if (owned) {
+      actionBtn = `<button class="btn btn-ghost btn-sm" disabled style="font-size:11px;opacity:0.5">Done</button>`;
+    } else if (!levelOk) {
+      actionBtn = `<button class="btn btn-ghost btn-sm" disabled style="font-size:11px">Lvl ${cls.unlock_level}</button>`;
+    } else if (canBuy) {
+      actionBtn = `<button class="btn btn-primary btn-sm" onclick="buyDiyClass('${cls.key}')" style="font-size:11px">Enroll ⚡${cls.energy}</button>`;
+    } else {
+      actionBtn = `<button class="btn btn-ghost btn-sm" disabled style="font-size:11px;color:var(--negative)">Need ⚡${cls.energy}</button>`;
+    }
+
+    return `
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);opacity:${opacity}">
+      <div style="font-size:22px;line-height:1;flex-shrink:0">${!levelOk ? '🔒' : cls.icon}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="font-size:13px;font-weight:800">${cls.name}</span>
+          ${badge}
+        </div>
+        ${levelOk && !owned ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px;line-height:1.4">${cls.desc}</div>` : ''}
+        <div style="font-size:10px;color:var(--text-muted);margin-top:2px;font-weight:700">
+          ${!levelOk ? `Unlocks at Level ${cls.unlock_level}` : `Unlocks: ${unlockLabel}`}
+        </div>
+      </div>
+      <div style="flex-shrink:0">${actionBtn}</div>
+    </div>`;
+  }).join('');
+
+  // ── Store rows ─────────────────────────────────────────────────
+  const squatterBlocked = starterSquatterActive();
+  const storeRows = STORE_ITEM_DATA.map(item => {
+    const owned      = !!ownedItems[item.key];
+    const isLocked   = squatterBlocked && !owned;
+    const canAfford  = !owned && !isLocked && state.cash >= item.cost;
+
+    let actionBtn = '';
+    if (owned) {
+      actionBtn = `<button class="btn btn-ghost btn-sm" disabled style="font-size:11px;opacity:0.5">Owned</button>`;
+    } else if (isLocked) {
+      actionBtn = `<button class="btn btn-ghost btn-sm" disabled style="font-size:11px">🚨 Later</button>`;
+    } else if (canAfford) {
+      actionBtn = `<button class="btn btn-primary btn-sm" onclick="buyStoreItem('${item.key}')" style="font-size:11px">Buy ${fmt(item.cost)}</button>`;
+    } else {
+      actionBtn = `<button class="btn btn-ghost btn-sm" disabled style="font-size:11px">Need ${fmt(item.cost)}</button>`;
+    }
+
+    return `
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);${owned ? 'opacity:0.6' : ''}">
+      <div style="font-size:22px;line-height:1;flex-shrink:0">${item.icon}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="font-size:13px;font-weight:800">${item.name}</span>
+          ${owned ? `<span style="background:var(--positive);color:#fff;border-radius:5px;font-size:10px;padding:2px 7px;font-weight:700">✓ Owned</span>` : ''}
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:1px">${item.desc}</div>
+        <div style="font-size:11px;font-weight:700;color:var(--primary);margin-top:1px">${item.bonus}</div>
+      </div>
+      <div style="flex-shrink:0">${actionBtn}</div>
+    </div>`;
+  }).join('');
+
+  // ── Hood-section builder ───────────────────────────────────────
+  const personalSection = (id, title, content, meta) => {
+    const isOpen = !!_personalOpen[id];
+    return `
+    <div class="hood-section" style="margin-bottom:10px">
+      <div class="hood-header" onclick="togglePersonalSection('${id}')">
+        <span class="hood-name">${title}</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:11px;color:var(--text-muted)">${meta}</span>
+          <span class="hood-chevron">${isOpen ? '▲' : '▼'}</span>
+        </div>
+      </div>
+      ${isOpen ? `<div>${content}</div>` : ''}
+    </div>`;
+  };
+
+  const homesUnlocked = unlockedKeys.length;
+  const classesCount  = Object.keys(diyClasses).length;
+  const storeOwned    = STORE_ITEM_DATA.filter(i => ownedItems[i.key]).length;
+
+  el.innerHTML = `
+    <div style="padding:12px;max-width:480px;margin:0 auto">
+
+      <div class="hood-section" style="margin-bottom:10px">
+        <div style="padding:14px">
+          <div style="display:flex;align-items:center;gap:14px">
+            <div style="font-size:34px;line-height:1;flex-shrink:0">${current.icon}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:3px">Your Home</div>
+              <div style="font-size:16px;font-weight:900">${current.name}</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0">
+              <div style="font-size:10px;color:var(--text-muted);margin-bottom:2px">Energy</div>
+              <div style="font-size:20px;font-weight:900;color:var(--positive);line-height:1">⚡${curEnergy}<span style="font-size:11px;color:var(--text-muted)">/${maxE}</span></div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <div style="flex:1;padding:7px;background:var(--surface-2);border-radius:8px;text-align:center">
+              <div style="font-size:15px;font-weight:900;color:var(--positive)">⚡ ${maxE}</div>
+              <div style="font-size:10px;color:var(--text-muted)">Max Energy</div>
+            </div>
+            <div style="flex:1;padding:7px;background:var(--surface-2);border-radius:8px;text-align:center">
+              <div style="font-size:15px;font-weight:900;color:var(--primary)">+${recharge}/day</div>
+              <div style="font-size:10px;color:var(--text-muted)">Daily Recharge</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      ${personalSection('homes',   '🏡 Home Upgrades', homeRows,  `${homesUnlocked}/${PLAYER_HOME_DATA.length} unlocked`)}
+      ${personalSection('classes', '📚 Skill Classes', classRows, `${classesCount}/${DIY_CLASS_DATA.length} done`)}
+      ${personalSection('store',   '🛒 Personal Store', storeRows, `${storeOwned}/${STORE_ITEM_DATA.length} owned`)}
+
+    </div>`;
+}
+
+function togglePersonalSection(id) {
+  _personalOpen[id] = !_personalOpen[id];
+  renderPersonal();
+}
+
+async function buyStoreItem(itemKey) {
+  const res = await api('/store/buy_item', 'POST', { item_key: itemKey });
+  if (res.error) { toast(res.error, 'warning'); return; }
+  await refreshState();
+  renderPersonal();
+  toast(`${res.item} purchased!`);
+}
+
+async function buyDiyClass(classKey) {
+  const res = await api('/education/buy_class', 'POST', { class_key: classKey });
+  if (res.error) { toast(res.error, 'warning'); return; }
+  await refreshState();
+  renderPersonal();
+  toast(`${res.class_name} completed! New DIY skills unlocked.`);
 }
 
 function portfolioCardHtml(p) {
@@ -587,6 +1088,8 @@ function portfolioCardHtml(p) {
 async function showPropertyDetail(id) {
   const prop = state.properties.find(p => p.id === id);
   if (!prop) return;
+  _propDetailId   = id;
+  _inPropSubModal = false;
 
   const [upgData, premData] = await Promise.all([
     api(`/property/${id}/upgrades`),
@@ -650,12 +1153,15 @@ async function showPropertyDetail(id) {
   const tenantSection = prop.squatter
     ? `<div class="card" style="margin-bottom:10px;border:2px solid #EF9A9A">
         <div class="section-header mb-0"><span class="section-title" style="color:#C62828">🚨 Squatters Present</span></div>
-        <p style="margin-top:8px;font-size:13px;color:var(--text-muted)">Someone has moved in without permission and isn't paying rent. You can't rent out or renovate until they're gone.</p>
+        <p style="margin-top:8px;font-size:13px;color:var(--text-muted)">${prop.squatter.starter
+          ? `Grandma left the property to me — but apparently someone settled in before I could get the keys. She said clear them out and it's mine. Honestly, given the condition they've left it in, selling as-is might be the smarter move.`
+          : `Someone has moved in without permission and isn't paying rent. You can't rent out or renovate until they're gone.`
+        }</p>
         <div class="money-row" style="margin-top:10px"><span class="mr-label">Their Asking Price to Leave</span><span class="mr-value" style="color:#C62828">${fmt(prop.squatter.bribe)}</span></div>
         <div class="btn-row" style="margin-top:10px">
           <button class="btn btn-danger btn-sm" onclick="briberSquatter(${id})">💸 Pay ${fmt(prop.squatter.bribe)} to Remove</button>
         </div>
-        <p style="font-size:11px;color:var(--text-muted);margin-top:8px">Or wait — they may leave on their own eventually.</p>
+        ${prop.squatter.starter ? '' : `<p style="font-size:11px;color:var(--text-muted);margin-top:8px">Or wait — they may leave on their own eventually.</p>`}
       </div>`
     : prop.tenant
     ? (() => {
@@ -815,24 +1321,30 @@ async function showPropertyDetail(id) {
     ${renoInProgress}
     ${tenantSection}
     <div class="section-header"><span class="section-title">Renovations</span></div>
-    ${prop.pending_reno
-      ? '<p class="text-muted" style="margin-bottom:8px">Renovation already in progress.</p>'
-      : prop.squatter
-      ? '<p class="text-muted" style="margin-bottom:8px">Remove squatters before renovating.</p>'
-      : prop.tenant && prop.scheduled_reno
-      ? '<p class="text-muted" style="margin-bottom:8px">Work is scheduled — one renovation at a time.</p>'
-      : prop.tenant
-      ? '<p class="text-muted" style="margin-bottom:8px">Tenant in residence — tap an upgrade to schedule a maintenance window. Contractor only.</p>'
-      : ''}
-    ${scheduledRenoHtml}
-    ${cooldownHtml}
-    ${upgData.pending_reno ? `<div style="margin-top:8px"><div class="section-title" style="font-size:11px;margin-bottom:6px;color:#1565C0">IN PROGRESS</div>
-      <div class="upgrade-grid"><div class="upgrade-card" style="border-color:#1565C0;background:#E3F2FD">
-        <div class="upgrade-icon">${upgData.pending_reno.icon}</div>
-        <div class="upgrade-name">${upgData.pending_reno.name}</div>
-        <div class="upgrade-quality" style="color:#1565C0">🔨 ${Math.max(0, upgData.pending_reno.complete_day - state.day)}d left</div>
-      </div></div></div>` : ''}
-    ${!prop.pending_reno && upgData.available.length > 0 ? `<div style="margin-top:8px"><div class="section-title" style="font-size:11px;margin-bottom:6px;color:var(--text-muted)">${prop.tenant && !prop.scheduled_reno ? 'TAP TO SCHEDULE' : 'AVAILABLE'}</div>${availHtml}</div>` : ''}
+    ${state.level < 1
+      ? `<div class="card" style="text-align:center;padding:18px 16px;margin-bottom:8px;opacity:0.75">
+           <div style="font-size:28px;margin-bottom:6px">🔒</div>
+           <div style="font-weight:800;font-size:14px">Locked</div>
+           <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Sell your starter property to reach Level 1 and unlock renovations</div>
+         </div>`
+      : `${prop.pending_reno
+          ? '<p class="text-muted" style="margin-bottom:8px">Renovation already in progress.</p>'
+          : prop.squatter
+          ? '<p class="text-muted" style="margin-bottom:8px">Remove squatters before renovating.</p>'
+          : prop.tenant && prop.scheduled_reno
+          ? '<p class="text-muted" style="margin-bottom:8px">Work is scheduled — one renovation at a time.</p>'
+          : prop.tenant
+          ? '<p class="text-muted" style="margin-bottom:8px">Tenant in residence — tap an upgrade to schedule a maintenance window. Contractor only.</p>'
+          : ''}
+        ${scheduledRenoHtml}
+        ${cooldownHtml}
+        ${upgData.pending_reno ? `<div style="margin-top:8px"><div class="section-title" style="font-size:11px;margin-bottom:6px;color:#1565C0">IN PROGRESS</div>
+          <div class="upgrade-grid"><div class="upgrade-card" style="border-color:#1565C0;background:#E3F2FD">
+            <div class="upgrade-icon">${upgData.pending_reno.icon}</div>
+            <div class="upgrade-name">${upgData.pending_reno.name}</div>
+            <div class="upgrade-quality" style="color:#1565C0">🔨 ${Math.max(0, upgData.pending_reno.complete_day - state.day)}d left</div>
+          </div></div></div>` : ''}
+        ${!prop.pending_reno && upgData.available.length > 0 ? `<div style="margin-top:8px"><div class="section-title" style="font-size:11px;margin-bottom:6px;color:var(--text-muted)">${prop.tenant && !prop.scheduled_reno ? 'TAP TO SCHEDULE' : 'AVAILABLE'}</div>${availHtml}</div>` : ''}`}
     ${buildPremiumSection(id, premData, state.cash, !!prop.squatter, !!prop.tenant)}
     <div class="btn-row" style="margin-top:16px">
       <button class="btn btn-ghost btn-sm" onclick="closeModal()">← Back</button>
@@ -842,6 +1354,18 @@ async function showPropertyDetail(id) {
 // ── Premium Upgrades ─────────────────────────────────────────────────────────
 function buildPremiumSection(pid, premData, cash, hasSquatter = false, hasTenant = false) {
   const blocked = hasSquatter || !!(premData.pending_premium);
+
+  if ((state.level || 0) < 5) {
+    return `
+    <div class="section-header" style="margin-top:16px">
+      <span class="section-title">⭐ Premium Upgrades</span>
+    </div>
+    <div class="card" style="text-align:center;padding:18px 16px;opacity:0.75">
+      <div style="font-size:28px;margin-bottom:6px">🔒</div>
+      <div style="font-weight:800;font-size:14px">Locked until Level 5</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Keep leveling up to unlock premium upgrades</div>
+    </div>`;
+  }
 
   if (hasSquatter) {
     return `
@@ -976,6 +1500,7 @@ async function showScheduleRenoModal(propId, upgradeKey) {
   const upgData = await api(`/property/${propId}/upgrades`);
   const upg     = upgData.available.find(u => u.key === upgradeKey);
   if (!upg) { toast('Upgrade not found', 'error'); return; }
+  _inPropSubModal = true;
 
   // Stable tenant window — same day until the player advances
   const availDay = getTenantAvailDay(propId);
@@ -1048,7 +1573,7 @@ async function showScheduleRenoModal(propId, upgradeKey) {
       </div>`;
     }).join('')}
 
-    <button class="btn btn-ghost btn-sm btn-full mt-8" onclick="closeModal()">Cancel</button>`);
+    <button class="btn btn-ghost btn-sm btn-full mt-8" onclick="backToProperty()">Cancel</button>`);
 }
 
 async function confirmScheduleReno(propId, upgradeKey, contractorKey, startDay) {
@@ -1056,6 +1581,7 @@ async function confirmScheduleReno(propId, upgradeKey, contractorKey, startDay) 
     upgrade_key: upgradeKey, contractor_key: contractorKey, start_day: startDay,
   });
   if (res.error) { toast(res.error, 'error'); return; }
+  _inPropSubModal = true;
   const daysOut = startDay - state.day;
   openModal(`
     <div class="modal-handle"></div>
@@ -1067,12 +1593,13 @@ async function confirmScheduleReno(propId, upgradeKey, contractorKey, startDay) 
       <div style="font-size:13px;color:var(--text-muted)">contractors arrive · in ${daysOut} day${daysOut !== 1 ? 's' : ''}</div>
     </div>
     <div class="money-row"><span class="mr-label">Cash Remaining</span><span class="mr-value">${fmt(res.cash)}</span></div>
-    <button class="btn btn-primary btn-full mt-8" onclick="closeModal()">Got It</button>`);
+    <button class="btn btn-primary btn-full mt-8" onclick="backToProperty()">Got It</button>`);
   await refreshState();
   renderAll();
 }
 
 function showSchedulePremiumModal(propId, upgradeKey, cost, days, name, icon) {
+  _inPropSubModal = true;
   // Stable tenant window — same day until the player advances
   const availDay = getTenantAvailDay(propId);
   const daysOut  = availDay - state.day;
@@ -1108,7 +1635,7 @@ function showSchedulePremiumModal(propId, upgradeKey, cost, days, name, icon) {
       style="${!canAfford ? 'opacity:0.5;cursor:not-allowed' : ''}">
       ${canAfford ? `📅 Schedule · ${fmt(cost)}` : `Need ${fmt(cost)} — have ${fmt(state.cash)}`}
     </button>
-    <button class="btn btn-ghost btn-sm btn-full mt-8" onclick="closeModal()">Cancel</button>`);
+    <button class="btn btn-ghost btn-sm btn-full mt-8" onclick="backToProperty()">Cancel</button>`);
 }
 
 async function confirmSchedulePremium(propId, upgradeKey, startDay) {
@@ -1116,6 +1643,7 @@ async function confirmSchedulePremium(propId, upgradeKey, startDay) {
     upgrade_key: upgradeKey, start_day: startDay,
   });
   if (res.error) { toast(res.error, 'error'); return; }
+  _inPropSubModal = true;
   const daysOut = startDay - state.day;
   openModal(`
     <div class="modal-handle"></div>
@@ -1127,7 +1655,7 @@ async function confirmSchedulePremium(propId, upgradeKey, startDay) {
       <div style="font-size:13px;color:var(--text-muted)">workers arrive · in ${daysOut} day${daysOut !== 1 ? 's' : ''}</div>
     </div>
     <div class="money-row"><span class="mr-label">Cash Remaining</span><span class="mr-value">${fmt(res.cash)}</span></div>
-    <button class="btn btn-primary btn-full mt-8" onclick="closeModal()">Got It</button>`);
+    <button class="btn btn-primary btn-full mt-8" onclick="backToProperty()">Got It</button>`);
   await refreshState();
   renderAll();
 }
@@ -1174,6 +1702,7 @@ async function showTenantsModal(id) {
     toast('Reach Level 1 first — sell your starter property!', 'error');
     return;
   }
+  _inPropSubModal = true;
   const prop = state.properties.find(p => p.id === id);
   openModal(`<div class="modal-handle"></div><div class="modal-title">Find a Tenant</div><p class="text-muted">Loading applicants…</p>`);
 
@@ -1289,9 +1818,10 @@ async function showTenantsModal(id) {
       <div class="tenant-card" onclick="showRentSettingModal(${id}, ${t.idx})">
         <div class="tenant-header">
           <span class="tenant-icon">${t.icon}</span>
-          <div>
+          <div style="flex:1">
             <div class="tenant-name">${t.name}</div>
-            <div style="font-size:11px;color:var(--text-muted)">${t.stay_min}–${t.stay_max} day base lease</div>
+            ${t.desc ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px;line-height:1.4">${t.desc}</div>` : ''}
+            <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${t.stay_min}–${t.stay_max} day base lease</div>
           </div>
         </div>
         <div class="tenant-meta">
@@ -1305,7 +1835,7 @@ async function showTenantsModal(id) {
           </div>
         </div>
       </div>`).join('')}
-    <button class="btn btn-ghost btn-sm btn-full mt-8" onclick="closeModal()">Cancel</button>`);
+    <button class="btn btn-ghost btn-sm btn-full mt-8" onclick="backToProperty()">Cancel</button>`);
 }
 
 // Tier definitions: multiplier of fair rent
@@ -1454,8 +1984,9 @@ function launchMgByType(mgType, upgradeKey) {
 }
 
 async function showContractorModal(propId, upgradeKey) {
-  pendingUpgrade = { propId, upgradeKey };
-  const upgData  = await api(`/property/${propId}/upgrades`);
+  pendingUpgrade  = { propId, upgradeKey };
+  _inPropSubModal = true;
+  const upgData   = await api(`/property/${propId}/upgrades`);
   const upg      = upgData.available.find(u => u.key === upgradeKey);
   if (!upg) return;
 
@@ -1465,8 +1996,25 @@ async function showContractorModal(propId, upgradeKey) {
   const hasEnergy  = energy >= ec;
   const energyDots = `⚡ ${energy}/${maxE} remaining`;
   const ecPips     = '⚡'.repeat(ec) + '<span style="opacity:0.2">⚡</span>'.repeat(Math.max(0, 4 - ec));
+  const canDIY     = diyUnlocked(upgradeKey);
 
-  const diyCard = hasEnergy
+  // Find which class unlocks this upgrade (for the locked hint)
+  const reqClass   = DIY_CLASS_DATA.find(c => c.unlocks.includes(upgradeKey));
+
+  const diyCard = !canDIY
+    ? `<div class="contractor-card" style="border-color:var(--border);opacity:0.6;margin-bottom:8px">
+        <div class="contractor-header">
+          <span class="contractor-icon">🔒</span>
+          <span class="contractor-name">Do It Yourself</span>
+          <span class="contractor-cost" style="color:var(--text-muted)">Locked</span>
+        </div>
+        <div class="contractor-desc" style="color:var(--text-muted)">
+          ${reqClass
+            ? `Complete the <strong>${reqClass.name}</strong> in Personal → Skill Classes to unlock DIY for this.`
+            : 'Reach Level 1 to unlock DIY renovations.'}
+        </div>
+      </div>`
+    : hasEnergy
     ? `<div class="contractor-card" style="border-color:var(--primary);margin-bottom:8px" onclick="startDIY('${upgradeKey}')">
         <div class="contractor-header">
           <span class="contractor-icon">🧰</span>
@@ -1523,7 +2071,7 @@ async function showContractorModal(propId, upgradeKey) {
         <div class="contractor-quality">Grade range: ${c.tier_range || 'F – S+'} · ⏱ ${days} day${days !== 1 ? 's' : ''}</div>
       </div>`;
     }).join('')}
-    <button class="btn btn-ghost btn-sm btn-full mt-8" onclick="closeModal()">Cancel</button>`);
+    <button class="btn btn-ghost btn-sm btn-full mt-8" onclick="backToProperty()">Cancel</button>`);
 }
 
 function startDIY(upgradeKey) {
@@ -1541,6 +2089,7 @@ async function finishDIY(upgradeKey, score) {
   if (res.error) { toast(res.error, 'error'); await refreshState(); renderAll(); return; }
   // Update energy immediately from response so header reflects it right away
   if (res._state) state.energy = res._state.energy;
+  _inPropSubModal = true;
   const tColor    = tierColor(res.quality_tier);
   openModal(`
     <div class="modal-handle"></div>
@@ -1553,7 +2102,7 @@ async function finishDIY(upgradeKey, score) {
     <div class="money-row"><span class="mr-label">New Condition</span><span class="mr-value" style="color:${tierColor(condTier(res.condition))};font-weight:900">${condTier(res.condition)}</span></div>
     <div class="money-row"><span class="mr-label">New Market Value</span><span class="mr-value green">${fmt(res.market_value)}</span></div>
     <div class="money-row"><span class="mr-label">New Weekly Rent</span><span class="mr-value green">${fmt(res.weekly_rent)}/wk</span></div>
-    <button class="btn btn-primary btn-full mt-8" onclick="closeModal()">Done</button>`);
+    <button class="btn btn-primary btn-full mt-8" onclick="backToProperty()">Done</button>`);
   await refreshState();
   renderAll();
 }
@@ -1569,7 +2118,8 @@ async function hireContractor(contractorKey) {
   const { propId, upgradeKey } = pendingUpgrade;
   const res = await api('/renovate', 'POST', { prop_id: propId, upgrade_key: upgradeKey, contractor_key: contractorKey });
   if (res.error) { toast(res.error, 'error'); return; }
-  pendingUpgrade = null;
+  pendingUpgrade  = null;
+  _inPropSubModal = true;
   const d = res.duration;
   const isDeferred = res.deferred_payment;
   openModal(`
@@ -1586,7 +2136,7 @@ async function hireContractor(contractorKey) {
            💸 Payment due when work is complete — come back and pay then.</div>`
       : `<div class="money-row"><span class="mr-label">Cash Remaining</span><span class="mr-value">${fmt(res.cash)}</span></div>`
     }
-    <button class="btn btn-primary btn-full mt-8" onclick="closeModal()">Got It</button>`);
+    <button class="btn btn-primary btn-full mt-8" onclick="backToProperty()">Got It</button>`);
   await refreshState();
   renderAll();
 }
@@ -5390,6 +5940,10 @@ function rtTap() {
 
 // ── Advance Time ──────────────────────────────────────────────────────────────
 async function advanceDays(days) {
+  if (starterSquatterActive()) {
+    toast("There's still a squatter in your house. That's not going away on its own.", 'warning');
+    return;
+  }
   const res = await api('/advance', 'POST', { days });
   const s   = getSeasonInfo(res.day);
   const eventsHtml = res.events.length === 0
@@ -5434,6 +5988,7 @@ async function advanceDays(days) {
         ? `Review Leases (${_pendingRenewalOffers.length})`
         : 'Continue';
 
+  if (totalPending > 0 || _pendingTaxEvent) _modalLocked = true;
   openModal(`
     <div class="modal-handle"></div>
     <div class="modal-title">${s.icon} ${s.name} · Day ${s.seasonDay}</div>
@@ -5468,7 +6023,13 @@ function continueFromEvents() {
     const te = _pendingTaxEvent;
     _pendingTaxEvent = null;
     showTaxModal(te);
+  } else if (_pendingLevelUp) {
+    _modalLocked = false;
+    const lvl   = _pendingLevelUp;
+    _pendingLevelUp = null;
+    showLevelUpModal(lvl);
   } else {
+    _modalLocked = false;
     closeModal();
   }
 }
@@ -5518,7 +6079,7 @@ async function briberSquatter(propId) {
 
 // ── Tax Modal ─────────────────────────────────────────────────────────────────
 function showTaxModal(taxEvent) {
-  _mg.locked = true;   // prevent dismiss by tapping outside
+  _modalLocked = true;   // prevent dismiss by tapping outside
   const amount = taxEvent.amount;
   const income = taxEvent.flip_income;
   openModal(`
@@ -5548,7 +6109,7 @@ function showTaxModal(taxEvent) {
 async function payTaxes() {
   const res = await api('/pay_taxes', 'POST', {});
   if (res.error) { toast(res.error, 'error'); return; }
-  _mg.locked = false;
+  _modalLocked = false;
   await refreshState();
   renderAll();
   closeModal();
@@ -5558,7 +6119,7 @@ async function payTaxes() {
 async function fileTaxExtension() {
   const res = await api('/file_tax_extension', 'POST', {});
   if (res.error) { toast(res.error, 'error'); return; }
-  _mg.locked = false;
+  _modalLocked = false;
   await refreshState();
   renderAll();
   closeModal();
@@ -5818,6 +6379,15 @@ function renderFinances() {
 function renderTaxes() {
   const el = document.getElementById('fin-taxes');
   if (!el) return;
+  if (!firstSaleDone()) {
+    el.innerHTML = `
+      <div style="padding:32px 20px;text-align:center">
+        <div style="font-size:44px;margin-bottom:12px">🔒</div>
+        <div style="font-size:15px;font-weight:800;margin-bottom:8px">Taxes Locked</div>
+        <div style="font-size:13px;color:var(--text-muted);line-height:1.6;max-width:280px;margin:0 auto">You have to actually make money before Uncle Sam cares where it went. Go sell something.</div>
+      </div>`;
+    return;
+  }
   const s          = getLocalState();
   if (!s) return;
   const flipIncome = s.tax_year_flip_income || 0;
@@ -5876,6 +6446,21 @@ function renderTaxes() {
 }
 
 async function renderBank() {
+  if (!firstSaleDone()) {
+    const note = starterSquatterActive()
+      ? "I could deposit this... but then I'd have nothing left to bribe the squatter with. Savings account can wait."
+      : "A savings account with nothing in it. Bold strategy. Sell the house first.";
+    const lockHtml = `
+      <div style="padding:32px 20px;text-align:center">
+        <div style="font-size:44px;margin-bottom:12px">🔒</div>
+        <div style="font-size:15px;font-weight:800;margin-bottom:8px">Bank Locked</div>
+        <div style="font-size:13px;color:var(--text-muted);line-height:1.6;max-width:280px;margin:0 auto">${note}</div>
+      </div>`;
+    document.getElementById('bank-savings-section').innerHTML = lockHtml;
+    document.getElementById('bank-loans-section').innerHTML = '';
+    document.getElementById('bank-products-section').innerHTML = '';
+    return;
+  }
   const data = await api('/bank/products');
   const bank = state.bank || { savings: 0, loans: [] };
   const tier = state.savings_tier || data.savings_tiers[0];
@@ -6140,10 +6725,13 @@ function confirmReset() {
       await api('/reset', 'POST');
       closeModal();
       await refreshState();
-      await loadMarket();
-      renderAll();
-      navTo('dashboard');
-      toast('New game started!');
+      if (!state.intro_seen) {
+        showIntroScreen();
+      } else {
+        await loadMarket();
+        renderAll();
+        navTo('dashboard');
+      }
     }
   );
 }
@@ -6409,12 +6997,36 @@ function openModal(html) {
   content.innerHTML = html;
   document.getElementById('modal-overlay').classList.add('open');
   const handle = content.querySelector('.modal-handle');
-  if (handle) handle.addEventListener('click', closeModal, { once: true });
+  if (handle) handle.addEventListener('click', () => {
+    if (_modalLocked || _mg.locked) return;
+    if (_inPropSubModal) backToProperty(); else closeModal();
+  }, { once: true });
 }
 
 function closeModal() {
   document.getElementById('modal-overlay').classList.remove('open');
   _pendingConfirm = null;
+  _propDetailId   = null;
+  _inPropSubModal = false;
+  if (_pendingLevelUp && !_modalLocked) {
+    const lvl   = _pendingLevelUp;
+    _pendingLevelUp = null;
+    setTimeout(() => showLevelUpModal(lvl), 80);
+  }
+}
+
+function backToProperty() {
+  const id = _propDetailId;
+  _inPropSubModal = false;
+  // If a level-up is waiting, show it before going back to property
+  if (_pendingLevelUp && !_modalLocked) {
+    const lvl   = _pendingLevelUp;
+    _pendingLevelUp = null;
+    showLevelUpModal(lvl);
+    return;
+  }
+  if (id != null) showPropertyDetail(id);
+  else closeModal();
 }
 
 function runConfirm() {
@@ -6434,8 +7046,10 @@ function showConfirmModal(title, subtitle, onConfirm) {
 }
 
 document.getElementById('modal-overlay').addEventListener('click', function(e) {
-  if (_mg.locked) return;   // block dismiss during active mini-game
-  if (e.target === this) closeModal();
+  if (_mg.locked || _modalLocked) return;
+  if (e.target === this) {
+    if (_inPropSubModal) backToProperty(); else closeModal();
+  }
 });
 
 // ── Toast ─────────────────────────────────────────────────────────────────────

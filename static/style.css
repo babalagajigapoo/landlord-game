@@ -56,6 +56,8 @@ header {
 .header-stat .label { font-size: 10px; opacity: 0.6; text-transform: uppercase; letter-spacing: 0.5px; }
 .header-stat .value { font-size: 17px; font-weight: 700; color: #81C784; }
 .header-month { background: rgba(255,255,255,0.12); border-radius: 20px; padding: 3px 10px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.header-gear-btn { background: rgba(255,255,255,0.12); border: none; border-radius: 50%; width: 30px; height: 30px; font-size: 15px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.15s; -webkit-tap-highlight-color: transparent; }
+.header-gear-btn:active { background: rgba(255,255,255,0.25); }
 
 /* ── XP Bar ──────────────────────────────────────────────────── */
 .header-xp        { margin-top: 8px; }
@@ -82,23 +84,39 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
   z-index: 200;
   box-shadow: 0 -2px 12px rgba(0,0,0,0.08);
 }
+.nav-indicator {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 0;
+  width: calc(100% / 6);
+  background: rgba(46, 125, 50, 0.10);
+  border-radius: 10px;
+  border-top: 2.5px solid var(--primary);
+  transform: translateX(0%);
+  transition: transform 0.3s cubic-bezier(0.34, 1.2, 0.64, 1), opacity 0.2s ease;
+  pointer-events: none;
+  z-index: 0;
+}
 .nav-btn {
   flex: 1;
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 2px;
   background: none;
   color: var(--text-muted);
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.2px;
+  letter-spacing: 0;
   transition: color 0.15s;
   -webkit-tap-highlight-color: transparent;
 }
-.nav-btn .nav-icon { font-size: 20px; line-height: 1; }
+.nav-btn .nav-icon { font-size: 18px; line-height: 1; }
 .nav-btn.active { color: var(--primary); }
 .nav-btn.active .nav-icon { transform: scale(1.1); }
 
@@ -461,6 +479,76 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
   color: #fff;
 }
 .fin-tab:not(.active):active { opacity: 0.7; }
+
+/* ── Portfolio neighborhood groups ──────────────────────────── */
+.hood-section {
+  margin-bottom: 10px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+}
+.hood-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  cursor: pointer;
+  background: var(--bg);
+  user-select: none;
+}
+.hood-header:active { opacity: 0.75; }
+.hood-name {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+}
+.hood-chevron {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.hood-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1.5px solid var(--border);
+}
+.hood-tab {
+  flex: 1;
+  padding: 8px 4px;
+  border: none;
+  border-right: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+.hood-tab:last-child { border-right: none; }
+.hood-tab.active {
+  background: var(--primary);
+  color: #fff;
+}
+.hood-tab:not(.active):active { opacity: 0.7; }
+.hood-tab-count {
+  font-size: 10px;
+  font-weight: 900;
+  background: rgba(0,0,0,0.12);
+  border-radius: 8px;
+  padding: 1px 6px;
+}
+.hood-tab.active .hood-tab-count { background: rgba(255,255,255,0.25); }
+.hood-props { padding: 8px 8px 2px; }
+.hood-empty {
+  padding: 18px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
 
 /* ── Paint-the-Wall mini-game ────────────────────────────────── */
 .pg-overlay {
@@ -2394,6 +2482,16 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
 }
 @keyframes toastIn  { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes toastOut { from { opacity: 1; } to { opacity: 0; } }
+
+/* ── Mini-game height fix ────────────────────────────────────────
+   Stops 64px from bottom so the phone's gesture area / nav bar
+   doesn't get accidentally triggered mid-game.                   */
+.pg-overlay,
+#dw-overlay, #fn-overlay, #cn-overlay,
+#ws-overlay, #cb-overlay, #dk-overlay {
+  bottom: 64px !important;
+  height: auto !important;
+}
 
 /* ── Spinner ─────────────────────────────────────────────────── */
 .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.6s linear infinite; }

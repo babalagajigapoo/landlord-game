@@ -5,7 +5,7 @@ app = Flask(__name__)
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 
-STARTING_CASH = 5_000
+STARTING_CASH = 4_367
 
 LOAN_PRODUCTS = [
     {"key": "quick",    "name": "Quick Cash",    "icon": "💵", "min": 500,   "max": 5_000,   "apr": 0.24, "term_seasons": 2,  "desc": "Fast money, high interest."},
@@ -77,7 +77,7 @@ HOOD_PROP_CONFIG = {
         "beds":       (3, 6),
         "baths_max":  4,
         "sqft":       (2000, 5500),
-        "cond_rolls": [(40, 74, 50), (175, 250, 50)],   # ~50% below C, but good ones are premium
+        "cond_rolls": [(10, 110, 91), (113, 147, 7), (150, 185, 2)],   # mostly F–C, B very rare, A near impossible, S/S+ never
     },
 }
 
@@ -100,7 +100,8 @@ MAX_LEVEL             = 14
 NEIGHBORHOOD_UNLOCK_ORDER = ["Midtown", "Northside", "Westwood", "Riverside", "Newbay"]
 
 # Personal home key unlocked at each level (index 0 → level 1, index 1 → level 2, …)
-HOME_UNLOCK_ORDER = ["studio_apt", "starter_house", "modern_condo", "suburban_home", "luxury_villa", "mansion"]
+HOME_UNLOCK_ORDER  = ["small_apt", "condo", "small_home", "suburban_home", "luxury_villa", "mansion"]
+HOME_UNLOCK_LEVELS = [1, 3, 5, 7, 9, 12]   # level required to unlock each entry above
 
 DAYS_PER_SEASON = 28   # 4 seasons × 28 days = 112-day year
 
@@ -292,14 +293,22 @@ def _pick_weighted_event(event_list):
     return event_list[-1]
 
 UPGRADES = {
-    "paint":       {"name": "Interior Paint",   "icon": "🎨", "base_cost": 1500,  "value_add": 3000,  "cond_boost":  8, "energy_cost": 1},
-    "landscaping": {"name": "Landscaping",       "icon": "🌿", "base_cost": 2000,  "value_add": 4500,  "cond_boost": 12, "energy_cost": 1},
-    "flooring":    {"name": "New Flooring",      "icon": "🪵", "base_cost": 4000,  "value_add": 8000,  "cond_boost": 21, "energy_cost": 2},
-    "windows":     {"name": "New Windows",       "icon": "🪟", "base_cost": 6000,  "value_add": 10000, "cond_boost": 26, "energy_cost": 2},
-    "hvac":        {"name": "HVAC System",       "icon": "❄️", "base_cost": 7000,  "value_add": 11000, "cond_boost": 30, "energy_cost": 3},
-    "bathrooms":   {"name": "Bathroom Remodel",  "icon": "🚿", "base_cost": 8000,  "value_add": 14000, "cond_boost": 38, "energy_cost": 3},
-    "roof":        {"name": "Roof Replacement",  "icon": "🏠", "base_cost": 10000, "value_add": 15000, "cond_boost": 40, "energy_cost": 4},
-    "kitchen":     {"name": "Kitchen Remodel",   "icon": "🍳", "base_cost": 12000, "value_add": 22000, "cond_boost": 60, "energy_cost": 4},
+    "landscaping": {"name": "Landscaping",       "icon": "🌿", "base_cost":  1500, "value_add":  3000, "cond_boost":  8, "energy_cost": 1},
+    "paint":       {"name": "Interior Paint",    "icon": "🎨", "base_cost":  2000, "value_add":  4500, "cond_boost": 12, "energy_cost": 1},
+    "flooring":    {"name": "New Flooring",      "icon": "🪵", "base_cost":  4000, "value_add":  8000, "cond_boost": 21, "energy_cost": 2},
+    "windows":     {"name": "New Windows",       "icon": "🪟", "base_cost":  6000, "value_add": 10000, "cond_boost": 26, "energy_cost": 2},
+    "bathrooms":   {"name": "Bathroom Remodel",  "icon": "🚿", "base_cost":  7000, "value_add": 11000, "cond_boost": 30, "energy_cost": 3},
+    "kitchen":     {"name": "Kitchen Remodel",   "icon": "🍳", "base_cost":  8000, "value_add": 14000, "cond_boost": 38, "energy_cost": 3},
+    "hvac":        {"name": "HVAC System",       "icon": "❄️", "base_cost": 10000, "value_add": 15000, "cond_boost": 40, "energy_cost": 4},
+    "roof":        {"name": "Roof Replacement",  "icon": "🏠", "base_cost": 12000, "value_add": 22000, "cond_boost": 60, "energy_cost": 4},
+}
+
+DIY_CLASSES = {
+    "flooring_class": {"name": "Flooring Installation Class", "icon": "🪵", "energy_cost": 10, "unlock_level": 2, "unlocks": ["flooring"],             "desc": "Learn to lay hardwood and tile yourself."},
+    "windows_class":  {"name": "Window Installation Class",   "icon": "🪟", "energy_cost": 10, "unlock_level": 2, "unlocks": ["windows"],              "desc": "Master framing, sealing, and fitting new windows."},
+    "remodel_class":  {"name": "Remodeling Class",            "icon": "🛠️", "energy_cost": 12, "unlock_level": 3, "unlocks": ["bathrooms", "kitchen"], "desc": "Full course covering bathroom and kitchen remodels."},
+    "hvac_class":     {"name": "HVAC System Course",          "icon": "❄️", "energy_cost": 14, "unlock_level": 4, "unlocks": ["hvac"],                 "desc": "Certification-level HVAC installation and maintenance."},
+    "roof_class":     {"name": "Roof Replacement Course",     "icon": "🏠", "energy_cost": 14, "unlock_level": 4, "unlocks": ["roof"],                 "desc": "Safety and technique for full residential roof replacement."},
 }
 
 # Premium upgrades — permanent additions that raise market value & fair rent.
@@ -751,16 +760,23 @@ def _update_stock_prices(s, days):
     ss["prices"]  = prices
     ss["history"] = histories
 
-# Player homes — each tier increases max energy and daily recharge by 2
+# Player homes — unlock levels defined in HOME_UNLOCK_LEVELS above
+# Mansion recharge (60) exceeds its base max_energy (58) intentionally — it fully recharges every day.
+# With the Coffee Maker (+2 max_energy) the cap becomes 60 and still recharges fully.
 PLAYER_HOMES = [
-    {"key": "moms_basement", "name": "The Shed",         "icon": "🛖",  "cost":       0, "max_energy": 10, "recharge":  2, "desc": "Your in-laws' backyard shed. No rent, no dignity."},
-    {"key": "studio_apt",    "name": "Studio Apartment","icon": "🏠",  "cost":   80_000, "max_energy": 12, "recharge":  4, "desc": "Your own place — finally."},
-    {"key": "starter_house", "name": "Starter House",   "icon": "🏡",  "cost":  150_000, "max_energy": 14, "recharge":  6, "desc": "A real house with a yard. Moving up!"},
-    {"key": "modern_condo",  "name": "Modern Condo",    "icon": "🏢",  "cost":  200_000, "max_energy": 16, "recharge":  8, "desc": "High-rise living with city views."},
-    {"key": "suburban_home", "name": "Suburban Home",   "icon": "🏘️",  "cost":  500_000, "max_energy": 18, "recharge": 10, "desc": "Quiet neighborhood, big garage."},
-    {"key": "luxury_villa",  "name": "Mansion",         "icon": "🏛️",  "cost":1_000_000, "max_energy": 20, "recharge": 12, "desc": "Sprawling estate. You've made it."},
-    {"key": "mansion",       "name": "Castle",          "icon": "🏰",  "cost":10_000_000, "max_energy": 30, "recharge": 30, "desc": "Absolute excess. Full energy, every single day."},
+    {"key": "grandmas_basement", "name": "Grandma's Basement", "icon": "🛋️", "cost":         0, "max_energy":  8, "recharge":  1, "unlock_level":  0, "desc": "Grandma's got a cot, a leaky fridge, and opinions about your life choices. Free rent — if you can survive the casserole."},
+    {"key": "small_apt",         "name": "Small Apartment",    "icon": "🏠", "cost":    80_000, "max_energy": 10, "recharge":  3, "unlock_level":  1, "desc": "Thin walls, no dishwasher, and a neighbor who practices drums at midnight. Still yours."},
+    {"key": "condo",             "name": "Condo",              "icon": "🏢", "cost":   150_000, "max_energy": 12, "recharge":  5, "unlock_level":  3, "desc": "An HOA fee and a parking sticker — welcome to adulthood."},
+    {"key": "small_home",        "name": "Small Home",         "icon": "🏡", "cost":   250_000, "max_energy": 15, "recharge":  7, "unlock_level":  5, "desc": "A real yard. A real mortgage. A real lawn to mow at 7am on a Saturday."},
+    {"key": "suburban_home",     "name": "Suburban Home",      "icon": "🏘️", "cost":   400_000, "max_energy": 18, "recharge": 11, "unlock_level":  7, "desc": "Cul-de-sac living with a two-car garage and a wave-hello relationship with the neighbors."},
+    {"key": "luxury_villa",      "name": "Luxury Villa",       "icon": "🏛️", "cost":   750_000, "max_energy": 24, "recharge": 19, "unlock_level":  9, "desc": "Heated floors, a wine cellar, and someone else mows the lawn."},
+    {"key": "mansion",           "name": "Mansion",            "icon": "🏰", "cost": 1_500_000, "max_energy": 58, "recharge": 60, "unlock_level": 12, "desc": "You have a butler named Gerald and a room you've never entered. Peak existence."},
 ]
+
+STORE_ITEMS = {
+    "coffee_maker": {"name": "Coffee Maker", "icon": "☕",  "cost":   499, "max_energy_bonus": 2, "recharge_bonus": 0, "desc": "A decent drip machine. +2 max energy."},
+    "new_bed":      {"name": "New Bed",       "icon": "🛏️", "cost": 4_999, "max_energy_bonus": 0, "recharge_bonus": 1, "desc": "Memory foam. You wake up ready. +1 recharge/day."},
+}
 
 def generate_jobs():
     """TEST MODE: all job types available, zero energy cost."""
@@ -859,32 +875,133 @@ def _is_special_tenant(t):
 # stay_min / stay_max are in DAYS
 TENANT_PROFILES = [
     # ── Budget tier (Midtown / Northside) ──────────────────────────────────────
-    {"name": "College Student",    "icon": "🎓", "pay_chance": 0.82, "damage_chance": 0.12, "stay_min": 30,  "stay_max": 90,  "tiers": ["budget"]},
-    {"name": "Grad Student",       "icon": "📚", "pay_chance": 0.79, "damage_chance": 0.06, "stay_min": 60,  "stay_max": 120, "tiers": ["budget"]},
-    {"name": "Band Member",        "icon": "🎸", "pay_chance": 0.78, "damage_chance": 0.16, "stay_min": 30,  "stay_max": 90,  "tiers": ["budget"]},
-    {"name": "Section 8",          "icon": "🏛️", "pay_chance": 0.95, "damage_chance": 0.08, "stay_min": 60,  "stay_max": 180, "tiers": ["budget"]},
+    {"name": "Todd Burman",         "icon": "🛋️",  "pay_chance": 0.87, "damage_chance": 0.07, "stay_min": 45,  "stay_max": 150, "tiers": ["budget"],         "unique": True,
+     "desc": "Freelance 'consultant.' Unclear what he consults on. Always home. Always."},
+    {"name": "Stevie Reinholt",     "icon": "🎬",  "pay_chance": 0.84, "damage_chance": 0.10, "stay_min": 30,  "stay_max": 90,  "tiers": ["budget"],         "unique": True,
+     "desc": "Film student. Has asked twice if they can build a 'small set' in the basement. They're starting to phrase it differently."},
+    {"name": "Darnell Okafor",      "icon": "🎤",  "pay_chance": 0.85, "damage_chance": 0.07, "stay_min": 30,  "stay_max": 90,  "tiers": ["budget"],         "unique": True,
+     "desc": "Stand-up comedian. You've heard him practicing through the ceiling at 11pm. He's actually funny. Doesn't make up for the noise."},
+    {"name": "Wanda Greer",         "icon": "👻",  "pay_chance": 0.84, "damage_chance": 0.09, "stay_min": 45,  "stay_max": 120, "tiers": ["budget"],         "unique": True,
+     "desc": "Amateur ghost hunter. Asks a lot of questions about the house's history. Concerning."},
+    {"name": "Priya Nair",          "icon": "🪴",  "pay_chance": 0.89, "damage_chance": 0.08, "stay_min": 45,  "stay_max": 150, "tiers": ["budget"],         "unique": True,
+     "desc": "Has fourteen plants. Keeps asking if she can knock out a wall for 'natural light.' No."},
+    {"name": "Ziggy",               "icon": "🎛️",  "pay_chance": 0.83, "damage_chance": 0.08, "stay_min": 30,  "stay_max": 90,  "tiers": ["budget"],         "unique": True,
+     "desc": "No last name given. Freelance 'sound designer.' Quiet during the day. You don't ask about the evenings."},
     # ── Budget + Mid ───────────────────────────────────────────────────────────
-    {"name": "The Artist",         "icon": "🎨", "pay_chance": 0.80, "damage_chance": 0.15, "stay_min": 60,  "stay_max": 150, "tiers": ["budget", "mid"]},
-    {"name": "Social Butterfly",   "icon": "🦋", "pay_chance": 0.88, "damage_chance": 0.11, "stay_min": 45,  "stay_max": 120, "tiers": ["budget", "mid"]},
-    {"name": "Single Parent",      "icon": "🧑‍👧", "pay_chance": 0.90, "damage_chance": 0.06, "stay_min": 90,  "stay_max": 300, "tiers": ["budget", "mid"]},
-    {"name": "Young Family",       "icon": "👨‍👩‍👧", "pay_chance": 0.93, "damage_chance": 0.07, "stay_min": 90,  "stay_max": 270, "tiers": ["budget", "mid"]},
-    {"name": "Freelancer",         "icon": "💻", "pay_chance": 0.85, "damage_chance": 0.05, "stay_min": 45,  "stay_max": 120, "tiers": ["budget", "mid"]},
-    {"name": "Aspiring Chef",      "icon": "👨‍🍳", "pay_chance": 0.91, "damage_chance": 0.14, "stay_min": 60,  "stay_max": 180, "tiers": ["budget", "mid"]},
-    {"name": "Outdoorsy Type",     "icon": "🏕️", "pay_chance": 0.95, "damage_chance": 0.02, "stay_min": 45,  "stay_max": 150, "tiers": ["budget", "mid"]},
+    {"name": "Kevin Marsh",         "icon": "📦",  "pay_chance": 0.88, "damage_chance": 0.04, "stay_min": 60,  "stay_max": 180, "tiers": ["budget", "mid"],  "unique": True,
+     "desc": "Moved in six months ago and still hasn't unpacked. Boxes everywhere. Pays on time though."},
+    {"name": "Miles Garner",        "icon": "📲",  "pay_chance": 0.90, "damage_chance": 0.05, "stay_min": 60,  "stay_max": 150, "tiers": ["budget", "mid"],  "unique": True,
+     "desc": "Pays rent in Venmo with a different emoji every month. Always on time. The emojis are getting weirder."},
+    {"name": "Dennis Falk",         "icon": "🕹️",  "pay_chance": 0.89, "damage_chance": 0.12, "stay_min": 60,  "stay_max": 180, "tiers": ["budget", "mid"],  "unique": True,
+     "desc": "Collects vintage arcade machines. Claims they don't take up that much space. They do."},
+    {"name": "Orlando Cruz",        "icon": "🏋️",  "pay_chance": 0.91, "damage_chance": 0.10, "stay_min": 60,  "stay_max": 150, "tiers": ["budget", "mid"],  "unique": True,
+     "desc": "Personal trainer. Has turned the living room into a gym. Technically nothing in the lease says he can't."},
+    {"name": "Fran Dubois",         "icon": "🍷",  "pay_chance": 0.88, "damage_chance": 0.11, "stay_min": 60,  "stay_max": 180, "tiers": ["budget", "mid"],  "unique": True,
+     "desc": "Amateur wine maker. The garage smells like a vineyard. She says that's a compliment."},
+    {"name": "Clint Hooper",        "icon": "🎸",  "pay_chance": 0.93, "damage_chance": 0.04, "stay_min": 90,  "stay_max": 300, "tiers": ["budget", "mid"],  "unique": True,
+     "desc": "Says he's 'between gigs.' Has been between gigs for four years. Never missed rent. You've stopped asking."},
+    {"name": "Margot Voss",         "icon": "🏺",  "pay_chance": 0.91, "damage_chance": 0.07, "stay_min": 60,  "stay_max": 180, "tiers": ["budget", "mid"],  "unique": True,
+     "desc": "Teaches ceramics online. The whole place smells like clay. She's made you a mug. It's actually very good."},
+    {"name": "Carol Fitch",         "icon": "✉️",  "pay_chance": 0.93, "damage_chance": 0.02, "stay_min": 60,  "stay_max": 180, "tiers": ["budget", "mid"],  "unique": True,
+     "desc": "Does not own a phone. All communication is by note, slipped under the door. Surprisingly effective. Slightly unnerving."},
+    {"name": "Juno Park",           "icon": "🗓️",  "pay_chance": 0.91, "damage_chance": 0.03, "stay_min": 90,  "stay_max": 365, "tiers": ["budget", "mid"],  "unique": True,
+     "desc": "Said she'd be here six months. That was two years ago. She doesn't bring it up. Neither do you."},
+    {"name": "Cynthia Bloom",       "icon": "🎭",  "pay_chance": 0.90, "damage_chance": 0.07, "stay_min": 45,  "stay_max": 150, "tiers": ["budget", "mid"],  "unique": True,
+     "desc": "Retired cruise ship entertainer. Will perform if asked. Rent always on time but neighbors have complained."},
+    {"name": "Russ Tirado",         "icon": "🧊",  "pay_chance": 0.91, "damage_chance": 0.09, "stay_min": 60,  "stay_max": 180, "tiers": ["budget", "mid"],  "unique": True,
+     "desc": "Works in 'logistics.' Has asked twice if the garage can be climate controlled. You said no. He brought it up again."},
+    {"name": "Janet Osei",          "icon": "📚",  "pay_chance": 0.90, "damage_chance": 0.09, "stay_min": 60,  "stay_max": 180, "tiers": ["budget", "mid"],  "unique": True,
+     "desc": "Lovely person. Hosts a book club every Thursday that has somehow become 22 people."},
     # ── Mid tier (Westwood / Riverside) ───────────────────────────────────────
-    {"name": "Teacher",            "icon": "🍎", "pay_chance": 0.93, "damage_chance": 0.03, "stay_min": 90,  "stay_max": 270, "tiers": ["mid"]},
-    {"name": "Nurse (Night Shift)","icon": "🩺", "pay_chance": 0.96, "damage_chance": 0.02, "stay_min": 90,  "stay_max": 270, "tiers": ["mid"]},
-    {"name": "The Handyman",       "icon": "🔧", "pay_chance": 0.91, "damage_chance": 0.01, "stay_min": 90,  "stay_max": 240, "tiers": ["mid"]},
-    {"name": "Doomsday Prepper",   "icon": "🥫", "pay_chance": 0.92, "damage_chance": 0.09, "stay_min": 120, "stay_max": 365, "tiers": ["mid"]},
+    {"name": "Marcus Webb",         "icon": "🏥",  "pay_chance": 0.95, "damage_chance": 0.02, "stay_min": 90,  "stay_max": 270, "tiers": ["mid"],             "unique": True,
+     "desc": "Works nights at the hospital, sleeps during the day. Never complains, always pays early."},
+    {"name": "Nora Finch",          "icon": "📖",  "pay_chance": 0.97, "damage_chance": 0.02, "stay_min": 90,  "stay_max": 270, "tiers": ["mid"],             "unique": True,
+     "desc": "Elementary school librarian. Will report every minor issue in writing, with timestamps."},
+    {"name": "Sam & Deb Hollis",    "icon": "💍",  "pay_chance": 0.92, "damage_chance": 0.07, "stay_min": 90,  "stay_max": 270, "tiers": ["mid"],             "unique": True,
+     "desc": "Newlyweds. Very excited about everything. Will ask if they can paint one wall an accent color."},
+    {"name": "Theo Blackwell",      "icon": "🏃",  "pay_chance": 0.94, "damage_chance": 0.03, "stay_min": 90,  "stay_max": 270, "tiers": ["mid"],             "unique": True,
+     "desc": "High school gym teacher. Quiet, respectful, occasionally does pull-ups in the doorframe."},
+    {"name": "Donna Kephart",       "icon": "🗣️",  "pay_chance": 0.92, "damage_chance": 0.03, "stay_min": 90,  "stay_max": 240, "tiers": ["mid"],             "unique": True,
+     "desc": "Very nice. Has brought up five times that she used to own this neighborhood. Not this house. The neighborhood."},
+    {"name": "Bev Stanton",         "icon": "🌡️",  "pay_chance": 0.94, "damage_chance": 0.02, "stay_min": 120, "stay_max": 365, "tiers": ["mid"],             "unique": True,
+     "desc": "Retired. Has strong opinions about your thermostat settings even though she controls her own."},
+    {"name": '"Coach" Ernie Walls', "icon": "⚾",  "pay_chance": 0.94, "damage_chance": 0.03, "stay_min": 120, "stay_max": 365, "tiers": ["mid"],             "unique": True,
+     "desc": "Coaches youth baseball but no one knows which team. There are trophies in the hall closet he refuses to acknowledge."},
+    {"name": "Gerald",              "icon": "📮",  "pay_chance": 0.95, "damage_chance": 0.02, "stay_min": 120, "stay_max": 365, "tiers": ["mid"],             "unique": True,
+     "desc": "Retired postal worker. Been renting for 30 years. He knows things. Doesn't cause problems but definitely could."},
+    {"name": "Nina Alcott",         "icon": "🔍",  "pay_chance": 0.94, "damage_chance": 0.03, "stay_min": 90,  "stay_max": 270, "tiers": ["mid"],             "unique": True,
+     "desc": "Kindergarten teacher by day, true crime podcaster by night. The shelves of case files are a little much."},
+    {"name": "The Watkins Brothers","icon": "🤼",  "pay_chance": 0.93, "damage_chance": 0.10, "stay_min": 90,  "stay_max": 240, "tiers": ["mid"],             "unique": True,
+     "desc": "Two brothers, one apartment. Surprisingly clean. Shockingly loud. They arm-wrestle to decide who Venmos you."},
+    {"name": "Simone Adeyemi",      "icon": "📝",  "pay_chance": 0.94, "damage_chance": 0.02, "stay_min": 90,  "stay_max": 270, "tiers": ["mid"],             "unique": True,
+     "desc": "Graduate student, quiet, meticulous. Subletting is her whole personality."},
     # ── Mid + Premium ──────────────────────────────────────────────────────────
-    {"name": "Young Professional", "icon": "💼", "pay_chance": 0.97, "damage_chance": 0.03, "stay_min": 60,  "stay_max": 180, "tiers": ["mid", "premium"]},
-    {"name": "Remote Worker",      "icon": "🖥️", "pay_chance": 0.94, "damage_chance": 0.04, "stay_min": 90,  "stay_max": 270, "tiers": ["mid", "premium"]},
-    {"name": "The Minimalist",     "icon": "🧘", "pay_chance": 0.98, "damage_chance": 0.01, "stay_min": 90,  "stay_max": 240, "tiers": ["mid", "premium"]},
-    {"name": "Veteran",            "icon": "🪖", "pay_chance": 0.99, "damage_chance": 0.02, "stay_min": 120, "stay_max": 365, "tiers": ["mid", "premium"]},
-    {"name": "Retired Couple",     "icon": "👴", "pay_chance": 0.99, "damage_chance": 0.01, "stay_min": 120, "stay_max": 365, "tiers": ["mid", "premium"]},
+    {"name": "Arthur Pham",         "icon": "🧾",  "pay_chance": 0.99, "damage_chance": 0.01, "stay_min": 120, "stay_max": 365, "tiers": ["mid", "premium"],  "unique": True,
+     "desc": "Semi-retired accountant. Pays rent 10 days early, every time. Has never once made eye contact."},
+    {"name": "Gracie Monroe",       "icon": "✈️",  "pay_chance": 0.97, "damage_chance": 0.01, "stay_min": 60,  "stay_max": 120, "tiers": ["mid", "premium"],  "unique": True,
+     "desc": "Travel nurse, in town for 90 days at a time. You'll barely know she was there."},
+    {"name": "Hector Vidal",        "icon": "👨‍🍳", "pay_chance": 0.95, "damage_chance": 0.06, "stay_min": 90,  "stay_max": 270, "tiers": ["mid", "premium"],  "unique": True,
+     "desc": "Chef. Works dinner service, home by 1am. The hallway always smells incredible. You want some."},
+    {"name": "Patrice Owens",       "icon": "🩺",  "pay_chance": 0.97, "damage_chance": 0.01, "stay_min": 90,  "stay_max": 270, "tiers": ["mid", "premium"],  "unique": True,
+     "desc": "Nurse, night shift. Leaves a polite note asking that no one rings the doorbell before 3pm. Means it."},
+    {"name": "Ben Kowalczyk",       "icon": "💻",  "pay_chance": 0.96, "damage_chance": 0.01, "stay_min": 60,  "stay_max": 180, "tiers": ["mid", "premium"],  "unique": True,
+     "desc": "IT contractor. Sets up his own router, patches the wi-fi dead spot you never told him about, and asks nothing in return."},
+    {"name": "Pete",                "icon": "🤝",  "pay_chance": 0.97, "damage_chance": 0.04, "stay_min": 90,  "stay_max": 270, "tiers": ["mid", "premium"],  "unique": True,
+     "desc": "Just Pete. No last name on file. Handshake firm, eye contact strong, references spotless. Something is off but you can't prove it."},
+    {"name": "The Nguyens",         "icon": "👨‍👩‍👧‍👦","pay_chance": 0.99, "damage_chance": 0.01, "stay_min": 120, "stay_max": 365, "tiers": ["mid", "premium"],  "unique": True,
+     "desc": "Three generations. Grandmother barely speaks English but leaves food outside your door somehow. The best tenants you've ever had."},
+    {"name": "The Delgados",        "icon": "🏡",  "pay_chance": 0.96, "damage_chance": 0.08, "stay_min": 120, "stay_max": 365, "tiers": ["mid", "premium"],  "unique": True,
+     "desc": "Big family, loud on weekends, best rent-to-noise ratio you'll find. One grandmother fixed your porch without being asked."},
+    {"name": '"Big" Lou Santino',   "icon": "🛁",  "pay_chance": 0.96, "damage_chance": 0.04, "stay_min": 90,  "stay_max": 270, "tiers": ["mid", "premium"],  "unique": True,
+     "desc": "Never seen without a bathrobe. Unclear if he owns pants. Pays cash, exact change, always in a sealed envelope."},
+    {"name": "Diane Cho",           "icon": "🍎",  "pay_chance": 0.99, "damage_chance": 0.01, "stay_min": 120, "stay_max": 365, "tiers": ["mid", "premium"],  "unique": True,
+     "desc": "Retired teacher. Keeps the place immaculate. Will leave a note if a lightbulb is out."},
     # ── Premium tier (Newbay) ─────────────────────────────────────────────────
-    {"name": "Trust Fund Kid",     "icon": "🛍️", "pay_chance": 0.99, "damage_chance": 0.13, "stay_min": 30,  "stay_max": 90,  "tiers": ["premium"]},
-    {"name": "Influencer",         "icon": "📱", "pay_chance": 0.90, "damage_chance": 0.10, "stay_min": 30,  "stay_max": 90,  "tiers": ["premium"]},
+    {"name": "Dr. Yemi Adebayo",    "icon": "👶",  "pay_chance": 0.98, "damage_chance": 0.02, "stay_min": 120, "stay_max": 365, "tiers": ["premium"],         "unique": True,
+     "desc": "Pediatrician. Extremely quiet. Has a very specific parking spot preference. Mentions it at lease signing, move-in, and every renewal."},
+    {"name": "Cassandra Lyle",      "icon": "⚖️",  "pay_chance": 0.99, "damage_chance": 0.02, "stay_min": 60,  "stay_max": 180, "tiers": ["premium"],         "unique": True,
+     "desc": "Corporate lawyer. Never home. Pays 3 months upfront. You've seen her maybe twice."},
+    {"name": "Maureen Tully",       "icon": "📋",  "pay_chance": 0.97, "damage_chance": 0.02, "stay_min": 120, "stay_max": 365, "tiers": ["premium"],         "unique": True,
+     "desc": "70s, sharp as a tack, rented this unit from three different landlords. Knows exactly what your responsibilities are. Will remind you."},
+    {"name": "Old Man Pietrzak",    "icon": "🏚️",  "pay_chance": 0.98, "damage_chance": 0.02, "stay_min": 180, "stay_max": 365, "tiers": ["premium"],         "unique": True,
+     "desc": "Has lived here 11 years through four ownership changes. Technically never signed a new lease. Just... stayed. Pays cash."},
+    # ── All tiers ──────────────────────────────────────────────────────────────
+    {"name": "Ray Kowalski",        "icon": "🚛",  "pay_chance": 0.96, "damage_chance": 0.01, "stay_min": 60,  "stay_max": 180, "tiers": ["budget", "mid", "premium"], "unique": True,
+     "desc": "Truck driver, gone three weeks a month. Easiest tenant you'll ever have."},
+    {"name": "Carl & Judy Prescott","icon": "👴",  "pay_chance": 0.98, "damage_chance": 0.01, "stay_min": 120, "stay_max": 365, "tiers": ["budget", "mid", "premium"], "unique": True,
+     "desc": "Older couple. Never miss rent. Will occasionally leave a casserole on the counter."},
+
+    # ── Generic fallbacks (non-unique, always in pool) ─────────────────────────
+    {"name": "College Student",     "icon": "🎓",  "pay_chance": 0.82, "damage_chance": 0.12, "stay_min": 30,  "stay_max": 90,  "tiers": ["budget"],
+     "desc": "Responsible enough. On time most months."},
+    {"name": "The Musician",        "icon": "🎸",  "pay_chance": 0.78, "damage_chance": 0.14, "stay_min": 30,  "stay_max": 90,  "tiers": ["budget"],
+     "desc": "Between projects. The amp is non-negotiable."},
+    {"name": "Night Owl",           "icon": "🌙",  "pay_chance": 0.85, "damage_chance": 0.06, "stay_min": 45,  "stay_max": 120, "tiers": ["budget"],
+     "desc": "Never seen in daylight. The place is always clean though."},
+    {"name": "The Artist",          "icon": "🎨",  "pay_chance": 0.80, "damage_chance": 0.15, "stay_min": 60,  "stay_max": 150, "tiers": ["budget", "mid"],
+     "desc": "Big vision, flexible budget. Rent usually lands."},
+    {"name": "The Freelancer",      "icon": "🖥️",  "pay_chance": 0.85, "damage_chance": 0.05, "stay_min": 45,  "stay_max": 150, "tiers": ["budget", "mid"],
+     "desc": "Works from home. All day. Every day."},
+    {"name": "Young Couple",        "icon": "👫",  "pay_chance": 0.91, "damage_chance": 0.07, "stay_min": 90,  "stay_max": 270, "tiers": ["budget", "mid"],
+     "desc": "First place together. Excited about everything. Probably getting a dog."},
+    {"name": "Section 8",           "icon": "🏛️",  "pay_chance": 0.95, "damage_chance": 0.08, "stay_min": 60,  "stay_max": 180, "tiers": ["budget", "mid"],
+     "desc": "Government-backed rent. You get paid regardless."},
+    {"name": "The Teacher",         "icon": "🍎",  "pay_chance": 0.93, "damage_chance": 0.03, "stay_min": 90,  "stay_max": 270, "tiers": ["mid"],
+     "desc": "Steady, responsible, asks for nothing."},
+    {"name": "Single Parent",       "icon": "🧑‍👧", "pay_chance": 0.90, "damage_chance": 0.06, "stay_min": 90,  "stay_max": 300, "tiers": ["mid"],
+     "desc": "Responsible, organized, not here to cause problems."},
+    {"name": "The Handyman",        "icon": "🔧",  "pay_chance": 0.91, "damage_chance": 0.01, "stay_min": 90,  "stay_max": 240, "tiers": ["mid"],
+     "desc": "Will fix minor things himself. Actually helpful."},
+    {"name": "Remote Worker",       "icon": "💼",  "pay_chance": 0.94, "damage_chance": 0.04, "stay_min": 90,  "stay_max": 270, "tiers": ["mid", "premium"],
+     "desc": "Home 24/7, somehow never noticed. Good tenant."},
+    {"name": "Young Professional",  "icon": "👔",  "pay_chance": 0.97, "damage_chance": 0.03, "stay_min": 60,  "stay_max": 180, "tiers": ["mid", "premium"],
+     "desc": "Early starts, late nights. Never around enough to cause trouble."},
+    {"name": "The Couple",          "icon": "🏠",  "pay_chance": 0.96, "damage_chance": 0.04, "stay_min": 120, "stay_max": 365, "tiers": ["mid", "premium"],
+     "desc": "Settled, quiet, pay early. Will ask about painting exactly once."},
+    {"name": "The Executive",       "icon": "💰",  "pay_chance": 0.99, "damage_chance": 0.02, "stay_min": 60,  "stay_max": 180, "tiers": ["premium"],
+     "desc": "Barely home. Pays 2 months upfront. You will never hear from them."},
+    {"name": "Empty Nesters",       "icon": "🪑",  "pay_chance": 0.99, "damage_chance": 0.01, "stay_min": 120, "stay_max": 365, "tiers": ["premium"],
+     "desc": "Kids are grown. They want peace, quiet, and the same parking spot every time."},
 ]
 
 # ── Game Logic ─────────────────────────────────────────────────────────────────
@@ -922,12 +1039,9 @@ def get_unlocked_neighborhoods(level):
     return NEIGHBORHOOD_UNLOCK_ORDER[:min(level, len(NEIGHBORHOOD_UNLOCK_ORDER))]
 
 def get_unlocked_home_keys(level):
-    """Return list of personal home keys the player can purchase at this level.
-    Homes unlock every other level starting at level 2 (2, 4, 6, 8, 10, 12)."""
-    base = ["moms_basement"]
-    if level == 0: return base
-    count = min(level // 2, len(HOME_UNLOCK_ORDER))
-    return base + HOME_UNLOCK_ORDER[:count]
+    """Return list of personal home keys unlocked at this level."""
+    base = ["grandmas_basement"]
+    return base + [key for key, req in zip(HOME_UNLOCK_ORDER, HOME_UNLOCK_LEVELS) if level >= req]
 
 def add_xp(s, amount):
     """Add XP to the player. Returns new level if a level-up occurred, else None.
@@ -962,8 +1076,16 @@ def calc_xp_pct(s):
 
 def get_player_home(s):
     """Return the PLAYER_HOMES dict for the player's current home."""
-    key = s.get("player_home", "moms_basement")
+    key = s.get("player_home", "grandmas_basement")
     return next((h for h in PLAYER_HOMES if h["key"] == key), PLAYER_HOMES[0])
+
+def _get_home_stats(s):
+    """Return (max_energy, recharge) with store item bonuses applied."""
+    home  = get_player_home(s)
+    items = s.get("owned_items", {})
+    max_e = home["max_energy"] + (STORE_ITEMS["coffee_maker"]["max_energy_bonus"] if items.get("coffee_maker") else 0)
+    rch   = home["recharge"]   + (STORE_ITEMS["new_bed"]["recharge_bonus"]        if items.get("new_bed") else 0)
+    return max_e, rch
 
 def upgrade_cooldown_remaining(upg_val, current_day):
     """Days left before this upgrade can be done again. 0 = available now."""
@@ -972,6 +1094,13 @@ def upgrade_cooldown_remaining(upg_val, current_day):
     return max(0, RENO_COOLDOWN - (current_day - upg_val.get("day", 0)))
 
 def calc_market_value(prop):
+    if prop.get("fixed_market_value"):
+        val = prop["fixed_market_value"]
+        for key, upg_val in prop.get("upgrades", {}).items():
+            quality = get_upgrade_quality(upg_val)
+            val    += int(UPGRADES[key]["value_add"] * (quality / 100))
+        val += get_premium_bonuses(prop)["value"]
+        return val
     n         = NEIGHBORHOODS[prop["neighborhood"]]
     base      = prop["sqft"] * 120 + prop["bedrooms"] * 15000 + prop["bathrooms"] * 8000
     cond_mult = 0.5 + (prop["condition"] / MAX_CONDITION) * 0.7
@@ -1098,11 +1227,14 @@ def generate_property(nid, hoods=None):
 def make_starter_home():
     return {"id": 1, "type": "Bungalow", "neighborhood": "Midtown", "address": "412 Elm St",
             "bedrooms": 2, "bathrooms": 1, "sqft": 820, "condition": 61,
-            "upgrades": {}, "premium_upgrades": [], "squatter": None, "vacant_since": 1,
+            "upgrades": {}, "premium_upgrades": [],
+            "squatter": {"moved_in_day": 1, "stay_days": 9999, "bribe": 4367, "starter": True},
+            "vacant_since": 1,
             "pending_reno": None, "pending_premium": None,
             "scheduled_reno": None, "scheduled_premium": None,
             "tenant": None, "days_rented": 0,
-            "total_rent_collected": 0, "total_repair_costs": 0, "purchase_price": 0}
+            "total_rent_collected": 0, "total_repair_costs": 0, "purchase_price": 0,
+            "fixed_market_value": 75633}
 
 def new_game():
     starter = make_starter_home()
@@ -1112,16 +1244,19 @@ def new_game():
         "applicants_cache": {},
         "last_bank_day": 1,
         "energy": PLAYER_HOMES[0]["max_energy"],
-        "player_home": "moms_basement",
+        "player_home": "grandmas_basement",
+        "owned_items": {},
+        "diy_classes": {},
         "jobs": generate_jobs(),
         "redeemed_codes": [],
+        "intro_seen": False,
         "squatter_count": 0,
         "bank": {"savings": 0, "loans": [], "next_loan_id": 1},
         "level": 0, "xp": 0,
         "stocks": _init_stock_state(),
     }
-    state["log"].append({"day": 1, "type": "info",
-        "text": "You inherited a run-down Bungalow in Midtown. Fix it up and sell it to get started!"})
+    state["log"].append({"day": 1, "type": "warning",
+        "text": "You inherited a run-down Bungalow in Midtown — but there's a squatter inside demanding $4,367 to leave. Bribe them out, or sell the property as-is and pocket $80,000 to start fresh."})
     state["market"], state["next_id"] = _gen_market(state["next_id"])
     return state
 
@@ -1169,6 +1304,12 @@ def _migrate_state(s):
             s["level"] = 0
             s["xp"]    = 0
     s.setdefault("xp", 0)
+    s.setdefault("owned_items", {})
+    s.setdefault("diy_classes", {})
+    # Rename old starting home key; other stale keys fall back gracefully in get_player_home
+    if s.get("player_home") == "moms_basement":
+        s["player_home"] = "grandmas_basement"
+    s.setdefault("intro_seen", True)   # existing saves skip the intro
     s.setdefault("tax_year_flip_income", 0)
     s.setdefault("tax_year_rent_income", 0)
     s.setdefault("tax_extension_filed", False)
@@ -1222,16 +1363,18 @@ def index():
 @app.route('/api/state', methods=['GET', 'POST'])
 def api_state():
     s = load()
-    home = get_player_home(s)
+    max_e, rch = _get_home_stats(s)
     weekly_income = sum(p["tenant"]["rent"] for p in s["properties"] if p.get("tenant"))
     lvl = s.get("level", 0)
     return jsonify({
         "cash":                   s["cash"],
         "day":                    s["day"],
-        "energy":                 s.get("energy", home["max_energy"]),
-        "max_energy":             home["max_energy"],
-        "energy_recharge":        home["recharge"],
-        "player_home":            s.get("player_home", "moms_basement"),
+        "energy":                 s.get("energy", max_e),
+        "max_energy":             max_e,
+        "energy_recharge":        rch,
+        "player_home":            s.get("player_home", "grandmas_basement"),
+        "owned_items":            s.get("owned_items", {}),
+        "diy_classes":            s.get("diy_classes", {}),
         "jobs":                   s.get("jobs", []),
         "net_worth":              s["cash"] + sum(calc_market_value(p) for p in s["properties"]),
         "weekly_income":          weekly_income,
@@ -1244,6 +1387,7 @@ def api_state():
         "xp_pct":                 calc_xp_pct(s),
         "unlocked_neighborhoods": get_unlocked_neighborhoods(lvl),
         "unlocked_homes":         get_unlocked_home_keys(lvl),
+        "intro_seen":             s.get("intro_seen", True),
     })
 
 @app.route('/api/market', methods=['GET', 'POST'])
@@ -1599,7 +1743,13 @@ def api_sell():
         return jsonify({"error": "Not found"}), 404
     if prop.get("tenant"):
         return jsonify({"error": "Evict tenant first"}), 400
-    sale   = int(calc_market_value(prop) * random.uniform(0.95, 1.05))
+    if prop.get("squatter") and prop["squatter"].get("starter"):
+        return jsonify({"error": "No buyer's touching that place with a squatter in it. Bribe them out first."}), 400
+    # Fixed-value properties (e.g. starter home) sell at exact price until upgraded
+    if prop.get("fixed_market_value") and not prop.get("upgrades") and not prop.get("premium_upgrades"):
+        sale = prop["fixed_market_value"]
+    else:
+        sale = int(calc_market_value(prop) * random.uniform(0.95, 1.05))
     profit = sale - prop["purchase_price"]
     s["cash"] += sale
     if profit > 0:
@@ -1635,7 +1785,15 @@ def api_applicants(pid):
     if key not in s.get("applicants_cache", {}):
         # Filter tenant pool to profiles that match the property's neighborhood tier
         hood_tier = NEIGHBORHOODS.get(prop.get("neighborhood", ""), {}).get("tier", "mid")
-        eligible  = [t for t in TENANT_PROFILES if hood_tier in t.get("tiers", ["budget", "mid", "premium"])]
+        active_names = {
+            p["tenant"]["name"] for p in s["properties"]
+            if p.get("tenant") and not any(p["tenant"].get(k) for k in ("is_phil","is_baileys","is_goldbergs","is_mystery"))
+        }
+        eligible  = [
+            t for t in TENANT_PROFILES
+            if hood_tier in t.get("tiers", ["budget", "mid", "premium"])
+            and (not t.get("unique") or t["name"] not in active_names)
+        ]
         picks     = random.sample(eligible, min(3, len(eligible)))
         applicants = [{**t, "idx": i,
                        "damage_label": "Low" if t["damage_chance"] < 0.05 else ("Medium" if t["damage_chance"] < 0.10 else "High")}
@@ -1754,6 +1912,8 @@ def api_advance():
     data     = request.json
     days     = max(1, min(int(data.get("days", 1)), 30))
     s           = load()
+    if any(isinstance(p.get("squatter"), dict) and p["squatter"].get("starter") for p in s["properties"]):
+        return jsonify({"error": "There's a squatter in your house. Time isn't going anywhere until you deal with that."}), 400
     events             = []
     new_repairs        = []
     new_morale_events  = []
@@ -2113,7 +2273,7 @@ def api_advance():
                 new_amount = int(owed["amount"] * 1.03)
                 owed["amount"] = new_amount
                 events.append({"prop": f"{prop['type']} — {prop['neighborhood']}",
-                                "text": f"📈 Contractor payment grew 10% — now ${new_amount:,} owed ({28 - days_overdue} days left)",
+                                "text": f"📈 Contractor payment grew 3% — now ${new_amount:,} owed ({28 - days_overdue} days left)",
                                 "type": "negative"})
 
         # Premium upgrade completion
@@ -2266,8 +2426,8 @@ def api_advance():
         s["market_unlocked_hoods"] = list(_adv_unlocked)
 
     # Restore energy (additive recharge capped at home max) and refresh jobs
-    home = get_player_home(s)
-    s["energy"] = min(home["max_energy"], s.get("energy", 0) + home["recharge"])
+    max_e, rch = _get_home_stats(s)
+    s["energy"] = min(max_e, s.get("energy", 0) + rch)
     s["jobs"]   = generate_jobs()
 
 
@@ -2655,6 +2815,13 @@ def api_jobs_complete():
                     "energy": s["energy"], "quality": quality,
                     "level_up": level_up, "new_level": s.get("level", 0)})
 
+@app.route('/api/intro/seen', methods=['POST'])
+def api_intro_seen():
+    s = load()
+    s["intro_seen"] = True
+    save(s)
+    return jsonify({"success": True})
+
 @app.route('/api/squatter/bribe', methods=['POST'])
 def api_squatter_bribe():
     s    = load()
@@ -2725,12 +2892,61 @@ def api_move_in():
         return jsonify({"error": f"Not enough cash — need ${new_home['cost']:,}"}), 400
     s["cash"] -= new_home["cost"]
     s["player_home"] = key
-    # Cap current energy at new home's max (it might already be lower)
-    s["energy"] = min(s.get("energy", 0), new_home["max_energy"])
+    # Cap current energy at new (bonused) max
+    max_e, rch = _get_home_stats(s)
+    s["energy"] = min(s.get("energy", 0), max_e)
     s["log"].insert(0, {"day": s["day"], "type": "info",
-        "text": f"Moved into {new_home['name']}! Max energy now ⚡{new_home['max_energy']}, recharge +{new_home['recharge']}/day."})
+        "text": f"Moved into {new_home['name']}! Max energy now ⚡{max_e}, recharge +{rch}/day."})
     save(s)
     return jsonify({"success": True, "home": new_home["name"]})
+
+@app.route('/api/education/buy_class', methods=['POST'])
+def api_buy_diy_class():
+    s         = load()
+    data      = request.json or {}
+    class_key = data.get("class_key", "")
+    cls       = DIY_CLASSES.get(class_key)
+    if not cls:
+        return jsonify({"error": "Unknown class"}), 400
+    classes = s.setdefault("diy_classes", {})
+    if classes.get(class_key):
+        return jsonify({"error": "You already completed this course!"}), 400
+    if s.get("level", 0) < cls["unlock_level"]:
+        return jsonify({"error": f"Reach Level {cls['unlock_level']} to unlock this course"}), 400
+    max_e, _ = _get_home_stats(s)
+    cur_e = s.get("energy", max_e)
+    if cur_e < cls["energy_cost"]:
+        return jsonify({"error": f"Not enough energy — need ⚡{cls['energy_cost']} (you have ⚡{cur_e})"}), 400
+    s["energy"] = max(0, cur_e - cls["energy_cost"])
+    classes[class_key] = True
+    unlocks_str = " & ".join(cls["unlocks"])
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"Completed {cls['name']} {cls['icon']} — DIY {unlocks_str} unlocked!"})
+    save(s)
+    return jsonify({"success": True, "class_name": cls["name"]})
+
+@app.route('/api/store/buy_item', methods=['POST'])
+def api_store_buy_item():
+    s        = load()
+    data     = request.json or {}
+    item_key = data.get("item_key", "")
+    item     = STORE_ITEMS.get(item_key)
+    if not item:
+        return jsonify({"error": "Unknown item"}), 400
+    if item_key in {"coffee_maker", "new_bed"}:
+        if any(isinstance(p.get("squatter"), dict) and p["squatter"].get("starter") for p in s["properties"]):
+            return jsonify({"error": "Treat yourself later. Right now you've got a squatter problem."}), 400
+    items = s.setdefault("owned_items", {})
+    if items.get(item_key):
+        return jsonify({"error": "You already own this!"}), 400
+    if s["cash"] < item["cost"]:
+        return jsonify({"error": f"Not enough cash — need ${item['cost']:,}"}), 400
+    s["cash"] -= item["cost"]
+    items[item_key] = True
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"Bought {item['name']} {item['icon']} for ${item['cost']:,}!"})
+    save(s)
+    return jsonify({"success": True, "item": item["name"]})
 
 @app.route('/api/stocks', methods=['GET', 'POST'])
 def api_stocks():

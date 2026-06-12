@@ -3,7 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Slumlord Special Alpha</title>
+  <title>Slumlord Special</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rubik+Dirt&family=Great+Vibes&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -12,8 +15,11 @@
   <!-- Header -->
   <header>
     <div class="header-top">
-      <div class="header-logo">🏚️ Slumlord<span>Special Alpha</span></div>
-      <div class="header-month" id="hdr-day">🌸 Spring · Day 1</div>
+      <div class="header-logo">🏚️ <span style="font-family:'Rubik Dirt',cursive;color:inherit">SlumLord</span><span style="font-family:'Great Vibes',cursive;font-size:22px"> Special</span></div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="header-month" id="hdr-day">🌸 Spring · Day 1</div>
+        <button class="header-gear-btn" onclick="navTo('settings')" title="Settings">⚙️</button>
+      </div>
     </div>
     <div class="header-bottom">
       <div class="header-stat">
@@ -129,10 +135,14 @@
     <!-- Settings -->
     <div id="page-settings" class="page"></div>
 
+    <!-- Personal -->
+    <div id="page-personal" class="page"></div>
+
   </main>
 
   <!-- Bottom Nav -->
   <nav class="bottom-nav">
+    <div id="nav-indicator" class="nav-indicator"></div>
     <button class="nav-btn active" data-page="dashboard">
       <span class="nav-icon">📊</span>
       Home
@@ -149,13 +159,13 @@
       <span class="nav-icon">💰</span>
       Finances
     </button>
+    <button class="nav-btn" data-page="personal">
+      <span class="nav-icon">🛋️</span>
+      Personal
+    </button>
     <button class="nav-btn" data-page="business">
       <span class="nav-icon">💼</span>
       Business
-    </button>
-    <button class="nav-btn" data-page="settings">
-      <span class="nav-icon">⚙️</span>
-      Settings
     </button>
   </nav>
 
