@@ -116,7 +116,7 @@ REPAIR_TYPES = [
 
 # ── Tenant Event System ────────────────────────────────────────────────────────
 # One event can fire per day when the global roll succeeds.
-# Chance = 35% base + 1% per tenant (capped at 90%).
+# Chance = 15% base + 1% per tenant (capped at 75%).
 #
 # To add a new event type:
 #   1. Add an entry here with a unique "key", a "weight" (higher = more common),
@@ -278,6 +278,482 @@ TENANT_EVENTS = [
         "name": "Tight Month", "icon": "💸",
         "morale_delta": -6,
         "message": "mentioned money is tight this month",
+    },
+    # ── More funny morale-choice events ───────────────────────────────────────
+    {
+        "key": "es_tarantula", "weight": 4, "type": "morale_choice",
+        "name": "Emotional Support Tarantula", "icon": "🕷️",
+        "agree_label": "...Fine.", "decline_label": "Absolutely not.",
+        "morale_gain": 8, "damage_chance": 0.20, "damage_pts": 15,
+        "message": "Your tenant has acquired an emotional support tarantula. She's very gentle. She's never bitten anyone. That they know of.",
+    },
+    {
+        "key": "circus_skills", "weight": 4, "type": "morale_choice",
+        "name": "Circus Skills Practice", "icon": "🎪",
+        "agree_label": "Try not to break anything.", "decline_label": "Please take that somewhere else.",
+        "morale_gain": 6, "damage_chance": 0.30, "damage_pts": 20,
+        "message": "Your tenant has taken up juggling and unicycle riding. In the hallway.",
+    },
+    {
+        "key": "telescope_hole", "weight": 3, "type": "morale_choice",
+        "name": "Telescope Installation", "icon": "🔭",
+        "agree_label": "That's... a very small hole.", "decline_label": "No modifications to the roof.",
+        "morale_gain": 7, "damage_chance": 0.65, "damage_pts": 40,
+        "message": "Your tenant wants to cut a small hole in the roof for a 'permanent telescope mount.' It's just a small hole.",
+    },
+    {
+        "key": "home_science", "weight": 4, "type": "morale_choice",
+        "name": "Home Science Lab", "icon": "🧪",
+        "agree_label": "I probably don't want to know.", "decline_label": "I definitely don't want to know.",
+        "morale_gain": 6, "damage_chance": 0.40, "damage_pts": 30,
+        "message": "Your tenant is doing 'experiments.' Nothing illegal. They won't say more than that.",
+    },
+    {
+        "key": "accordion", "weight": 4, "type": "morale_choice",
+        "name": "Accordion Lessons", "icon": "🪗",
+        "agree_label": "Sure, maybe they'll get good eventually.", "decline_label": "Not in my property.",
+        "morale_gain": 7, "damage_chance": 0.10, "damage_pts": 10,
+        "message": "Your tenant has started learning accordion. Lessons are every Tuesday and Thursday at 9pm.",
+    },
+    {
+        "key": "tiny_house", "weight": 3, "type": "morale_choice",
+        "name": "Backyard Tiny House", "icon": "🛖",
+        "agree_label": "As long as it's not permanent.", "decline_label": "Please take that down.",
+        "morale_gain": 10, "damage_chance": 0.50, "damage_pts": 35,
+        "message": "Your tenant built a tiny structure in the backyard for their 'creative space.' It has electricity.",
+    },
+    {
+        "key": "carousel_horse", "weight": 3, "type": "morale_choice",
+        "name": "Vintage Carousel Horse", "icon": "🎠",
+        "agree_label": "It's not hurting anyone.", "decline_label": "That has to go.",
+        "morale_gain": 9, "damage_chance": 0.05, "damage_pts": 10,
+        "message": "Your tenant bought a full-size vintage carousel horse from an estate sale. It lives in the living room now. They just want you to know.",
+    },
+    {
+        "key": "outdoor_shower", "weight": 4, "type": "morale_choice",
+        "name": "Outdoor Shower", "icon": "🚿",
+        "agree_label": "Fine, just make sure it drains.", "decline_label": "This isn't a campsite.",
+        "morale_gain": 8, "damage_chance": 0.35, "damage_pts": 25,
+        "message": "Your tenant wants to install an outdoor shower on the back porch. 'For after gardening.'",
+    },
+    {
+        "key": "arcade_cabinet", "weight": 4, "type": "morale_choice",
+        "name": "Arcade Cabinet Project", "icon": "🕹️",
+        "agree_label": "As long as the garage survives.", "decline_label": "Find somewhere else to build it.",
+        "morale_gain": 9, "damage_chance": 0.20, "damage_pts": 15,
+        "message": "Your tenant is building a full-size arcade cabinet. They need the garage for the next 'few weeks.'",
+    },
+    {
+        "key": "cactus_garden", "weight": 4, "type": "morale_choice",
+        "name": "Cactus Garden", "icon": "🌵",
+        "agree_label": "Sure, very low maintenance.", "decline_label": "Let's keep the yard as-is.",
+        "morale_gain": 6, "damage_chance": 0.15, "damage_pts": 10,
+        "message": "Your tenant wants to convert the front yard to a cactus garden. 'Very low maintenance,' they promise.",
+    },
+    {
+        "key": "large_statue", "weight": 3, "type": "morale_choice",
+        "name": "Unsettling Garden Statue", "icon": "🗿",
+        "agree_label": "I'll allow it.", "decline_label": "That needs to go.",
+        "morale_gain": 8, "damage_chance": 0.05, "damage_pts": 5,
+        "message": "Your tenant acquired a very large garden statue from an estate sale. It's a little unsettling but they absolutely love it.",
+    },
+    {
+        "key": "power_washer", "weight": 4, "type": "morale_choice",
+        "name": "Power Washer Purchase", "icon": "💦",
+        "agree_label": "Go for it, but be careful with the siding.", "decline_label": "Please don't.",
+        "morale_gain": 7, "damage_chance": 0.35, "damage_pts": 30,
+        "message": "Your tenant bought a power washer and wants to 'clean everything.' You know how this ends.",
+    },
+    {
+        "key": "es_goat", "weight": 3, "type": "morale_choice",
+        "name": "Emotional Support Goat", "icon": "🐐",
+        "agree_label": "It's basically a dog.", "decline_label": "Absolutely not.",
+        "morale_gain": 10, "damage_chance": 0.55, "damage_pts": 35,
+        "message": "Your tenant insists it's a miniature goat and miniature goats are basically dogs.",
+    },
+    {
+        "key": "clothesline", "weight": 4, "type": "morale_choice",
+        "name": "Permanent Clothesline", "icon": "🧺",
+        "agree_label": "Sure, just keep it tidy.", "decline_label": "It'll just be in the way.",
+        "morale_gain": 5, "damage_chance": 0.10, "damage_pts": 10,
+        "message": "Your tenant wants to run a clothesline across the entire backyard. Permanently.",
+    },
+    {
+        "key": "string_quartet", "weight": 4, "type": "morale_choice",
+        "name": "String Quartet Practice", "icon": "🎻",
+        "agree_label": "Sure, maybe they'll improve.", "decline_label": "Not in my property.",
+        "morale_gain": 8, "damage_chance": 0.05, "damage_pts": 10,
+        "message": "Your tenant joined a string quartet. They practice here now. They are not good yet.",
+    },
+    {
+        "key": "rooster", "weight": 4, "type": "morale_choice",
+        "name": "Surprise Rooster", "icon": "🐓",
+        "agree_label": "It's already here, so...", "decline_label": "That has to go. Now.",
+        "morale_gain": 9, "damage_chance": 0.30, "damage_pts": 20,
+        "message": "Your tenant 'accidentally' got a rooster. Thought it was a hen. It is not a hen.",
+    },
+    {
+        "key": "archery", "weight": 4, "type": "morale_choice",
+        "name": "Backyard Archery Range", "icon": "🏹",
+        "agree_label": "Just aim at the target, not the fence.", "decline_label": "Too much liability.",
+        "morale_gain": 7, "damage_chance": 0.45, "damage_pts": 30,
+        "message": "Your tenant has taken up archery. In the backyard.",
+    },
+    {
+        "key": "open_mic", "weight": 4, "type": "morale_choice",
+        "name": "Monthly Open Mic Night", "icon": "🎤",
+        "agree_label": "Very small crowd though.", "decline_label": "Not at my property.",
+        "morale_gain": 8, "damage_chance": 0.20, "damage_pts": 15,
+        "message": "Your tenant wants to host a monthly open mic night in the living room. 'Very small crowd,' they say.",
+    },
+    {
+        "key": "sublet_request", "weight": 4, "type": "morale_choice",
+        "name": "Couch Sublet", "icon": "🛋️",
+        "agree_label": "Just on weekends.", "decline_label": "Absolutely not.",
+        "morale_gain": 10, "damage_chance": 0.35, "damage_pts": 25,
+        "message": "Your tenant wants to rent out their couch on an app. 'Just on weekends.'",
+    },
+    {
+        "key": "rain_barrels", "weight": 4, "type": "morale_choice",
+        "name": "Rain Collection System", "icon": "🪣",
+        "agree_label": "Sure, very eco-friendly.", "decline_label": "That's a lot of barrels.",
+        "morale_gain": 5, "damage_chance": 0.10, "damage_pts": 10,
+        "message": "Your tenant installed 12 rain barrels in the yard. They want to keep them.",
+    },
+    {
+        "key": "storage_unit", "weight": 4, "type": "morale_choice",
+        "name": "Unofficial Storage Unit", "icon": "📦",
+        "agree_label": "Just temporarily, right?", "decline_label": "This isn't a storage unit.",
+        "morale_gain": 7, "damage_chance": 0.25, "damage_pts": 20,
+        "message": "Your tenant moved their storage unit contents into the property. 'Just temporarily.'",
+    },
+    {
+        "key": "wall_mural", "weight": 4, "type": "morale_choice",
+        "name": "Bedroom Mural", "icon": "🖼️",
+        "agree_label": "Show me the design first.", "decline_label": "Not on my walls.",
+        "morale_gain": 9, "damage_chance": 0.50, "damage_pts": 35,
+        "message": "Your tenant wants to paint a mural on the bedroom wall. 'I'm a pretty good artist,' they say.",
+    },
+    {
+        "key": "crystals", "weight": 4, "type": "morale_choice",
+        "name": "EMF Protection Setup", "icon": "🔮",
+        "agree_label": "Sure, whatever makes you feel safe.", "decline_label": "I'd rather not have copper mesh on all my windows.",
+        "morale_gain": 6, "damage_chance": 0.25, "damage_pts": 20,
+        "message": "Your tenant wants to install copper mesh on all the windows. For EMF protection.",
+    },
+    {
+        "key": "bowling_garage", "weight": 3, "type": "morale_choice",
+        "name": "Garage Bowling Lane", "icon": "🎳",
+        "agree_label": "The garage is a bowling alley now.", "decline_label": "That needs to be undone.",
+        "morale_gain": 8, "damage_chance": 0.40, "damage_pts": 30,
+        "message": "Your tenant rearranged the garage into a 'mini bowling lane.' It's already done. They're asking if that's okay.",
+    },
+
+    # ── Special morale-choice events (cool mechanics) ──────────────────────────
+    # cond_gain: if set and player agrees, restores condition by this amount.
+    # cash_bonus: if True and player agrees, awards $150–$350 random cash.
+    {
+        "key": "tenant_repairs", "weight": 3, "type": "morale_choice",
+        "name": "Tenant Fixed Something", "icon": "🔧",
+        "agree_label": "Nice work, thank you!", "decline_label": "Run it by me first next time.",
+        "morale_gain": 10, "damage_chance": 0, "damage_pts": 0, "cond_gain": 25,
+        "message": "Your tenant fixed something on their own — properly, too. Better than you would have.",
+    },
+    {
+        "key": "energy_audit", "weight": 3, "type": "morale_choice",
+        "name": "DIY Energy Audit", "icon": "💡",
+        "agree_label": "Put it into action!", "decline_label": "Appreciate the effort, but no thanks.",
+        "morale_gain": 8, "damage_chance": 0, "damage_pts": 0, "cond_gain": 12,
+        "message": "Your tenant did a DIY energy audit and left you a detailed report. With a spreadsheet. Color-coded.",
+    },
+    {
+        "key": "rent_bump_offer", "weight": 3, "type": "morale_choice",
+        "name": "Rent Bump Offer", "icon": "💸",
+        "agree_label": "We appreciate it!", "decline_label": "No need, just pay what you owe.",
+        "morale_gain": 5, "damage_chance": 0, "damage_pts": 0, "cash_bonus": True,
+        "message": "Your tenant just got a raise and wants to pay a little extra this month as a thank you.",
+    },
+
+    # ── Special auto events: cash ──────────────────────────────────────────────
+    # Fires silently; adds cash_min–cash_max to player's cash.
+    {
+        "key": "tenant_gift", "weight": 3, "type": "cash_auto",
+        "name": "Tenant Gift", "icon": "💝",
+        "cash_min": 150, "cash_max": 400,
+        "message": "left you a cash gift — a thank-you for being a great landlord",
+    },
+    {
+        "key": "scratch_ticket", "weight": 3, "type": "cash_auto",
+        "name": "Lucky Scratch Ticket", "icon": "🎰",
+        "cash_min": 50, "cash_max": 200,
+        "message": "found a scratch ticket in the couch cushions and split their winnings with you",
+    },
+    {
+        "key": "holiday_gift", "weight": 3, "type": "cash_auto",
+        "name": "Holiday Gift", "icon": "🎁",
+        "cash_min": 75, "cash_max": 150,
+        "message": "left a holiday gift and a card — it was a thoughtful gesture",
+    },
+    {
+        "key": "found_in_walls", "weight": 2, "type": "cash_auto",
+        "name": "Found in the Walls", "icon": "💎",
+        "cash_min": 300, "cash_max": 800,
+        "message": "found something valuable inside the walls during a minor repair and split it with you",
+    },
+
+    # ── Special auto events: condition restore ─────────────────────────────────
+    # Fires silently; restores cond_gain pts to condition, capped at MAX_CONDITION.
+    # Optional filters: max_condition (fires only if condition <= this),
+    #                   min_morale (fires only if tenant morale >= this).
+    {
+        "key": "property_of_year", "weight": 2, "type": "cond_auto",
+        "name": "Property of the Year", "icon": "🏆",
+        "cond_gain": 10,
+        "message": "A local neighborhood blog named your property 'Hidden Gem of the Block'",
+    },
+    {
+        "key": "deep_clean", "weight": 3, "type": "cond_auto",
+        "name": "Tenant Deep Clean", "icon": "🧹",
+        "cond_gain": 15, "min_morale": 80,
+        "message": "deep cleaned the entire place before you could schedule it",
+    },
+    {
+        "key": "self_fix_window", "weight": 4, "type": "cond_auto",
+        "name": "Self-Fixed Window", "icon": "🪟",
+        "cond_gain": 5,
+        "message": "broke a window and quietly fixed it themselves, out of pocket. You noticed when it looked better than before",
+    },
+    {
+        "key": "planted_tree", "weight": 3, "type": "cond_auto",
+        "name": "Planted a Tree", "icon": "🌳",
+        "cond_gain": 8,
+        "message": "planted a nice tree in the yard without asking. It's genuinely a nice tree",
+    },
+    {
+        "key": "green_thumb", "weight": 3, "type": "cond_auto",
+        "name": "Green Thumb Tenant", "icon": "🌿",
+        "cond_gain": 25, "max_condition": 175,
+        "message": "has been maintaining the landscaping entirely on their own, without being asked",
+    },
+    {
+        "key": "handy_tenant", "weight": 3, "type": "cond_auto",
+        "name": "Handy Tenant", "icon": "🏗️",
+        "cond_gain": 20,
+        "message": "patched the drywall on their own — properly, with compound and everything",
+    },
+    {
+        "key": "energy_savings", "weight": 4, "type": "cond_auto",
+        "name": "Energy Upgrades", "icon": "🔋",
+        "cond_gain": 5,
+        "message": "installed smart power strips and LED bulbs out of their own pocket. Left a note: 'You're welcome.'",
+    },
+
+    # ── Special morale-auto events (larger deltas) ─────────────────────────────
+    {
+        "key": "word_of_mouth", "weight": 3, "type": "morale_auto",
+        "name": "Word of Mouth", "icon": "⭐",
+        "morale_delta": 15,
+        "message": "told everyone they know how great the place is",
+    },
+    {
+        "key": "turnaround", "weight": 3, "type": "morale_auto",
+        "name": "The Turnaround", "icon": "🌟",
+        "morale_delta": 25, "max_morale": 30,
+        "message": "had something go really right in their life and their whole mood shifted",
+    },
+
+    # ── Funny morale-auto events ───────────────────────────────────────────────
+    {
+        "key": "squirrel_roof", "weight": 5, "type": "morale_auto",
+        "name": "Squirrel on the Roof", "icon": "🐿️",
+        "morale_delta": -4,
+        "message": "heard something on the roof and sent you eleven voice memos about it",
+    },
+    {
+        "key": "wrong_mail", "weight": 5, "type": "morale_auto",
+        "name": "Wrong Mail Again", "icon": "📬",
+        "morale_delta": 3,
+        "message": "has been getting someone else's mail for six months and is now very invested in that person's life",
+    },
+    {
+        "key": "spider_situation", "weight": 5, "type": "morale_auto",
+        "name": "Spider Situation", "icon": "🕸️",
+        "morale_delta": -6,
+        "message": "encountered a very large spider. They have not fully recovered",
+    },
+    {
+        "key": "great_rain_nap", "weight": 5, "type": "morale_auto",
+        "name": "Great Rain Nap", "icon": "☔",
+        "morale_delta": 8,
+        "message": "did absolutely nothing all weekend because it rained and loved every second of it",
+    },
+    {
+        "key": "perfect_couch", "weight": 5, "type": "morale_auto",
+        "name": "Perfect Couch Position", "icon": "🛋️",
+        "morale_delta": 6,
+        "message": "rearranged the furniture and it is now somehow perfect. Texted you about it at 11pm",
+    },
+    {
+        "key": "seasonal_allergies", "weight": 5, "type": "morale_auto",
+        "name": "Seasonal Allergies", "icon": "🤧",
+        "morale_delta": -5,
+        "message": "is suffering through seasonal allergies. Not your fault, but they're miserable",
+    },
+    {
+        "key": "bus_route_changed", "weight": 4, "type": "morale_auto",
+        "name": "Bus Route Changed", "icon": "🚌",
+        "morale_delta": -7,
+        "message": "just found out the city changed their bus route. They are devastated",
+    },
+    {
+        "key": "found_their_song", "weight": 5, "type": "morale_auto",
+        "name": "Found Their Song", "icon": "🎶",
+        "morale_delta": 7,
+        "message": "discovered a song that perfectly describes their life right now and is absolutely thriving",
+    },
+    {
+        "key": "overslept", "weight": 5, "type": "morale_auto",
+        "name": "Overslept", "icon": "😴",
+        "morale_delta": -4,
+        "message": "overslept and missed something important. They're embarrassed and grumpy",
+    },
+    {
+        "key": "double_rainbow", "weight": 3, "type": "morale_auto",
+        "name": "Double Rainbow", "icon": "🌈",
+        "morale_delta": 9,
+        "message": "saw a double rainbow from the backyard and texted you about it immediately. They're inexplicably emotional",
+    },
+    {
+        "key": "thinks_haunted", "weight": 4, "type": "morale_auto",
+        "name": "Possibly Haunted", "icon": "👻",
+        "morale_delta": -5,
+        "message": "heard a noise and is now 40% convinced the property is haunted. Still not moving though",
+    },
+    {
+        "key": "made_waffles", "weight": 5, "type": "morale_auto",
+        "name": "Made Waffles", "icon": "🧇",
+        "morale_delta": 7,
+        "message": "made waffles from scratch for the first time and is very proud of themselves",
+    },
+    {
+        "key": "phone_died", "weight": 5, "type": "morale_auto",
+        "name": "Phone Died", "icon": "📵",
+        "morale_delta": -5,
+        "message": "had their phone die with no charger for an entire day",
+    },
+    {
+        "key": "bad_burrito", "weight": 5, "type": "morale_auto",
+        "name": "Bad Burrito", "icon": "😬",
+        "morale_delta": -4,
+        "message": "had a terrible experience at a new restaurant they were excited about. They're shaken",
+    },
+    {
+        "key": "bird_window", "weight": 5, "type": "morale_auto",
+        "name": "Bird at the Window", "icon": "🐦",
+        "morale_delta": 5,
+        "message": "has a bird that taps on the window every morning and believes it means something",
+    },
+    {
+        "key": "ran_into_you", "weight": 5, "type": "morale_auto",
+        "name": "Ran Into Landlord", "icon": "😶",
+        "morale_delta": 3,
+        "message": "ran into you at the grocery store. It was a little awkward but the place is still great",
+    },
+    {
+        "key": "adopted_plant", "weight": 5, "type": "morale_auto",
+        "name": "Adopted a Plant", "icon": "🪴",
+        "morale_delta": 5,
+        "message": "adopted a large plant named Gerald and is very happy about it",
+    },
+    {
+        "key": "parking_incident", "weight": 5, "type": "morale_auto",
+        "name": "Parking Incident", "icon": "🚗",
+        "morale_delta": -6,
+        "message": "had someone park in their spot again. They are furious",
+    },
+    {
+        "key": "neighborhood_drama", "weight": 5, "type": "morale_auto",
+        "name": "Neighborhood Drama", "icon": "🍿",
+        "morale_delta": -4,
+        "message": "is deeply invested in a neighborhood dispute that has nothing to do with them",
+    },
+    {
+        "key": "bad_week", "weight": 5, "type": "morale_auto",
+        "name": "Just One of Those Weeks", "icon": "😩",
+        "morale_delta": -7,
+        "message": "is just having one of those weeks. They didn't elaborate",
+    },
+    {
+        "key": "great_new_neighbor", "weight": 5, "type": "morale_auto",
+        "name": "Great New Neighbor", "icon": "🏡",
+        "morale_delta": 6,
+        "message": "says a really nice person just moved in next door",
+    },
+    {
+        "key": "true_crime_phase", "weight": 5, "type": "morale_auto",
+        "name": "True Crime Phase", "icon": "📺",
+        "morale_delta": 4,
+        "message": "is deep in a true crime podcast phase and keeps leaving suspiciously specific voicemails",
+    },
+    {
+        "key": "good_taco", "weight": 5, "type": "morale_auto",
+        "name": "Found a Great Taco Place", "icon": "🌮",
+        "morale_delta": 8,
+        "message": "texted you about a taco place. You didn't ask. Morale is up though",
+    },
+    {
+        "key": "package_stolen", "weight": 5, "type": "morale_auto",
+        "name": "Package Stolen", "icon": "😤",
+        "morale_delta": -8,
+        "message": "had a package stolen off the porch. They don't blame you. But they're upset",
+    },
+    {
+        "key": "mosquito_season", "weight": 5, "type": "morale_auto",
+        "name": "Mosquito Season", "icon": "🦟",
+        "morale_delta": -5,
+        "message": "is suffering through mosquito season. It's bad this year",
+    },
+    {
+        "key": "cant_sleep", "weight": 5, "type": "morale_auto",
+        "name": "Can't Sleep", "icon": "🌙",
+        "morale_delta": -6,
+        "message": "has been sleeping terribly. They did not elaborate",
+    },
+    {
+        "key": "dog_sitting", "weight": 5, "type": "morale_auto",
+        "name": "Dog Sitting", "icon": "🐕",
+        "morale_delta": 7,
+        "message": "is dog sitting for a friend this week and is extremely happy about it",
+    },
+    {
+        "key": "great_pizza", "weight": 5, "type": "morale_auto",
+        "name": "Found a Great Pizza Place", "icon": "🍕",
+        "morale_delta": 6,
+        "message": "texted you about a pizza place. You also didn't ask about this one",
+    },
+    {
+        "key": "hoa_nonsense", "weight": 4, "type": "morale_auto",
+        "name": "HOA Nonsense", "icon": "📋",
+        "morale_delta": -7,
+        "message": "received an HOA letter about something extremely minor. They are furious",
+    },
+    {
+        "key": "perfect_weather", "weight": 5, "type": "morale_auto",
+        "name": "Perfect Weather Week", "icon": "☀️",
+        "morale_delta": 5,
+        "message": "had a genuinely perfect weather week and is in a great mood",
+    },
+    {
+        "key": "drafty_window_auto", "weight": 5, "type": "morale_auto",
+        "name": "Drafty Window", "icon": "🥶",
+        "morale_delta": -5,
+        "message": "noticed a draft from a window they hadn't noticed before",
+    },
+    {
+        "key": "mystery_package", "weight": 4, "type": "morale_auto",
+        "name": "Mystery Package", "icon": "🎀",
+        "morale_delta": 3,
+        "message": "received a giant mysterious package and won't say what it is. Morale is up somehow",
     },
     # ── Add future events below this line ─────────────────────────────────────
 ]
@@ -807,13 +1283,58 @@ SPECIAL_CONTRACTORS = {
 }
 SPECIAL_CONTRACTOR_CHANCE = 0.10
 
+# ── Renovation cost scaling ────────────────────────────────────────────────────
+# Base cost (from UPGRADES) applies to the smallest Midtown properties.
+# Larger homes and better neighborhoods cost proportionally more.
+_RENO_SQFT_MULT = [
+    (600,  1.00),   # < 600 sqft  — tiny bungalows/condos
+    (1000, 1.20),   # 600–999
+    (1500, 1.45),   # 1000–1499
+    (2000, 1.70),   # 1500–1999
+    (3000, 2.10),   # 2000–2999
+]
+_RENO_HOOD_MULT = {
+    "Midtown":   1.00,
+    "Northside": 1.10,
+    "Westwood":  1.25,
+    "Riverside": 1.50,
+    "Newbay":    1.80,
+}
+
+# DIY energy bonus per neighborhood tier (each step up costs +1 energy)
+_RENO_HOOD_ENERGY_BONUS = {
+    "Midtown":   0,
+    "Northside": 1,
+    "Westwood":  2,
+    "Riverside": 3,
+    "Newbay":    4,
+}
+
+def diy_energy_cost(prop, base_energy):
+    """Return scaled DIY energy cost based on the property's neighborhood."""
+    bonus = _RENO_HOOD_ENERGY_BONUS.get(prop.get("neighborhood", "Midtown"), 0)
+    return base_energy + bonus
+
+def reno_cost_mult(prop):
+    """Return total cost multiplier for renovations at this property."""
+    sqft = prop.get("sqft", 500)
+    sqft_mult = 2.60  # 3000+ sqft
+    for threshold, mult in _RENO_SQFT_MULT:
+        if sqft < threshold:
+            sqft_mult = mult
+            break
+    return sqft_mult * _RENO_HOOD_MULT.get(prop.get("neighborhood", "Midtown"), 1.0)
+
+def _reno_cost(prop, base_cost, contractor_mult):
+    return int(base_cost * contractor_mult * reno_cost_mult(prop))
+
 def _roll_special_contractors(s):
     """Re-roll which special contractors are available across all owned properties."""
     for prop in s.get("properties", []):
         rolled = {}
         for key in SPECIAL_CONTRACTORS:
             if random.random() < SPECIAL_CONTRACTOR_CHANCE:
-                prem_cost = int(UPGRADES[key]["base_cost"] * CONTRACTORS["premium"]["cost_mult"])
+                prem_cost = _reno_cost(prop, UPGRADES[key]["base_cost"], CONTRACTORS["premium"]["cost_mult"])
                 rolled[key] = {**SPECIAL_CONTRACTORS[key], "cost": prem_cost}
         prop["special_contractors"] = rolled
 
@@ -1325,7 +1846,7 @@ def _migrate_state(s):
             rolled = {}
             for key in SPECIAL_CONTRACTORS:
                 if random.random() < SPECIAL_CONTRACTOR_CHANCE:
-                    prem_cost = int(UPGRADES[key]["base_cost"] * CONTRACTORS["premium"]["cost_mult"])
+                    prem_cost = _reno_cost(prop, UPGRADES[key]["base_cost"], CONTRACTORS["premium"]["cost_mult"])
                     rolled[key] = {**SPECIAL_CONTRACTORS[key], "cost": prem_cost}
             prop["special_contractors"] = rolled
     return s
@@ -1429,12 +1950,13 @@ def api_buy():
     if prop["purchase_price"] > s["cash"]:
         return jsonify({"error": "Not enough cash"}), 400
     s["cash"] -= prop["purchase_price"]
-    prop["vacant_since"] = s["day"]   # start tracking vacancy from purchase day
+    prop["vacant_since"] = s["day"]
+    prop["purchase_day"] = s["day"]
     # Roll special contractors immediately so they're available before the next day advance
     rolled = {}
     for key in SPECIAL_CONTRACTORS:
         if random.random() < SPECIAL_CONTRACTOR_CHANCE:
-            prem_cost = int(UPGRADES[key]["base_cost"] * CONTRACTORS["premium"]["cost_mult"])
+            prem_cost = _reno_cost(prop, UPGRADES[key]["base_cost"], CONTRACTORS["premium"]["cost_mult"])
             rolled[key] = {**SPECIAL_CONTRACTORS[key], "cost": prem_cost}
     prop["special_contractors"] = rolled
     s["properties"].append(prop)
@@ -1465,15 +1987,17 @@ def api_upgrades(pid):
                 on_cooldown.append({**upg, "key": key, "quality": quality,
                                     "quality_tier": tier_key, "days_remaining": remaining})
             else:
-                costs = {ck: int(upg["base_cost"] * c["cost_mult"]) for ck, c in CONTRACTORS.items()}
-                entry = {**upg, "key": key, "costs": costs, "prev_quality_tier": tier_key}
+                costs = {ck: _reno_cost(prop, upg["base_cost"], c["cost_mult"]) for ck, c in CONTRACTORS.items()}
+                entry = {**upg, "key": key, "costs": costs, "prev_quality_tier": tier_key,
+                         "energy_cost": diy_energy_cost(prop, upg["energy_cost"])}
                 sc = prop.get("special_contractors", {}).get(key)
                 if sc:
                     entry["special_contractor"] = sc
                 available.append(entry)
         else:
-            costs = {ck: int(upg["base_cost"] * c["cost_mult"]) for ck, c in CONTRACTORS.items()}
-            entry = {**upg, "key": key, "costs": costs}
+            costs = {ck: _reno_cost(prop, upg["base_cost"], c["cost_mult"]) for ck, c in CONTRACTORS.items()}
+            entry = {**upg, "key": key, "costs": costs,
+                     "energy_cost": diy_energy_cost(prop, upg["energy_cost"])}
             sc = prop.get("special_contractors", {}).get(key)
             if sc:
                 entry["special_contractor"] = sc
@@ -1508,14 +2032,14 @@ def api_renovate():
             return jsonify({"error": "No special contractor available for this job"}), 400
         sc      = SPECIAL_CONTRACTORS[upgrade_key]
         premium = CONTRACTORS["premium"]
-        cost    = int(upg["base_cost"] * premium["cost_mult"])
+        cost    = _reno_cost(prop, upg["base_cost"], premium["cost_mult"])
         quality = 100   # guaranteed S+
         cont_name = sc["name"]
     else:
         if contractor_key not in CONTRACTORS:
             return jsonify({"error": "Unknown contractor"}), 400
         cont      = CONTRACTORS[contractor_key]
-        cost      = int(upg["base_cost"] * cont["cost_mult"])
+        cost      = _reno_cost(prop, upg["base_cost"], cont["cost_mult"])
         quality   = random.randint(cont["q_min"], cont["q_max"])
         cont_name = cont["name"]
     is_vacant    = not prop.get("tenant")
@@ -1745,6 +2269,10 @@ def api_sell():
         return jsonify({"error": "Evict tenant first"}), 400
     if prop.get("squatter") and prop["squatter"].get("starter"):
         return jsonify({"error": "No buyer's touching that place with a squatter in it. Bribe them out first."}), 400
+    purchase_day = prop.get("purchase_day")
+    if purchase_day is not None and (s["day"] - purchase_day) < 3:
+        days_left = 3 - (s["day"] - purchase_day)
+        return jsonify({"error": f"Couldn't find a buyer — word hasn't gotten out yet. Try again in {days_left} day{'s' if days_left != 1 else ''}."}), 400
     # Fixed-value properties (e.g. starter home) sell at exact price until upgraded
     if prop.get("fixed_market_value") and not prop.get("upgrades") and not prop.get("premium_upgrades"):
         sale = prop["fixed_market_value"]
@@ -2056,14 +2584,14 @@ def api_advance():
             prop["days_rented"] = prop.get("days_rented", 0) + 1
 
         # ── Global tenant event roll ───────────────────────────────────────────
-        # 35% base chance + 1% per tenant (capped at 90%) that one event fires.
+        # 15% base chance + 1% per tenant (capped at 75%) that one event fires.
         # Each event type has a weight; same event can't repeat for a tenant within a season.
         # The Phil is excluded — he handles his own improvements separately.
         # To add a new event: add to TENANT_EVENTS and add an elif handler below.
         tenant_props = [p for p in s["properties"] if p.get("tenant") and not _is_special_tenant(p["tenant"])]
         tenant_count = len(tenant_props)
         if tenant_count > 0:
-            event_chance = min(0.35 + 0.01 * tenant_count, 0.90)
+            event_chance = min(0.15 + 0.01 * tenant_count, 0.75)
             if random.random() < event_chance:
                 target_prop = random.choice(tenant_props)
                 t           = target_prop["tenant"]
@@ -2071,7 +2599,15 @@ def api_advance():
                 # Filter out events used by this tenant within the last season
                 recent_keys  = {e["key"] for e in t.get("recent_events", [])
                                 if current_day - e["day"] < DAYS_PER_SEASON}
-                valid_events = [e for e in TENANT_EVENTS if e["key"] not in recent_keys]
+                tenant_morale = t.get("morale", 50)
+                prop_cond     = target_prop.get("condition", 0)
+                valid_events  = [
+                    e for e in TENANT_EVENTS
+                    if e["key"] not in recent_keys
+                    and tenant_morale >= e.get("min_morale", 0)
+                    and tenant_morale <= e.get("max_morale", 100)
+                    and prop_cond     <= e.get("max_condition", MAX_CONDITION)
+                ]
 
                 if valid_events:
                     chosen_event = _pick_weighted_event(valid_events)
@@ -2106,6 +2642,8 @@ def api_advance():
                             "damage_pts":   chosen_event["damage_pts"],
                             "agree_label":  chosen_event["agree_label"],
                             "decline_label":chosen_event["decline_label"],
+                            "cond_gain":    chosen_event.get("cond_gain", 0),
+                            "cash_bonus":   bool(chosen_event.get("cash_bonus")),
                         }
                         if chosen_event["key"] == "paint_room":
                             room = random.choice(chosen_event["rooms"])
@@ -2145,6 +2683,8 @@ def api_advance():
                             ev_data["message"] = "Your tenant wants to mount a large bulletin board on the wall."
                         elif chosen_event["key"] == "dartboard":
                             ev_data["message"] = "Your tenant wants to mount a dartboard on the wall."
+                        elif chosen_event.get("message"):
+                            ev_data["message"] = chosen_event["message"]
                         else:
                             ev_data["message"] = f"Your tenant has a request: {chosen_event['name']}."
                         new_morale_events.append(ev_data)
@@ -2172,6 +2712,36 @@ def api_advance():
                         })
                         s["log"].insert(0, {"day": current_day, "type": "info",
                             "text": f"{tenant_name} {msg} at {target_prop['type']} in {target_prop['neighborhood']} (morale {direction}{abs(delta)})"})
+
+                    elif chosen_event["type"] == "cash_auto":
+                        bonus       = random.randint(chosen_event["cash_min"], chosen_event["cash_max"])
+                        s["cash"]  += bonus
+                        icon        = chosen_event.get("icon", "💰")
+                        tenant_name = t.get("name", "Your tenant")
+                        msg         = chosen_event.get("message", "sent you some cash")
+                        events.append({
+                            "prop": f"{target_prop['type']} — {target_prop['neighborhood']}",
+                            "text": f"{icon} {tenant_name} {msg}. (+${bonus:,})",
+                            "type": "success",
+                        })
+                        s["log"].insert(0, {"day": current_day, "type": "info",
+                            "text": f"{tenant_name} {msg} — you received ${bonus:,}"})
+
+                    elif chosen_event["type"] == "cond_auto":
+                        gain        = chosen_event.get("cond_gain", 0)
+                        old_cond    = target_prop.get("condition", 0)
+                        target_prop["condition"] = min(MAX_CONDITION, old_cond + gain)
+                        actual_gain = target_prop["condition"] - old_cond
+                        icon        = chosen_event.get("icon", "🔧")
+                        tenant_name = t.get("name", "Your tenant")
+                        msg         = chosen_event.get("message", "improved the property")
+                        events.append({
+                            "prop": f"{target_prop['type']} — {target_prop['neighborhood']}",
+                            "text": f"{icon} {tenant_name} {msg}. (Condition +{actual_gain})",
+                            "type": "success",
+                        })
+                        s["log"].insert(0, {"day": current_day, "type": "info",
+                            "text": f"{tenant_name} {msg} at {target_prop['type']} in {target_prop['neighborhood']} (condition +{actual_gain})"})
                     # ── Add handlers for future event types here ──────────────
 
         # Scheduled renovations — convert to pending when start_day arrives
@@ -2659,7 +3229,7 @@ def api_diy_renovate():
     if remaining > 0:
         return jsonify({"error": f"On cooldown — {remaining} days remaining"}), 400
     upg         = UPGRADES[upgrade_key]
-    energy_cost = upg.get("energy_cost", 1)
+    energy_cost = diy_energy_cost(prop, upg.get("energy_cost", 1))
     if s.get("energy", DAILY_ENERGY) < energy_cost:
         return jsonify({"error": f"Not enough energy — this renovation costs ⚡{energy_cost}"}), 400
     quality     = max(0, min(100, int(data["quality"])))
@@ -2755,17 +3325,34 @@ def api_tenant_event_respond():
     t                = prop["tenant"]
     condition_change = 0
     morale_change    = 0
+    cash_awarded     = 0
     morale_before    = t.get("morale", 50)
 
     if agree:
-        morale_change   = event_cfg["morale_gain"]
-        t["morale"]     = min(100, t.get("morale", 50) + morale_change)
-        if random.random() < event_cfg["damage_chance"]:
-            condition_change    = -event_cfg["damage_pts"]
-            prop["condition"]   = max(0, prop["condition"] + condition_change)
+        morale_change = event_cfg["morale_gain"]
+        t["morale"]   = min(100, t.get("morale", 50) + morale_change)
+
+        if event_cfg.get("cond_gain"):
+            # Special: agreement restores condition instead of risking damage
+            condition_change   = event_cfg["cond_gain"]
+            prop["condition"]  = min(MAX_CONDITION, prop["condition"] + condition_change)
+        elif event_cfg.get("damage_chance") and random.random() < event_cfg["damage_chance"]:
+            condition_change   = -event_cfg["damage_pts"]
+            prop["condition"]  = max(0, prop["condition"] + condition_change)
+
+        if event_cfg.get("cash_bonus"):
+            cash_awarded = random.randint(150, 350)
+            s["cash"]   += cash_awarded
+
+        log_suffix = ""
+        if condition_change > 0:
+            log_suffix += f" — condition +{condition_change}"
+        elif condition_change < 0:
+            log_suffix += f" — caused {abs(condition_change)} pts condition damage"
+        if cash_awarded:
+            log_suffix += f" — received ${cash_awarded:,} bonus"
         s["log"].append({"day": s["day"], "type": "info",
-            "text": f"Agreed to {t['name']}'s {event_cfg['name']} request at {prop['type']} in {prop['neighborhood']}"
-                   + (f" — caused {abs(condition_change)} pts condition damage" if condition_change else "")})
+            "text": f"Agreed to {t['name']}'s {event_cfg['name']} request at {prop['type']} in {prop['neighborhood']}{log_suffix}"})
     else:
         morale_change = -random.randint(5, 10)
         t["morale"]   = max(0, morale_before + morale_change)
@@ -2786,6 +3373,7 @@ def api_tenant_event_respond():
         "condition_change": condition_change,
         "morale_change":    morale_change,
         "cash":             s["cash"],
+        "cash_awarded":     cash_awarded,
         "level_up":         level_up,
         "new_level":        s.get("level", 0),
     })
