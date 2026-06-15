@@ -19,17 +19,17 @@
   --warning:     #E65100;
   --negative:    #C62828;
   --info:        #1565C0;
-  --radius:      12px;
-  --radius-sm:   8px;
-  --shadow:      0 2px 10px rgba(0,0,0,0.08);
-  --shadow-md:   0 4px 20px rgba(0,0,0,0.14);
+  --radius:      0px;
+  --radius-sm:   0px;
+  --shadow:      3px 3px 0 rgba(0,0,0,0.35);
+  --shadow-md:   5px 5px 0 rgba(0,0,0,0.5);
   --nav-h:       64px;
   --header-h:    56px;
 }
 
 /* ── Reset ───────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
+html, body { height: 100%; font-family: 'Pixelify Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
 button { cursor: pointer; font: inherit; border: none; outline: none; }
 a { text-decoration: none; color: inherit; }
 
@@ -37,7 +37,7 @@ a { text-decoration: none; color: inherit; }
 #app { display: flex; flex-direction: column; height: 100vh; max-width: 480px; margin: 0 auto; position: relative; box-shadow: 0 0 40px rgba(0,0,0,0.15); background: var(--bg); }
 
 header {
-  background: var(--header-bg);
+  background: linear-gradient(150deg, #162737 0%, #1C3D5A 100%);
   color: var(--header-text);
   display: flex;
   flex-direction: column;
@@ -78,11 +78,13 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
   width: 100%;
   max-width: 480px;
   height: var(--nav-h);
-  background: var(--nav-bg);
-  border-top: 1px solid var(--border);
+  background: rgba(255,255,255,0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-top: 1px solid rgba(0,0,0,0.08);
   display: flex;
   z-index: 200;
-  box-shadow: 0 -2px 12px rgba(0,0,0,0.08);
+  box-shadow: 0 -2px 16px rgba(0,0,0,0.1);
 }
 .nav-indicator {
   position: absolute;
@@ -157,7 +159,24 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
   padding: 14px;
   box-shadow: var(--shadow);
   margin-bottom: 10px;
+  transition: box-shadow 0.15s, transform 0.12s;
 }
+.card:active { transform: scale(0.983); box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+
+/* ── Neighborhood tier accents ───────────────────────────────── */
+.tier-budget  { border-left: 4px solid #E65100; }
+.tier-mid     { border-left: 4px solid #1565C0; }
+.tier-premium { border-left: 4px solid #7B1FA2; }
+
+/* ── Property icon circles ───────────────────────────────────── */
+.prop-icon-circle {
+  width: 50px; height: 50px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; font-size: 26px; line-height: 1;
+}
+.prop-icon-budget  { background: linear-gradient(135deg, #FFF3E0, #FFE0B2); }
+.prop-icon-mid     { background: linear-gradient(135deg, #E3F2FD, #BBDEFB); }
+.prop-icon-premium { background: linear-gradient(135deg, #F3E5F5, #E1BEE7); }
 .card-header { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
 .card-icon { font-size: 32px; line-height: 1; flex-shrink: 0; }
 .card-title { font-size: 16px; font-weight: 700; line-height: 1.2; }
@@ -192,6 +211,27 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
 .cond-fair      { background: linear-gradient(90deg, #E65100, #FF6D00); }
 .cond-good      { background: linear-gradient(90deg, #F9A825, #FBC02D); }
 .cond-great     { background: linear-gradient(90deg, #2E7D32, #43A047); }
+
+@keyframes condShine {
+  0%, 100% { box-shadow: 0 0 5px rgba(76,175,80,0.5); }
+  50%       { box-shadow: 0 0 12px rgba(76,175,80,0.85), 0 0 4px rgba(165,214,167,0.6); }
+}
+.cond-shining { animation: condShine 2.2s ease-in-out infinite; }
+
+/* ── Cash float animation ────────────────────────────────────── */
+@keyframes cashFloat {
+  0%   { transform: translateY(0);     opacity: 1; }
+  100% { transform: translateY(-38px); opacity: 0; }
+}
+.cash-float {
+  position: fixed;
+  font-size: 13px;
+  font-weight: 800;
+  pointer-events: none;
+  z-index: 9999;
+  animation: cashFloat 1.0s ease forwards;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
 
 /* ── Money Display ───────────────────────────────────────────── */
 .money-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); }
@@ -345,7 +385,8 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
   overflow-y: auto;
   animation: slideUp 0.2s ease;
 }
-@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes slideUp { from { transform: translateY(36px) scale(0.98); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+.modal { animation: slideUp 0.28s cubic-bezier(0.34, 1.12, 0.64, 1); }
 .modal-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 16px; cursor: pointer; padding: 10px 24px; box-sizing: content-box; background-clip: content-box; }
 .modal-title { font-size: 18px; font-weight: 800; margin-bottom: 6px; }
 .modal-subtitle { font-size: 13px; color: var(--text-2); margin-bottom: 16px; }
@@ -2658,3 +2699,144 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
 .text-center { text-align: center; }
 .text-muted  { color: var(--text-muted); font-size: 12px; }
 .divider { height: 1px; background: var(--border); margin: 12px 0; }
+
+/* ── PIXEL ART THEME ─────────────────────────────────────────────────────── */
+
+/* Header - flat game HUD, no gradient */
+header {
+  background: #0D1B2A !important;
+  border-bottom: 3px solid #2E7D32 !important;
+}
+
+/* Hard-drop NES-style button press */
+.btn {
+  box-shadow: 3px 3px 0 rgba(0,0,0,0.5) !important;
+  transition: transform 0.06s, box-shadow 0.06s !important;
+}
+.btn:active {
+  transform: translate(3px, 3px) !important;
+  box-shadow: 0 0 0 rgba(0,0,0,0.5) !important;
+}
+
+/* Next month button press */
+.next-month-btn {
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.5) !important;
+  transition: transform 0.06s, box-shadow 0.06s !important;
+}
+.next-month-btn:active {
+  transform: translate(4px, 4px) !important;
+  box-shadow: 0 0 0 rgba(0,0,0,0.5) !important;
+  opacity: 1 !important;
+}
+
+/* Cards - chunky pixel border + hard shadow */
+.card, .stat-card {
+  border: 2px solid rgba(0,0,0,0.2) !important;
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.28) !important;
+}
+.card:active {
+  transform: translate(2px, 2px) !important;
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.28) !important;
+}
+
+/* Upgrade / contractor / tenant cards */
+.upgrade-card, .contractor-card, .tenant-card {
+  box-shadow: 3px 3px 0 rgba(0,0,0,0.3) !important;
+}
+
+/* Modal - hard-edge sheet with colored top bar */
+.modal {
+  border-top: 4px solid var(--primary) !important;
+  box-shadow: 0 -4px 0 rgba(0,0,0,0.2) !important;
+}
+.modal-handle { border-radius: 0 !important; }
+
+/* Bottom nav - solid, no blur */
+.bottom-nav {
+  background: var(--surface) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-top: 3px solid rgba(0,0,0,0.3) !important;
+  box-shadow: none !important;
+}
+.nav-indicator { border-radius: 0 !important; }
+
+/* Progress bars - chunky pixel bars */
+.condition-bar, .xp-bar-track, .mg-bar-wrap, .mg-score-bar { border-radius: 0 !important; }
+.condition-fill, .xp-bar-fill, .mg-zone, .mg-needle, .mg-score-fill { border-radius: 0 !important; }
+.condition-bar  { height: 8px !important; }
+.xp-bar-track   { height: 8px !important; }
+.xp-bar-fill    { border-radius: 0 !important; }
+
+/* Log / event dots - square pixels */
+.log-dot, .event-dot { border-radius: 0 !important; }
+
+/* Tier accents - thicker stripe */
+.tier-budget  { border-left: 5px solid #E65100 !important; }
+.tier-mid     { border-left: 5px solid #1565C0 !important; }
+.tier-premium { border-left: 5px solid #7B1FA2 !important; }
+
+/* Property icon - square pixel box instead of circle */
+.prop-icon-circle { border-radius: 0 !important; border: 2px solid rgba(0,0,0,0.15) !important; }
+
+/* Chips & badges - sharp corners + outline border */
+.tenant-chip, .vacant-chip { border-radius: 0 !important; }
+.tenant-chip { border: 2px solid var(--positive) !important; }
+.vacant-chip { border: 2px solid var(--border) !important; }
+
+.card-badge, .badge-budget, .badge-mid, .badge-premium,
+.deal-tag, .deal-good, .deal-bad { border-radius: 0 !important; }
+.badge-budget  { border: 1px solid #E65100 !important; }
+.badge-mid     { border: 1px solid #1565C0 !important; }
+.badge-premium { border: 1px solid #6A1B9A !important; }
+.deal-good { border: 1px solid #2E7D32 !important; }
+.deal-bad  { border: 1px solid #C62828 !important; }
+
+/* Header pills & gear */
+.header-month { border-radius: 0 !important; background: rgba(255,255,255,0.15) !important; }
+.header-gear-btn { border-radius: 0 !important; }
+
+/* Market hood headers */
+.market-hood-header { border-radius: 0 !important; }
+.market-hood-section { border-radius: 0 !important; box-shadow: 4px 4px 0 rgba(0,0,0,0.2) !important; }
+.market-hood-body > .card:last-child { border-radius: 0 !important; }
+.market-hood-section > .card:last-child { border-radius: 0 !important; }
+
+/* Hood sections in portfolio */
+.hood-section { border-radius: 0 !important; box-shadow: 3px 3px 0 rgba(0,0,0,0.2) !important; }
+
+/* Finance tabs */
+.fin-tab { border-radius: 0 !important; }
+.hood-tab { border-radius: 0 !important; }
+
+/* Rent tier picker */
+.tier-picker { border-radius: 0 !important; }
+
+/* Toast notifications */
+.toast { border-radius: 0 !important; border-left: 4px solid rgba(255,255,255,0.4) !important; }
+
+/* Spinners stay circular - intentionally not overriding */
+
+/* Contractor special badge */
+.contractor-special-badge { border-radius: 0 !important; }
+
+/* XP level badge glow removed - clean flat look */
+.xp-level-badge { letter-spacing: 1px !important; }
+
+/* Hood tab count pill */
+.hood-tab-count { border-radius: 0 !important; }
+
+/* ── Pixel Art SVG Icon Sizing ───────────────────────────────────────────── */
+/* Ensure SVG img icons in icon containers display at correct sizes */
+.card-icon img        { width: 32px; height: 32px; }
+.upgrade-icon img     { width: 28px; height: 28px; }
+.tenant-icon img      { width: 32px; height: 32px; }
+.prop-icon-circle img { width: 32px; height: 32px; }
+.nav-icon img         { width: 24px; height: 24px; }
+.stat-icon img        { width: 32px; height: 32px; }
+.contractor-icon img  { font-size: 0; }
+/* pixel-perfect on all icons */
+img[src*="/static/icons/"] {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}

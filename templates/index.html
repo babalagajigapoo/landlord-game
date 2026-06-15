@@ -6,7 +6,7 @@
   <title>Slumlord Special</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Rubik+Dirt&family=Great+Vibes&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Rubik+Dirt&family=Great+Vibes&family=Pixelify+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -15,7 +15,7 @@
   <!-- Header -->
   <header>
     <div class="header-top">
-      <div class="header-logo">🏚️ <span style="font-family:'Rubik Dirt',cursive;color:inherit">SlumLord</span><span style="font-family:'Great Vibes',cursive;font-size:22px"> Special</span></div>
+      <div class="header-logo"><img src="/static/icons/house-bungalow.svg" width="28" height="28" style="image-rendering:pixelated;vertical-align:middle"> <span style="font-family:'Rubik Dirt',cursive;color:inherit">SlumLord</span><span style="font-family:'Great Vibes',cursive;font-size:22px"> Special</span></div>
       <div style="display:flex;align-items:center;gap:8px">
         <div class="header-month" id="hdr-day">🌸 Spring · Day 1</div>
         <button class="header-gear-btn" onclick="navTo('settings')" title="Settings">⚙️</button>
@@ -59,22 +59,22 @@
 
       <div class="stat-grid">
         <div class="stat-card">
-          <div class="stat-icon">💵</div>
+          <div class="stat-icon"><img src="/static/icons/loan-cash.svg" width="32" height="32" style="image-rendering:pixelated"></div>
           <div class="stat-label">Cash on Hand</div>
           <div class="stat-value green" id="dash-cash">$0</div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon">📈</div>
+          <div class="stat-icon"><img src="/static/icons/stat-networth.svg" width="32" height="32" style="image-rendering:pixelated"></div>
           <div class="stat-label">Net Worth</div>
           <div class="stat-value" id="dash-networth">$0</div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon">🏠</div>
+          <div class="stat-icon"><img src="/static/icons/house-ranch.svg" width="32" height="32" style="image-rendering:pixelated"></div>
           <div class="stat-label">Properties</div>
           <div class="stat-value" id="dash-props">0</div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon">💰</div>
+          <div class="stat-icon"><img src="/static/icons/nav-finances.svg" width="32" height="32" style="image-rendering:pixelated"></div>
           <div class="stat-label">Weekly Income</div>
           <div class="stat-value orange" id="dash-income">$0/wk</div>
         </div>
@@ -107,8 +107,8 @@
     <!-- Finances (Bank + Stocks + Taxes) -->
     <div id="page-finances" class="page">
       <div class="fin-subnav">
-        <button class="fin-tab active" data-fin="bank"   onclick="switchFinTab('bank')">🏦 Bank</button>
-        <button class="fin-tab"        data-fin="stocks" onclick="switchFinTab('stocks')">💹 Stocks</button>
+        <button class="fin-tab active" data-fin="bank"   onclick="switchFinTab('bank')"><img src="/static/icons/loan-bank.svg" width="16" height="16" style="image-rendering:pixelated;vertical-align:middle"> Bank</button>
+        <button class="fin-tab"        data-fin="stocks" onclick="switchFinTab('stocks')"><img src="/static/icons/stat-stocks.svg" width="16" height="16" style="image-rendering:pixelated;vertical-align:middle"> Stocks</button>
         <button class="fin-tab"        data-fin="taxes"  onclick="switchFinTab('taxes')">🧾 Taxes</button>
       </div>
       <div id="fin-bank">
@@ -144,27 +144,27 @@
   <nav class="bottom-nav">
     <div id="nav-indicator" class="nav-indicator"></div>
     <button class="nav-btn active" data-page="dashboard">
-      <span class="nav-icon">📊</span>
+      <span class="nav-icon"><img src="/static/icons/nav-dashboard.svg" width="24" height="24" style="image-rendering:pixelated"></span>
       Home
     </button>
     <button class="nav-btn" data-page="market">
-      <span class="nav-icon">🏪</span>
+      <span class="nav-icon"><img src="/static/icons/nav-market.svg" width="24" height="24" style="image-rendering:pixelated"></span>
       Market
     </button>
     <button class="nav-btn" data-page="properties">
-      <span class="nav-icon">🏠</span>
+      <span class="nav-icon"><img src="/static/icons/nav-properties.svg" width="24" height="24" style="image-rendering:pixelated"></span>
       My Props
     </button>
     <button class="nav-btn" data-page="finances">
-      <span class="nav-icon">💰</span>
+      <span class="nav-icon"><img src="/static/icons/nav-finances.svg" width="24" height="24" style="image-rendering:pixelated"></span>
       Finances
     </button>
     <button class="nav-btn" data-page="personal">
-      <span class="nav-icon">🛋️</span>
+      <span class="nav-icon"><img src="/static/icons/home-rental.svg" width="24" height="24" style="image-rendering:pixelated"></span>
       Personal
     </button>
     <button class="nav-btn" data-page="business">
-      <span class="nav-icon">💼</span>
+      <span class="nav-icon"><img src="/static/icons/nav-business.svg" width="24" height="24" style="image-rendering:pixelated"></span>
       Business
     </button>
   </nav>
