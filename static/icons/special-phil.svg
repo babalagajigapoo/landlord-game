@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges">
+  <!-- Trident handle -->
+  <rect x="7" y="9" width="2" height="7" fill="#F0C040"/>
+  <!-- Cross bar -->
+  <rect x="4" y="9" width="8" height="2" fill="#F0C040"/>
+  <!-- Center tine -->
+  <rect x="7" y="2" width="2" height="8" fill="#F0C040"/>
+  <!-- Left tine -->
+  <rect x="3" y="4" width="2" height="6" fill="#F0C040"/>
+  <rect x="3" y="3" width="3" height="2" fill="#F0C040"/>
+  <!-- Right tine -->
+  <rect x="11" y="4" width="2" height="6" fill="#F0C040"/>
+  <rect x="10" y="3" width="3" height="2" fill="#F0C040"/>
+  <!-- Tine tips -->
+  <rect x="7" y="1" width="2" height="1" fill="#FFE060"/>
+  <rect x="3" y="2" width="2" height="1" fill="#FFE060"/>
+  <rect x="11" y="2" width="2" height="1" fill="#FFE060"/>
+  <!-- Shine -->
+  <rect x="8" y="3" width="1" height="5" fill="#FFE060"/>
+</svg>

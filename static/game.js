@@ -1,3 +1,125 @@
+// ── Pixel Art Icons ───────────────────────────────────────────────────────────
+const PIXEL_ICONS = {
+  // Property types
+  '\u{1F3DA}\uFE0F': 'house-bungalow',   // 🏚️
+  '\u{1F3E0}':         'house-ranch',       // 🏠
+  '\u{1F3DB}\uFE0F': 'house-colonial',    // 🏛️
+  '\u{1F3D9}\uFE0F': 'house-townhouse',   // 🏙️
+  '\u{1F3E2}':         'house-condo',       // 🏢
+  '\u{1F3D8}\uFE0F': 'house-duplex',      // 🏘️
+  '\u{1F3F0}':         'house-mansion',     // 🏰
+  '\u{1F3E1}':         'home-bungalow',     // 🏡
+  // Seasons
+  '\u{1F338}':         'season-spring',     // 🌸
+  '\u2600\uFE0F':     'season-summer',     // ☀️
+  '\u{1F342}':         'season-fall',       // 🍂
+  '\u2744\uFE0F':     'season-winter',     // ❄️
+  // Repairs
+  '\u{1F527}':         'repair-plumbing',   // 🔧
+  '\u26A1':            'repair-electrical', // ⚡
+  '\u{1F4E6}':         'repair-appliance',  // 📦
+  '\u{1F41B}':         'repair-pest',       // 🐛
+  '\u{1F321}\uFE0F': 'repair-hvac',       // 🌡️
+  // Upgrades
+  '\u{1F33F}':         'upgrade-landscaping',// 🌿
+  '\u{1F3A8}':         'upgrade-paint',     // 🎨
+  '\u{1FAB5}':         'upgrade-flooring',  // 🪵
+  '\u{1FA9F}':         'upgrade-windows',   // 🪟
+  '\u{1F6BF}':         'upgrade-bathrooms', // 🚿
+  '\u{1F373}':         'upgrade-kitchen',   // 🍳
+  // Premium upgrades
+  '\u{1F4F1}':         'premium-smarthome', // 📱
+  '\u{1F6C1}':         'premium-hottub',    // 🛁
+  '\u{1F697}':         'premium-garage',    // 🚗
+  '\u{1F3D7}\uFE0F': 'premium-basement',  // 🏗️
+  '\u{1F3CA}':         'premium-pool',      // 🏊
+  // Neighborhoods
+  '\u{1F332}':         'hood-northside',    // 🌲
+  '\u{1F30A}':         'hood-riverside',    // 🌊
+  '\u{1F306}':         'hood-newbay',       // 🌆
+  // Tenant types
+  '\u{1F3CB}\uFE0F': 'tenant-gym',        // 🏋️
+  '\u{1F3B8}':         'tenant-musician',   // 🎸
+  '\u{1F468}\u200D\u{1F373}': 'tenant-chef',      // 👨‍🍳
+  '\u{1F468}\u200D\u{1F469}\u200D\u{1F467}\u200D\u{1F466}': 'tenant-family', // 👨‍👩‍👧‍👦
+  '\u{1F476}':         'tenant-baby',       // 👶
+  '\u{1F474}':         'tenant-elderly',    // 👴
+  '\u{1F9D1}\u200D\u{1F467}': 'tenant-single-parent', // 🧑‍👧
+  '\u{1F464}':         'tenant-generic',    // 👤
+  '\uD83D\uDC64':     'tenant-generic',    // 👤 alt encoding
+  // Loans
+  '\u{1F4B5}':         'loan-cash',         // 💵
+  '\u{1F91D}':         'loan-friend',       // 🤝
+  '\u{1F3E6}':         'loan-bank',         // 🏦
+  '\u{1F4BC}':         'nav-business',      // 💼
+  // Player homes
+  '\u{1F6CB}\uFE0F': 'home-rental',       // 🛋️
+  // Stats / nav
+  '\u{1F4B0}':         'nav-finances',      // 💰
+  '\u{1F4CA}':         'nav-dashboard',     // 📊
+  '\u{1F3EA}':         'nav-market',        // 🏪
+  '\u{1F4B9}':         'stat-stocks',       // 💹
+  '\u{1F4C8}':         'stat-networth',     // 📈
+  '\u2699\uFE0F':     'settings-gear',     // ⚙️
+  // Tools
+  '\u{1F6E0}\uFE0F': 'diy-tools',         // 🛠️
+  // Special tenants
+  '⭐':             'stat-star',         // ⭐
+  '😠':             'face-angry',        // 😠
+  '⭐':             'stat-star',         // ⭐
+  '😠':             'face-angry',        // 😠
+  '🔱':        'special-phil',      // 🔱
+  '🎩':        'special-goldbergs', // 🎩
+  // ── Added in third round ─────────────────────────────────────────────────
+  '💸': 'ui-money',
+  '🔨': 'tool-hammer',
+  '🗓️': 'ui-calendar',
+  '📅': 'ui-calendar',
+  '🔒': 'ui-lock',
+  '🧰': 'tool-box',
+  '🚨': 'ui-siren',
+  '🧾': 'ui-receipt',
+  '📋': 'ui-clipboard',
+  '📄': 'ui-clipboard',
+  '🔄': 'ui-refresh',
+  '✅': 'ui-check',
+  '❌': 'ui-cross',
+  '👋': 'ui-wave',
+  '💬': 'ui-chat',
+  '⏳': 'ui-hourglass',
+  '🧱': 'ui-brick',
+  '🪚': 'ui-saw',
+  '🪜': 'ui-ladder',
+  '💧': 'ui-water',
+  '📐': 'ui-level',
+  '🪣': 'ui-bucket',
+  '🖌️': 'ui-roller',
+  '⚖️': 'ui-gavel',
+  '🔑': 'ui-key',
+  '🗑': 'ui-trash',
+  '🏆': 'stat-star',
+  '📊': 'nav-dashboard',
+  '💹': 'stat-stocks',
+  '📈': 'stat-networth',
+  '🦰': 'ui-water',
+  '🍴': 'upgrade-kitchen',
+  '🚿': 'upgrade-bathrooms',
+  '🧱': 'ui-brick',
+};
+
+function pxIcon(emoji, size) {
+  if (!emoji) return '';
+  size = size || 28;
+  let name = PIXEL_ICONS[emoji];
+  if (!name) {
+    // Try stripping variation selectors (U+FE0F / U+FE0E) and zero-width joiners
+    const stripped = emoji.replace(/[︎️‍]/g, '');
+    name = PIXEL_ICONS[stripped];
+  }
+  if (!name) return emoji;
+  return '<img src="/static/icons/' + name + '.svg" width="' + size + '" height="' + size + '" style="image-rendering:pixelated;vertical-align:middle;display:inline-block" alt="' + emoji + '">';
+}
+
 // ── State ─────────────────────────────────────────────────────────────────────
 let state           = null;
 
@@ -16,6 +138,15 @@ let _applicants     = [];
 let _fairRent       = 0;
 let _selectedTier   = 2;       // default Average
 let _pendingConfirm = null;
+
+// ── Neighborhood tier map ─────────────────────────────────────────────────────
+const HOOD_TIERS = {
+  Midtown: 'budget', Northside: 'budget',
+  Westwood: 'mid',
+  Riverside: 'premium', Newbay: 'premium',
+};
+
+let _prevCash = null;   // tracks last known cash for float animation
 
 // ── Mini-game state ───────────────────────────────────────────────────────────
 let _mg             = {};   // active mini-game state
@@ -119,7 +250,7 @@ function showForcedResetScreen() {
     padding:24px;text-align:center;
   `;
   overlay.innerHTML = `
-    <div style="font-size:72px;margin-bottom:16px;animation:taxShake 0.6s infinite">🏛️</div>
+    <div style="margin-bottom:16px;animation:taxShake 0.6s infinite">${pxIcon('🏛️', 72)}</div>
     <div style="font-size:22px;font-weight:900;color:#FFD700;margin-bottom:12px;letter-spacing:1px">
       NOTICE FROM THE IRS
     </div>
@@ -202,7 +333,7 @@ function showIntroScreen() {
     <div style="height:100%;max-width:480px;margin:0 auto;padding:28px 24px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between;">
 
       <div style="text-align:center">
-        <div style="font-size:22px;line-height:1;margin-bottom:6px">🏚️</div>
+        <div style="line-height:1;margin-bottom:6px">${pxIcon('🏚️', 40)}</div>
         <div style="font-family:'Rubik Dirt',cursive;font-size:40px;color:#b8a898;line-height:1;letter-spacing:0.01em">SlumLord</div>
         <div style="font-family:'Great Vibes',cursive;font-size:30px;color:#e8ddd0;line-height:1.1">Special</div>
         <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.16em;color:#444;margin-top:5px">Work In Progress</div>
@@ -298,14 +429,22 @@ async function loadMarket() {
 
 // ── Header ────────────────────────────────────────────────────────────────────
 function updateHeader() {
-  document.getElementById('hdr-cash').textContent = fmt(state.cash);
+  const cashEl  = document.getElementById('hdr-cash');
+  const newCash = state.cash;
+  if (_prevCash !== null && _prevCash !== newCash) {
+    animateCashChange(newCash - _prevCash);
+    animateCounter(cashEl, _prevCash, newCash);
+  } else {
+    cashEl.textContent = fmt(newCash);
+  }
+  _prevCash = newCash;
   const energy = state.energy ?? DAILY_ENERGY;
   const maxE   = state.max_energy || DAILY_ENERGY;
   const energyEl = document.getElementById('hdr-energy');
   energyEl.textContent = `⚡ ${energy} / ${maxE}`;
   energyEl.style.color = energy === 0 ? 'var(--negative)' : energy <= 3 ? 'var(--warning)' : 'var(--positive)';
   const s = getSeasonInfo(state.day);
-  document.getElementById('hdr-day').textContent  = `${s.icon} ${s.name} · Day ${s.seasonDay}`;
+  document.getElementById('hdr-day').innerHTML  = `${pxIcon(s.icon, 18)} ${s.name} · Day ${s.seasonDay}`;
   // XP bar
   const lvl    = state.level ?? 0;
   const xpPct  = state.xp_pct ?? 0;
@@ -319,6 +458,34 @@ function updateHeader() {
     else if (lvl >= 14)  xpNextLbl.textContent = 'Fully maxed out!';
     else                 xpNextLbl.textContent = `→ Level ${lvl + 1}`;
   }
+}
+
+function animateCashChange(delta) {
+  if (!delta || Math.abs(delta) < 1) return;
+  const ref = document.getElementById('hdr-cash');
+  if (!ref) return;
+  const rect = ref.getBoundingClientRect();
+  const el   = document.createElement('div');
+  el.className   = 'cash-float';
+  el.textContent = (delta > 0 ? '+' : '') + fmt(Math.round(delta));
+  el.style.color = delta > 0 ? '#81C784' : '#EF9A9A';
+  el.style.left  = rect.left + 'px';
+  el.style.top   = (rect.top + rect.height / 2) + 'px';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1100);
+}
+
+function animateCounter(el, fromVal, toVal, duration = 550) {
+  if (!el || fromVal === toVal) return;
+  const startTime = performance.now();
+  const step = (now) => {
+    const t     = Math.min(1, (now - startTime) / duration);
+    const eased = 1 - Math.pow(1 - t, 3);
+    el.textContent = '$' + Math.round(fromVal + (toVal - fromVal) * eased).toLocaleString();
+    if (t < 1) requestAnimationFrame(step);
+    else el.textContent = fmt(toVal);
+  };
+  requestAnimationFrame(step);
 }
 
 // ── Level-up ──────────────────────────────────────────────────────────────────
@@ -363,7 +530,7 @@ function showLevelUpModal(newLevel) {
   openModal(`
     <div class="modal-handle"></div>
     <div style="text-align:center;padding:16px 0 8px">
-      <div style="font-size:52px;line-height:1">⭐</div>
+      <div style="line-height:1">${pxIcon('⭐', 52)}</div>
       <div style="font-size:24px;font-weight:900;margin-top:8px;color:var(--primary)">Level ${newLevel}!</div>
       <div style="font-size:13px;color:var(--text-muted);margin-top:6px;font-style:italic">${data.joke}</div>
     </div>
@@ -431,7 +598,7 @@ function renderDashboard() {
   if (seasonEl) {
     seasonEl.innerHTML = `
       <div style="display:flex;align-items:center;gap:10px">
-        <span style="font-size:32px">${s.icon}</span>
+        <span style="font-size:32px">${pxIcon(s.icon)}</span>
         <div>
           <div style="font-size:16px;font-weight:800">${s.name} — Year ${s.year}</div>
           <div style="font-size:12px;color:var(--text-muted)">Day ${s.seasonDay} of ${DAYS_PER_SEASON} · Overall Day ${state.day}</div>
@@ -470,14 +637,14 @@ function renderMarket() {
   if (!el) return;
   if (state && state.level === 0) {
     el.innerHTML = `<div class="empty-state">
-      <div class="empty-icon">🔒</div>
+      <div class="empty-icon">${pxIcon('🔒',48)}</div>
       <div class="empty-text">Market Locked</div>
       <div class="empty-sub">Sell your starter Bungalow in Midtown to reach Level 1 and unlock buying.</div>
     </div>`;
     return;
   }
   if (marketListings.length === 0) {
-    el.innerHTML = '<div class="empty-state"><div class="empty-icon">🏚️</div><div class="empty-text">No listings right now</div><div class="empty-sub">Advance the day to see new properties</div></div>';
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">${pxIcon('🏚️', 48)}</div><div class="empty-text">No listings right now</div><div class="empty-sub">Advance the day to see new properties</div></div>`;
     return;
   }
 
@@ -510,7 +677,7 @@ function renderMarket() {
       <div class="market-hood-section">
         <div class="market-hood-header badge-${tier}${useDropdown ? ' market-hood-toggle' : ''}"
              ${useDropdown ? `onclick="toggleMarketHood('${hood}')"` : ''}>
-          <span class="market-hood-emoji">${meta.emoji}</span>
+          <span class="market-hood-emoji">${pxIcon(meta.emoji, 32)}</span>
           <div>
             <div class="market-hood-name">${hood}</div>
             <div class="market-hood-desc">${meta.desc}</div>
@@ -541,7 +708,7 @@ function marketCardHtml(p) {
   return `
   <div class="card">
     <div class="card-header">
-      <div class="card-icon">${p.icon}</div>
+      <div class="card-icon">${pxIcon(p.icon)}</div>
       <div style="flex:1">
         <div class="card-title">${p.address || p.type}</div>
         <div class="card-subtitle">${p.bedrooms}bd / ${p.bathrooms}ba ${p.type} · ${p.sqft.toLocaleString()} sqft</div>
@@ -599,7 +766,7 @@ function renderProperties() {
   if (!el) return;
   if (!state.properties || state.properties.length === 0) {
     el.innerHTML = `<div class="empty-state">
-      <div class="empty-icon">🏗️</div>
+      <div class="empty-icon">${pxIcon('🏗️', 48)}</div>
       <div class="empty-text">No rental properties yet</div>
       <div class="empty-sub">Head to the Market tab to buy your first property</div>
     </div>`;
@@ -637,7 +804,7 @@ function renderProperties() {
           ⚪ Vacant <span class="hood-tab-count">${vacant.length}</span>
         </button>
         <button class="hood-tab ${tab === 'rented' ? 'active' : ''}" onclick="switchHoodTab('${hood}','rented');event.stopPropagation()">
-          👤 Rented <span class="hood-tab-count">${rented.length}</span>
+          ${pxIcon('👤',14)} Rented <span class="hood-tab-count">${rented.length}</span>
         </button>
       </div>
       <div class="hood-props">
@@ -668,14 +835,14 @@ function playerHomeCardHtml() {
   const isMax    = homeKey === 'mansion';
   return `
   <div class="section-header" style="margin-bottom:8px">
-    <span class="section-title">🏠 My Home</span>
+    <span class="section-title">${pxIcon('🏠', 18)} My Home</span>
   </div>
   <div class="card" onclick="showPlayerHomeModal()" style="cursor:pointer;margin-bottom:16px;border:2px solid var(--primary)">
     <div class="card-header">
-      <div class="card-icon">${home.icon}</div>
+      <div class="card-icon">${pxIcon(home.icon)}</div>
       <div style="flex:1">
         <div class="card-title">${home.name}</div>
-        <div class="card-subtitle">${isMax ? '🏆 Max upgrade reached!' : 'Tap to upgrade your home'}</div>
+        <div class="card-subtitle">${isMax ? `${pxIcon('🏆',16)} Max upgrade reached!` : 'Tap to upgrade your home'}</div>
       </div>
       <div style="text-align:right">
         <div style="font-size:13px;font-weight:700;color:var(--positive)">⚡ ${maxE} max</div>
@@ -697,10 +864,10 @@ function showPlayerHomeModal() {
 
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">🏠 Your Home</div>
+    <div class="modal-title">${pxIcon('🏠', 18)} Your Home</div>
     <div class="card" style="margin-bottom:16px;background:var(--surface-2)">
       <div style="display:flex;align-items:center;gap:12px">
-        <div style="font-size:36px;line-height:1">${current.icon}</div>
+        <div style="font-size:36px;line-height:1">${pxIcon(current.icon)}</div>
         <div style="flex:1">
           <div style="font-size:16px;font-weight:800">${current.name}</div>
           <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${current.desc}</div>
@@ -718,7 +885,7 @@ function showPlayerHomeModal() {
       </div>
     </div>
     ${upgrades.length === 0
-      ? `<div style="text-align:center;padding:20px;color:var(--text-muted)">🏆 You live in the best home possible!</div>`
+      ? `<div style="text-align:center;padding:20px;color:var(--text-muted)">${pxIcon('🏆',20)} You live in the best home possible!</div>`
       : `<div style="font-size:12px;font-weight:700;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:8px">UPGRADE OPTIONS</div>
          ${upgrades.map(h => {
            const isLocked  = !unlockedKeys.includes(h.key);
@@ -731,13 +898,13 @@ function showPlayerHomeModal() {
            return `
            <div class="card" style="margin-bottom:10px;opacity:${isLocked ? '0.45' : (!canAfford ? '0.6' : '1')}">
              <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
-               <div style="font-size:28px;line-height:1">${isLocked ? '🔒' : h.icon}</div>
+               <div style="font-size:28px;line-height:1">${pxIcon(isLocked ? '🔒' : h.icon)}</div>
                <div style="flex:1">
                  <div style="font-size:15px;font-weight:800">${h.name}</div>
                  <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${isLocked ? `Unlocks at Level ${reqLevel}` : h.desc}</div>
                </div>
                <div style="text-align:right;flex-shrink:0">
-                 <div style="font-size:14px;font-weight:800;color:var(--primary)">${isLocked ? '🔒' : fmt(h.cost)}</div>
+                 <div style="font-size:14px;font-weight:800;color:var(--primary)">${isLocked ? pxIcon('🔒',16) : fmt(h.cost)}</div>
                </div>
              </div>
              <div style="display:flex;gap:8px;margin-bottom:10px">
@@ -753,7 +920,7 @@ function showPlayerHomeModal() {
              <button class="btn btn-full ${canAfford ? 'btn-primary' : 'btn-ghost'}"
                ${canAfford ? `onclick="moveIn('${h.key}')"` : 'disabled'}
                style="${!canAfford ? 'cursor:not-allowed' : ''}">
-               ${isLocked ? `🔒 Locked — reach Level ${reqLevel}` : canAfford ? `Move In · ${fmt(h.cost)}` : `Need ${fmt(h.cost)} · Have ${fmt(state.cash)}`}
+               ${isLocked ? `${pxIcon('🔒',14)} Locked — reach Level ${reqLevel}` : canAfford ? `Move In · ${fmt(h.cost)}` : `Need ${fmt(h.cost)} · Have ${fmt(state.cash)}`}
              </button>
            </div>`;
          }).join('')}`
@@ -835,7 +1002,7 @@ function renderPersonal() {
 
     let badge = '';
     if (isCurrent)     badge = `<span style="background:var(--primary);color:#fff;border-radius:5px;font-size:10px;padding:2px 7px;font-weight:700">CURRENT</span>`;
-    else if (!isUnlocked) badge = `<span style="background:#555;color:#fff;border-radius:5px;font-size:10px;padding:2px 7px;font-weight:700">🔒 LVL ${lockLevel}</span>`;
+    else if (!isUnlocked) badge = `<span style="background:#555;color:#fff;border-radius:5px;font-size:10px;padding:2px 7px;font-weight:700">${pxIcon('🔒',12)} LVL ${lockLevel}</span>`;
 
     let actionBtn = '';
     if (!isCurrent && !isPast) {
@@ -854,7 +1021,7 @@ function renderPersonal() {
 
     return `
     <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);opacity:${opacity}">
-      <div style="font-size:22px;line-height:1;flex-shrink:0">${isUnlocked || isCurrent ? h.icon : '🔒'}</div>
+      <div style="font-size:22px;line-height:1;flex-shrink:0">${pxIcon(isUnlocked || isCurrent ? h.icon : '🔒')}</div>
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           <span style="font-size:13px;font-weight:800">${h.name}</span>
@@ -887,7 +1054,7 @@ function renderPersonal() {
 
     let badge = '';
     if (owned)        badge = `<span style="background:var(--positive);color:#fff;border-radius:5px;font-size:10px;padding:2px 7px;font-weight:700">✓ Done</span>`;
-    else if (!levelOk) badge = `<span style="background:#555;color:#fff;border-radius:5px;font-size:10px;padding:2px 7px;font-weight:700">🔒 LVL ${cls.unlock_level}</span>`;
+    else if (!levelOk) badge = `<span style="background:#555;color:#fff;border-radius:5px;font-size:10px;padding:2px 7px;font-weight:700">${pxIcon('🔒',12)} LVL ${cls.unlock_level}</span>`;
 
     let actionBtn = '';
     if (owned) {
@@ -902,7 +1069,7 @@ function renderPersonal() {
 
     return `
     <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);opacity:${opacity}">
-      <div style="font-size:22px;line-height:1;flex-shrink:0">${!levelOk ? '🔒' : cls.icon}</div>
+      <div style="font-size:22px;line-height:1;flex-shrink:0">${pxIcon(!levelOk ? '🔒' : cls.icon)}</div>
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           <span style="font-size:13px;font-weight:800">${cls.name}</span>
@@ -937,7 +1104,7 @@ function renderPersonal() {
 
     return `
     <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);${owned ? 'opacity:0.6' : ''}">
-      <div style="font-size:22px;line-height:1;flex-shrink:0">${item.icon}</div>
+      <div style="font-size:22px;line-height:1;flex-shrink:0">${pxIcon(item.icon)}</div>
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           <span style="font-size:13px;font-weight:800">${item.name}</span>
@@ -976,7 +1143,7 @@ function renderPersonal() {
       <div class="hood-section" style="margin-bottom:10px">
         <div style="padding:14px">
           <div style="display:flex;align-items:center;gap:14px">
-            <div style="font-size:34px;line-height:1;flex-shrink:0">${current.icon}</div>
+            <div style="font-size:34px;line-height:1;flex-shrink:0">${pxIcon(current.icon)}</div>
             <div style="flex:1;min-width:0">
               <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:3px">Your Home</div>
               <div style="font-size:16px;font-weight:900">${current.name}</div>
@@ -999,9 +1166,9 @@ function renderPersonal() {
         </div>
       </div>
 
-      ${personalSection('homes',   '🏡 Home Upgrades', homeRows,  `${homesUnlocked}/${PLAYER_HOME_DATA.length} unlocked`)}
-      ${personalSection('classes', '📚 Skill Classes', classRows, `${classesCount}/${DIY_CLASS_DATA.length} done`)}
-      ${personalSection('store',   '🛒 Personal Store', storeRows, `${storeOwned}/${STORE_ITEM_DATA.length} owned`)}
+      ${personalSection('homes',   `${pxIcon('🏡',16)} Home Upgrades`, homeRows,  `${homesUnlocked}/${PLAYER_HOME_DATA.length} unlocked`)}
+      ${personalSection('classes', `${pxIcon('📚',16)} Skill Classes`, classRows, `${classesCount}/${DIY_CLASS_DATA.length} done`)}
+      ${personalSection('store',   `${pxIcon('🛒',16)} Personal Store`, storeRows, `${storeOwned}/${STORE_ITEM_DATA.length} owned`)}
 
     </div>`;
 }
@@ -1028,40 +1195,58 @@ async function buyDiyClass(classKey) {
 }
 
 function portfolioCardHtml(p) {
+  const tier            = HOOD_TIERS[p.neighborhood] || 'mid';
   const activePending   = p.pending_reno || p.pending_premium;
   const pendingDaysLeft = activePending ? Math.max(0, activePending.complete_day - state.day) : 0;
   const scheduledWork   = p.scheduled_reno || p.scheduled_premium;
   const scheduledDaysOut = scheduledWork ? Math.max(0, scheduledWork.start_day - state.day) : 0;
   const tenantBadge = p.reno_payment_owed
-    ? `<span class="vacant-chip" style="background:#FFF3E0;color:#E65100;border-color:#FFCC80;font-weight:800">💸 Pay Contractor: ${fmt(p.reno_payment_owed.amount)}</span>`
+    ? `<span class="vacant-chip" style="background:#FFF3E0;color:#E65100;border-color:#FFCC80;font-weight:800">${pxIcon('💸',14)} Pay Contractor: ${fmt(p.reno_payment_owed.amount)}</span>`
     : p.squatter
-    ? `<span class="vacant-chip" style="background:#FFEBEE;color:#C62828;border-color:#EF9A9A">🚨 Squatter</span>`
+    ? `<span class="vacant-chip" style="background:#FFEBEE;color:#C62828;border-color:#EF9A9A">${pxIcon('🚨',14)} Squatter</span>`
     : activePending
-    ? `<span class="vacant-chip" style="background:#E3F2FD;color:#1565C0;border-color:#90CAF9">🔨 ${activePending.name} · ${pendingDaysLeft}d left</span>`
+    ? `<span class="vacant-chip" style="background:#E3F2FD;color:#1565C0;border-color:#90CAF9">${pxIcon('🔨',14)} ${activePending.name} · ${pendingDaysLeft}d left</span>`
     : p.tenant && scheduledWork
-    ? `<span class="vacant-chip" style="background:#F3E5F5;color:#6A1B9A;border-color:#CE93D8">🗓️ ${scheduledWork.name} · starts in ${scheduledDaysOut}d</span>`
+    ? `<span class="vacant-chip" style="background:#F3E5F5;color:#6A1B9A;border-color:#CE93D8">${pxIcon('🗓️',14)} ${scheduledWork.name} · starts in ${scheduledDaysOut}d</span>`
     : p.tenant && p.tenant.is_mystery
-    ? `<span class="tenant-chip" style="background:#2d004f;color:#CE93D8;border-color:#7B1FA2;font-weight:800">👤 ??? · ${fmt(p.tenant.rent)}/wk</span>`
+    ? `<span class="tenant-chip" style="background:#2d004f;color:#CE93D8;border-color:#7B1FA2;font-weight:800">${pxIcon('👤',18)} ??? · ${fmt(p.tenant.rent)}/wk</span>`
     : p.tenant && p.tenant.is_phil
-    ? `<span class="tenant-chip" style="background:#fffde7;color:#b8860b;border-color:gold;font-weight:800">🔱 The Phil · ${fmt(p.tenant.rent)}/wk</span>`
+    ? `<span class="tenant-chip" style="background:#fffde7;color:#b8860b;border-color:gold;font-weight:800">${pxIcon('🔱',18)} The Phil · ${fmt(p.tenant.rent)}/wk</span>`
     : p.tenant && p.tenant.is_baileys
-    ? `<span class="tenant-chip" style="background:#FFF3E0;color:#E65100;border-color:#E65100;font-weight:800">👨‍👩‍👧‍👦 The Baileys · ${fmt(p.tenant.rent)}/wk</span>`
+    ? `<span class="tenant-chip" style="background:#FFF3E0;color:#E65100;border-color:#E65100;font-weight:800">${pxIcon('👨‍👩‍👧‍👦',18)} The Baileys · ${fmt(p.tenant.rent)}/wk</span>`
     : p.tenant && p.tenant.is_goldbergs
-    ? `<span class="tenant-chip" style="background:#E8F5E9;color:#1B5E20;border-color:#2E7D32;font-weight:800">🎩 The Goldbergs · ${fmt(p.tenant.rent)}/wk</span>`
+    ? `<span class="tenant-chip" style="background:#E8F5E9;color:#1B5E20;border-color:#2E7D32;font-weight:800">${pxIcon('🎩',18)} The Goldbergs · ${fmt(p.tenant.rent)}/wk</span>`
     : p.tenant && (p.tenant.morale ?? 50) < 20
-    ? `<span class="vacant-chip" style="background:#FFEBEE;color:#C62828;border-color:#EF9A9A">😠 ${p.tenant.name} · morale ${p.tenant.morale ?? '?'}%</span>`
+    ? `<span class="vacant-chip" style="background:#FFEBEE;color:#C62828;border-color:#EF9A9A">${pxIcon('😠', 16)} ${p.tenant.name} · morale ${p.tenant.morale ?? '?'}%</span>`
     : p.tenant
-    ? `<span class="tenant-chip">${p.tenant.icon || '👤'} ${p.tenant.name} · ${fmt(p.tenant.rent)}/wk</span>`
+    ? `<span class="tenant-chip">${pxIcon(p.tenant.icon || '👤')} ${p.tenant.name} · ${fmt(p.tenant.rent)}/wk</span>`
     : `<span class="vacant-chip">⚪ Vacant</span>`;
   const profit    = p.market_value - p.purchase_price;
   const profitStr = profit >= 0
     ? `<span class="mr-value green">+${fmt(profit)}</span>`
     : `<span class="mr-value red">${fmt(profit)}</span>`;
 
+  const condTierVal = condTier(p.condition);
+  const condShine   = ['S', 'S+'].includes(condTierVal) ? ' cond-shining' : '';
+  const isSpecialTenant = p.tenant && (p.tenant.is_phil || p.tenant.is_baileys || p.tenant.is_goldbergs || p.tenant.is_mystery);
+  const moraleBar = (p.tenant && !isSpecialTenant && !p.squatter && !activePending && !p.reno_payment_owed)
+    ? (() => {
+        const m      = p.tenant.morale ?? 50;
+        const mColor = m >= 70 ? 'var(--positive)' : m >= 40 ? 'var(--warning)' : 'var(--negative)';
+        return `<div style="display:flex;align-items:center;gap:5px;margin-top:7px">
+          <span style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px">Morale</span>
+          <div style="flex:1;height:3px;background:var(--border);border-radius:99px;max-width:60px">
+            <div style="height:100%;width:${m}%;background:${mColor};border-radius:99px;transition:width .4s"></div>
+          </div>
+          <span style="font-size:10px;font-weight:800;color:${mColor}">${m}%</span>
+        </div>`;
+      })()
+    : '';
+
   return `
-  <div class="card" onclick="showPropertyDetail(${p.id})" style="cursor:pointer">
+  <div class="card tier-${tier}" onclick="showPropertyDetail(${p.id})" style="cursor:pointer">
     <div class="card-header">
-      <div class="card-icon">${p.icon}</div>
+      <div class="prop-icon-circle prop-icon-${tier}">${pxIcon(p.icon)}</div>
       <div style="flex:1">
         <div class="card-title">${p.address || p.type}</div>
         <div class="card-subtitle">${p.bedrooms}bd / ${p.bathrooms}ba ${p.type} · ${p.neighborhood}</div>
@@ -1073,14 +1258,15 @@ function portfolioCardHtml(p) {
     </div>
     <div class="condition-wrap mb-0">
       <div class="condition-top">
-        <span class="condition-lbl">Condition · <span style="color:${tierColor(condTier(p.condition))};font-weight:900">${condTier(p.condition)}</span></span>
+        <span class="condition-lbl">Condition · <span style="color:${tierColor(condTierVal)};font-weight:900">${condTierVal}</span></span>
       </div>
-      <div class="condition-bar"><div class="condition-fill ${condClass(p.condition)}" style="width:${condPct(p.condition)}%"></div></div>
+      <div class="condition-bar"><div class="condition-fill ${condClass(p.condition)}${condShine}" style="width:${condPct(p.condition)}%"></div></div>
     </div>
     <div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between">
       ${tenantBadge}
       <div style="font-size:12px;color:var(--text-muted)">G/L: ${profitStr}</div>
     </div>
+    ${moraleBar}
   </div>`;
 }
 
@@ -1115,10 +1301,10 @@ async function showPropertyDetail(id) {
     return `
       <div class="card" style="margin-bottom:10px;border:2px solid ${urgencyColor};background:#FFF3E0">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
-          <span style="font-size:30px">💸</span>
+          ${pxIcon('💸',30)}
           <div style="flex:1">
             <div style="font-size:15px;font-weight:800;color:${urgencyColor}">Contractor Payment Due</div>
-            <div style="font-size:13px;color:var(--text-muted);margin-top:2px">${owed.icon} ${owed.name} is complete — grade hidden until paid</div>
+            <div style="font-size:13px;color:var(--text-muted);margin-top:2px">${pxIcon(owed.icon)} ${owed.name} is complete — grade hidden until paid</div>
           </div>
           <div style="text-align:right">
             <div style="font-size:20px;font-weight:900;color:${urgencyColor}">${fmt(owed.amount)}</div>
@@ -1127,8 +1313,8 @@ async function showPropertyDetail(id) {
         </div>
         ${urgencyNote}
         ${canAfford
-          ? `<button class="btn btn-full" style="background:${urgencyColor};color:#fff;font-weight:800;margin-top:8px" onclick="payContractor(${id})">💸 Pay ${fmt(owed.amount)}</button>`
-          : `<button class="btn btn-full" disabled style="opacity:0.5;margin-top:8px;cursor:not-allowed">💸 Need ${fmt(owed.amount - state.cash)} more to pay</button>`
+          ? `<button class="btn btn-full" style="background:${urgencyColor};color:#fff;font-weight:800;margin-top:8px" onclick="payContractor(${id})">${pxIcon('💸',14)} Pay ${fmt(owed.amount)}</button>`
+          : `<button class="btn btn-full" disabled style="opacity:0.5;margin-top:8px;cursor:not-allowed">${pxIcon('💸',14)} Need ${fmt(owed.amount - state.cash)} more to pay</button>`
         }
       </div>`;
   })();
@@ -1136,10 +1322,10 @@ async function showPropertyDetail(id) {
   const renoInProgress = prop.pending_reno
     ? `<div class="card" style="margin-bottom:10px;border:2px solid #1565C0">
         <div style="display:flex;align-items:center;gap:12px">
-          <span style="font-size:30px">🔨</span>
+          ${pxIcon('🔨',30)}
           <div style="flex:1">
             <div style="font-size:15px;font-weight:800;color:#1565C0">Renovation In Progress</div>
-            <div style="font-size:13px;color:var(--text-muted);margin-top:2px">${prop.pending_reno.icon} ${prop.pending_reno.name}</div>
+            <div style="font-size:13px;color:var(--text-muted);margin-top:2px">${pxIcon(prop.pending_reno.icon)} ${prop.pending_reno.name}</div>
           </div>
           <div style="text-align:right">
             <div style="font-size:22px;font-weight:900;color:#1565C0">${Math.max(0, prop.pending_reno.complete_day - state.day)}</div>
@@ -1152,14 +1338,14 @@ async function showPropertyDetail(id) {
 
   const tenantSection = prop.squatter
     ? `<div class="card" style="margin-bottom:10px;border:2px solid #EF9A9A">
-        <div class="section-header mb-0"><span class="section-title" style="color:#C62828">🚨 Squatters Present</span></div>
+        <div class="section-header mb-0"><span class="section-title" style="color:#C62828">${pxIcon('🚨',18)} Squatters Present</span></div>
         <p style="margin-top:8px;font-size:13px;color:var(--text-muted)">${prop.squatter.starter
           ? `Grandma left the property to me — but apparently someone settled in before I could get the keys. She said clear them out and it's mine. Honestly, given the condition they've left it in, selling as-is might be the smarter move.`
           : `Someone has moved in without permission and isn't paying rent. You can't rent out or renovate until they're gone.`
         }</p>
         <div class="money-row" style="margin-top:10px"><span class="mr-label">Their Asking Price to Leave</span><span class="mr-value" style="color:#C62828">${fmt(prop.squatter.bribe)}</span></div>
         <div class="btn-row" style="margin-top:10px">
-          <button class="btn btn-danger btn-sm" onclick="briberSquatter(${id})">💸 Pay ${fmt(prop.squatter.bribe)} to Remove</button>
+          <button class="btn btn-danger btn-sm" onclick="briberSquatter(${id})">${pxIcon('💸',14)} Pay ${fmt(prop.squatter.bribe)} to Remove</button>
         </div>
         ${prop.squatter.starter ? '' : `<p style="font-size:11px;color:var(--text-muted);margin-top:8px">Or wait — they may leave on their own eventually.</p>`}
       </div>`
@@ -1183,10 +1369,10 @@ async function showPropertyDetail(id) {
                           : isPhil      ? ';background:linear-gradient(135deg,#fffde7,#fff8e1)'
                           : isBaileys   ? ';background:linear-gradient(135deg,#FFF3E0,#FFF8F0)'
                           : isGoldbergs ? ';background:linear-gradient(135deg,#E8F5E9,#F1F8F1)' : '';
-        const badgeHtml   = isMystery   ? '<span style="font-size:11px;background:#7B1FA2;color:#fff;padding:2px 8px;border-radius:8px;font-weight:700">👤 MYSTERY</span>'
-                          : isPhil      ? '<span style="font-size:11px;background:gold;color:#5d4037;padding:2px 8px;border-radius:8px;font-weight:700">🔱 THE PHIL</span>'
-                          : isBaileys   ? '<span style="font-size:11px;background:#E65100;color:#fff;padding:2px 8px;border-radius:8px;font-weight:700">👨‍👩‍👧‍👦 THE BAILEYS</span>'
-                          : isGoldbergs ? '<span style="font-size:11px;background:#2E7D32;color:#fff;padding:2px 8px;border-radius:8px;font-weight:700">🎩 THE GOLDBERGS</span>' : '';
+        const badgeHtml   = isMystery   ? `<span style="font-size:11px;background:#7B1FA2;color:#fff;padding:2px 8px;border-radius:8px;font-weight:700">${pxIcon('👤',14)} MYSTERY</span>`
+                          : isPhil      ? `<span style="font-size:11px;background:gold;color:#5d4037;padding:2px 8px;border-radius:8px;font-weight:700">${pxIcon('🔱',14)} THE PHIL</span>`
+                          : isBaileys   ? `<span style="font-size:11px;background:#E65100;color:#fff;padding:2px 8px;border-radius:8px;font-weight:700">${pxIcon('👨‍👩‍👧‍👦',14)} THE BAILEYS</span>`
+                          : isGoldbergs ? `<span style="font-size:11px;background:#2E7D32;color:#fff;padding:2px 8px;border-radius:8px;font-weight:700">${pxIcon('🎩',14)} THE GOLDBERGS</span>` : '';
         const nameColor   = isMystery ? '#CE93D8' : isPhil ? '#b8860b' : isBaileys ? '#E65100' : isGoldbergs ? '#1B5E20' : '';
         const subLine     = isPhil      ? '<span style="font-size:11px;color:#b8860b;font-weight:700">+1 condition/day · 25% weekly reno</span>'
                           : isBaileys   ? '<span style="font-size:11px;color:#E65100;font-weight:700">Morale locked at 100% · Never damages</span>'
@@ -1218,7 +1404,7 @@ async function showPropertyDetail(id) {
         <div class="section-header mb-0"><span class="section-title" style="${isMystery ? 'color:#CE93D8' : ''}">Current Tenant</span>${badgeHtml}</div>
         <div style="margin-top:10px">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-            <span style="${iconStyle}">${isMystery ? '👤' : prop.tenant.icon || '👤'}</span>
+            <span style="${iconStyle}">${pxIcon(isMystery ? '👤' : prop.tenant.icon || '👤')}</span>
             <div style="flex:1">
               <div style="font-size:15px;font-weight:700;${nameColor ? 'color:' + nameColor : ''}">${isMystery ? '???' : prop.tenant.name}</div>
               <div style="font-size:12px;color:${isMystery ? '#9C27B0' : 'var(--text-2)'}">${prop.tenant_days_remaining ?? '?'} days left on lease</div>
@@ -1232,7 +1418,7 @@ async function showPropertyDetail(id) {
           <div class="money-row"><span class="mr-label">Total Rent Collected</span><span class="mr-value green">${fmt(prop.total_rent_collected)}</span></div>
           <div class="money-row"><span class="mr-label">Total Repair Costs</span><span class="mr-value red">${fmt(prop.total_repair_costs)}</span></div>
           <div class="btn-row">
-            <button class="btn btn-danger btn-sm" onclick="evictTenant(${id})">⚖️ Evict ($1,500)</button>
+            <button class="btn btn-danger btn-sm" onclick="evictTenant(${id})">${pxIcon('⚖️',14)} Evict ($1,500)</button>
           </div>
         </div>
       </div>`;
@@ -1243,8 +1429,14 @@ async function showPropertyDetail(id) {
           ? '<p style="margin-top:8px;font-size:13px;color:var(--text-muted)">Renovation in progress — find a tenant once work is complete.</p>'
           : '<p style="margin-top:8px;font-size:13px;color:var(--text-muted)">This property is vacant.</p>'}
         <div class="btn-row">
-          ${!prop.pending_reno ? `<button class="btn btn-primary btn-sm" onclick="showTenantsModal(${id})">🔑 Find Tenant</button>` : ''}
-          <button class="btn btn-accent btn-sm" onclick="sellProperty(${id})">💰 Sell Property</button>
+          ${!prop.pending_reno ? `<button class="btn btn-primary btn-sm" onclick="showTenantsModal(${id})">${pxIcon('🔑',14)} Find Tenant</button>` : ''}
+          ${(() => {
+            const daysOwned = prop.purchase_day != null ? (state.day - prop.purchase_day) : 99;
+            const daysLeft  = Math.max(0, 3 - daysOwned);
+            return daysLeft > 0
+              ? `<button class="btn btn-accent btn-sm" disabled style="opacity:0.45;cursor:not-allowed" title="No buyers yet">${pxIcon('💰',14)} No Buyers Yet (${daysLeft}d)</button>`
+              : `<button class="btn btn-accent btn-sm" onclick="sellProperty(${id})">${pxIcon('💰',14)} Sell Property</button>`;
+          })()}
         </div>
       </div>`;
 
@@ -1252,10 +1444,10 @@ async function showPropertyDetail(id) {
     ? `<div style="margin-bottom:8px"><div class="section-title" style="font-size:11px;margin-bottom:6px;color:var(--text-muted)">ON COOLDOWN</div>
        <div class="upgrade-grid">${upgData.on_cooldown.map(u =>
         `<div class="upgrade-card done" style="opacity:0.7">
-          <div class="upgrade-icon">${u.icon}</div>
+          <div class="upgrade-icon">${pxIcon(u.icon)}</div>
           <div class="upgrade-name">${u.name}</div>
           <div class="upgrade-quality" style="color:${tierColor(u.quality_tier)};font-weight:800">${u.quality_tier}</div>
-          <div class="upgrade-quality">⏳ ${u.days_remaining}d left</div>
+          <div class="upgrade-quality">${pxIcon('⏳',14)} ${u.days_remaining}d left</div>
         </div>`).join('')}</div></div>`
     : '';
 
@@ -1263,10 +1455,10 @@ async function showPropertyDetail(id) {
   const scheduledRenoHtml = prop.scheduled_reno
     ? `<div class="card" style="margin-bottom:10px;border:2px solid #7B1FA2;background:#F3E5F5">
         <div style="display:flex;align-items:center;gap:12px">
-          <span style="font-size:28px">🗓️</span>
+          ${pxIcon('🗓️',28)}
           <div style="flex:1">
             <div style="font-size:14px;font-weight:800;color:#6A1B9A">Renovation Scheduled</div>
-            <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${prop.scheduled_reno.icon} ${prop.scheduled_reno.name}</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${pxIcon(prop.scheduled_reno.icon)} ${prop.scheduled_reno.name}</div>
           </div>
           <div style="text-align:right">
             <div style="font-size:20px;font-weight:900;color:#6A1B9A">${Math.max(0, prop.scheduled_reno.start_day - state.day)}</div>
@@ -1287,12 +1479,12 @@ async function showPropertyDetail(id) {
         const onclick       = canRenovate  ? `onclick="showContractorModal(${id},'${u.key}')"` :
                               canSchedule  ? `onclick="showScheduleRenoModal(${id},'${u.key}')"` : '';
         return `<div class="upgrade-card ${!clickable ? 'btn-disabled' : ''}" ${onclick}>
-          <div class="upgrade-icon">${u.icon}</div>
+          <div class="upgrade-icon">${pxIcon(u.icon)}</div>
           <div class="upgrade-name">${u.name}</div>
           ${u.prev_quality_tier
             ? `<div class="upgrade-quality" style="font-size:10px;color:var(--text-muted)">Last: ${u.prev_quality_tier} · Redo</div>`
             : `<div class="upgrade-cost">from ${fmt(u.costs.budget)}</div>`}
-          ${canSchedule ? `<div class="upgrade-quality" style="font-size:10px;color:#7B1FA2">📅 Schedule</div>` : ''}
+          ${canSchedule ? `<div class="upgrade-quality" style="font-size:10px;color:#7B1FA2">${pxIcon('📅',12)} Schedule</div>` : ''}
         </div>`;
       }).join('')}</div>`
     : '<p class="text-muted" style="margin-top:4px">All upgrades on cooldown!</p>';
@@ -1300,7 +1492,7 @@ async function showPropertyDetail(id) {
   openModal(`
     <div class="modal-handle"></div>
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
-      <span style="font-size:36px">${prop.icon}</span>
+      <span style="font-size:36px">${pxIcon(prop.icon)}</span>
       <div>
         <div style="font-size:18px;font-weight:800;margin-bottom:2px">${prop.address || prop.type}</div>
         <div style="font-size:13px;color:var(--text-2)">${prop.bedrooms}bd / ${prop.bathrooms}ba ${prop.type} · ${prop.neighborhood}</div>
@@ -1323,7 +1515,7 @@ async function showPropertyDetail(id) {
     <div class="section-header"><span class="section-title">Renovations</span></div>
     ${state.level < 1
       ? `<div class="card" style="text-align:center;padding:18px 16px;margin-bottom:8px;opacity:0.75">
-           <div style="font-size:28px;margin-bottom:6px">🔒</div>
+           <div style="margin-bottom:6px">${pxIcon('🔒',28)}</div>
            <div style="font-weight:800;font-size:14px">Locked</div>
            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Sell your starter property to reach Level 1 and unlock renovations</div>
          </div>`
@@ -1340,9 +1532,9 @@ async function showPropertyDetail(id) {
         ${cooldownHtml}
         ${upgData.pending_reno ? `<div style="margin-top:8px"><div class="section-title" style="font-size:11px;margin-bottom:6px;color:#1565C0">IN PROGRESS</div>
           <div class="upgrade-grid"><div class="upgrade-card" style="border-color:#1565C0;background:#E3F2FD">
-            <div class="upgrade-icon">${upgData.pending_reno.icon}</div>
+            <div class="upgrade-icon">${pxIcon(upgData.pending_reno.icon)}</div>
             <div class="upgrade-name">${upgData.pending_reno.name}</div>
-            <div class="upgrade-quality" style="color:#1565C0">🔨 ${Math.max(0, upgData.pending_reno.complete_day - state.day)}d left</div>
+            <div class="upgrade-quality" style="color:#1565C0">${pxIcon('🔨',12)} ${Math.max(0, upgData.pending_reno.complete_day - state.day)}d left</div>
           </div></div></div>` : ''}
         ${!prop.pending_reno && upgData.available.length > 0 ? `<div style="margin-top:8px"><div class="section-title" style="font-size:11px;margin-bottom:6px;color:var(--text-muted)">${prop.tenant && !prop.scheduled_reno ? 'TAP TO SCHEDULE' : 'AVAILABLE'}</div>${availHtml}</div>` : ''}`}
     ${buildPremiumSection(id, premData, state.cash, !!prop.squatter, !!prop.tenant)}
@@ -1361,7 +1553,7 @@ function buildPremiumSection(pid, premData, cash, hasSquatter = false, hasTenant
       <span class="section-title">⭐ Premium Upgrades</span>
     </div>
     <div class="card" style="text-align:center;padding:18px 16px;opacity:0.75">
-      <div style="font-size:28px;margin-bottom:6px">🔒</div>
+      <div style="margin-bottom:6px">${pxIcon('🔒',28)}</div>
       <div style="font-weight:800;font-size:14px">Locked until Level 5</div>
       <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Keep leveling up to unlock premium upgrades</div>
     </div>`;
@@ -1385,7 +1577,7 @@ function buildPremiumSection(pid, premData, cash, hasSquatter = false, hasTenant
   const installedHtml = installed.length > 0
     ? installed.map(u => `
       <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
-        <span style="font-size:22px">${u.icon}</span>
+        <span style="font-size:22px">${pxIcon(u.icon)}</span>
         <div style="flex:1">
           <div style="font-size:13px;font-weight:700">${u.name}</div>
           <div style="font-size:11px;color:var(--text-muted)">${u.desc}</div>
@@ -1397,9 +1589,9 @@ function buildPremiumSection(pid, premData, cash, hasSquatter = false, hasTenant
   const pendingHtml = premData.pending_premium
     ? `<div class="card" style="margin-bottom:8px;border:2px solid #1565C0;background:#E3F2FD">
         <div style="display:flex;align-items:center;gap:12px">
-          <span style="font-size:26px">${premData.pending_premium.icon}</span>
+          <span style="font-size:26px">${pxIcon(premData.pending_premium.icon)}</span>
           <div style="flex:1">
-            <div style="font-size:14px;font-weight:800;color:#1565C0">🔨 ${premData.pending_premium.name}</div>
+            <div style="font-size:14px;font-weight:800;color:#1565C0">${pxIcon('🔨',14)} ${premData.pending_premium.name}</div>
             <div style="font-size:12px;color:var(--text-muted)">Installation in progress</div>
           </div>
           <div style="text-align:right">
@@ -1414,10 +1606,10 @@ function buildPremiumSection(pid, premData, cash, hasSquatter = false, hasTenant
   const scheduledPremHtml = scheduledPrem
     ? `<div class="card" style="margin-bottom:8px;border:2px solid #7B1FA2;background:#F3E5F5">
         <div style="display:flex;align-items:center;gap:12px">
-          <span style="font-size:26px">🗓️</span>
+          ${pxIcon('🗓️',26)}
           <div style="flex:1">
             <div style="font-size:14px;font-weight:800;color:#6A1B9A">Upgrade Scheduled</div>
-            <div style="font-size:12px;color:var(--text-muted);">${scheduledPrem.icon} ${scheduledPrem.name} · Day ${scheduledPrem.start_day}</div>
+            <div style="font-size:12px;color:var(--text-muted);">${pxIcon(scheduledPrem.icon)} ${scheduledPrem.name} · Day ${scheduledPrem.start_day}</div>
           </div>
           <div style="text-align:right">
             <div style="font-size:20px;font-weight:900;color:#6A1B9A">${Math.max(0, scheduledPrem.start_day - state.day)}</div>
@@ -1436,13 +1628,13 @@ function buildPremiumSection(pid, premData, cash, hasSquatter = false, hasTenant
     if (blocked)             { btnLabel = 'Upgrade in progress'; btnOnclick = 'disabled'; }
     else if (hasTenant && scheduledPrem) { btnLabel = 'Upgrade already scheduled'; btnOnclick = 'disabled'; }
     else if (!canAfford)     { btnLabel = `Need ${fmt(u.cost)} (have ${fmt(cash)})`; btnOnclick = 'disabled'; }
-    else if (canSchedule)    { btnLabel = `📅 Schedule · ${fmt(u.cost)}`; btnOnclick = `onclick="showSchedulePremiumModal(${pid},'${u.key}',${u.cost},${u.days},'${u.name}','${u.icon}')"` ; }
-    else                     { btnLabel = `🔨 Hire Contractor · ${fmt(u.cost)}`; btnOnclick = `onclick="installPremiumUpgrade(${pid},'${u.key}')"` ; }
+    else if (canSchedule)    { btnLabel = `${pxIcon('📅',14)} Schedule · ${fmt(u.cost)}`; btnOnclick = `onclick="showSchedulePremiumModal(${pid},'${u.key}',${u.cost},${u.days},'${u.name}','${u.icon}')"` ; }
+    else                     { btnLabel = `${pxIcon('🔨',14)} Hire Contractor · ${fmt(u.cost)}`; btnOnclick = `onclick="installPremiumUpgrade(${pid},'${u.key}')"` ; }
 
     return `
     <div class="card" style="margin-bottom:8px${fullyBlocked ? ';opacity:0.55' : ''}">
       <div style="display:flex;align-items:flex-start;gap:10px">
-        <span style="font-size:28px;line-height:1.2">${u.icon}</span>
+        <span style="font-size:28px;line-height:1.2">${pxIcon(u.icon)}</span>
         <div style="flex:1">
           <div style="font-size:14px;font-weight:800">${u.name}</div>
           <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${u.desc}</div>
@@ -1482,10 +1674,10 @@ async function installPremiumUpgrade(pid, key) {
   const d = res.duration;
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">🔨 Work Underway!</div>
+    <div class="modal-title">${pxIcon('🔨',20)} Work Underway!</div>
     <div class="modal-subtitle">${res.name}</div>
     <div style="text-align:center;padding:16px 0">
-      <div style="font-size:48px">🏗️</div>
+      <div>${pxIcon('🏗️',48)}</div>
       <div style="font-size:22px;font-weight:900;margin-top:8px">${d} Day${d !== 1 ? 's' : ''}</div>
       <div style="font-size:13px;color:var(--text-muted)">until installation complete</div>
     </div>
@@ -1509,17 +1701,17 @@ async function showScheduleRenoModal(propId, upgradeKey) {
 
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">${upg.icon} ${upg.name}</div>
+    <div class="modal-title">${pxIcon(upg.icon)} ${upg.name}</div>
     <div class="modal-subtitle">Schedule with tenant in residence</div>
 
     <div class="card" style="margin-bottom:16px;background:#F3E5F5;border:2px solid #CE93D8">
       <div style="display:flex;align-items:center;gap:12px">
-        <span style="font-size:30px">📅</span>
+        ${pxIcon('📅',30)}
         <div>
           <div style="font-size:14px;font-weight:800;color:#6A1B9A">Tenant Maintenance Window</div>
           <div style="font-size:12px;color:var(--text-muted);margin-top:3px">
             Your tenant is available starting <strong>Day ${availDay}</strong>
-            &nbsp;(${sInfo.icon} ${sInfo.name} · in ${daysOut} day${daysOut !== 1 ? 's' : ''})
+            &nbsp;(${pxIcon(sInfo.icon)} ${sInfo.name} · in ${daysOut} day${daysOut !== 1 ? 's' : ''})
           </div>
         </div>
       </div>
@@ -1532,9 +1724,9 @@ async function showScheduleRenoModal(propId, upgradeKey) {
       const days      = contractorDays('premium', upg.energy_cost || 1);
       const canAfford = state.cash >= sc.cost;
       return `<div class="contractor-card contractor-special" style="${!canAfford ? 'opacity:0.6' : ''}">
-        <div class="contractor-special-badge">⚡ SPECIAL — Guaranteed S+</div>
+        <div class="contractor-special-badge">${pxIcon('⚡',14)} SPECIAL — Guaranteed S+</div>
         <div class="contractor-header">
-          <span class="contractor-icon">${sc.icon}</span>
+          <span class="contractor-icon">${pxIcon(sc.icon)}</span>
           <span class="contractor-name">${sc.name}</span>
           <span class="contractor-cost" style="color:${canAfford ? 'inherit' : 'var(--negative)'}">
             ${canAfford ? fmt(sc.cost) : `Need ${fmt(sc.cost)}`}
@@ -1545,7 +1737,7 @@ async function showScheduleRenoModal(propId, upgradeKey) {
         <button class="btn btn-sm btn-full ${canAfford ? 'btn-primary' : 'btn-ghost'} mt-8"
           style="${!canAfford ? 'cursor:not-allowed' : ''};margin-top:8px"
           ${canAfford ? `onclick="confirmScheduleReno(${propId},'${upgradeKey}','special',${availDay})"` : 'disabled'}>
-          ${canAfford ? `📅 Book · ${fmt(sc.cost)}` : `Not enough cash`}
+          ${canAfford ? `${pxIcon('📅',14)} Book · ${fmt(sc.cost)}` : `Not enough cash`}
         </button>
       </div>`;
     })() : ''}
@@ -1557,7 +1749,7 @@ async function showScheduleRenoModal(propId, upgradeKey) {
       return `
       <div class="contractor-card${!canAfford ? '' : ''}" style="${!canAfford ? 'opacity:0.5' : ''}">
         <div class="contractor-header">
-          <span class="contractor-icon">${c.icon}</span>
+          <span class="contractor-icon">${pxIcon(c.icon)}</span>
           <span class="contractor-name">${c.name}</span>
           <span class="contractor-cost" style="color:${canAfford ? 'inherit' : 'var(--negative)'}">
             ${canAfford ? fmt(cost) : `Need ${fmt(cost)}`}
@@ -1568,7 +1760,7 @@ async function showScheduleRenoModal(propId, upgradeKey) {
         <button class="btn btn-sm btn-full ${canAfford ? 'btn-primary' : 'btn-ghost'} mt-8"
           style="${!canAfford ? 'cursor:not-allowed' : ''};margin-top:8px"
           ${canAfford ? `onclick="confirmScheduleReno(${propId},'${upgradeKey}','${key}',${availDay})"` : 'disabled'}>
-          ${canAfford ? `📅 Book · ${fmt(cost)}` : `Not enough cash`}
+          ${canAfford ? `${pxIcon('📅',14)} Book · ${fmt(cost)}` : `Not enough cash`}
         </button>
       </div>`;
     }).join('')}
@@ -1585,10 +1777,10 @@ async function confirmScheduleReno(propId, upgradeKey, contractorKey, startDay) 
   const daysOut = startDay - state.day;
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">📅 Renovation Scheduled!</div>
+    <div class="modal-title">${pxIcon('📅',20)} Renovation Scheduled!</div>
     <div class="modal-subtitle">${res.name}</div>
     <div style="text-align:center;padding:16px 0">
-      <div style="font-size:48px">🗓️</div>
+      <div>${pxIcon('🗓️',48)}</div>
       <div style="font-size:22px;font-weight:900;margin-top:8px;color:#6A1B9A">Day ${startDay}</div>
       <div style="font-size:13px;color:var(--text-muted)">contractors arrive · in ${daysOut} day${daysOut !== 1 ? 's' : ''}</div>
     </div>
@@ -1608,17 +1800,17 @@ function showSchedulePremiumModal(propId, upgradeKey, cost, days, name, icon) {
 
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">${icon} ${name}</div>
+    <div class="modal-title">${pxIcon(icon)} ${name}</div>
     <div class="modal-subtitle">Schedule with tenant in residence</div>
 
     <div class="card" style="margin-bottom:16px;background:#F3E5F5;border:2px solid #CE93D8">
       <div style="display:flex;align-items:center;gap:12px">
-        <span style="font-size:30px">📅</span>
+        ${pxIcon('📅',30)}
         <div>
           <div style="font-size:14px;font-weight:800;color:#6A1B9A">Tenant Maintenance Window</div>
           <div style="font-size:12px;color:var(--text-muted);margin-top:3px">
             Your tenant is available starting <strong>Day ${availDay}</strong>
-            &nbsp;(${sInfo.icon} ${sInfo.name} · in ${daysOut} day${daysOut !== 1 ? 's' : ''})
+            &nbsp;(${pxIcon(sInfo.icon)} ${sInfo.name} · in ${daysOut} day${daysOut !== 1 ? 's' : ''})
           </div>
         </div>
       </div>
@@ -1633,7 +1825,7 @@ function showSchedulePremiumModal(propId, upgradeKey, cost, days, name, icon) {
     <button class="btn btn-primary btn-full"
       ${canAfford ? `onclick="confirmSchedulePremium(${propId},'${upgradeKey}',${availDay})"` : 'disabled'}
       style="${!canAfford ? 'opacity:0.5;cursor:not-allowed' : ''}">
-      ${canAfford ? `📅 Schedule · ${fmt(cost)}` : `Need ${fmt(cost)} — have ${fmt(state.cash)}`}
+      ${canAfford ? `${pxIcon('📅',14)} Schedule · ${fmt(cost)}` : `Need ${fmt(cost)} — have ${fmt(state.cash)}`}
     </button>
     <button class="btn btn-ghost btn-sm btn-full mt-8" onclick="backToProperty()">Cancel</button>`);
 }
@@ -1647,10 +1839,10 @@ async function confirmSchedulePremium(propId, upgradeKey, startDay) {
   const daysOut = startDay - state.day;
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">📅 Upgrade Scheduled!</div>
+    <div class="modal-title">${pxIcon('📅',20)} Upgrade Scheduled!</div>
     <div class="modal-subtitle">${res.name}</div>
     <div style="text-align:center;padding:16px 0">
-      <div style="font-size:48px">🗓️</div>
+      <div>${pxIcon('🗓️',48)}</div>
       <div style="font-size:22px;font-weight:900;margin-top:8px;color:#6A1B9A">Day ${startDay}</div>
       <div style="font-size:13px;color:var(--text-muted)">workers arrive · in ${daysOut} day${daysOut !== 1 ? 's' : ''}</div>
     </div>
@@ -1718,7 +1910,7 @@ async function showTenantsModal(id) {
       <div class="tenant-card" onclick="showRentSettingModal(${id}, ${t.idx})"
            style="border:2px solid #7B1FA2;background:linear-gradient(135deg,#1a0030,#2d004f);cursor:pointer">
         <div class="tenant-header">
-          <span class="tenant-icon" style="font-size:28px;filter:brightness(0.1)">👤</span>
+          <span class="tenant-icon" style="filter:brightness(0.1)">${pxIcon('👤',28)}</span>
           <div style="flex:1">
             <div class="tenant-name" style="color:#CE93D8;font-weight:900">???
               <span style="font-size:10px;background:#7B1FA2;color:#fff;padding:2px 6px;border-radius:8px;margin-left:6px;font-weight:700">RARE</span>
@@ -1740,7 +1932,7 @@ async function showTenantsModal(id) {
       <div class="tenant-card" onclick="showRentSettingModal(${id}, ${t.idx})"
            style="border:2px solid gold;background:linear-gradient(135deg,#fffde7,#fff8e1)">
         <div class="tenant-header">
-          <span class="tenant-icon">${t.icon}</span>
+          <span class="tenant-icon">${pxIcon(t.icon)}</span>
           <div style="flex:1">
             <div class="tenant-name" style="color:#b8860b;font-weight:900">${t.name}
               <span style="font-size:10px;background:gold;color:#5d4037;padding:2px 6px;border-radius:8px;margin-left:6px;font-weight:700">RARE</span>
@@ -1766,7 +1958,7 @@ async function showTenantsModal(id) {
       <div class="tenant-card" onclick="showRentSettingModal(${id}, ${t.idx})"
            style="border:2px solid #E65100;background:linear-gradient(135deg,#FFF3E0,#FFF8F0)">
         <div class="tenant-header">
-          <span class="tenant-icon">${t.icon}</span>
+          <span class="tenant-icon">${pxIcon(t.icon)}</span>
           <div style="flex:1">
             <div class="tenant-name" style="color:#E65100;font-weight:900">${t.name}
               <span style="font-size:10px;background:#E65100;color:#fff;padding:2px 6px;border-radius:8px;margin-left:6px;font-weight:700">RARE</span>
@@ -1792,7 +1984,7 @@ async function showTenantsModal(id) {
       <div class="tenant-card" onclick="showRentSettingModal(${id}, ${t.idx})"
            style="border:2px solid #2E7D32;background:linear-gradient(135deg,#E8F5E9,#F1F8F1)">
         <div class="tenant-header">
-          <span class="tenant-icon">${t.icon}</span>
+          <span class="tenant-icon">${pxIcon(t.icon)}</span>
           <div style="flex:1">
             <div class="tenant-name" style="color:#1B5E20;font-weight:900">${t.name}
               <span style="font-size:10px;background:#2E7D32;color:#fff;padding:2px 6px;border-radius:8px;margin-left:6px;font-weight:700">RARE</span>
@@ -1811,13 +2003,13 @@ async function showTenantsModal(id) {
           </div>
           <div class="tenant-meta-item" style="grid-column:1/-1">
             <span class="tm-label">Special</span>
-            <span class="tm-value" style="color:#1B5E20">💰 Pays 10× rent automatically — short stay</span>
+            <span class="tm-value" style="color:#1B5E20">${pxIcon('💰',14)} Pays 10× rent automatically — short stay</span>
           </div>
         </div>
       </div>` : `
       <div class="tenant-card" onclick="showRentSettingModal(${id}, ${t.idx})">
         <div class="tenant-header">
-          <span class="tenant-icon">${t.icon}</span>
+          <span class="tenant-icon">${pxIcon(t.icon)}</span>
           <div style="flex:1">
             <div class="tenant-name">${t.name}</div>
             ${t.desc ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px;line-height:1.4">${t.desc}</div>` : ''}
@@ -1865,7 +2057,7 @@ function renderRentModal(propId, applicantIdx, t) {
 
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">${t.icon} Set Your Rent</div>
+    <div class="modal-title">${pxIcon(t.icon)} Set Your Rent</div>
     <div class="modal-subtitle">${t.name} · Fair market rate: ${fmt(_fairRent)}/wk</div>
     <div class="tier-picker">${btnHtml}</div>
     <div style="text-align:center;margin-bottom:12px">
@@ -2004,7 +2196,7 @@ async function showContractorModal(propId, upgradeKey) {
   const diyCard = !canDIY
     ? `<div class="contractor-card" style="border-color:var(--border);opacity:0.6;margin-bottom:8px">
         <div class="contractor-header">
-          <span class="contractor-icon">🔒</span>
+          <span class="contractor-icon">${pxIcon('🔒',28)}</span>
           <span class="contractor-name">Do It Yourself</span>
           <span class="contractor-cost" style="color:var(--text-muted)">Locked</span>
         </div>
@@ -2017,7 +2209,7 @@ async function showContractorModal(propId, upgradeKey) {
     : hasEnergy
     ? `<div class="contractor-card" style="border-color:var(--primary);margin-bottom:8px" onclick="startDIY('${upgradeKey}')">
         <div class="contractor-header">
-          <span class="contractor-icon">🧰</span>
+          <span class="contractor-icon">${pxIcon('🧰',28)}</span>
           <span class="contractor-name">Do It Yourself</span>
           <span class="contractor-cost" style="color:var(--positive)">FREE · ${ecPips}</span>
         </div>
@@ -2026,7 +2218,7 @@ async function showContractorModal(propId, upgradeKey) {
       </div>`
     : `<div class="contractor-card" style="border-color:var(--border);opacity:0.55;margin-bottom:8px">
         <div class="contractor-header">
-          <span class="contractor-icon">🧰</span>
+          <span class="contractor-icon">${pxIcon('🧰',28)}</span>
           <span class="contractor-name">Do It Yourself</span>
           <span class="contractor-cost" style="color:var(--negative)">Need ⚡${ec} (have ${energy})</span>
         </div>
@@ -2036,7 +2228,7 @@ async function showContractorModal(propId, upgradeKey) {
 
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">${upg.icon} ${upg.name}</div>
+    <div class="modal-title">${pxIcon(upg.icon)} ${upg.name}</div>
     <div class="modal-subtitle">Adds up to +${fmt(upg.value_add)} value · You have ${fmt(upgData.cash)}</div>
 
     ${diyCard}
@@ -2047,9 +2239,9 @@ async function showContractorModal(propId, upgradeKey) {
       const sc   = upg.special_contractor;
       const days = contractorDays('premium', upg.energy_cost || 1);
       return `<div class="contractor-card contractor-special" onclick="hireContractor('special')">
-        <div class="contractor-special-badge">⚡ SPECIAL — Guaranteed S+</div>
+        <div class="contractor-special-badge">${pxIcon('⚡',14)} SPECIAL — Guaranteed S+</div>
         <div class="contractor-header">
-          <span class="contractor-icon">${sc.icon}</span>
+          <span class="contractor-icon">${pxIcon(sc.icon)}</span>
           <span class="contractor-name">${sc.name}</span>
           <span class="contractor-cost">${fmt(sc.cost)}</span>
         </div>
@@ -2063,7 +2255,7 @@ async function showContractorModal(propId, upgradeKey) {
       return `
       <div class="contractor-card" onclick="hireContractor('${key}')">
         <div class="contractor-header">
-          <span class="contractor-icon">${c.icon}</span>
+          <span class="contractor-icon">${pxIcon(c.icon)}</span>
           <span class="contractor-name">${c.name}</span>
           <span class="contractor-cost">${fmt(upg.costs[key])}</span>
         </div>
@@ -2093,7 +2285,7 @@ async function finishDIY(upgradeKey, score) {
   const tColor    = tierColor(res.quality_tier);
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">🧰 DIY Complete!</div>
+    <div class="modal-title">${pxIcon('🧰',20)} DIY Complete!</div>
     <div style="text-align:center;margin:12px 0">
       <div style="font-size:64px;font-weight:900;color:${tColor}">${res.quality_tier}</div>
       <div style="font-size:13px;color:var(--text-muted)">work grade</div>
@@ -2102,7 +2294,7 @@ async function finishDIY(upgradeKey, score) {
     <div class="money-row"><span class="mr-label">New Condition</span><span class="mr-value" style="color:${tierColor(condTier(res.condition))};font-weight:900">${condTier(res.condition)}</span></div>
     <div class="money-row"><span class="mr-label">New Market Value</span><span class="mr-value green">${fmt(res.market_value)}</span></div>
     <div class="money-row"><span class="mr-label">New Weekly Rent</span><span class="mr-value green">${fmt(res.weekly_rent)}/wk</span></div>
-    <button class="btn btn-primary btn-full mt-8" onclick="backToProperty()">Done</button>`);
+    <button class="btn btn-primary btn-full mt-8" onclick="closeModal()">Done</button>`);
   await refreshState();
   renderAll();
 }
@@ -2124,19 +2316,19 @@ async function hireContractor(contractorKey) {
   const isDeferred = res.deferred_payment;
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">🔨 Work Underway!</div>
+    <div class="modal-title">${pxIcon('🔨',20)} Work Underway!</div>
     <div class="modal-subtitle">${res.contractor_name} is on the job</div>
     <div style="text-align:center;padding:16px 0">
-      <div style="font-size:48px">🏗️</div>
+      <div>${pxIcon('🏗️',48)}</div>
       <div style="font-size:22px;font-weight:900;margin-top:8px">${d} Day${d !== 1 ? 's' : ''}</div>
       <div style="font-size:13px;color:var(--text-muted)">until completion</div>
     </div>
     ${isDeferred
       ? `<div style="background:#FFF3E0;border:2px solid #E65100;border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:12px;font-size:13px;font-weight:700;color:#E65100">
-           💸 Payment due when work is complete — come back and pay then.</div>`
+           ${pxIcon('💸',14)} Payment due when work is complete — come back and pay then.</div>`
       : `<div class="money-row"><span class="mr-label">Cash Remaining</span><span class="mr-value">${fmt(res.cash)}</span></div>`
     }
-    <button class="btn btn-primary btn-full mt-8" onclick="backToProperty()">Got It</button>`);
+    <button class="btn btn-primary btn-full mt-8" onclick="closeModal()">Got It</button>`);
   await refreshState();
   renderAll();
 }
@@ -2165,7 +2357,7 @@ function renderJobs() {
   }
   el.innerHTML = `
   <div class="card" style="display:flex;align-items:center;gap:14px;opacity:0.6">
-    <div style="font-size:34px;line-height:1">💼</div>
+    <div style="line-height:1">${pxIcon('💼',34)}</div>
     <div style="flex:1">
       <div style="font-size:15px;font-weight:800">Side Jobs</div>
       <div style="font-size:12px;color:var(--text-muted);margin-top:2px">
@@ -2185,14 +2377,14 @@ function showJobsModal() {
   if (jobs.length === 0) {
     openModal(`
       <div class="modal-handle"></div>
-      <div class="modal-title">💼 Side Jobs</div>
+      <div class="modal-title">${pxIcon('💼',20)} Side Jobs</div>
       <p class="text-muted" style="text-align:center;padding:16px 0">No jobs available — advance the day for fresh listings.</p>
       <button class="btn btn-ghost btn-full" onclick="closeModal()">Close</button>`);
     return;
   }
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">💼 Side Jobs</div>
+    <div class="modal-title">${pxIcon('💼',20)} Side Jobs</div>
     <div class="modal-subtitle">⚡ ${energy} / ${maxE} energy remaining today</div>
     ${jobs.map(j => {
       const canTake  = energy >= j.energy_cost;
@@ -2201,7 +2393,7 @@ function showJobsModal() {
       return `
       <div class="card" style="margin-bottom:10px${!canTake ? ';opacity:0.5' : ''}">
         <div class="card-header">
-          <div class="card-icon">${j.icon}</div>
+          <div class="card-icon">${pxIcon(j.icon)}</div>
           <div style="flex:1">
             <div class="card-title">${j.name}</div>
             <div class="card-subtitle">${j.desc}</div>
@@ -2241,7 +2433,7 @@ async function finishJob(score) {
   const qualColor = res.quality >= 75 ? 'var(--positive)' : res.quality >= 40 ? 'var(--warning)' : 'var(--negative)';
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">💼 Job Complete!</div>
+    <div class="modal-title">${pxIcon('💼',20)} Job Complete!</div>
     <div style="text-align:center;margin:12px 0">
       <div style="font-size:64px;font-weight:900;color:${qualColor}">${res.quality}%</div>
       <div style="font-size:13px;color:var(--text-muted)">work quality</div>
@@ -2263,7 +2455,7 @@ function launchQuickTap(upgradeKey) {
   openModal(`
     <div class="modal-handle"></div>
     <div class="mg-wrap" style="background:#3E2723">
-      <div class="mg-title" style="color:#FFCC80">🔨 Drive the Nails!</div>
+      <div class="mg-title" style="color:#FFCC80">${pxIcon('🔨',20)} Drive the Nails!</div>
       <div class="mg-desc" style="color:#BCAAA4">Tap each nail before it sinks into the wood! 8 nails total.</div>
       <div class="mg-stats">
         <div><div class="mg-stat-val" style="color:#FFAB40" id="qt-hits">0</div><div style="color:#A1887F;font-size:11px">Driven</div></div>
@@ -2271,7 +2463,7 @@ function launchQuickTap(upgradeKey) {
       </div>
       <div class="mg-tap-area" id="qt-area" style="background:#5D4037;border-color:#4E342E"></div>
     </div>
-    <button class="btn btn-full" id="qt-start-btn" onclick="qtStart()" style="background:#FF8F00;color:white;padding:14px;font-size:16px;font-weight:800;border-radius:var(--radius-sm);border:none;width:100%">🔨 Grab the Hammer</button>`);
+    <button class="btn btn-full" id="qt-start-btn" onclick="qtStart()" style="background:#FF8F00;color:white;padding:14px;font-size:16px;font-weight:800;border-radius:var(--radius-sm);border:none;width:100%">${pxIcon('🔨',16)} Grab the Hammer</button>`);
 }
 
 function qtStart() {
@@ -2331,7 +2523,7 @@ function launchSweetSpot(upgradeKey) {
   openModal(`
     <div class="modal-handle"></div>
     <div class="mg-wrap" style="background:#ECEFF1">
-      <div class="mg-title">🔧 Tighten the Fitting</div>
+      <div class="mg-title">${pxIcon('🔧',20)} Tighten the Fitting</div>
       <div class="mg-desc">Stop the dial in the green zone — perfect tension or it'll leak! 5 rounds, gets trickier.</div>
       <div class="mg-stats">
         <div><div class="mg-stat-val" id="ss-round">1</div><div style="font-size:11px">Round</div></div>
@@ -2341,9 +2533,9 @@ function launchSweetSpot(upgradeKey) {
         <div class="mg-zone"  id="ss-zone"></div>
         <div class="mg-needle" id="ss-needle" style="background:#E65100;width:8px"></div>
       </div>
-      <button class="mg-lock-btn" id="ss-btn" onclick="ssLock()" style="display:none;background:#BF360C;letter-spacing:2px">🔒 LOCK TENSION!</button>
+      <button class="mg-lock-btn" id="ss-btn" onclick="ssLock()" style="display:none;background:#BF360C;letter-spacing:2px">${pxIcon('🔒',16)} LOCK TENSION!</button>
     </div>
-    <button class="btn btn-primary btn-full" id="ss-start-btn" onclick="ssStart()">🔧 Pick Up the Wrench</button>`);
+    <button class="btn btn-primary btn-full" id="ss-start-btn" onclick="ssStart()">${pxIcon('🔧',16)} Pick Up the Wrench</button>`);
 }
 
 function ssStart() {
@@ -2404,7 +2596,7 @@ function launchSequence(upgradeKey) {
   openModal(`
     <div class="modal-handle"></div>
     <div class="mg-wrap" style="background:#212121">
-      <div class="mg-title" style="color:#FFD54F">⚡ Wire It Up!</div>
+      <div class="mg-title" style="color:#FFD54F">${pxIcon('⚡',20)} Wire It Up!</div>
       <div class="mg-desc" style="color:#9E9E9E">Watch which wires light up, then connect them in the same order!</div>
       <div class="mg-stats">
         <div><div class="mg-stat-val" style="color:#FFD54F" id="seq-round">1</div><div style="color:#757575;font-size:11px">Round</div></div>
@@ -2415,7 +2607,7 @@ function launchSequence(upgradeKey) {
       </div>
       <div id="seq-status" style="text-align:center;font-size:13px;color:#9E9E9E;margin-top:4px">Watch carefully…</div>
     </div>
-    <button class="btn btn-full" id="seq-start-btn" onclick="seqStart()" style="background:#F57F17;color:white;padding:14px;font-size:16px;font-weight:800;border-radius:var(--radius-sm);border:none;width:100%">⚡ Open the Panel</button>`);
+    <button class="btn btn-full" id="seq-start-btn" onclick="seqStart()" style="background:#F57F17;color:white;padding:14px;font-size:16px;font-weight:800;border-radius:var(--radius-sm);border:none;width:100%">${pxIcon('⚡',16)} Open the Panel</button>`);
 }
 
 function seqStart() {
@@ -2523,7 +2715,7 @@ function launchPaintGame(upgradeKey) {
   overlay.innerHTML = `
     <div class="pg-header">
       <div class="pg-top-row">
-        <span class="pg-title">🎨 Paint the Wall!</span>
+        <span class="pg-title">${pxIcon('🎨',20)} Paint the Wall!</span>
         <span class="pg-pct-badge" id="pg-pct">0%</span>
       </div>
       <div class="pg-timer-track">
@@ -2542,7 +2734,7 @@ function launchPaintGame(upgradeKey) {
         <div class="pg-start-color">${paintColor.name}</div>
         <div class="pg-start-desc">Drag your finger across the whole wall<br>before time runs out!</div>
         <button class="pg-start-btn" style="background:${paintColor.color};box-shadow:0 4px 18px ${paintColor.dark}88" onclick="pgStart()">
-          🎨 Start Painting!
+          ${pxIcon('🎨',16)} Start Painting!
         </button>
       </div>
     </div>`;
@@ -2684,8 +2876,8 @@ function launchLandscapeGame(upgradeKey) {
   overlay.innerHTML = `
     <div class="lg-header">
       <div class="lg-top-row">
-        <span class="lg-title">🌿 Pull the Weeds!</span>
-        <span class="lg-count" id="lg-count">🌿 0</span>
+        <span class="lg-title">${pxIcon('🌿',20)} Pull the Weeds!</span>
+        <span class="lg-count" id="lg-count">${pxIcon('🌿',16)} 0</span>
       </div>
       <div class="lg-timer-track">
         <div class="lg-timer-fill" id="lg-timer-fill"></div>
@@ -2695,10 +2887,10 @@ function launchLandscapeGame(upgradeKey) {
     <div class="lg-field" id="lg-field"></div>
     <div class="lg-start-screen" id="lg-start-screen">
       <div class="lg-start-card">
-        <div class="lg-start-icon">🌿</div>
+        <div class="lg-start-icon">${pxIcon('🌿',48)}</div>
         <div class="lg-start-title">Pull the Weeds!</div>
         <div class="lg-start-desc">Tap every weed as fast as you can<br>before they take over the yard!</div>
-        <button class="lg-start-btn" onclick="lgStart()">🌿 Let's Go!</button>
+        <button class="lg-start-btn" onclick="lgStart()">${pxIcon('🌿',16)} Let's Go!</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
@@ -2887,8 +3079,8 @@ function launchFlooringGame(upgradeKey) {
   overlay.innerHTML = `
     <div class="fg-header">
       <div class="fg-top-row">
-        <span class="fg-title">🪵 Lay the Flooring!</span>
-        <span class="fg-score" id="fg-score">🪵 0 / ${FG_TOTAL}</span>
+        <span class="fg-title">${pxIcon('🪵',20)} Lay the Flooring!</span>
+        <span class="fg-score" id="fg-score">${pxIcon('🪵',16)} 0 / ${FG_TOTAL}</span>
       </div>
       <div class="fg-timer-track">
         <div class="fg-timer-fill" id="fg-timer-fill"></div>
@@ -2899,10 +3091,10 @@ function launchFlooringGame(upgradeKey) {
     <div class="fg-palette" id="fg-palette">${paletteHtml}</div>
     <div class="fg-start-screen" id="fg-start-screen">
       <div class="fg-start-card">
-        <div class="fg-start-icon">🪵</div>
+        <div class="fg-start-icon">${pxIcon('🪵',48)}</div>
         <div class="fg-start-title">Lay the Flooring!</div>
         <div class="fg-start-desc">Pick a color from the bottom<br>then tap the matching planks on the board!</div>
-        <button class="fg-start-btn" ontouchstart="fgStart();event.preventDefault()" onclick="fgStart()">🪵 Let's Go!</button>
+        <button class="fg-start-btn" ontouchstart="fgStart();event.preventDefault()" onclick="fgStart()">${pxIcon('🪵',16)} Let's Go!</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
@@ -3080,7 +3272,7 @@ function launchWindowGame(upgradeKey) {
   overlay.innerHTML = `
     <div class="wg-header">
       <div class="wg-top-row">
-        <span class="wg-title">🪟 Level the Windows!</span>
+        <span class="wg-title">${pxIcon('🪟',20)} Level the Windows!</span>
         <span class="wg-hint">Hold to level</span>
       </div>
       <div class="wg-timer-track">
@@ -3091,10 +3283,10 @@ function launchWindowGame(upgradeKey) {
     <div class="wg-board">${cardsHtml}</div>
     <div class="wg-start-screen" id="wg-start-screen">
       <div class="wg-start-card">
-        <div class="wg-start-icon">🪟</div>
+        <div class="wg-start-icon">${pxIcon('🪟',48)}</div>
         <div class="wg-start-title">Level the Windows!</div>
         <div class="wg-start-desc">Hold each window to level it.<br>They won't stay straight for long!</div>
-        <button class="wg-start-btn" ontouchstart="wgStart();event.preventDefault()" onclick="wgStart()">🪟 Let's Go!</button>
+        <button class="wg-start-btn" ontouchstart="wgStart();event.preventDefault()" onclick="wgStart()">${pxIcon('🪟',16)} Let's Go!</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
@@ -3356,7 +3548,7 @@ function launchHvacGame(upgradeKey) {
   overlay.innerHTML = `
     <div class="hv-header">
       <div class="hv-top-row">
-        <span class="hv-title">🔧 Run the HVAC Pipe!</span>
+        <span class="hv-title">${pxIcon('🔧',20)} Run the HVAC Pipe!</span>
         <span class="hv-hint">Drag START → END</span>
       </div>
       <div class="hv-timer-track">
@@ -3369,10 +3561,10 @@ function launchHvacGame(upgradeKey) {
     </div>
     <div class="hv-start-screen" id="hv-start-screen">
       <div class="hv-start-card">
-        <div class="hv-start-icon">🔧</div>
+        <div class="hv-start-icon">${pxIcon('🔧',48)}</div>
         <div class="hv-start-title">Run the HVAC Pipe!</div>
         <div class="hv-start-desc">Drag through the attic maze to lay pipe<br>from <span style="color:#4CAF50;font-weight:900">START</span> all the way to <span style="color:#FF5722;font-weight:900">END</span>!</div>
-        <button class="hv-start-btn" ontouchstart="hvStart();event.preventDefault()" onclick="hvStart()">🔧 Let's Go!</button>
+        <button class="hv-start-btn" ontouchstart="hvStart();event.preventDefault()" onclick="hvStart()">${pxIcon('🔧',16)} Let's Go!</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
@@ -3643,7 +3835,7 @@ function launchPlumbingGame(upgradeKey) {
   overlay.innerHTML = `
     <div class="pl-header">
       <div class="pl-top-row">
-        <span class="pl-title">🔧 Tighten the Pipe!</span>
+        <span class="pl-title">${pxIcon('🔧',20)} Tighten the Pipe!</span>
         <span class="pl-taps" id="pl-taps">0 / ${PL_TARGET}</span>
       </div>
       <div class="pl-timer-track">
@@ -3653,15 +3845,15 @@ function launchPlumbingGame(upgradeKey) {
     </div>
     <div class="pl-arena" id="pl-arena">
       <canvas id="pl-canvas"></canvas>
-      <div class="pl-wrench" id="pl-wrench">🔧</div>
+      <div class="pl-wrench" id="pl-wrench">${pxIcon('🔧',32)}</div>
       <div class="pl-tap-hint" id="pl-tap-hint">TAP TO TIGHTEN!</div>
     </div>
     <div class="pl-start-screen" id="pl-start-screen">
       <div class="pl-start-card">
-        <div class="pl-start-icon">💧</div>
+        <div class="pl-start-icon">${pxIcon('💧',48)}</div>
         <div class="pl-start-title">Tighten the Pipe!</div>
         <div class="pl-start-desc">Tap as fast as you can to tighten<br>the wrench and stop the burst!</div>
-        <button class="pl-start-btn" ontouchstart="plStart();event.preventDefault()" onclick="plStart()">🔧 Let's Go!</button>
+        <button class="pl-start-btn" ontouchstart="plStart();event.preventDefault()" onclick="plStart()">${pxIcon('🔧',16)} Let's Go!</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
@@ -3950,7 +4142,7 @@ function launchRoofGame(upgradeKey) {
     </div>
     <div id="rf-start-screen" class="rf-start-screen">
       <div class="rf-start-card">
-        <div class="rf-start-icon">🏚️</div>
+        <div class="rf-start-icon">${pxIcon('🏚️',48)}</div>
         <div class="rf-start-title">Roof Replacement</div>
         <div class="rf-start-desc">
           <b>Phase 1:</b> Drag your finger to scrape off all the old shingles<br><br>
@@ -4062,7 +4254,7 @@ function rfPhase2() {
 
   const badge = document.getElementById('rf-phase-badge');
   if (badge) {
-    badge.textContent = '🔨 Lay New Shingles';
+    badge.innerHTML = `${pxIcon('🔨',14)} Lay New Shingles`;
     badge.classList.add('rf-badge-new');
   }
   const prog = document.getElementById('rf-progress');
@@ -4155,7 +4347,7 @@ function launchGroutGame(upgradeKey) {
   overlay.innerHTML = `
     <div class="gr-hud">
       <div class="gr-hud-top">
-        <span class="gr-title">🧱 Grout the Backsplash!</span>
+        <span class="gr-title">${pxIcon('🧱',20)} Grout the Backsplash!</span>
         <span class="gr-time-box"><span id="gr-time">${GR_DURATION}</span>s</span>
       </div>
       <div class="gr-timer-track"><div class="gr-timer-fill" id="gr-timer-fill"></div></div>
@@ -4166,7 +4358,7 @@ function launchGroutGame(upgradeKey) {
     </div>
     <div id="gr-start-screen" class="gr-start-screen">
       <div class="gr-start-card">
-        <div class="gr-start-icon">🧱</div>
+        <div class="gr-start-icon">${pxIcon('🧱',48)}</div>
         <div class="gr-start-title">Grout the Backsplash</div>
         <div class="gr-start-desc">Drag your finger along every grout line between the tiles before time runs out!</div>
         <button class="gr-start-btn" id="gr-start-btn">Start Job</button>
@@ -4420,7 +4612,7 @@ function launchDrywallGame(upgradeKey) {
   overlay.innerHTML = `
     <div class="dw-hud">
       <div class="dw-hud-top">
-        <span class="dw-title">🧱 Hang Drywall</span>
+        <span class="dw-title">${pxIcon('🧱',20)} Hang Drywall</span>
         <span class="dw-time-box"><span id="dw-time">${DW_DURATION}</span>s</span>
       </div>
       <div class="dw-timer-track"><div class="dw-timer-fill" id="dw-timer-fill"></div></div>
@@ -4441,7 +4633,7 @@ function launchDrywallGame(upgradeKey) {
     </div>
     <div id="dw-start-screen" class="dw-start-screen">
       <div class="dw-start-card">
-        <div class="dw-start-icon">🧱</div>
+        <div class="dw-start-icon">${pxIcon('🧱',48)}</div>
         <div class="dw-start-title">Hang Drywall</div>
         <div class="dw-start-desc">Hold the panel to press it flat. Release when the marker hits the green zone!</div>
         <button class="dw-start-btn" id="dw-start-btn">Start Job</button>
@@ -4582,7 +4774,7 @@ function launchFenceGame(upgradeKey) {
   overlay.innerHTML = `
     <div class="fn-hud">
       <div class="fn-hud-top">
-        <span class="fn-title">🪚 Build a Fence</span>
+        <span class="fn-title">${pxIcon('🪚',20)} Build a Fence</span>
         <span class="fn-time-box"><span id="fn-time">${FN_DURATION}</span>s</span>
       </div>
       <div class="fn-timer-track"><div class="fn-timer-fill" id="fn-timer-fill"></div></div>
@@ -4601,7 +4793,7 @@ function launchFenceGame(upgradeKey) {
     </div>
     <div id="fn-start-screen" class="fn-start-screen">
       <div class="fn-start-card">
-        <div class="fn-start-icon">🪚</div>
+        <div class="fn-start-icon">${pxIcon('🪚',48)}</div>
         <div class="fn-start-title">Build a Fence</div>
         <div class="fn-start-desc">Tap the post when it's standing upright to hammer it in!</div>
         <button class="fn-start-btn" id="fn-start-btn">Start Job</button>
@@ -4721,7 +4913,7 @@ function launchConcreteGame(upgradeKey) {
   overlay.innerHTML = `
     <div class="cn-hud">
       <div class="cn-hud-top">
-        <span class="cn-title">🏗️ Pour Concrete</span>
+        <span class="cn-title">${pxIcon('🏗️',20)} Pour Concrete</span>
         <span class="cn-time-box"><span id="cn-time">${CN_DURATION}</span>s</span>
       </div>
       <div class="cn-timer-track"><div class="cn-timer-fill" id="cn-timer-fill"></div></div>
@@ -4729,7 +4921,7 @@ function launchConcreteGame(upgradeKey) {
     </div>
     <div class="cn-arena" id="cn-arena">
       <div class="cn-bucket-wrap" id="cn-bucket-wrap">
-        <div class="cn-bucket" id="cn-bucket">🪣</div>
+        <div class="cn-bucket" id="cn-bucket">${pxIcon('🪣',40)}</div>
         <div class="cn-stream" id="cn-stream"></div>
       </div>
       <div class="cn-mold" id="cn-mold">
@@ -4746,7 +4938,7 @@ function launchConcreteGame(upgradeKey) {
     </div>
     <div id="cn-start-screen" class="cn-start-screen">
       <div class="cn-start-card">
-        <div class="cn-start-icon">🏗️</div>
+        <div class="cn-start-icon">${pxIcon('🏗️',48)}</div>
         <div class="cn-start-title">Pour Concrete</div>
         <div class="cn-start-desc">Drag the slider to move the bucket. Hold the pour button to fill each section — don't overflow!</div>
         <button class="cn-start-btn" id="cn-start-btn">Start Job</button>
@@ -4867,7 +5059,7 @@ function launchWashGame(upgradeKey) {
   overlay.innerHTML = `
     <div class="ws-hud">
       <div class="ws-hud-top">
-        <span class="ws-title">💧 Power Washing</span>
+        <span class="ws-title">${pxIcon('💧',20)} Power Washing</span>
         <span class="ws-time-box"><span id="ws-time">${WS_DURATION}</span>s</span>
       </div>
       <div class="ws-timer-track"><div class="ws-timer-fill" id="ws-timer-fill"></div></div>
@@ -4883,7 +5075,7 @@ function launchWashGame(upgradeKey) {
     </div>
     <div id="ws-start-screen" class="ws-start-screen">
       <div class="ws-start-card">
-        <div class="ws-start-icon">💧</div>
+        <div class="ws-start-icon">${pxIcon('💧',48)}</div>
         <div class="ws-start-title">Power Washing</div>
         <div class="ws-start-desc">Drag your finger to blast the grime off the house!</div>
         <button class="ws-start-btn" id="ws-start-btn">Start Job</button>
@@ -4976,7 +5168,7 @@ function launchCabinetGame(upgradeKey) {
   overlay.innerHTML = `
     <div class="cb-hud">
       <div class="cb-hud-top">
-        <span class="cb-title">🍳 Install Cabinets</span>
+        <span class="cb-title">${pxIcon('🍳',20)} Install Cabinets</span>
         <span class="cb-time-box"><span id="cb-time">${CB_DURATION}</span>s</span>
       </div>
       <div class="cb-timer-track"><div class="cb-timer-fill" id="cb-timer-fill"></div></div>
@@ -5000,7 +5192,7 @@ function launchCabinetGame(upgradeKey) {
     </div>
     <div id="cb-start-screen" class="cb-start-screen">
       <div class="cb-start-card">
-        <div class="cb-start-icon">🍳</div>
+        <div class="cb-start-icon">${pxIcon('🍳',48)}</div>
         <div class="cb-start-title">Install Cabinets</div>
         <div class="cb-start-desc">Slide to align the cabinet with the bracket, then tap to lock it in!</div>
         <button class="cb-start-btn" id="cb-start-btn">Start Job</button>
@@ -5122,7 +5314,7 @@ function launchDeckGame(upgradeKey) {
   overlay.innerHTML = `
     <div class="dk-hud">
       <div class="dk-hud-top">
-        <span class="dk-title">🪜 Repair a Deck</span>
+        <span class="dk-title">${pxIcon('🪜',20)} Repair a Deck</span>
         <span class="dk-time-box"><span id="dk-time">${DK_DURATION}</span>s</span>
       </div>
       <div class="dk-timer-track"><div class="dk-timer-fill" id="dk-timer-fill"></div></div>
@@ -5133,7 +5325,7 @@ function launchDeckGame(upgradeKey) {
     </div>
     <div id="dk-start-screen" class="dk-start-screen">
       <div class="dk-start-card">
-        <div class="dk-start-icon">🪜</div>
+        <div class="dk-start-icon">${pxIcon('🪜',48)}</div>
         <div class="dk-start-title">Repair a Deck</div>
         <div class="dk-start-desc">Tap the rotted planks multiple times to pry them out — rot spreads if you wait!</div>
         <button class="dk-start-btn" id="dk-start-btn">Start Job</button>
@@ -5262,7 +5454,7 @@ function launchTileGame(upgradeKey) {
   overlay.innerHTML = `
     <div class="tl-hud">
       <div class="tl-hud-top">
-        <span class="tl-title">🚿 Tile the Bathroom</span>
+        <span class="tl-title">${pxIcon('🚿',20)} Tile the Bathroom</span>
         <span class="tl-time-box"><span id="tl-time">${TL_DURATION}</span>s</span>
       </div>
       <div class="tl-timer-track"><div class="tl-timer-fill" id="tl-timer-fill"></div></div>
@@ -5273,7 +5465,7 @@ function launchTileGame(upgradeKey) {
     </div>
     <div id="tl-start-screen" class="tl-start-screen">
       <div class="tl-start-card">
-        <div class="tl-start-icon">🚿</div>
+        <div class="tl-start-icon">${pxIcon('🚿',48)}</div>
         <div class="tl-start-title">Tile the Bathroom</div>
         <div class="tl-start-desc">Tap the falling tile to set it before it hits the floor!</div>
         <button class="tl-start-btn" id="tl-start-btn">Start Job</button>
@@ -5485,7 +5677,7 @@ function launchElectricalGame(upgradeKey) {
   overlay.innerHTML = `
     <div class="el-hud">
       <div class="el-hud-top">
-        <span class="el-title">⚡ Wire the Panel</span>
+        <span class="el-title">${pxIcon('⚡',20)} Wire the Panel</span>
         <span class="el-time-box"><span id="el-time">${EL_DURATION}</span>s</span>
       </div>
       <div class="el-timer-track"><div class="el-timer-fill" id="el-timer-fill"></div></div>
@@ -5524,7 +5716,7 @@ function launchElectricalGame(upgradeKey) {
     </div>
     <div id="el-start-screen" class="el-start-screen">
       <div class="el-start-card">
-        <div class="el-start-icon">⚡</div>
+        <div class="el-start-icon">${pxIcon('⚡',48)}</div>
         <div class="el-start-title">Wire the Panel</div>
         <div class="el-start-desc">Tap a wire on top, then tap the matching terminal on the bottom to connect it!</div>
         <button class="el-start-btn" id="el-start-btn">Start Job</button>
@@ -5705,7 +5897,7 @@ function launchRapidPress(upgradeKey) {
   openModal(`
     <div class="modal-handle"></div>
     <div class="mg-wrap" style="background:#FFF8E1">
-      <div class="mg-title">🎨 Roll It Out!</div>
+      <div class="mg-title">${pxIcon('🎨',20)} Roll It Out!</div>
       <div class="mg-desc">Keep that roller moving — cover the whole surface in 3 seconds!</div>
       <div class="mg-stats">
         <div><div class="mg-stat-val" style="color:#E65100" id="rp-count">0</div><div style="font-size:11px">Strokes</div></div>
@@ -5714,9 +5906,9 @@ function launchRapidPress(upgradeKey) {
       <div style="height:22px;background:#E0E0E0;border-radius:4px;overflow:hidden;margin-bottom:14px">
         <div id="rp-bar" style="width:0%;height:100%;border-radius:4px;background:linear-gradient(90deg,#EF9A9A,#CE93D8,#90CAF9,#A5D6A7,#FFF176);transition:width 0.1s"></div>
       </div>
-      <button class="mg-rapid-btn" id="rp-btn" onclick="rpPress()" style="display:none;background:#E65100;font-size:22px">🖌️ ROLL!</button>
+      <button class="mg-rapid-btn" id="rp-btn" onclick="rpPress()" style="display:none;background:#E65100;font-size:22px">${pxIcon('🖌️',16)} ROLL!</button>
     </div>
-    <button class="btn btn-full" id="rp-start" onclick="rpStart()" style="background:#F57C00;color:white;padding:14px;font-size:16px;font-weight:800;border-radius:var(--radius-sm);border:none;width:100%">🎨 Dip the Roller</button>`);
+    <button class="btn btn-full" id="rp-start" onclick="rpStart()" style="background:#F57C00;color:white;padding:14px;font-size:16px;font-weight:800;border-radius:var(--radius-sm);border:none;width:100%">${pxIcon('🎨',16)} Dip the Roller</button>`);
 }
 
 function rpStart() {
@@ -5764,7 +5956,7 @@ function launchColorMatch(upgradeKey) {
   openModal(`
     <div class="modal-handle"></div>
     <div class="mg-wrap">
-      <div class="mg-title">🪵 Match the Tile!</div>
+      <div class="mg-title">${pxIcon('🪵',20)} Match the Tile!</div>
       <div class="mg-desc">Tap the tile that matches the sample — it gets faster each round!</div>
       <div class="mg-stats">
         <div><div class="mg-stat-val" id="cm-correct">0</div><div style="font-size:11px">Matched</div></div>
@@ -5775,7 +5967,7 @@ function launchColorMatch(upgradeKey) {
         ${CM_COLORS.map((c, i) => `<button class="mg-color-btn" id="cm-btn-${i}" style="background:${c.bg}" onclick="cmPress(${i})">${c.label}</button>`).join('')}
       </div>
     </div>
-    <button class="btn btn-primary btn-full" id="cm-start" onclick="cmStart()">🪵 Open the Tile Box</button>`);
+    <button class="btn btn-primary btn-full" id="cm-start" onclick="cmStart()">${pxIcon('🪵',16)} Open the Tile Box</button>`);
 }
 
 function cmStart() {
@@ -5844,7 +6036,7 @@ function launchReactionTap(upgradeKey) {
   openModal(`
     <div class="modal-handle"></div>
     <div class="mg-wrap" style="background:#E3F2FD">
-      <div class="mg-title" style="color:#1565C0">📐 Level It Up!</div>
+      <div class="mg-title" style="color:#1565C0">${pxIcon('📐',20)} Level It Up!</div>
       <div class="mg-desc" style="color:#546E7A">Watch the bubble — tap the instant it centers in the tube!</div>
       <div class="mg-stats">
         <div><div class="mg-stat-val" style="color:#1565C0" id="rt-round">1</div><div style="color:#546E7A;font-size:11px">Round</div></div>
@@ -5853,7 +6045,7 @@ function launchReactionTap(upgradeKey) {
       <div class="mg-reaction-light" id="rt-light" style="background:#1565C0;border-color:#0D47A1;box-shadow:none">↔️</div>
       <button class="mg-reaction-tap-btn" id="rt-tap" onclick="rtTap()" disabled style="background:#37474F;letter-spacing:1px">Hold steady…</button>
     </div>
-    <button class="btn btn-full" id="rt-start" onclick="rtStart()" style="background:#1565C0;color:white;padding:14px;font-size:16px;font-weight:800;border-radius:var(--radius-sm);border:none;width:100%">📐 Get the Level</button>`);
+    <button class="btn btn-full" id="rt-start" onclick="rtStart()" style="background:#1565C0;color:white;padding:14px;font-size:16px;font-weight:800;border-radius:var(--radius-sm);border:none;width:100%">${pxIcon('📐',16)} Get the Level</button>`);
 }
 
 function rtStart() {
@@ -5965,19 +6157,19 @@ async function advanceDays(days) {
   const totalPending    = _pendingRepairs.length + _pendingMoraleEvents.length + _pendingRenewalOffers.length;
   const repairNote = _pendingRepairs.length > 0
     ? `<div style="background:var(--warning-bg,#FFF8E1);border:2px solid var(--warning);border-radius:var(--radius-sm);padding:10px 12px;margin-top:12px;font-size:13px;font-weight:700">
-        🔧 ${_pendingRepairs.length} repair${_pendingRepairs.length > 1 ? 's' : ''} need${_pendingRepairs.length === 1 ? 's' : ''} attention!</div>`
+        ${pxIcon('🔧',16)} ${_pendingRepairs.length} repair${_pendingRepairs.length > 1 ? 's' : ''} need${_pendingRepairs.length === 1 ? 's' : ''} attention!</div>`
     : '';
   const moraleNote = _pendingMoraleEvents.length > 0
     ? `<div style="background:#F3E5F5;border:2px solid #CE93D8;border-radius:var(--radius-sm);padding:10px 12px;margin-top:8px;font-size:13px;font-weight:700">
-        💬 ${_pendingMoraleEvents.length} tenant request${_pendingMoraleEvents.length > 1 ? 's' : ''} waiting!</div>`
+        ${pxIcon('💬',16)} ${_pendingMoraleEvents.length} tenant request${_pendingMoraleEvents.length > 1 ? 's' : ''} waiting!</div>`
     : '';
   const renewalNote = _pendingRenewalOffers.length > 0
     ? `<div style="background:#E8F5E9;border:2px solid #66BB6A;border-radius:var(--radius-sm);padding:10px 12px;margin-top:8px;font-size:13px;font-weight:700">
-        🔄 ${_pendingRenewalOffers.length} lease renewal${_pendingRenewalOffers.length > 1 ? 's' : ''} to review!</div>`
+        ${pxIcon('🔄',16)} ${_pendingRenewalOffers.length} lease renewal${_pendingRenewalOffers.length > 1 ? 's' : ''} to review!</div>`
     : '';
   const taxNote = _pendingTaxEvent
     ? `<div style="background:#FFEBEE;border:2px solid #C62828;border-radius:var(--radius-sm);padding:10px 12px;margin-top:8px;font-size:13px;font-weight:700">
-        🧾 Tax Day! ${fmt(_pendingTaxEvent.amount)} owed — you must respond before continuing.</div>`
+        ${pxIcon('🧾',16)} Tax Day! ${fmt(_pendingTaxEvent.amount)} owed — you must respond before continuing.</div>`
     : '';
 
   const btnLabel = _pendingRepairs.length > 0
@@ -5991,7 +6183,7 @@ async function advanceDays(days) {
   if (totalPending > 0 || _pendingTaxEvent) _modalLocked = true;
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">${s.icon} ${s.name} · Day ${s.seasonDay}</div>
+    <div class="modal-title">${pxIcon(s.icon)} ${s.name} · Day ${s.seasonDay}</div>
     <div class="modal-subtitle">Year ${s.year} · Overall Day ${res.day}</div>
     <div class="money-row"><span class="mr-label">Cash</span><span class="mr-value">${fmt(res.cash)}</span></div>
     <div class="money-row" style="margin-bottom:12px"><span class="mr-label">Net Worth</span><span class="mr-value green">${fmt(res.net_worth)}</span></div>
@@ -6037,14 +6229,14 @@ function continueFromEvents() {
 function showSquatterModal(propId, bribe, propName) {
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">🚨 Squatters!</div>
+    <div class="modal-title">${pxIcon('🚨',20)} Squatters!</div>
     <div class="modal-subtitle">${propName}</div>
     <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
       Someone has moved into your vacant property without permission. They're refusing to leave and not paying a dime. What do you want to do?
     </p>
     <div class="card" style="margin-bottom:10px">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
-        <span style="font-size:30px">💸</span>
+        ${pxIcon('💸',30)}
         <div>
           <div style="font-size:15px;font-weight:800">Pay Them Off</div>
           <div style="font-size:12px;color:var(--text-muted)">They'll leave immediately — no questions asked.</div>
@@ -6054,11 +6246,11 @@ function showSquatterModal(propId, bribe, propName) {
         <span class="mr-label">Their asking price</span>
         <span class="mr-value" style="color:#C62828">${fmt(bribe)}</span>
       </div>
-      <button class="btn btn-danger btn-full" onclick="briberSquatter(${propId})">💸 Pay ${fmt(bribe)} to Remove Them</button>
+      <button class="btn btn-danger btn-full" onclick="briberSquatter(${propId})">${pxIcon('💸',14)} Pay ${fmt(bribe)} to Remove Them</button>
     </div>
     <div class="card">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
-        <span style="font-size:30px">⏳</span>
+        ${pxIcon('⏳',30)}
         <div>
           <div style="font-size:15px;font-weight:800">Wait It Out</div>
           <div style="font-size:12px;color:var(--text-muted)">They might leave eventually. Or they might not. Hard to say.</div>
@@ -6084,15 +6276,15 @@ function showTaxModal(taxEvent) {
   const income = taxEvent.flip_income;
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">🧾 Tax Day</div>
+    <div class="modal-title">${pxIcon('🧾',20)} Tax Day</div>
     <div class="modal-subtitle">Winter Day 28 — You must respond before continuing</div>
     <div class="card" style="margin-bottom:14px">
       <div class="money-row">
-        <span class="mr-label">🏠 Flip income this year</span>
+        <span class="mr-label">${pxIcon('🏠',14)} Flip income this year</span>
         <span class="mr-value green">${fmt(income)}</span>
       </div>
       <div class="money-row">
-        <span class="mr-label">📊 Tax rate</span>
+        <span class="mr-label">${pxIcon('📊',14)} Tax rate</span>
         <span class="mr-value">10%</span>
       </div>
       <div class="money-row" style="border-top:1px solid var(--border);padding-top:10px;margin-top:6px;font-weight:800">
@@ -6100,8 +6292,8 @@ function showTaxModal(taxEvent) {
         <span class="mr-value" style="color:#C62828">${fmt(amount)}</span>
       </div>
     </div>
-    <button class="btn btn-danger btn-full" style="margin-bottom:10px" onclick="payTaxes()">💸 Pay ${fmt(amount)} Now</button>
-    <button class="btn btn-secondary btn-full" onclick="fileTaxExtension()">📋 File for Extension — pay on Spring Day 7</button>
+    <button class="btn btn-danger btn-full" style="margin-bottom:10px" onclick="payTaxes()">${pxIcon('💸',16)} Pay ${fmt(amount)} Now</button>
+    <button class="btn btn-secondary btn-full" onclick="fileTaxExtension()">${pxIcon('📋',14)} File for Extension — pay on Spring Day 7</button>
     <p style="font-size:11px;color:var(--text-muted);text-align:center;margin-top:10px">Rent income is never taxed — only profits from selling properties.</p>
   `);
 }
@@ -6134,19 +6326,40 @@ function showNextMoraleEvent() {
 
 function showMoraleEventModal(ev) {
   const damPct = Math.round(ev.damage_chance * 100);
+  const prop    = state?.properties?.find(p => p.id === ev.prop_id);
+  const morale  = prop?.tenant?.morale ?? ev.morale ?? '?';
+  const cond    = prop?.condition ?? '?';
+  const condLabel = cond !== '?' ? condTier(cond) : '?';
+  const condColor = cond !== '?' ? tierColor(condLabel) : 'var(--text)';
+  const moraleColor = morale >= 70 ? 'var(--positive)' : morale >= 40 ? 'var(--warning)' : 'var(--negative)';
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">${ev.icon} Tenant Request</div>
+    <div class="modal-title">${pxIcon(ev.icon)} Tenant Request</div>
     <div class="modal-subtitle">${ev.prop_name}</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <div style="flex:1;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;text-align:center">
+        <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Condition</div>
+        <div style="font-size:15px;font-weight:800;color:${condColor}">${condLabel}</div>
+      </div>
+      <div style="flex:1;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;text-align:center">
+        <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Tenant Morale</div>
+        <div style="font-size:15px;font-weight:800;color:${moraleColor}">${morale}%</div>
+      </div>
+    </div>
     <p style="font-size:14px;color:var(--text-2);margin-bottom:16px">${ev.message}</p>
 
     <div class="card" style="margin-bottom:10px;border:2px solid var(--positive)">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-        <span style="font-size:24px">✅</span>
+        ${pxIcon('✅',24)}
         <div style="flex:1">
           <div style="font-size:14px;font-weight:800">Agree</div>
           <div style="font-size:12px;color:var(--text-muted)">
-            Morale +${ev.morale_gain} · ${damPct}% chance of −${ev.damage_pts} condition
+            ${ev.cond_gain
+              ? `Morale +${ev.morale_gain} · Condition +${ev.cond_gain}`
+              : ev.cash_bonus
+                ? `Morale +${ev.morale_gain} · Cash bonus $150–$350`
+                : `Morale +${ev.morale_gain} · ${damPct}% chance of −${ev.damage_pts} condition`
+            }
           </div>
         </div>
       </div>
@@ -6157,7 +6370,7 @@ function showMoraleEventModal(ev) {
 
     <div class="card">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-        <span style="font-size:24px">❌</span>
+        ${pxIcon('❌',24)}
         <div style="flex:1">
           <div style="font-size:14px;font-weight:800">Decline</div>
           <div style="font-size:12px;color:var(--text-muted)">Tenant morale drops 5–10 points.</div>
@@ -6179,6 +6392,10 @@ async function respondMoraleEvent(propId, eventKey, agree) {
   if (agree) {
     if (res.condition_change < 0) {
       toast(`They made a mess! Condition −${Math.abs(res.condition_change)} pts`, 'warning');
+    } else if (res.condition_change > 0) {
+      toast(`Nice work! Condition +${res.condition_change} pts`, 'success');
+    } else if (res.cash_awarded > 0) {
+      toast(`They paid extra! +$${res.cash_awarded.toLocaleString()}`, 'success');
     } else {
       toast(`Agreed! Tenant morale +${res.morale_change}`, 'success');
     }
@@ -6209,7 +6426,7 @@ function showRenewalModal(offer) {
 
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">🔄 Lease Renewal</div>
+    <div class="modal-title">${pxIcon('🔄',20)} Lease Renewal</div>
     <div class="modal-subtitle">${offer.prop_name}</div>
 
     <div class="card" style="margin-bottom:14px;text-align:center">
@@ -6222,7 +6439,7 @@ function showRenewalModal(offer) {
 
     <div class="card" style="margin-bottom:10px;border:2px solid var(--positive)">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-        <span style="font-size:24px">✅</span>
+        ${pxIcon('✅',24)}
         <div><div style="font-size:14px;font-weight:800">Renew Lease</div>
           <div style="font-size:12px;color:var(--text-muted)">They stay for another ${stayLabel} at the same rent</div>
         </div>
@@ -6232,7 +6449,7 @@ function showRenewalModal(offer) {
 
     <div class="card">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-        <span style="font-size:24px">👋</span>
+        ${pxIcon('👋',24)}
         <div><div style="font-size:14px;font-weight:800">Let Them Go</div>
           <div style="font-size:12px;color:var(--text-muted)">They move out and the property goes vacant</div>
         </div>
@@ -6268,13 +6485,13 @@ function showRepairModal(repair) {
   const rt = repair.repair_type;
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">${rt.icon} ${rt.name}</div>
+    <div class="modal-title">${pxIcon(rt.icon)} ${rt.name}</div>
     <div class="modal-subtitle">${repair.prop_name}</div>
     <p style="font-size:13px;color:var(--text-2);margin-bottom:12px">Your tenant reported a problem. Address it now or ignore and let the condition drop.</p>
 
     <div class="contractor-card" style="border-color:var(--primary);margin-bottom:8px" onclick="startRepairDIY()">
       <div class="contractor-header">
-        <span class="contractor-icon">🧰</span>
+        <span class="contractor-icon">${pxIcon('🧰',28)}</span>
         <span class="contractor-name">Fix It Yourself</span>
         <span class="contractor-cost" style="color:var(--positive)">FREE</span>
       </div>
@@ -6328,7 +6545,7 @@ async function finishRepairDIY(score) {
   const tColor = tierColor(condTier(res.condition));
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">🔧 Repair Done!</div>
+    <div class="modal-title">${pxIcon('🔧',20)} Repair Done!</div>
     <div style="text-align:center;margin:12px 0">
       <div style="font-size:64px;font-weight:900;color:${tColor}">${condTier(res.condition)}</div>
       <div style="font-size:13px;color:var(--text-muted)">new condition</div>
@@ -6382,7 +6599,7 @@ function renderTaxes() {
   if (!firstSaleDone()) {
     el.innerHTML = `
       <div style="padding:32px 20px;text-align:center">
-        <div style="font-size:44px;margin-bottom:12px">🔒</div>
+        <div style="margin-bottom:12px">${pxIcon('🔒',44)}</div>
         <div style="font-size:15px;font-weight:800;margin-bottom:8px">Taxes Locked</div>
         <div style="font-size:13px;color:var(--text-muted);line-height:1.6;max-width:280px;margin:0 auto">You have to actually make money before Uncle Sam cares where it went. Go sell something.</div>
       </div>`;
@@ -6397,15 +6614,15 @@ function renderTaxes() {
   const extFiled   = s.tax_extension_filed  || false;
   const taxOwed    = s.tax_owed             || 0;
   el.innerHTML = `
-    <div class="section-header"><span class="section-title">🧾 Taxes</span></div>
+    <div class="section-header"><span class="section-title">${pxIcon('🧾',18)} Taxes</span></div>
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:10px">Income This Year</div>
       <div class="money-row">
-        <span class="mr-label">🏠 Rent collected</span>
+        <span class="mr-label">${pxIcon('🏠',14)} Rent collected</span>
         <span class="mr-value green">${fmt(rentIncome)}</span>
       </div>
       <div class="money-row">
-        <span class="mr-label">💰 Flip profits (taxable)</span>
+        <span class="mr-label">${pxIcon('💰',14)} Flip profits (taxable)</span>
         <span class="mr-value green">${fmt(flipIncome)}</span>
       </div>
       <div class="money-row" style="border-top:1px solid var(--border);padding-top:10px;margin-top:6px;font-weight:800">
@@ -6432,7 +6649,7 @@ function renderTaxes() {
     </div>
     ${extFiled ? `
     <div class="card" style="background:#FFF8E1;border:2px solid var(--warning);margin-bottom:12px">
-      <div style="font-size:14px;font-weight:800;margin-bottom:6px">⏳ Extension Filed</div>
+      <div style="font-size:14px;font-weight:800;margin-bottom:6px">${pxIcon('⏳',16)} Extension Filed</div>
       <div class="money-row">
         <span class="mr-label">Amount due Spring Day 7</span>
         <span class="mr-value" style="color:#C62828">${fmt(taxOwed)}</span>
@@ -6440,7 +6657,7 @@ function renderTaxes() {
     </div>` : ''}
     <div class="card" style="font-size:12px;color:var(--text-muted)">
       💡 Rent income is <strong>never taxed</strong>. Only profits from selling properties are taxed at 10%.<br><br>
-      📅 Tax Day is <strong>Winter Day 28</strong>. You'll get a 7-day heads-up. Pay immediately or file a free extension (due Spring Day 7).
+      ${pxIcon('📅',14)} Tax Day is <strong>Winter Day 28</strong>. You'll get a 7-day heads-up. Pay immediately or file a free extension (due Spring Day 7).
     </div>
   `;
 }
@@ -6452,7 +6669,7 @@ async function renderBank() {
       : "A savings account with nothing in it. Bold strategy. Sell the house first.";
     const lockHtml = `
       <div style="padding:32px 20px;text-align:center">
-        <div style="font-size:44px;margin-bottom:12px">🔒</div>
+        <div style="margin-bottom:12px">${pxIcon('🔒',44)}</div>
         <div style="font-size:15px;font-weight:800;margin-bottom:8px">Bank Locked</div>
         <div style="font-size:13px;color:var(--text-muted);line-height:1.6;max-width:280px;margin:0 auto">${note}</div>
       </div>`;
@@ -6470,7 +6687,7 @@ async function renderBank() {
   const tierClass = tier.label === 'Basic' ? 'budget' : tier.label === 'Standard' ? 'mid' : 'premium';
 
   document.getElementById('bank-savings-section').innerHTML = `
-    <div class="section-header"><span class="section-title">💰 Savings Account</span></div>
+    <div class="section-header"><span class="section-title">${pxIcon('💰',18)} Savings Account</span></div>
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
         <div>
@@ -6506,7 +6723,7 @@ async function renderBank() {
         const paidOff  = orig > 0 ? Math.round(((orig - l.balance) / orig) * 100) : 0;
         return `<div class="card">
           <div class="card-header">
-            <div class="card-icon">${l.icon}</div>
+            <div class="card-icon">${pxIcon(l.icon)}</div>
             <div style="flex:1">
               <div class="card-title">${l.product}</div>
               <div class="card-subtitle">${fmt(l.weekly_payment || 0)}/wk · ${leftSeas} season${leftSeas !== 1 ? 's' : ''} left</div>
@@ -6520,20 +6737,20 @@ async function renderBank() {
             <div class="condition-top"><span class="condition-lbl">Balance</span><span class="condition-val">${paidOff}% paid off</span></div>
             <div class="condition-bar"><div class="condition-fill cond-poor" style="width:${pctLeft}%"></div></div>
           </div>
-          <button class="btn btn-ghost btn-sm" onclick="showExtraPaymentModal(${l.id}, ${Math.ceil(l.balance)})">💸 Extra Payment</button>
+          <button class="btn btn-ghost btn-sm" onclick="showExtraPaymentModal(${l.id}, ${Math.ceil(l.balance)})">${pxIcon('💸',14)} Extra Payment</button>
         </div>`;}).join('')
     : '';
 
   document.getElementById('bank-loans-section').innerHTML = bank.loans?.length > 0
-    ? `<div class="section-header"><span class="section-title">📄 Active Loans</span></div>${loansHtml}`
+    ? `<div class="section-header"><span class="section-title">${pxIcon('📄',18)} Active Loans</span></div>${loansHtml}`
     : '';
 
   document.getElementById('bank-products-section').innerHTML = `
-    <div class="section-header"><span class="section-title">🏦 Take Out a Loan</span></div>
+    <div class="section-header"><span class="section-title">${pxIcon('🏦',18)} Take Out a Loan</span></div>
     ${data.products.map(p => `
       <div class="card" style="cursor:pointer" onclick="showLoanModal('${p.key}')">
         <div class="card-header">
-          <div class="card-icon">${p.icon}</div>
+          <div class="card-icon">${pxIcon(p.icon)}</div>
           <div style="flex:1">
             <div class="card-title">${p.name}</div>
             <div class="card-subtitle">${p.desc}</div>
@@ -6554,7 +6771,7 @@ function showLoanModal(productKey) {
     const p = data.products.find(x => x.key === productKey);
     openModal(`
       <div class="modal-handle"></div>
-      <div class="modal-title">${p.icon} ${p.name}</div>
+      <div class="modal-title">${pxIcon(p.icon)} ${p.name}</div>
       <div class="modal-subtitle">${p.desc} · ${(p.apr*100).toFixed(0)}% APR · ${p.term_seasons}-season term</div>
       <div style="margin-bottom:12px">
         <label style="font-size:13px;font-weight:700;display:block;margin-bottom:6px">Amount (${fmt(p.min)}–${fmt(p.max)})</label>
@@ -6600,7 +6817,7 @@ async function confirmLoan(productKey) {
 function showExtraPaymentModal(loanId, balance) {
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">💸 Extra Loan Payment</div>
+    <div class="modal-title">${pxIcon('💸',20)} Extra Loan Payment</div>
     <div class="modal-subtitle">Remaining: ${fmt(balance)} · Cash: ${fmt(state.cash)}</div>
     <input id="extra-pay-amount" type="number" min="1" max="${Math.min(balance, state.cash)}" step="100" value="${Math.min(balance, state.cash)}"
       style="width:100%;padding:10px;border:2px solid var(--border);border-radius:var(--radius-sm);font-size:16px;font-weight:700;margin-bottom:12px">
@@ -6679,12 +6896,12 @@ function renderSettings() {
   if (!el || !state) return;
   const s = getSeasonInfo(state.day);
   el.innerHTML = `
-    <div class="section-header"><span class="section-title">⚙️ Settings</span></div>
+    <div class="section-header"><span class="section-title">${pxIcon('⚙️',18)} Settings</span></div>
 
     <div class="card">
       <div style="font-size:14px;font-weight:800;margin-bottom:12px">Game Info</div>
       <div class="money-row"><span class="mr-label">Current Day</span><span class="mr-value">${state.day}</span></div>
-      <div class="money-row"><span class="mr-label">Season</span><span class="mr-value">${s.icon} ${s.name} — Year ${s.year}</span></div>
+      <div class="money-row"><span class="mr-label">Season</span><span class="mr-value">${pxIcon(s.icon)} ${s.name} — Year ${s.year}</span></div>
       <div class="money-row"><span class="mr-label">Cash on Hand</span><span class="mr-value">${fmt(state.cash)}</span></div>
       <div class="money-row"><span class="mr-label">Properties</span><span class="mr-value">${state.property_count}</span></div>
       <div class="money-row"><span class="mr-label">Net Worth</span><span class="mr-value green">${fmt(state.net_worth)}</span></div>
@@ -6705,10 +6922,10 @@ function renderSettings() {
     <div class="card" style="margin-top:12px">
       <div style="font-size:14px;font-weight:800;margin-bottom:8px">⚠️ Danger Zone</div>
       <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">This will permanently erase all progress and start a fresh game.</p>
-      <button class="btn btn-danger btn-full" onclick="confirmReset()">🗑 Start New Game</button>
+      <button class="btn btn-danger btn-full" onclick="confirmReset()">${pxIcon('🗑',16)} Start New Game</button>
     </div>
 
-    <div class="section-header" style="margin-top:16px"><span class="section-title">📋 Activity Log</span></div>
+    <div class="section-header" style="margin-top:16px"><span class="section-title">${pxIcon('📋',18)} Activity Log</span></div>
     <div class="card">
       <div id="log-list"></div>
     </div>`;
@@ -6767,7 +6984,7 @@ let stocksData = null;
 async function renderStocks() {
   const el = document.getElementById('stocks-list');
   if (!el) return;
-  el.innerHTML = '<div class="empty-state"><div class="empty-icon">💹</div><div class="empty-text">Loading…</div></div>';
+  el.innerHTML = `<div class="empty-state"><div class="empty-icon">${pxIcon('💹',48)}</div><div class="empty-text">Loading…</div></div>`;
   const res = await api('/stocks', 'GET');
   if (res.error) { el.innerHTML = `<div class="card">${res.error}</div>`; return; }
   stocksData = res;
@@ -6782,7 +6999,7 @@ function _renderStocksInner(res) {
   // ── Level lock ──
   if (lvl < 5) {
     el.innerHTML = `<div class="card stocks-locked-card">
-      <div class="stocks-lock-icon">🔒</div>
+      <div class="stocks-lock-icon">${pxIcon('🔒',44)}</div>
       <div class="stocks-lock-msg">Stocks unlock at <strong>Level 5</strong></div>
       <div class="stocks-lock-sub">Keep growing your property empire to gain access to the stock market.</div>
     </div>`;
@@ -6790,7 +7007,7 @@ function _renderStocksInner(res) {
   }
 
   let html = `<div class="stocks-section-header">
-    <span class="stocks-section-icon">📈</span>
+    <span class="stocks-section-icon">${pxIcon('📈',22)}</span>
     <div>
       <div class="stocks-section-title">Stock Market</div>
       <div class="stocks-section-sub">6 companies · prices update each day</div>
@@ -6827,7 +7044,7 @@ function stockCardHtml(inst, cash) {
     </div>
     <div class="stock-sparkline">${spark}</div>
     ${shares > 0 ? `<div class="stock-holding">
-      <span>📦 ${shares} share${shares !== 1 ? 's' : ''}</span>
+      <span>${pxIcon('📦',14)} ${shares} share${shares !== 1 ? 's' : ''}</span>
       <span>Avg cost $${avg_cost.toFixed(2)}</span>
       <span class="${gainCls}">${gainStr}</span>
     </div>` : ''}
@@ -6867,7 +7084,7 @@ function openStockBuyModal(ticker) {
 
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">${inst.icon} Buy ${inst.name}</div>
+    <div class="modal-title">${pxIcon(inst.icon)} Buy ${inst.name}</div>
     <div class="modal-subtitle">${inst.ticker} · $${priceStr} per share</div>
     <div style="margin:16px 0">
       <label style="font-size:13px;font-weight:700;display:block;margin-bottom:6px">Shares to buy</label>
@@ -6920,7 +7137,7 @@ function openStockSellModal(ticker) {
 
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">${inst.icon} Sell ${inst.name}</div>
+    <div class="modal-title">${pxIcon(inst.icon)} Sell ${inst.name}</div>
     <div class="modal-subtitle">${inst.ticker} · $${priceStr} per share · You own ${maxSell}</div>
     <div style="margin:16px 0">
       <label style="font-size:13px;font-weight:700;display:block;margin-bottom:6px">Shares to sell</label>
@@ -6976,7 +7193,7 @@ function renderLog() {
   const el = document.getElementById('log-list');
   if (!el) return;
   if (!state.log || state.log.length === 0) {
-    el.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">No history yet</div></div>';
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">${pxIcon('📋',48)}</div><div class="empty-text">No history yet</div></div>`;
     return;
   }
   el.innerHTML = [...state.log].reverse().map(l => logItemHtml(l)).join('');
@@ -7058,6 +7275,10 @@ function toast(msg, type = '') {
   el.className = `toast ${type}`;
   const icons = { success: '✓', error: '✕', warning: '⚠' };
   el.innerHTML = `${icons[type] ? `<span>${icons[type]}</span>` : ''}${msg}`;
+  el.style.cssText += ';cursor:pointer;pointer-events:auto';
+  const dismiss = () => el.remove();
+  el.addEventListener('click', dismiss);
+  el.addEventListener('touchstart', dismiss, { passive: true });
   document.getElementById('toast-container').appendChild(el);
   setTimeout(() => el.remove(), 3000);
 }

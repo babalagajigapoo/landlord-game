@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges">
+  <!-- Star shape in gold -->
+  <rect x="7" y="0" width="2" height="3" fill="#F0C040"/>
+  <rect x="7" y="3" width="2" height="3" fill="#F0C040"/>
+  <!-- Upper left arm -->
+  <rect x="1" y="5" width="4" height="2" fill="#F0C040"/>
+  <rect x="3" y="3" width="2" height="2" fill="#F0C040"/>
+  <!-- Upper right arm -->
+  <rect x="11" y="5" width="4" height="2" fill="#F0C040"/>
+  <rect x="11" y="3" width="2" height="2" fill="#F0C040"/>
+  <!-- Center body -->
+  <rect x="4" y="5" width="8" height="4" fill="#F0C040"/>
+  <rect x="3" y="6" width="10" height="2" fill="#F0C040"/>
+  <!-- Lower left arm -->
+  <rect x="1" y="9" width="4" height="2" fill="#F0C040"/>
+  <rect x="2" y="11" width="3" height="2" fill="#F0C040"/>
+  <!-- Lower right arm -->
+  <rect x="11" y="9" width="4" height="2" fill="#F0C040"/>
+  <rect x="11" y="11" width="3" height="2" fill="#F0C040"/>
+  <!-- Bottom center -->
+  <rect x="6" y="11" width="4" height="2" fill="#F0C040"/>
+  <rect x="7" y="13" width="2" height="2" fill="#F0C040"/>
+  <!-- Shine -->
+  <rect x="8" y="2" width="1" height="4" fill="#FFE060"/>
+  <rect x="12" y="5" width="2" height="2" fill="#FFE060"/>
+</svg>
