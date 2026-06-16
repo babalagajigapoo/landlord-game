@@ -3471,7 +3471,23 @@ async function psHireDancer(dk) {
   toast(`${PS_DANCERS[dk].name} ${PS_DANCERS[dk].icon} joins the studio!`, 'success');
 }
 
-async function psFireDancer(dk) {
+function psFireDancer(dk) {
+  const d = PS_DANCERS[dk];
+  openModal(`
+    <div class="modal-handle"></div>
+    <div style="background:#1A0826;padding:16px">
+      <div style="font-size:22px;text-align:center;margin-bottom:8px">${d.icon}</div>
+      <div style="font-size:14px;font-weight:700;color:#E8D5F5;text-align:center;margin-bottom:6px">Let ${d.name} go?</div>
+      <div style="font-size:12px;color:#C4A8E0;text-align:center;margin-bottom:16px">Their pole will be open for a new hire.</div>
+      <div style="display:flex;gap:8px">
+        <button onclick="closeModal()" style="flex:1;background:#3A1A4A;border:1px solid #5A2D7A;color:#9B7BB8;padding:10px;font-size:13px;cursor:pointer;border-radius:3px">Keep</button>
+        <button onclick="_psFireDancerConfirmed('${dk}')" style="flex:1;background:#e74c3c;border:none;color:white;padding:10px;font-size:13px;font-weight:700;cursor:pointer;border-radius:3px">Let Go</button>
+      </div>
+    </div>`);
+}
+
+async function _psFireDancerConfirmed(dk) {
+  closeModal();
   const r = await api('/pole_studio/fire_dancer', 'POST', { dancer: dk });
   if (r.error) { toast(r.error, 'error'); return; }
   await refreshState();
