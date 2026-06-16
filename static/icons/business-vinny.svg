@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges">
+  <!-- Hair -->
+  <rect x="4" y="0" width="8" height="1" fill="#3E2723"/>
+  <rect x="3" y="1" width="10" height="2" fill="#3E2723"/>
+  <!-- Face -->
+  <rect x="4" y="3" width="8" height="5" fill="#FFCC80"/>
+  <!-- Ears -->
+  <rect x="3" y="4" width="1" height="2" fill="#FFAB40"/>
+  <rect x="12" y="4" width="1" height="2" fill="#FFAB40"/>
+  <!-- Eyes -->
+  <rect x="5" y="4" width="2" height="1" fill="#263238"/>
+  <rect x="9" y="4" width="2" height="1" fill="#263238"/>
+  <!-- Eye whites -->
+  <rect x="6" y="4" width="1" height="1" fill="#FFFFFF"/>
+  <rect x="10" y="4" width="1" height="1" fill="#FFFFFF"/>
+  <!-- Nose -->
+  <rect x="7" y="5" width="2" height="1" fill="#FFAB40"/>
+  <!-- Stubble/jaw shadow -->
+  <rect x="4" y="6" width="8" height="2" fill="#FFCC80"/>
+  <rect x="4" y="7" width="8" height="1" fill="#BCAAA4"/>
+  <!-- Mouth / big grin -->
+  <rect x="5" y="6" width="6" height="1" fill="#5D4037"/>
+  <rect x="6" y="6" width="4" height="1" fill="#FFFFFF"/>
+  <!-- Neck -->
+  <rect x="6" y="8" width="4" height="1" fill="#FFCC80"/>
+  <!-- Gold chain -->
+  <rect x="5" y="8" width="6" height="1" fill="#FDD835"/>
+  <rect x="6" y="8" width="4" height="1" fill="#FFCC80"/>
+  <!-- Wide shoulders / shirt -->
+  <rect x="2" y="9" width="12" height="1" fill="#ECEFF1"/>
+  <rect x="3" y="10" width="10" height="3" fill="#F5F5F5"/>
+  <!-- V-neck shadow -->
+  <rect x="6" y="9" width="4" height="2" fill="#CFD8DC"/>
+  <rect x="7" y="11" width="2" height="1" fill="#CFD8DC"/>
+  <!-- Arms (skin) -->
+  <rect x="1" y="9" width="2" height="4" fill="#FFCC80"/>
+  <rect x="13" y="9" width="2" height="4" fill="#FFCC80"/>
+  <!-- Belt -->
+  <rect x="3" y="13" width="10" height="1" fill="#5D4037"/>
+  <rect x="7" y="13" width="2" height="1" fill="#FDD835"/>
+  <!-- Pants -->
+  <rect x="3" y="14" width="4" height="2" fill="#455A64"/>
+  <rect x="9" y="14" width="4" height="2" fill="#455A64"/>
+  <!-- Shoes -->
+  <rect x="3" y="15" width="4" height="1" fill="#263238"/>
+  <rect x="9" y="15" width="4" height="1" fill="#263238"/>
+</svg>

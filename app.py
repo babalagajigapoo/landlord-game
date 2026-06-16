@@ -1254,6 +1254,144 @@ STORE_ITEMS = {
     "new_bed":      {"name": "New Bed",       "icon": "🛏️", "cost": 4_999, "max_energy_bonus": 0, "recharge_bonus": 1, "desc": "Memory foam. You wake up ready. +1 recharge/day."},
 }
 
+# ── Vending Machine Business ───────────────────────────────────────────────────
+VM_PRICES    = [1_200, 2_000, 3_000, 4_200, 5_800, 8_000]
+VM_LOCATIONS = [
+    "Midtown Grocery Entrance",
+    "Riverside Park",
+    "Northside Community Center",
+    "Westwood Office Lobby",
+    "Newbay Ferry Terminal",
+    "Downtown Bus Station",
+]
+SNACK_REVENUE = {"cheap": 800, "mid": 2_400, "premium": 4_000}
+VINNY_FEE     = 200
+
+# effect types: income_mult (value = extra factor, so 1.0 = 2×),
+#               income_zero, income_bonus (flat $), fine (flat $), drain_fast (extra days drained)
+VM_LOCATION_EVENTS = {
+    "Midtown Grocery Entrance": [
+        {"text": "Weekend shopping rush at Midtown Grocery — Machine #{slot} doubled up!",        "type": "positive", "effect": "income_mult",  "value": 1.0},
+        {"text": "Power outage hit Midtown — Machine #{slot} was offline all day.",               "type": "negative", "effect": "income_zero",  "value": 0},
+        {"text": "Health inspector surprise visit — Machine #{slot} hit with a fine.",            "type": "negative", "effect": "fine",          "value": 150},
+        {"text": "Late-night grocery rush boosted Machine #{slot} sales.",                        "type": "positive", "effect": "income_bonus", "value": 80},
+    ],
+    "Riverside Park": [
+        {"text": "Community 5K finished right by Machine #{slot} — runners cleaned it out early!", "type": "positive", "effect": "drain_fast",   "value": 2},
+        {"text": "Park closed for maintenance — Machine #{slot} had no customers today.",         "type": "negative", "effect": "income_zero",  "value": 0},
+        {"text": "Heat wave brought big crowds to Riverside Park — Machine #{slot} earned extra!", "type": "positive", "effect": "income_mult",  "value": 0.5},
+        {"text": "Vandals rocked Machine #{slot} overnight — repair fee.",                        "type": "negative", "effect": "fine",          "value": 100},
+    ],
+    "Northside Community Center": [
+        {"text": "Youth basketball tournament — Machine #{slot} couldn't be restocked fast enough!", "type": "positive", "effect": "drain_fast",  "value": 2},
+        {"text": "Center closed for deep cleaning — Machine #{slot} offline all day.",             "type": "negative", "effect": "income_zero",  "value": 0},
+        {"text": "Senior bingo night brought an unexpected crowd to Machine #{slot}.",             "type": "positive", "effect": "income_bonus", "value": 75},
+        {"text": "Noise complaint from the building manager — Machine #{slot} fined.",            "type": "negative", "effect": "fine",          "value": 80},
+    ],
+    "Westwood Office Lobby": [
+        {"text": "All-hands company meeting packed the lobby — Machine #{slot} had a great day!", "type": "positive", "effect": "income_mult",  "value": 0.5},
+        {"text": "Office evacuation drill emptied the building — Machine #{slot} earned nothing.", "type": "negative", "effect": "income_zero",  "value": 0},
+        {"text": "Building management slapped Machine #{slot} with a placement fee.",             "type": "negative", "effect": "fine",          "value": 120},
+        {"text": "Company happy hour spilled into the lobby — Machine #{slot} got a late rush.",  "type": "positive", "effect": "income_bonus", "value": 90},
+    ],
+    "Newbay Ferry Terminal": [
+        {"text": "Ferry delays stranded passengers for hours — Machine #{slot} was emptied out!", "type": "positive", "effect": "drain_fast",   "value": 2},
+        {"text": "Ferry service suspended today — empty terminal, Machine #{slot} earned nothing.", "type": "negative", "effect": "income_zero",  "value": 0},
+        {"text": "Tourist group rolled through Newbay — Machine #{slot} got an unexpected windfall!", "type": "positive", "effect": "income_mult",  "value": 1.0},
+        {"text": "Port authority cited Machine #{slot} for an expired permit.",                   "type": "negative", "effect": "fine",          "value": 175},
+    ],
+    "Downtown Bus Station": [
+        {"text": "Big game day — fans flooded the station, Machine #{slot} had a record day!",   "type": "positive", "effect": "income_mult",  "value": 1.0},
+        {"text": "Transit shutdown left the station empty — Machine #{slot} earned nothing.",    "type": "negative", "effect": "income_zero",  "value": 0},
+        {"text": "Homeless person sleeping by Machine #{slot} scared off customers — fine day cut short.", "type": "negative", "effect": "fine", "value": 50},
+        {"text": "Concert let out nearby and fans rushed the station — Machine #{slot} cleaned out early!", "type": "positive", "effect": "drain_fast", "value": 2},
+    ],
+}
+
+VM_UPGRADES = {
+    "larger_capacity": {"name": "Larger Capacity", "icon": "📦", "cost": 500,   "desc": "+2 days per restock cycle."},
+    "card_reader":     {"name": "Card Reader",     "icon": "💳", "cost": 800,   "desc": "+$50/day on top of snack income."},
+    "premium_slot":    {"name": "Premium Slot",    "icon": "⭐", "cost": 1_200, "desc": "+25% revenue per cycle."},
+}
+
+def _vm_income(tier, upgrades):
+    """Return (drain_days, daily_income) for a machine, applying any upgrades."""
+    drain = random.randint(4, 8)
+    if upgrades.get("larger_capacity"):
+        drain += 2
+    revenue = SNACK_REVENUE[tier]
+    if upgrades.get("premium_slot"):
+        revenue = round(revenue * 1.25)
+    income = round(revenue / drain)
+    if upgrades.get("card_reader"):
+        income += 50
+    return drain, income
+
+# ── CostPro Wholesale — inventory items ───────────────────────────────────────
+COSTPRO_ITEMS = {
+    "snacks_cheap":   {"name": "Generic Brand Snacks",  "icon": "🍬", "price": 400,   "desc": "Budget snacks. They sell, barely.",             "category": "vending",     "revenue": 800},
+    "snacks_mid":     {"name": "Name Brand Snacks",     "icon": "🍫", "price": 800,   "desc": "Popular brands. Solid margins.",                "category": "vending",     "revenue": 2_400},
+    "snacks_premium": {"name": "Artisan Snack Pack",    "icon": "🧁", "price": 1_200, "desc": "Fancy stuff. Customers pay a premium for it.",  "category": "vending",     "revenue": 4_000},
+    "soap":           {"name": "Laundry Soap",          "icon": "🧼", "price": 300,   "desc": "Required to operate. Each case lasts 7 days.",  "category": "laundromat"},
+    "softener":       {"name": "Fabric Softener",       "icon": "🌸", "price": 500,   "desc": "+20% daily income. Lasts 10 days per case.",    "category": "laundromat"},
+    "sheets":         {"name": "Dryer Sheets",          "icon": "🌬️", "price": 400,   "desc": "+15% daily income. Lasts 10 days per case.",   "category": "laundromat"},
+}
+
+# ── Dirty Money Laundromat ─────────────────────────────────────────────────────
+LAUNDROMAT_PRICE                   = 250_000
+LAUNDROMAT_START_MACHINES          = 3     # machines included in the purchase
+LAUNDROMAT_MAX_MACHINES            = 12
+LAUNDROMAT_MACHINE_PRICES          = [15_000, 20_000, 25_000, 30_000, 35_000, 40_000, 45_000, 50_000, 55_000]  # machines 4–12
+LAUNDROMAT_BASE_INCOME_PER_MACHINE = 280   # per day per working machine
+LAUNDROMAT_CLEAN_DECAY             = 8     # cleanliness drops per day
+LAUNDROMAT_BREAKDOWN_PCT           = 0.06  # 6% chance per machine per day
+LAUNDROMAT_CLEAN_COST              = 75    # manual deep clean
+LAUNDROMAT_REPAIR_COST             = 150   # manual repair (waived with insurance)
+LAUNDROMAT_INSURANCE_WEEKLY        = 400
+
+LAUNDROMAT_EVENTS = [
+    # positive
+    {"text": "Neighborhood moms group made your laundromat their weekly spot — regulars up!",   "type": "positive", "effect": "regulars",     "value":  5},
+    {"text": "Nearby apartment complex lost their laundry room — residents flooding in!",        "type": "positive", "effect": "income_bonus",  "value": 400},
+    {"text": "Social media influencer posted about your laundromat — unexpected rush today!",   "type": "positive", "effect": "income_mult",   "value":  0.5},
+    {"text": "High school sports team after a muddy game — machines ran all day!",               "type": "positive", "effect": "income_bonus",  "value": 300},
+    {"text": "Heat wave made everyone want fresh laundry — business is booming!",               "type": "positive", "effect": "income_mult",   "value":  0.4},
+    {"text": "5-star Yelp review going viral — foot traffic jumped!",                           "type": "positive", "effect": "regulars",     "value":  8},
+    {"text": "Corporate account from a nearby hotel — big load, big pay!",                      "type": "positive", "effect": "income_bonus",  "value": 500},
+    {"text": "Festival nearby brought visitors who needed fresh clothes!",                       "type": "positive", "effect": "income_mult",   "value":  0.3},
+    {"text": "The dog groomer next door sends overflow customers your way!",                    "type": "positive", "effect": "income_bonus",  "value": 250},
+    {"text": "Your regulars started recommending the laundromat to friends!",                   "type": "positive", "effect": "regulars",     "value":  6},
+    {"text": "Rain storm kept people indoors — they doubled up on laundry loads!",              "type": "positive", "effect": "income_mult",   "value":  0.3},
+    {"text": "College move-in week — students piled in with mountains of laundry!",             "type": "positive", "effect": "income_bonus",  "value": 450},
+    {"text": "Local daycare center sent their weekly load — easy money!",                       "type": "positive", "effect": "income_bonus",  "value": 200},
+    # negative
+    {"text": "Water main break shut you down for the day — no income!",                         "type": "negative", "effect": "income_zero",   "value":  0},
+    {"text": "Pest inspection found a roach near one of your machines — health department fine!", "type": "negative", "effect": "fine",         "value": 300},
+    {"text": "Pipe burst and flooded two of your machines — they need repairs!",                "type": "negative", "effect": "break_two",     "value":  2},
+    {"text": "Power surge fried the payment systems — machines offline half the day.",          "type": "negative", "effect": "income_mult",   "value": -0.5},
+    {"text": "Dryer vent overheated — machines shut down early for a safety inspection.",       "type": "negative", "effect": "income_mult",   "value": -0.4},
+    {"text": "Customer left a scathing review about the smell — cleanliness reputation hit!",   "type": "negative", "effect": "cleanliness",   "value": -15},
+    {"text": "Thieves broke in and stole quarters from your machines.",                         "type": "negative", "effect": "fine",          "value": 200},
+    {"text": "Water heater went out — cold-water washes only. Income cut today.",               "type": "negative", "effect": "income_mult",   "value": -0.35},
+    {"text": "New competitor laundromat opened nearby — some regulars drifted away.",           "type": "negative", "effect": "regulars",     "value": -8},
+    {"text": "A washing machine overflowed, flooding the floor — cleanup fees!",                "type": "negative", "effect": "fine",          "value": 250},
+    {"text": "City repaving the street — limited parking, traffic way down today.",             "type": "negative", "effect": "income_mult",   "value": -0.45},
+    {"text": "Health inspector surprise visit — small fine for missing paperwork.",             "type": "negative", "effect": "fine",          "value": 175},
+    {"text": "Vandals scratched up your machines overnight — repair costs.",                    "type": "negative", "effect": "fine",          "value": 150},
+    {"text": "Plumbing leak in the back room — had to close early for repairs.",                "type": "negative", "effect": "income_mult",   "value": -0.3},
+]
+
+LAUNDROMAT_STAFF = {
+    "janitor":   {"name": "Janitor",   "icon": "🧹", "cost": 175, "desc": "Auto-cleans when cleanliness drops below 75%."},
+    "repairman": {"name": "Repairman", "icon": "🔧", "cost": 225, "desc": "Auto-fixes broken machines every day."},
+}
+
+LAUNDROMAT_UPGRADES = {
+    "heavy_duty":       {"name": "Heavy-Duty Motor",   "icon": "⚙️",  "cost": 2_000, "desc": "Breakdown chance 6% → 2%."},
+    "card_reader":      {"name": "Card Reader",         "icon": "💳", "cost": 1_500, "desc": "+20% income from this machine."},
+    "energy_efficient": {"name": "Energy Efficient",    "icon": "🌿", "cost": 1_000, "desc": "Soap lasts 10 days instead of 7."},
+}
+
 def generate_jobs():
     """TEST MODE: all job types available, zero energy cost."""
     jobs = []
@@ -1601,11 +1739,17 @@ def get_player_home(s):
     return next((h for h in PLAYER_HOMES if h["key"] == key), PLAYER_HOMES[0])
 
 def _get_home_stats(s):
-    """Return (max_energy, recharge) with store item bonuses applied."""
-    home  = get_player_home(s)
+    """Return (max_energy, recharge) with store item bonuses applied.
+    Takes the best stats from the current home and every home below it so
+    skipping intermediate homes never silently reduces energy."""
+    current     = get_player_home(s)
+    current_idx = next(i for i, h in enumerate(PLAYER_HOMES) if h["key"] == current["key"])
+    homes_owned = PLAYER_HOMES[:current_idx + 1]
+    max_e = max(h["max_energy"] for h in homes_owned)
+    rch   = max(h["recharge"]   for h in homes_owned)
     items = s.get("owned_items", {})
-    max_e = home["max_energy"] + (STORE_ITEMS["coffee_maker"]["max_energy_bonus"] if items.get("coffee_maker") else 0)
-    rch   = home["recharge"]   + (STORE_ITEMS["new_bed"]["recharge_bonus"]        if items.get("new_bed") else 0)
+    max_e += STORE_ITEMS["coffee_maker"]["max_energy_bonus"] if items.get("coffee_maker") else 0
+    rch   += STORE_ITEMS["new_bed"]["recharge_bonus"]        if items.get("new_bed") else 0
     return max_e, rch
 
 def upgrade_cooldown_remaining(upg_val, current_day):
@@ -1831,6 +1975,10 @@ def _migrate_state(s):
     if s.get("player_home") == "moms_basement":
         s["player_home"] = "grandmas_basement"
     s.setdefault("intro_seen", True)   # existing saves skip the intro
+    s.setdefault("vending_machines", [])
+    s.setdefault("vinny_hired", False)
+    s.setdefault("costpro_inventory", {})
+    s.setdefault("laundromat", None)
     s.setdefault("tax_year_flip_income", 0)
     s.setdefault("tax_year_rent_income", 0)
     s.setdefault("tax_extension_filed", False)
@@ -1909,6 +2057,10 @@ def api_state():
         "unlocked_neighborhoods": get_unlocked_neighborhoods(lvl),
         "unlocked_homes":         get_unlocked_home_keys(lvl),
         "intro_seen":             s.get("intro_seen", True),
+        "vending_machines":       s.get("vending_machines", []),
+        "vinny_hired":            s.get("vinny_hired", False),
+        "costpro_inventory":      s.get("costpro_inventory", {}),
+        "laundromat":             s.get("laundromat"),
     })
 
 @app.route('/api/market', methods=['GET', 'POST'])
@@ -3001,6 +3153,196 @@ def api_advance():
     s["jobs"]   = generate_jobs()
 
 
+    # ── Vending machine income + location events + Vinny auto-restock ──────────
+    vms      = s.get("vending_machines", [])
+    vinny_on = s.get("vinny_hired", False)
+    inv      = s.get("costpro_inventory", {})
+    for vm in vms:
+        had_loc_event = False   # max 1 location event per machine per advance
+        for _ in range(days):
+            upgrades = vm.setdefault("upgrades", {})
+            if vm["status"] == "empty":
+                if vinny_on:
+                    chosen_tier = next(
+                        (t for t in ("premium", "mid", "cheap") if inv.get(f"snacks_{t}", 0) > 0),
+                        None
+                    )
+                    if chosen_tier:
+                        inv[f"snacks_{chosen_tier}"] -= 1
+                        s["cash"] = max(0, s["cash"] - VINNY_FEE)
+                        drain, income = _vm_income(chosen_tier, upgrades)
+                        vm["snack_tier"]      = chosen_tier
+                        vm["drain_days"]      = drain
+                        vm["days_remaining"]  = drain
+                        vm["daily_income"]    = income
+                        vm["status"]          = "running"
+                        tier_names = {"premium": "Artisan", "mid": "Name Brand", "cheap": "Generic"}
+                        events.append({
+                            "prop": f"Machine #{vm['slot']} — {vm['location']}",
+                            "text": f"Cousin Vinny restocked with {tier_names[chosen_tier]} snacks (−${VINNY_FEE} fee)",
+                            "type": "neutral", "category": "business",
+                        })
+                continue
+
+            day_income = vm.get("daily_income", 0)
+
+            # 5% location event per machine per advance
+            if not had_loc_event and random.random() < 0.05:
+                had_loc_event = True
+                loc_pool = VM_LOCATION_EVENTS.get(vm["location"], [])
+                if loc_pool:
+                    evt    = random.choice(loc_pool)
+                    effect = evt["effect"]
+                    val    = evt["value"]
+                    txt    = evt["text"].format(slot=vm["slot"])
+                    if effect == "income_zero":
+                        day_income = 0
+                    elif effect == "income_mult":
+                        day_income = round(day_income * (1 + val))
+                    elif effect == "income_bonus":
+                        s["cash"] += val
+                    elif effect == "fine":
+                        s["cash"] = max(0, s["cash"] - val)
+                    elif effect == "drain_fast":
+                        extra = min(val, max(0, vm["days_remaining"] - 1))
+                        s["cash"] += day_income * extra
+                        vm["days_remaining"] = max(0, vm["days_remaining"] - extra)
+                    events.append({
+                        "prop":     f"Machine #{vm['slot']} — {vm['location']}",
+                        "text":     txt,
+                        "type":     evt["type"],
+                        "category": "business",
+                    })
+
+            s["cash"] += day_income
+            vm["days_remaining"] = max(0, vm["days_remaining"] - 1)
+            if vm["days_remaining"] == 0:
+                vm["status"] = "empty"
+            elif vm["days_remaining"] <= 2:
+                vm["status"] = "low"
+            else:
+                vm["status"] = "running"
+    s["vending_machines"]  = vms
+    s["costpro_inventory"] = inv
+
+    # ── Laundromat income + events ─────────────────────────────────────────────
+    lm = s.get("laundromat")
+    if lm and lm.get("owned"):
+        staff    = lm.setdefault("staff",    {"janitor": False, "repairman": False})
+        machines = lm.setdefault("machines", [
+            {"id": i, "status": "working", "upgrades": {}} for i in range(LAUNDROMAT_START_MACHINES)
+        ])
+        for _day in range(days):
+            # Insurance weekly charge
+            if lm.get("insurance"):
+                lm["insurance_days"] = lm.get("insurance_days", 7) - 1
+                if lm["insurance_days"] <= 0:
+                    lm["insurance_days"] = 7
+                    s["cash"] = max(0, s["cash"] - LAUNDROMAT_INSURANCE_WEEKLY)
+
+            # Cleanliness decay
+            lm["cleanliness"] = max(0, lm.get("cleanliness", 100) - LAUNDROMAT_CLEAN_DECAY)
+
+            # Machine breakdowns
+            for machine in machines:
+                if machine["status"] == "working":
+                    bd = 0.02 if machine.get("upgrades", {}).get("heavy_duty") else LAUNDROMAT_BREAKDOWN_PCT
+                    if random.random() < bd:
+                        machine["status"] = "broken"
+
+            # Janitor daily cost + auto-clean
+            if staff.get("janitor"):
+                s["cash"] = max(0, s["cash"] - LAUNDROMAT_STAFF["janitor"]["cost"])
+                if lm["cleanliness"] < 75:
+                    lm["cleanliness"] = min(100, lm["cleanliness"] + 30)
+
+            # Repairman daily cost + auto-fix
+            if staff.get("repairman"):
+                s["cash"] = max(0, s["cash"] - LAUNDROMAT_STAFF["repairman"]["cost"])
+                repair_fee = 0 if lm.get("insurance") else LAUNDROMAT_REPAIR_COST
+                for machine in machines:
+                    if machine["status"] == "broken":
+                        s["cash"] = max(0, s["cash"] - repair_fee)
+                        machine["status"] = "working"
+
+            # No soap = no income
+            if lm.get("soap_days", 0) <= 0:
+                lm["regulars"] = max(0, lm.get("regulars", 0) - 2)
+                continue
+            lm["soap_days"] -= 1
+
+            working = [m for m in machines if m["status"] == "working"]
+            if not working:
+                # All machines broken — regulars leave frustrated
+                lm["regulars"] = max(0, lm.get("regulars", 0) - 3)
+                continue
+
+            # More than half machines broken — regulars getting annoyed
+            broken_count = len(machines) - len(working)
+            if broken_count > len(machines) // 2:
+                lm["regulars"] = max(0, lm.get("regulars", 0) - 1)
+
+            # Filthy conditions drive regulars away
+            if lm.get("cleanliness", 100) < 25:
+                lm["regulars"] = max(0, lm.get("regulars", 0) - 2)
+
+            # Base income (card reader upgrade: +20% per machine)
+            income = sum(
+                round(LAUNDROMAT_BASE_INCOME_PER_MACHINE * (1.20 if m.get("upgrades", {}).get("card_reader") else 1.0))
+                for m in working
+            )
+
+            # Cleanliness multiplier: 0.4 at 0% → 1.8 at 100%
+            income = round(income * (0.4 + lm.get("cleanliness", 100) / 100 * 1.4))
+
+            # Optional supply bonuses
+            if lm.get("softener_days", 0) > 0:
+                income              = round(income * 1.25)
+                lm["softener_days"] = max(0, lm["softener_days"] - 1)
+            if lm.get("sheets_days", 0) > 0:
+                income            = round(income * 1.20)
+                lm["sheets_days"] = max(0, lm["sheets_days"] - 1)
+
+            # Regulars bonus: up to +40%
+            income = round(income * (1 + lm.get("regulars", 0) / 100 * 0.40))
+
+            # Random event (5% per day)
+            if random.random() < 0.05:
+                evt    = random.choice(LAUNDROMAT_EVENTS)
+                effect = evt["effect"]
+                val    = evt["value"]
+                if effect == "income_zero":
+                    income = 0
+                elif effect == "income_mult":
+                    income = max(0, round(income * (1 + val)))
+                elif effect == "income_bonus":
+                    income += int(val)
+                elif effect == "fine":
+                    s["cash"] = max(0, s["cash"] - int(val))
+                elif effect == "cleanliness":
+                    lm["cleanliness"] = max(0, min(100, lm.get("cleanliness", 100) + int(val)))
+                elif effect == "regulars":
+                    lm["regulars"] = max(0, min(100, lm.get("regulars", 0) + int(val)))
+                elif effect == "break_two":
+                    picks = random.sample(working, min(2, len(working)))
+                    for m in picks:
+                        m["status"] = "broken"
+                events.append({
+                    "prop":     "Dirty Money Laundromat",
+                    "text":     evt["text"],
+                    "type":     evt["type"],
+                    "category": "business",
+                })
+
+            # Regulars build (40% chance of +3 per open day)
+            if random.random() < 0.40:
+                lm["regulars"] = min(100, lm.get("regulars", 0) + 3)
+
+            s["cash"]         += income
+            lm["total_earned"] = lm.get("total_earned", 0) + income
+
+        s["laundromat"] = lm
+
     # Build rent summary events
     for pid, rs in rent_log.items():
         if rs["collected"] > 0 or rs["missed"] > 0:
@@ -3011,7 +3353,8 @@ def api_advance():
                 txt += f", {rs['missed']} missed"
             etype = "positive" if rs["missed"] == 0 and rs["partial"] == 0 else (
                     "warning"  if rs["collected"] > 0 else "negative")
-            events.append({"prop": rs["prop"], "text": txt, "type": etype})
+            events.append({"prop": rs["prop"], "text": txt, "type": etype,
+                           "category": "rent", "amount": rs["collected"]})
 
     _update_stock_prices(s, days)
     _roll_special_contractors(s)
@@ -3625,6 +3968,302 @@ def api_stocks_sell():
     save(s)
     return jsonify({"success": True, "cash": s["cash"], "proceeds": proceeds,
                     "profit": profit, "shares_remaining": held["shares"]})
+
+@app.route('/api/vending/buy', methods=['POST'])
+def api_vending_buy():
+    s    = load()
+    data = request.json or {}
+    tier = data.get("snack_tier", "cheap")
+    if tier not in SNACK_REVENUE:
+        return jsonify({"error": "Unknown snack tier"}), 400
+    vms = s.setdefault("vending_machines", [])
+    if len(vms) >= 6:
+        return jsonify({"error": "You already own the maximum of 6 machines"}), 400
+    slot  = len(vms) + 1
+    price = VM_PRICES[slot - 1]
+    if s["cash"] < price:
+        return jsonify({"error": f"Not enough cash — need ${price:,}"}), 400
+    inv     = s.setdefault("costpro_inventory", {})
+    inv_key = f"snacks_{tier}"
+    if inv.get(inv_key, 0) < 1:
+        return jsonify({"error": f"No {tier} snacks in inventory — visit CostPro first"}), 400
+    inv[inv_key] -= 1
+    s["cash"] -= price
+    drain, income = _vm_income(tier, {})
+    vm = {
+        "id":             int(s["day"] * 1000 + slot),
+        "slot":           slot,
+        "location":       VM_LOCATIONS[slot - 1],
+        "snack_tier":     tier,
+        "drain_days":     drain,
+        "days_remaining": drain,
+        "daily_income":   income,
+        "status":         "running",
+        "upgrades":       {},
+    }
+    vms.append(vm)
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"Bought Vending Machine #{slot} at {vm['location']} for ${price:,}!"})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/vending/restock', methods=['POST'])
+def api_vending_restock():
+    s    = load()
+    data = request.json or {}
+    vm_id = data.get("vm_id")
+    tier  = data.get("snack_tier", "cheap")
+    if tier not in SNACK_REVENUE:
+        return jsonify({"error": "Unknown snack tier"}), 400
+    vms = s.get("vending_machines", [])
+    vm  = next((v for v in vms if v["id"] == vm_id), None)
+    if not vm:
+        return jsonify({"error": "Machine not found"}), 400
+    inv     = s.setdefault("costpro_inventory", {})
+    inv_key = f"snacks_{tier}"
+    if inv.get(inv_key, 0) < 1:
+        return jsonify({"error": f"No {tier} snacks in inventory — visit CostPro first"}), 400
+    inv[inv_key] -= 1
+    drain, income = _vm_income(tier, vm.get("upgrades", {}))
+    vm["snack_tier"]      = tier
+    vm["drain_days"]      = drain
+    vm["days_remaining"]  = drain
+    vm["daily_income"]    = income
+    vm["status"]          = "running"
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"Restocked Machine #{vm['slot']} at {vm['location']} with {tier} snacks."})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/vending/toggle_vinny', methods=['POST'])
+def api_vending_toggle_vinny():
+    s = load()
+    s["vinny_hired"] = not s.get("vinny_hired", False)
+    save(s)
+    return jsonify({"success": True, "vinny_hired": s["vinny_hired"]})
+
+@app.route('/api/costpro/buy', methods=['POST'])
+def api_costpro_buy():
+    s    = load()
+    data = request.json or {}
+    key  = data.get("item_key", "")
+    qty  = int(data.get("qty", 1))
+    item = COSTPRO_ITEMS.get(key)
+    if not item:
+        return jsonify({"error": "Unknown item"}), 400
+    if qty not in (1, 3, 5):
+        return jsonify({"error": "Invalid quantity — choose 1, 3, or 5"}), 400
+    total = item["price"] * qty
+    if s["cash"] < total:
+        return jsonify({"error": f"Not enough cash — need ${total:,}"}), 400
+    s["cash"] -= total
+    if item.get("category") == "laundromat":
+        lm = s.get("laundromat")
+        if not lm:
+            s["cash"] += total   # refund
+            return jsonify({"error": "You don't own the Dirty Money Laundromat yet!"}), 400
+        if key == "soap":
+            has_ee        = any(m.get("upgrades", {}).get("energy_efficient") for m in lm.get("machines", []))
+            days_per_case = 10 if has_ee else 7
+            lm["soap_days"] = lm.get("soap_days", 0) + days_per_case * qty
+        elif key == "softener":
+            lm["softener_days"] = lm.get("softener_days", 0) + 10 * qty
+        elif key == "sheets":
+            lm["sheets_days"] = lm.get("sheets_days", 0) + 10 * qty
+        s["laundromat"] = lm
+    else:
+        inv     = s.setdefault("costpro_inventory", {})
+        inv[key] = inv.get(key, 0) + qty
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"Bought ×{qty} {item['name']} from CostPro for ${total:,}."})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/vending/upgrade', methods=['POST'])
+def api_vending_upgrade():
+    s    = load()
+    data = request.json or {}
+    vm_id       = data.get("vm_id")
+    upgrade_key = data.get("upgrade_key")
+    upgrade     = VM_UPGRADES.get(upgrade_key)
+    if not upgrade:
+        return jsonify({"error": "Unknown upgrade"}), 400
+    vms = s.get("vending_machines", [])
+    vm  = next((v for v in vms if v["id"] == vm_id), None)
+    if not vm:
+        return jsonify({"error": "Machine not found"}), 400
+    upgrades = vm.setdefault("upgrades", {})
+    if upgrades.get(upgrade_key):
+        return jsonify({"error": "Already installed on this machine"}), 400
+    if s["cash"] < upgrade["cost"]:
+        return jsonify({"error": f"Not enough cash — need ${upgrade['cost']:,}"}), 400
+    s["cash"] -= upgrade["cost"]
+    upgrades[upgrade_key] = True
+    if upgrade_key == "larger_capacity":
+        vm["days_remaining"] = vm.get("days_remaining", 0) + 2
+        vm["drain_days"]     = vm.get("drain_days", 6) + 2
+    elif upgrade_key == "card_reader":
+        vm["daily_income"] = vm.get("daily_income", 0) + 25
+    elif upgrade_key == "premium_slot":
+        vm["daily_income"] = round(vm.get("daily_income", 0) * 1.25)
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"Installed {upgrade['name']} on Machine #{vm['slot']} for ${upgrade['cost']:,}!"})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/laundromat/buy', methods=['POST'])
+def api_laundromat_buy():
+    s = load()
+    if s.get("laundromat"):
+        return jsonify({"error": "Already owned"}), 400
+    if s.get("level", 0) < 5:
+        return jsonify({"error": "Unlocks at Level 5"}), 400
+    if s["cash"] < LAUNDROMAT_PRICE:
+        return jsonify({"error": f"Need ${LAUNDROMAT_PRICE:,}"}), 400
+    s["cash"] -= LAUNDROMAT_PRICE
+    s["laundromat"] = {
+        "owned":          True,
+        "cleanliness":    20,
+        "machines":       [{"id": i, "status": "working", "upgrades": {}} for i in range(LAUNDROMAT_START_MACHINES)],
+        "soap_days":      0,
+        "softener_days":  0,
+        "sheets_days":    0,
+        "staff":          {"janitor": False, "repairman": False},
+        "regulars":       0,
+        "insurance":      False,
+        "insurance_days": 0,
+        "total_earned":   0,
+    }
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"Purchased Dirty Money Laundromat for ${LAUNDROMAT_PRICE:,}!"})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/laundromat/buy_machine', methods=['POST'])
+def api_laundromat_buy_machine():
+    s  = load()
+    lm = s.get("laundromat")
+    if not lm:
+        return jsonify({"error": "No laundromat"}), 400
+    machines = lm.get("machines", [])
+    if len(machines) >= LAUNDROMAT_MAX_MACHINES:
+        return jsonify({"error": f"Already at max {LAUNDROMAT_MAX_MACHINES} machines"}), 400
+    price_idx = len(machines) - LAUNDROMAT_START_MACHINES
+    price     = LAUNDROMAT_MACHINE_PRICES[price_idx]
+    if s["cash"] < price:
+        return jsonify({"error": f"Need ${price:,}"}), 400
+    s["cash"] -= price
+    new_id = len(machines)
+    machines.append({"id": new_id, "status": "working", "upgrades": {}})
+    lm["machines"] = machines
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"Added Machine #{new_id + 1} to the Dirty Money Laundromat for ${price:,}!"})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/laundromat/clean', methods=['POST'])
+def api_laundromat_clean():
+    s  = load()
+    lm = s.get("laundromat")
+    if not lm:
+        return jsonify({"error": "No laundromat"}), 400
+    if s.get("energy", 0) < 6:
+        return jsonify({"error": "Not enough energy — need 6 ⚡"}), 400
+    if s["cash"] < LAUNDROMAT_CLEAN_COST:
+        return jsonify({"error": f"Need ${LAUNDROMAT_CLEAN_COST}"}), 400
+    s["energy"] -= 6
+    s["cash"] -= LAUNDROMAT_CLEAN_COST
+    lm["cleanliness"] = min(100, lm.get("cleanliness", 0) + 30)
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"Cleaned the laundromat — cleanliness now {lm['cleanliness']}%."})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/laundromat/repair_machine', methods=['POST'])
+def api_laundromat_repair_machine():
+    s    = load()
+    lm   = s.get("laundromat")
+    data = request.json or {}
+    mid  = data.get("machine_id")
+    if not lm:
+        return jsonify({"error": "No laundromat"}), 400
+    machines = lm.get("machines", [])
+    machine  = next((m for m in machines if m["id"] == mid), None)
+    if not machine:
+        return jsonify({"error": "Machine not found"}), 400
+    if machine["status"] != "broken":
+        return jsonify({"error": "Machine is not broken"}), 400
+    if s.get("energy", 0) < 3:
+        return jsonify({"error": "Not enough energy — need 3 ⚡"}), 400
+    repair_cost = 0 if lm.get("insurance") else LAUNDROMAT_REPAIR_COST
+    if s["cash"] < repair_cost:
+        return jsonify({"error": f"Need ${repair_cost}"}), 400
+    s["energy"] -= 3
+    s["cash"] -= repair_cost
+    machine["status"] = "working"
+    cost_str = "free (insurance)" if lm.get("insurance") else f"${repair_cost}"
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"Repaired Laundromat Machine #{mid + 1} — {cost_str}."})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/laundromat/hire_staff', methods=['POST'])
+def api_laundromat_hire_staff():
+    s    = load()
+    lm   = s.get("laundromat")
+    data = request.json or {}
+    role = data.get("role")
+    if not lm:
+        return jsonify({"error": "No laundromat"}), 400
+    if role not in LAUNDROMAT_STAFF:
+        return jsonify({"error": "Unknown staff role"}), 400
+    staff      = lm.setdefault("staff", {})
+    staff[role] = not staff.get(role, False)
+    action     = "hired" if staff[role] else "fired"
+    s["log"].insert(0, {"day": s["day"], "type": "neutral",
+        "text": f"{LAUNDROMAT_STAFF[role]['name']} {action} at the laundromat."})
+    save(s)
+    return jsonify({"success": True, "hired": staff[role]})
+
+@app.route('/api/laundromat/upgrade_machine', methods=['POST'])
+def api_laundromat_upgrade_machine():
+    s    = load()
+    lm   = s.get("laundromat")
+    data = request.json or {}
+    mid  = data.get("machine_id")
+    key  = data.get("upgrade_key")
+    upg  = LAUNDROMAT_UPGRADES.get(key)
+    if not lm or not upg:
+        return jsonify({"error": "Not found"}), 400
+    machines = lm.get("machines", [])
+    machine  = next((m for m in machines if m["id"] == mid), None)
+    if not machine:
+        return jsonify({"error": "Machine not found"}), 400
+    upgrades = machine.setdefault("upgrades", {})
+    if upgrades.get(key):
+        return jsonify({"error": "Already installed"}), 400
+    if s["cash"] < upg["cost"]:
+        return jsonify({"error": f"Need ${upg['cost']:,}"}), 400
+    s["cash"] -= upg["cost"]
+    upgrades[key] = True
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"Installed {upg['name']} on Laundromat Machine #{mid + 1} for ${upg['cost']:,}!"})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/laundromat/insurance', methods=['POST'])
+def api_laundromat_insurance():
+    s  = load()
+    lm = s.get("laundromat")
+    if not lm:
+        return jsonify({"error": "No laundromat"}), 400
+    lm["insurance"] = not lm.get("insurance", False)
+    if lm["insurance"]:
+        lm["insurance_days"] = 7
+    s["log"].insert(0, {"day": s["day"], "type": "neutral",
+        "text": f"Laundromat insurance {'activated ($400/week)' if lm['insurance'] else 'cancelled'}."})
+    save(s)
+    return jsonify({"success": True, "insurance": lm["insurance"]})
 
 @app.route('/api/reset', methods=['POST'])
 def api_reset():

@@ -105,6 +105,10 @@ const PIXEL_ICONS = {
   '🍴': 'upgrade-kitchen',
   '🚿': 'upgrade-bathrooms',
   '🧱': 'ui-brick',
+  '☕': 'store-coffee',
+  '🛏️': 'store-bed',
+  '🛒': 'ui-cart',
+  '📚': 'ui-books',
 };
 
 function pxIcon(emoji, size) {
@@ -495,11 +499,11 @@ const LEVEL_UNLOCKS = {
   2:  { joke: "Two whole levels in. Still no idea what you're doing. Confidence unaffected.",
         unlocks: ["🌆 Northside neighborhood unlocked in the Market", "📚 Flooring Installation Class available in Personal → Skill Classes (⚡10)", "📚 Window Installation Class available in Personal → Skill Classes (⚡10)"] },
   3:  { joke: "An HOA fee and a parking sticker. Congratulations, you're basically an adult.",
-        unlocks: ["🌆 Westwood neighborhood unlocked in the Market", "🏢 Condo home available in Personal → Homes ($150,000)", "📚 Remodeling Class available in Personal → Skill Classes (⚡12)"] },
+        unlocks: ["🌆 Westwood neighborhood unlocked in the Market", "🏢 Condo home available in Personal → Homes ($150,000)", "📚 Remodeling Class available in Personal → Skill Classes (⚡12)", "🏪 Business tab unlocked — buy your first Vending Machine ($1,200+)", "🛒 CostPro Store unlocked — stock up on vending supplies"] },
   4:  { joke: "I'm ready to patch more roofs than I have friends. This is fine.",
         unlocks: ["🌊 Riverside neighborhood unlocked in the Market", "📚 HVAC System Course available in Personal → Skill Classes (⚡14)", "📚 Roof Replacement Course available in Personal → Skill Classes (⚡14)"] },
   5:  { joke: "Premium upgrades unlocked. Because apparently your tenants deserve slightly nicer things.",
-        unlocks: ["🌆 Newbay neighborhood unlocked in the Market", "🏡 Small Home available in Personal → Homes ($250,000)", "⭐ Premium Upgrades unlocked on all properties"] },
+        unlocks: ["🌆 Newbay neighborhood unlocked in the Market", "🏡 Small Home available in Personal → Homes ($250,000)", "⭐ Premium Upgrades unlocked on all properties", "🧺 Dirty Money Laundromat unlocked in Business tab ($250,000)"] },
   6:  { joke: "No new shiny things this level. Just respect. And money. Mostly money.",
         unlocks: ["📈 Pure progression — keep building your empire"] },
   7:  { joke: "A cul-de-sac and a two-car garage. You're practically a suburb now.",
@@ -509,7 +513,7 @@ const LEVEL_UNLOCKS = {
   9:  { joke: "Heated floors. A wine cellar. Someone else mows the lawn. You made it.",
         unlocks: ["🏛️ Luxury Villa available in Personal → Homes ($750,000)"] },
   10: { joke: "Double digits. Gerald can already smell the ambition from here.",
-        unlocks: ["📈 Endgame territory — maximize every income stream"] },
+        unlocks: ["📈 Endgame territory — maximize every income stream", "🚗 Speedy Suds Car Wash unlocked in Business tab"] },
   11: { joke: "The Mansion is one level away. Try not to trip over your own net worth.",
         unlocks: ["📈 Almost there — one more push for the Mansion"] },
   12: { joke: "There's a room in the Mansion you've never entered. Gerald has been living there.",
@@ -537,6 +541,60 @@ function showLevelUpModal(newLevel) {
     <div style="margin:12px 0 4px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted)">What's unlocked</div>
     <div style="border-top:1px solid var(--border)">${listHtml}</div>
     <button class="btn btn-primary btn-full mt-8" onclick="closeModal()">Let's Go! 🚀</button>`);
+}
+
+function showLevelRoadmapModal() {
+  if (!state) return;
+  const currentLvl = state.level ?? 0;
+
+  const rows = Object.entries(LEVEL_UNLOCKS).map(([lvlStr, data]) => {
+    const lvl      = parseInt(lvlStr);
+    const past     = lvl < currentLvl;
+    const current  = lvl === currentLvl;
+    const future   = lvl > currentLvl;
+
+    const badgeBg    = past    ? 'var(--positive)'  : current ? 'var(--primary)' : 'var(--surface)';
+    const badgeColor = past    ? '#fff'              : current ? '#fff'           : 'var(--text-muted)';
+    const badgeBorder= future  ? '2px solid var(--border)' : 'none';
+    const rowBg      = current ? 'var(--primary-ghost, rgba(99,102,241,0.07))' : 'transparent';
+    const rowBorder  = current ? '1px solid var(--primary)' : '1px solid var(--border)';
+    const textColor  = future  ? 'var(--text-muted)' : 'var(--text)';
+
+    const statusIcon = past ? '✅' : current ? '▶' : '🔒';
+
+    const unlockItems = data.unlocks.map(u => {
+      const icon = u.split(' ')[0];
+      const text = u.split(' ').slice(1).join(' ');
+      return `<div style="display:flex;align-items:flex-start;gap:8px;padding:4px 0;opacity:${future ? '0.55' : '1'}">
+        <span style="font-size:14px;flex-shrink:0;line-height:1.5">${icon}</span>
+        <span style="font-size:12px;color:${textColor};line-height:1.5">${text}</span>
+      </div>`;
+    }).join('');
+
+    return `
+      <div style="border:${rowBorder};border-radius:10px;padding:12px 14px;margin-bottom:8px;background:${rowBg}">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:${data.unlocks.length ? '8px' : '0'}">
+          <div style="width:32px;height:32px;border-radius:50%;background:${badgeBg};border:${badgeBorder};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:${badgeColor};flex-shrink:0">${lvl}</div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:800;color:${current ? 'var(--primary)' : textColor}">
+              ${current ? '▶ Current Level' : past ? `Level ${lvl} — Completed` : `Level ${lvl}`}
+            </div>
+            ${current ? `<div style="font-size:11px;color:var(--text-muted);margin-top:1px;font-style:italic">${data.joke}</div>` : ''}
+          </div>
+          <span style="font-size:16px">${statusIcon}</span>
+        </div>
+        ${data.unlocks.length ? `<div style="padding-left:42px">${unlockItems}</div>` : ''}
+      </div>`;
+  }).join('');
+
+  openModal(`
+    <div class="modal-handle"></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 0 16px">
+      <div style="font-size:22px;font-weight:900;color:var(--primary)">${pxIcon('⭐',24)} Level Roadmap</div>
+      <div style="margin-left:auto;font-size:12px;color:var(--text-muted)">You are Level ${currentLvl}</div>
+    </div>
+    <div style="max-height:60vh;overflow-y:auto;padding-right:2px">${rows}</div>
+    <button class="btn btn-primary btn-full mt-8" onclick="closeModal()">Got it</button>`);
 }
 
 // ── Navigation ────────────────────────────────────────────────────────────────
@@ -572,6 +630,8 @@ function navTo(page) {
   if (page === 'finances') renderFinances();
   if (page === 'settings') renderSettings();
   if (page === 'personal') renderPersonal();
+  if (page === 'business') renderBusiness();
+  if (page === 'store')    renderStore();
 }
 
 // ── Render All ────────────────────────────────────────────────────────────────
@@ -579,9 +639,11 @@ function renderAll() {
   renderDashboard();
   renderMarket();
   renderProperties();
-  if (currentPage === 'settings') renderSettings();
-  if (currentPage === 'finances') renderFinances();
-  if (currentPage === 'personal') renderPersonal();
+  if (currentPage === 'settings')  renderSettings();
+  if (currentPage === 'finances')  renderFinances();
+  if (currentPage === 'personal')  renderPersonal();
+  if (currentPage === 'business')  renderBusiness();
+  if (currentPage === 'store')     renderStore();
 }
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
@@ -1219,7 +1281,7 @@ function portfolioCardHtml(p) {
     : p.tenant && (p.tenant.morale ?? 50) < 20
     ? `<span class="vacant-chip" style="background:#FFEBEE;color:#C62828;border-color:#EF9A9A">${pxIcon('😠', 16)} ${p.tenant.name} · morale ${p.tenant.morale ?? '?'}%</span>`
     : p.tenant
-    ? `<span class="tenant-chip">${pxIcon(p.tenant.icon || '👤')} ${p.tenant.name} · ${fmt(p.tenant.rent)}/wk</span>`
+    ? `<span class="tenant-chip">${p.tenant.name} · ${fmt(p.tenant.rent)}/wk</span>`
     : `<span class="vacant-chip">⚪ Vacant</span>`;
   const profit    = p.market_value - p.purchase_price;
   const profitStr = profit >= 0
@@ -1404,7 +1466,7 @@ async function showPropertyDetail(id) {
         <div class="section-header mb-0"><span class="section-title" style="${isMystery ? 'color:#CE93D8' : ''}">Current Tenant</span>${badgeHtml}</div>
         <div style="margin-top:10px">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-            <span style="${iconStyle}">${pxIcon(isMystery ? '👤' : prop.tenant.icon || '👤')}</span>
+            ${isSpecial ? `<span style="${iconStyle}">${pxIcon(isMystery ? '👤' : prop.tenant.icon || '👤')}</span>` : ''}
             <div style="flex:1">
               <div style="font-size:15px;font-weight:700;${nameColor ? 'color:' + nameColor : ''}">${isMystery ? '???' : prop.tenant.name}</div>
               <div style="font-size:12px;color:${isMystery ? '#9C27B0' : 'var(--text-2)'}">${prop.tenant_days_remaining ?? '?'} days left on lease</div>
@@ -2009,7 +2071,6 @@ async function showTenantsModal(id) {
       </div>` : `
       <div class="tenant-card" onclick="showRentSettingModal(${id}, ${t.idx})">
         <div class="tenant-header">
-          <span class="tenant-icon">${pxIcon(t.icon)}</span>
           <div style="flex:1">
             <div class="tenant-name">${t.name}</div>
             ${t.desc ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px;line-height:1.4">${t.desc}</div>` : ''}
@@ -2057,7 +2118,7 @@ function renderRentModal(propId, applicantIdx, t) {
 
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">${pxIcon(t.icon)} Set Your Rent</div>
+    <div class="modal-title">${(t.is_phil || t.is_baileys || t.is_goldbergs || t.is_mystery) ? pxIcon(t.icon) + ' ' : ''}Set Your Rent</div>
     <div class="modal-subtitle">${t.name} · Fair market rate: ${fmt(_fairRent)}/wk</div>
     <div class="tier-picker">${btnHtml}</div>
     <div style="text-align:center;margin-bottom:12px">
@@ -2446,6 +2507,751 @@ async function finishJob(score) {
     <button class="btn btn-primary btn-full mt-8" onclick="closeModal()">Done</button>`);
   await refreshState();
   renderAll();
+}
+
+// ── Business Tab ─────────────────────────────────────────────────────────────
+const VM_UPGRADE_META = [
+  { key: 'larger_capacity', name: 'Larger Capacity', icon: '📦', cost: 500,  desc: '+2 days per restock cycle.' },
+  { key: 'card_reader',     name: 'Card Reader',     icon: '💳', cost: 800,  desc: '+$50/day on top of snack income.' },
+  { key: 'premium_slot',    name: 'Premium Slot',    icon: '⭐', cost: 1200, desc: '+25% revenue per cycle.' },
+];
+const VM_PRICES    = [1200, 2000, 3000, 4200, 5800, 8000];
+const VM_LOCATIONS = [
+  'Midtown Grocery Entrance', 'Riverside Park', 'Northside Community Center',
+  'Westwood Office Lobby', 'Newbay Ferry Terminal', 'Downtown Bus Station',
+];
+const SNACK_META = {
+  cheap:   { name: 'Generic Brand Snacks', icon: '🍬', revenue: 800  },
+  mid:     { name: 'Name Brand Snacks',    icon: '🍫', revenue: 2400 },
+  premium: { name: 'Artisan Snack Pack',   icon: '🧁', revenue: 4000 },
+};
+
+let _bizOpen = { vending: true };
+
+function toggleBiz(id) {
+  const wasOpen = !!_bizOpen[id];
+  Object.keys(_bizOpen).forEach(k => _bizOpen[k] = false);
+  _bizOpen[id] = !wasOpen;
+  renderBusiness();
+}
+
+function renderBusiness() {
+  const el = document.getElementById('page-business');
+  if (!el || !state) return;
+  const level = state.level || 0;
+
+  const bizDefs = [
+    { id: 'vending',    name: 'Vending Machine Entrepreneur', unlockLevel: 3,  icon: 'business-vending',     content: renderVendingContent  },
+    { id: 'laundromat', name: 'Dirty Money Laundromat',       unlockLevel: 5,  icon: 'business-laundromat',  content: renderLaundromContent },
+    { id: 'carwash',    name: 'Speedy Suds Car Wash',         unlockLevel: 10, icon: null,                   content: null                  },
+  ];
+
+  const cards = bizDefs.map(biz => {
+    const unlocked = level >= biz.unlockLevel;
+    if (!unlocked) {
+      return `
+        <div style="display:flex;align-items:center;gap:12px;padding:14px;opacity:0.4;background:var(--surface);border:2px solid var(--border);margin-bottom:10px">
+          <div style="font-size:18px">🔒</div>
+          <div>
+            <div style="font-weight:800;font-size:13px">${biz.name}</div>
+            <div style="font-size:11px;color:var(--text-muted)">Unlocks at Level ${biz.unlockLevel}</div>
+          </div>
+        </div>`;
+    }
+    const isOpen  = !!_bizOpen[biz.id];
+    const iconImg = biz.icon
+      ? `<img src="/static/icons/${biz.icon}.svg" width="30" height="30" style="image-rendering:pixelated;vertical-align:middle">`
+      : `<span style="font-size:22px">💼</span>`;
+    const inner   = isOpen && biz.content ? biz.content() : '';
+    const headerBg = isOpen ? 'var(--primary)' : 'var(--surface)';
+    const headerColor = isOpen ? 'white' : 'inherit';
+    const mutedColor  = isOpen ? 'rgba(255,255,255,0.65)' : 'var(--text-muted)';
+    return `
+      <div style="background:var(--surface);border:2px solid ${isOpen ? 'var(--primary)' : 'var(--border)'};margin-bottom:10px;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,0.08)">
+        <div onclick="toggleBiz('${biz.id}')" style="display:flex;align-items:center;gap:12px;padding:14px;cursor:pointer;user-select:none;background:${headerBg};color:${headerColor}">
+          ${iconImg}
+          <div style="flex:1">
+            <div style="font-weight:800;font-size:13px">${biz.name}</div>
+            <div style="font-size:11px;color:${mutedColor}">Level ${biz.unlockLevel} Business</div>
+          </div>
+          <div style="font-size:11px;color:${mutedColor}">${isOpen ? '▲' : '▼'}</div>
+        </div>
+        ${isOpen ? `<div style="padding:0 14px 14px;border-top:2px solid var(--primary)">${inner}</div>` : ''}
+      </div>`;
+  }).join('');
+
+  el.innerHTML = `<div class="section-header"><span class="section-title">💼 My Businesses</span></div>${cards}`;
+}
+
+function renderVendingContent() {
+  const vms      = state.vending_machines || [];
+  const inv      = state.costpro_inventory || {};
+  const vinny    = state.vinny_hired || false;
+  const totalInv = (inv.snacks_cheap || 0) + (inv.snacks_mid || 0) + (inv.snacks_premium || 0);
+
+  const invBadges = [['snacks_cheap','Generic'],['snacks_mid','Name Brand'],['snacks_premium','Artisan']]
+    .filter(([k]) => (inv[k] || 0) > 0)
+    .map(([k, label]) => `<span style="background:var(--surface,var(--card-bg));border:1px solid var(--border);padding:2px 7px;font-size:10px">×${inv[k]} ${label}</span>`)
+    .join('');
+  const invBar = `
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:10px 0;font-size:12px">
+      <span style="color:var(--text-muted)">🎒</span>
+      ${totalInv > 0 ? invBadges : `<span style="color:var(--warning);font-size:11px">No snacks — <span style="text-decoration:underline;cursor:pointer" onclick="navTo('store')">visit CostPro</span></span>`}
+    </div>`;
+
+  const vmCards = vms.map(vm => {
+    const tierMeta       = SNACK_META[vm.snack_tier] || SNACK_META.cheap;
+    const canRestock     = vm.status !== 'running' && totalInv > 0;
+    const noSnacks       = vm.status !== 'running' && totalInv === 0;
+    const installedCount = VM_UPGRADE_META.filter(u => (vm.upgrades || {})[u.key]).length;
+    const upgradeLabel   = installedCount === VM_UPGRADE_META.length ? '⭐ Maxed' : `Upgrades (${installedCount}/${VM_UPGRADE_META.length})`;
+    const stockPct       = vm.status === 'empty' ? 0 : Math.round((vm.days_remaining / (vm.drain_days || 1)) * 100);
+    const barColor       = stockPct > 55 ? 'var(--positive)' : stockPct > 25 ? 'var(--warning)' : 'var(--negative)';
+    const stockLabel     = vm.status === 'empty' ? 'Empty' : vm.status === 'low' ? 'Low' : 'Stocked';
+    return `
+      <div style="border:1px solid var(--border);margin-top:8px;padding:10px">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <img src="/static/icons/business-vending.svg" width="32" height="32" style="image-rendering:pixelated;flex-shrink:0;margin-top:2px">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:800;font-size:13px">Vending Machine #${vm.slot}</div>
+            <div style="font-size:11px;color:var(--text-muted)">📍 ${vm.location}</div>
+            <div style="font-size:11px;margin-top:3px">${tierMeta.icon} ${tierMeta.name}</div>
+            <div style="margin-top:6px">
+              <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-bottom:3px">
+                <span>Stock</span><span style="color:${barColor}">${stockLabel}</span>
+              </div>
+              <div style="background:var(--border);height:6px;width:100%">
+                <div style="background:${barColor};height:6px;width:${stockPct}%"></div>
+              </div>
+            </div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-weight:800;font-size:13px;color:${vm.status !== 'empty' ? 'var(--positive)' : 'var(--text-muted)'}">
+              ${vm.status !== 'empty' ? fmt(vm.daily_income) + '/day' : '$0/day'}
+            </div>
+            <button class="btn btn-sm ${canRestock ? 'btn-primary' : 'btn-ghost'}"
+              style="margin-top:4px${vm.status === 'running' ? ';opacity:0.35;cursor:not-allowed' : ''}"
+              ${canRestock ? `onclick="showRestockModal(${vm.id})"` : noSnacks ? `onclick="navTo('store')"` : 'disabled'}>
+              ${vm.status === 'running' ? 'Full' : noSnacks ? 'Get Snacks' : 'Restock'}
+            </button>
+          </div>
+        </div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:8px;width:100%;font-size:11px" onclick="showUpgradesModal(${vm.id})">
+          🔧 ${upgradeLabel}
+        </button>
+      </div>`;
+  }).join('');
+
+  const nextSlot  = vms.length + 1;
+  const buyBtn    = nextSlot <= 6
+    ? `<button class="btn btn-primary btn-full" style="margin-top:14px" onclick="showBuyVendingModal()">
+         Buy Vending Machine #${nextSlot} — ${fmt(VM_PRICES[nextSlot - 1])}
+       </button>`
+    : `<div style="text-align:center;font-size:12px;color:var(--text-muted);margin-top:12px;opacity:0.6">All 6 machine slots owned!</div>`;
+
+  const vinnyCard = vms.length > 0 ? `
+    <div style="display:flex;align-items:flex-start;gap:12px;padding:12px;border:1px solid var(--border);margin-top:14px">
+      <img src="/static/icons/business-vinny.svg" width="40" height="40" style="image-rendering:pixelated;flex-shrink:0">
+      <div style="flex:1">
+        <div style="font-weight:800">Cousin Vinny</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px;line-height:1.5">Auto-restocks your empty machines from your inventory. Charges $200 per restock. If your bag is empty, machines stay empty.</div>
+        <div style="font-size:11px;margin-top:5px;color:${vinny ? 'var(--positive)' : 'var(--text-muted)'}">
+          ${vinny ? '🟢 On the job' : '⚫ Not hired'}
+        </div>
+        <button class="btn btn-sm ${vinny ? 'btn-ghost' : 'btn-primary'}" style="margin-top:8px;width:100%" onclick="toggleVinny()">
+          ${vinny ? 'Fire Vinny' : 'Hire Vinny — $200/restock'}
+        </button>
+      </div>
+    </div>` : '';
+
+  const empty = vms.length === 0
+    ? `<div style="text-align:center;color:var(--text-muted);font-size:12px;padding:14px 0">No machines yet. Buy your first one below!</div>` : '';
+
+  return `${invBar}${vmCards}${empty}${buyBtn}${vinnyCard}`;
+}
+
+// ── Dirty Money Laundromat ────────────────────────────────────────────────────
+const LAUNDROMAT_MAX_MACHINES    = 12;
+const LAUNDROMAT_MACHINE_PRICES  = [15_000, 20_000, 25_000, 30_000, 35_000, 40_000, 45_000, 50_000, 55_000]; // machines 4–12
+
+const LAUNDROMAT_UPGRADES_META = [
+  { key: 'heavy_duty',       name: 'Heavy-Duty Motor',  icon: '⚙️',  cost: 2000, desc: 'Breakdown chance 6% → 2%.' },
+  { key: 'card_reader',      name: 'Card Reader',        icon: '💳', cost: 1500, desc: '+20% income from this machine.' },
+  { key: 'energy_efficient', name: 'Energy Efficient',   icon: '🌿', cost: 1000, desc: 'Soap lasts 10 days instead of 7.' },
+];
+
+const LAUNDROMAT_STAFF_META = {
+  janitor:   { name: 'Janitor',   icon: '🧹', cost: 175, desc: 'Auto-cleans when cleanliness drops below 75%.' },
+  repairman: { name: 'Repairman', icon: '🔧', cost: 225, desc: 'Auto-fixes broken machines every day.' },
+};
+
+function renderLaundromContent() {
+  const lm = state.laundromat;
+
+  if (!lm) {
+    const canAfford = state.cash >= 250000;
+    return `
+      <div style="text-align:center;padding:16px 0">
+        <img src="/static/icons/business-laundromat.svg" width="52" height="52" style="image-rendering:pixelated;margin-bottom:10px">
+        <div style="font-weight:800;font-size:14px;margin-bottom:6px">Dirty Money Laundromat</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:14px;line-height:1.6">
+          8 machines · daily income · supplies from CostPro<br>
+          Hire staff, buy upgrades, get insurance
+        </div>
+        <div class="money-row"><span class="mr-label">Purchase Price</span><span class="mr-value" style="color:var(--negative)">${fmt(250000)}</span></div>
+        <div class="money-row" style="margin-bottom:14px"><span class="mr-label">Your Cash</span><span class="mr-value">${fmt(state.cash)}</span></div>
+        <button class="btn btn-primary btn-full" ${canAfford ? 'onclick="buyLaundromat()"' : 'disabled'}>
+          ${canAfford ? 'Buy Laundromat' : 'Need $250,000'}
+        </button>
+      </div>`;
+  }
+
+  // Star rating
+  const machineCount = lm.machines.length;
+  const working    = lm.machines.filter(m => m.status === 'working').length;
+  const broken     = lm.machines.filter(m => m.status === 'broken').length;
+  const rawScore   = (working / machineCount) * 0.4 + (lm.cleanliness / 100) * 0.4 + (lm.soap_days > 0 ? 1 : 0) * 0.2;
+  const stars      = Math.max(1, Math.min(5, Math.ceil(rawScore * 5)));
+  const starStr    = '★'.repeat(stars) + '☆'.repeat(5 - stars);
+  const starColor  = stars >= 4 ? 'var(--positive)' : stars >= 3 ? 'var(--warning)' : 'var(--negative)';
+
+  // Cleanliness bar
+  const cleanColor = lm.cleanliness > 60 ? 'var(--positive)' : lm.cleanliness > 30 ? 'var(--warning)' : 'var(--negative)';
+  const cleanBar   = `
+    <div style="margin:10px 0">
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-bottom:3px">
+        <span>Cleanliness</span><span style="color:${cleanColor}">${lm.cleanliness}%</span>
+      </div>
+      <div style="background:var(--border);height:6px">
+        <div style="background:${cleanColor};height:6px;width:${lm.cleanliness}%"></div>
+      </div>
+    </div>`;
+
+  // Regulars bar
+  const regBonus = Math.round(lm.regulars * 0.25);
+  const regColor = lm.regulars > 60 ? 'var(--positive)' : lm.regulars > 20 ? 'var(--warning)' : 'var(--text-muted)';
+  const regBar   = `
+    <div style="margin:6px 0 12px">
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-bottom:3px">
+        <span>Regulars</span><span style="color:${regColor}">${lm.regulars}/100 (+${regBonus}% income)</span>
+      </div>
+      <div style="background:var(--border);height:6px">
+        <div style="background:${regColor};height:6px;width:${lm.regulars}%"></div>
+      </div>
+    </div>`;
+
+  // Status summary
+  const soapLabel = lm.soap_days > 0 ? `${lm.soap_days}d soap` : 'OUT OF SOAP';
+  const soapColor = lm.soap_days > 0 ? 'var(--positive)' : 'var(--negative)';
+  const statusRow = `
+    <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:11px;margin-bottom:10px;align-items:center">
+      <span style="color:${starColor};font-size:13px">${starStr}</span>
+      <span style="color:var(--text-muted)">|</span>
+      <span>${working}/${machineCount} running${broken > 0 ? ` · <span style="color:var(--negative)">${broken} broken</span>` : ''}</span>
+      <span style="color:var(--text-muted)">|</span>
+      <span style="color:${soapColor}">🧼 ${soapLabel}</span>
+    </div>`;
+
+  // Supplies row
+  const supRow = `
+    <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:11px;margin-bottom:12px">
+      <span>🌸 ${lm.softener_days > 0 ? lm.softener_days + 'd' : '—'}</span>
+      <span style="color:var(--text-muted)">|</span>
+      <span>🌬️ ${lm.sheets_days > 0 ? lm.sheets_days + 'd' : '—'}</span>
+      <span style="color:var(--text-muted)">|</span>
+      <span style="cursor:pointer;text-decoration:underline;color:var(--accent)" onclick="navTo('store')">Buy Supplies →</span>
+    </div>`;
+
+  // Machine grid (3×4) + buy slot
+  const hasSoap    = lm.soap_days > 0;
+  const canBuyMore   = machineCount < LAUNDROMAT_MAX_MACHINES;
+  const machineCells = lm.machines.map(m => {
+    const isBroken  = m.status === 'broken';
+    const isRunning = !isBroken && hasSoap;
+    const upgCount  = Object.keys(m.upgrades || {}).length;
+    const bgColor   = isBroken ? 'rgba(244,67,54,0.08)' : 'transparent';
+    const border    = isBroken ? 'var(--negative)' : 'var(--border)';
+    const animClass = isBroken ? 'machine-broken' : isRunning ? 'machine-running' : 'machine-idle';
+    const onclick   = isBroken
+      ? `showLaundroRepairModal(${m.id})`
+      : `showLaundroMachineUpgradesModal(${m.id})`;
+    return `<div onclick="${onclick}" style="border:1px solid ${border};padding:7px 4px;text-align:center;cursor:pointer;background:${bgColor}">
+      <img src="/static/icons/business-laundromat.svg" class="${animClass}" width="30" height="30" style="image-rendering:pixelated">
+      <div style="font-size:9px;color:var(--text-muted);margin-top:2px">#${m.id + 1}</div>
+      ${isBroken
+        ? `<div style="font-size:9px;color:var(--negative);font-weight:800">⚡3</div>`
+        : upgCount > 0
+          ? `<div style="font-size:9px;color:var(--positive)">⭐${upgCount}</div>`
+          : '<div style="font-size:9px"> </div>'}
+    </div>`;
+  });
+  if (canBuyMore) {
+    const priceIdx   = machineCount - 3;  // 3 = start machines
+    const nextPrice  = LAUNDROMAT_MACHINE_PRICES[priceIdx] ?? LAUNDROMAT_MACHINE_PRICES[LAUNDROMAT_MACHINE_PRICES.length - 1];
+    const affordable = state.cash >= nextPrice;
+    machineCells.push(`
+      <div onclick="${affordable ? 'buyLaundroMachine()' : ''}"
+        style="border:1px dashed var(--border);padding:7px 4px;text-align:center;cursor:${affordable ? 'pointer' : 'default'};opacity:${affordable ? '1' : '0.5'}">
+        <div style="font-size:20px;line-height:1;margin-bottom:2px">＋</div>
+        <div style="font-size:8px;color:var(--text-muted)">${fmt(nextPrice)}</div>
+        <div style="font-size:8px;color:var(--text-muted)">#${machineCount + 1}</div>
+      </div>`);
+  }
+  const machineGrid = `
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:12px">
+      ${machineCells.join('')}
+    </div>`;
+
+  // Action row
+  const insColor  = lm.insurance ? 'var(--positive)' : 'var(--text-muted)';
+  const actionRow = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      <button class="btn btn-sm btn-primary" onclick="showLaundroCleanModal()">🧽 Clean — $75 · ⚡6</button>
+      <button class="btn btn-sm ${lm.insurance ? 'btn-ghost' : 'btn-ghost'}" onclick="toggleLaundroInsurance()"
+        style="border-color:${insColor};color:${insColor}">
+        🛡️ Insurance ${lm.insurance ? 'ON' : 'OFF'}
+      </button>
+    </div>`;
+
+  // Staff cards
+  const staffCards = Object.entries(LAUNDROMAT_STAFF_META).map(([role, meta]) => {
+    const hired = (lm.staff || {})[role] || false;
+    return `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);margin-bottom:6px">
+        <div style="font-size:20px">${meta.icon}</div>
+        <div style="flex:1">
+          <div style="font-weight:800;font-size:12px">${meta.name}</div>
+          <div style="font-size:10px;color:var(--text-muted)">${meta.desc}</div>
+          <div style="font-size:10px;margin-top:2px;color:${hired ? 'var(--positive)' : 'var(--text-muted)'}">
+            ${hired ? `🟢 On the job — $${meta.cost}/day` : '⚫ Not hired'}
+          </div>
+        </div>
+        <button class="btn btn-sm ${hired ? 'btn-ghost' : 'btn-primary'}" onclick="toggleLaundroStaff('${role}')">
+          ${hired ? 'Fire' : `Hire — $${meta.cost}/day`}
+        </button>
+      </div>`;
+  }).join('');
+
+  const footer = `<div style="font-size:11px;color:var(--text-muted);margin-top:8px;text-align:right">Total Earned: ${fmt(lm.total_earned || 0)}</div>`;
+
+  return `${cleanBar}${regBar}${statusRow}${supRow}${machineGrid}${actionRow}
+    <div style="font-size:11px;font-weight:800;margin-bottom:8px">👷 Staff</div>
+    ${staffCards}${footer}`;
+}
+
+async function buyLaundromat() {
+  const res = await api('/laundromat/buy', 'POST', {});
+  if (res.error) { toast(res.error, 'error'); return; }
+  await refreshState();
+  renderBusiness();
+  toast('Dirty Money Laundromat purchased! Buy soap from CostPro to get started.', 'success');
+}
+
+function showLaundroCleanModal() {
+  const lm        = state.laundromat;
+  const newClean  = Math.min(100, (lm.cleanliness || 0) + 30);
+  const hasEnergy = (state.energy ?? 0) >= 6;
+  openModal(`
+    <div class="modal-handle"></div>
+    <div style="font-weight:800;font-size:15px;margin-bottom:14px">🧽 Deep Clean</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px;line-height:1.5">Scrub the floors, wipe the machines, freshen the place up. Adds +30% cleanliness.</div>
+    <div class="money-row"><span class="mr-label">Cleanliness Now</span><span class="mr-value">${lm.cleanliness}%</span></div>
+    <div class="money-row"><span class="mr-label">After Cleaning</span><span class="mr-value" style="color:var(--positive)">${newClean}%</span></div>
+    <div class="money-row"><span class="mr-label">Cost</span><span class="mr-value" style="color:var(--negative)">$75</span></div>
+    <div class="money-row" style="margin-bottom:14px">
+      <span class="mr-label">Energy</span>
+      <span class="mr-value" style="color:${hasEnergy ? 'var(--positive)' : 'var(--negative)'}">
+        ⚡ 6 &nbsp;(you have ${state.energy ?? 0})
+      </span>
+    </div>
+    <button class="btn btn-primary btn-full" ${hasEnergy ? 'onclick="doLaundroClean()"' : 'disabled'}>
+      ${hasEnergy ? 'Clean Now' : 'Not Enough Energy'}
+    </button>
+    <button class="btn btn-ghost btn-sm btn-full" style="margin-top:6px" onclick="closeModal()">Cancel</button>`);
+}
+
+async function doLaundroClean() {
+  closeModal();
+  const res = await api('/laundromat/clean', 'POST', {});
+  if (res.error) { toast(res.error, 'error'); return; }
+  await refreshState();
+  renderBusiness();
+  toast('Laundromat scrubbed clean! +30% cleanliness.', 'success');
+}
+
+function showLaundroRepairModal(machineId) {
+  const lm        = state.laundromat;
+  const cost      = lm.insurance ? 0 : 150;
+  const curEnergy = state.energy ?? 0;
+  const hasEnergy = curEnergy >= 3;
+  openModal(`
+    <div class="modal-handle"></div>
+    <div style="font-weight:800;font-size:15px;margin-bottom:6px">🔧 Repair Machine #${machineId + 1}</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px">This machine broke down and needs repairs before it can earn again.</div>
+    <div style="background:${hasEnergy ? 'rgba(76,175,80,0.1)' : 'rgba(244,67,54,0.1)'};border:1px solid ${hasEnergy ? 'var(--positive)' : 'var(--negative)'};padding:10px 12px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:12px;font-weight:800">⚡ Energy Cost</span>
+      <span style="font-size:13px;font-weight:800;color:${hasEnergy ? 'var(--positive)' : 'var(--negative)'}">3 &nbsp;(you have ${curEnergy})</span>
+    </div>
+    <div class="money-row" style="margin-bottom:14px">
+      <span class="mr-label">Repair Cost</span>
+      <span class="mr-value" style="color:${cost === 0 ? 'var(--positive)' : 'var(--negative)'}">
+        ${cost === 0 ? 'FREE (insurance)' : fmt(cost)}
+      </span>
+    </div>
+    <button class="btn btn-primary btn-full" ${hasEnergy ? `onclick="doLaundroRepair(${machineId})"` : 'disabled'}>
+      ${hasEnergy ? 'Repair — ⚡3' : 'Not Enough Energy'}
+    </button>
+    <button class="btn btn-ghost btn-sm btn-full" style="margin-top:6px" onclick="closeModal()">Cancel</button>`);
+}
+
+async function doLaundroRepair(machineId) {
+  closeModal();
+  const res = await api('/laundromat/repair_machine', 'POST', { machine_id: machineId });
+  if (res.error) { toast(res.error, 'error'); return; }
+  await refreshState();
+  renderBusiness();
+  toast('Machine repaired and back online!', 'success');
+}
+
+function showLaundroMachineUpgradesModal(machineId) {
+  const lm      = state.laundromat;
+  const machine = lm.machines.find(m => m.id === machineId);
+  if (!machine) return;
+  const upgrades = machine.upgrades || {};
+  const rows = LAUNDROMAT_UPGRADES_META.map(u => {
+    const owned     = !!upgrades[u.key];
+    const canAfford = state.cash >= u.cost;
+    return `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);margin-bottom:8px${owned ? ';opacity:0.55' : ''}">
+        <div style="font-size:22px">${u.icon}</div>
+        <div style="flex:1">
+          <div style="font-weight:800;font-size:12px">${u.name}</div>
+          <div style="font-size:10px;color:var(--text-muted)">${u.desc}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          ${owned
+            ? `<span style="font-size:11px;color:var(--positive)">✓ Installed</span>`
+            : `<div style="font-size:12px;font-weight:800">${fmt(u.cost)}</div>
+               <button class="btn btn-sm btn-primary" style="margin-top:2px"
+                 ${!canAfford ? 'disabled' : `onclick="doLaundroUpgrade(${machineId},'${u.key}')"`}>
+                 ${canAfford ? 'Install' : 'Need Cash'}
+               </button>`}
+        </div>
+      </div>`;
+  }).join('');
+  openModal(`
+    <div class="modal-handle"></div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <div style="font-size:28px">⚙️</div>
+      <div>
+        <div style="font-weight:800;font-size:15px">Machine #${machineId + 1} Upgrades</div>
+        <div style="font-size:11px;color:var(--text-muted)">Dirty Money Laundromat</div>
+      </div>
+    </div>
+    ${rows}
+    <button class="btn btn-ghost btn-sm btn-full" style="margin-top:4px" onclick="closeModal()">Close</button>`);
+}
+
+async function doLaundroUpgrade(machineId, upgradeKey) {
+  closeModal();
+  const res = await api('/laundromat/upgrade_machine', 'POST', { machine_id: machineId, upgrade_key: upgradeKey });
+  if (res.error) { toast(res.error, 'error'); return; }
+  await refreshState();
+  renderBusiness();
+  toast('Upgrade installed!', 'success');
+}
+
+async function toggleLaundroInsurance() {
+  const res = await api('/laundromat/insurance', 'POST', {});
+  if (res.error) { toast(res.error, 'error'); return; }
+  await refreshState();
+  renderBusiness();
+  const on = state.laundromat?.insurance;
+  toast(on ? 'Insurance activated — $400/week, free repairs!' : 'Insurance cancelled.', 'info');
+}
+
+async function toggleLaundroStaff(role) {
+  const res = await api('/laundromat/hire_staff', 'POST', { role });
+  if (res.error) { toast(res.error, 'error'); return; }
+  await refreshState();
+  renderBusiness();
+  const hired = state.laundromat?.staff?.[role];
+  const name  = LAUNDROMAT_STAFF_META[role]?.name || role;
+  toast(hired ? `${name} is on the job!` : `${name} let go.`, 'info');
+}
+
+async function buyLaundroMachine() {
+  const res = await api('/laundromat/buy_machine', 'POST', {});
+  if (res.error) { toast(res.error, 'error'); return; }
+  await refreshState();
+  renderBusiness();
+  const count = state.laundromat?.machines?.length || 0;
+  toast(`Machine #${count} added to the laundromat!`, 'success');
+}
+
+function showBuyVendingModal() {
+  const vms      = state.vending_machines || [];
+  const inv      = state.costpro_inventory || {};
+  const slot     = vms.length + 1;
+  if (slot > 6) return;
+  const price    = VM_PRICES[slot - 1];
+  const location = VM_LOCATIONS[slot - 1];
+  const totalInv = (inv.snacks_cheap || 0) + (inv.snacks_mid || 0) + (inv.snacks_premium || 0);
+
+  const tierRows = Object.entries(SNACK_META).map(([key, meta]) => {
+    const qty = inv[`snacks_${key}`] || 0;
+    return `
+      <div style="${qty === 0 ? 'opacity:0.4;' : ''}display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);margin-bottom:8px">
+        <div style="font-size:22px">${meta.icon}</div>
+        <div style="flex:1">
+          <div style="font-weight:800;font-size:12px">${meta.name}</div>
+          <div style="font-size:10px;color:var(--text-muted)">→ ${fmt(meta.revenue)}/cycle · ×${qty} in bag</div>
+        </div>
+        <button class="btn btn-sm btn-primary" ${qty === 0 ? 'disabled' : `onclick="buyVendingMachine('${key}')"`}>Select</button>
+      </div>`;
+  }).join('');
+
+  openModal(`
+    <div class="modal-handle"></div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+      <img src="/static/icons/business-vending.svg" width="44" height="44" style="image-rendering:pixelated;flex-shrink:0">
+      <div>
+        <div style="font-weight:800;font-size:15px">Buy Vending Machine #${slot}</div>
+        <div style="font-size:11px;color:var(--text-muted)">📍 ${location}</div>
+      </div>
+    </div>
+    <div class="money-row"><span class="mr-label">Purchase Price</span><span class="mr-value" style="color:var(--negative)">${fmt(price)}</span></div>
+    <div class="money-row" style="margin-bottom:14px"><span class="mr-label">Your Cash</span><span class="mr-value">${fmt(state.cash)}</span></div>
+    <div style="font-weight:800;font-size:12px;margin-bottom:8px">Choose what to stock it with:</div>
+    ${totalInv === 0
+      ? `<div style="text-align:center;padding:14px;font-size:12px;color:var(--warning)">No snacks in bag!<br><button class="btn btn-sm btn-primary" style="margin-top:8px" onclick="closeModal();navTo('store')">Go to CostPro</button></div>`
+      : tierRows}
+    <button class="btn btn-ghost btn-sm btn-full" style="margin-top:4px" onclick="closeModal()">Cancel</button>`);
+}
+
+function showRestockModal(vmId) {
+  const vm  = (state.vending_machines || []).find(v => v.id === vmId);
+  const inv = state.costpro_inventory || {};
+  if (!vm) return;
+  const rows = Object.entries(SNACK_META).map(([key, meta]) => {
+    const qty = inv[`snacks_${key}`] || 0;
+    return `
+      <div style="${qty === 0 ? 'opacity:0.4;' : ''}display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);margin-bottom:8px">
+        <div style="font-size:22px">${meta.icon}</div>
+        <div style="flex:1">
+          <div style="font-weight:800;font-size:12px">${meta.name}</div>
+          <div style="font-size:10px;color:var(--text-muted)">→ ${fmt(meta.revenue)}/cycle · ×${qty} in bag</div>
+        </div>
+        <button class="btn btn-sm btn-primary" ${qty === 0 ? 'disabled' : `onclick="restockMachine(${vmId},'${key}')"`}>Use</button>
+      </div>`;
+  }).join('');
+  openModal(`
+    <div class="modal-handle"></div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+      <img src="/static/icons/business-vending.svg" width="40" height="40" style="image-rendering:pixelated;flex-shrink:0">
+      <div>
+        <div style="font-weight:800;font-size:15px">Restock Machine #${vm.slot}</div>
+        <div style="font-size:11px;color:var(--text-muted)">📍 ${vm.location}</div>
+      </div>
+    </div>
+    ${rows}
+    <button class="btn btn-ghost btn-sm btn-full" style="margin-top:4px" onclick="closeModal()">Cancel</button>`);
+}
+
+async function buyVendingMachine(snackTier) {
+  closeModal();
+  const res = await api('/vending/buy', 'POST', { snack_tier: snackTier });
+  if (res.error) { toast(res.error, 'error'); return; }
+  await refreshState();
+  renderBusiness();
+  toast('Vending machine purchased!', 'success');
+}
+
+async function restockMachine(vmId, snackTier) {
+  closeModal();
+  const res = await api('/vending/restock', 'POST', { vm_id: vmId, snack_tier: snackTier });
+  if (res.error) { toast(res.error, 'error'); return; }
+  await refreshState();
+  renderBusiness();
+  toast('Machine restocked!', 'success');
+}
+
+async function toggleVinny() {
+  const res = await api('/vending/toggle_vinny', 'POST', {});
+  if (res.error) { toast(res.error, 'error'); return; }
+  await refreshState();
+  renderBusiness();
+  toast(state.vinny_hired ? 'Cousin Vinny is on the job!' : 'Vinny has been let go.', 'info');
+}
+
+function showUpgradesModal(vmId) {
+  const vm       = (state.vending_machines || []).find(v => v.id === vmId);
+  if (!vm) return;
+  const upgrades = vm.upgrades || {};
+  const rows = VM_UPGRADE_META.map(u => {
+    const owned     = !!upgrades[u.key];
+    const canAfford = state.cash >= u.cost;
+    return `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);margin-bottom:8px${owned ? ';opacity:0.55' : ''}">
+        <div style="font-size:22px">${u.icon}</div>
+        <div style="flex:1">
+          <div style="font-weight:800;font-size:12px">${u.name}</div>
+          <div style="font-size:10px;color:var(--text-muted)">${u.desc}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          ${owned
+            ? `<span style="font-size:11px;color:var(--positive)">✓ Installed</span>`
+            : `<div style="font-size:12px;font-weight:800">${fmt(u.cost)}</div>
+               <button class="btn btn-sm btn-primary" style="margin-top:2px" ${!canAfford ? 'disabled' : `onclick="buyVmUpgrade(${vmId},'${u.key}')"`}>
+                 ${canAfford ? 'Install' : 'Need Cash'}
+               </button>`}
+        </div>
+      </div>`;
+  }).join('');
+  openModal(`
+    <div class="modal-handle"></div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+      <img src="/static/icons/business-vending.svg" width="40" height="40" style="image-rendering:pixelated;flex-shrink:0">
+      <div>
+        <div style="font-weight:800;font-size:15px">Machine #${vm.slot} Upgrades</div>
+        <div style="font-size:11px;color:var(--text-muted)">📍 ${vm.location}</div>
+      </div>
+    </div>
+    ${rows}
+    <button class="btn btn-ghost btn-sm btn-full" style="margin-top:4px" onclick="closeModal()">Close</button>`);
+}
+
+async function buyVmUpgrade(vmId, upgradeKey) {
+  closeModal();
+  const res = await api('/vending/upgrade', 'POST', { vm_id: vmId, upgrade_key: upgradeKey });
+  if (res.error) { toast(res.error, 'error'); return; }
+  await refreshState();
+  renderBusiness();
+  toast('Upgrade installed!', 'success');
+}
+
+// ── CostPro Wholesale Store ───────────────────────────────────────────────────
+const COSTPRO_SNACKS = [
+  { key: 'snacks_cheap',   name: 'Generic Brand Snacks', icon: '🍬', price: 400,   desc: 'Budget snacks. They sell, barely.',            revenue: 800   },
+  { key: 'snacks_mid',     name: 'Name Brand Snacks',    icon: '🍫', price: 800,   desc: 'Popular brands. Solid margins.',               revenue: 2400  },
+  { key: 'snacks_premium', name: 'Artisan Snack Pack',   icon: '🧁', price: 1200,  desc: "Fancy stuff. Customers pay a premium for it.", revenue: 4000  },
+];
+
+const COSTPRO_LAUNDRY = [
+  { key: 'soap',     name: 'Laundry Soap',    icon: '🧼', price: 300, desc: 'Required to operate. Lasts 7 days per case (10 with Energy Efficient upgrade).' },
+  { key: 'softener', name: 'Fabric Softener', icon: '🌸', price: 500, desc: '+20% daily income. Lasts 10 days per case.' },
+  { key: 'sheets',   name: 'Dryer Sheets',    icon: '🌬️', price: 400, desc: '+15% daily income. Lasts 10 days per case.' },
+];
+
+const STORE_UNLOCK_LEVEL = 3;
+
+function renderStore() {
+  const el  = document.getElementById('page-store');
+  if (!el || !state) return;
+
+  if ((state.level || 0) < STORE_UNLOCK_LEVEL) {
+    el.innerHTML = `
+      <div style="background:var(--primary);color:white;text-align:center;padding:14px 16px">
+        <div style="font-family:'Rubik Dirt',cursive;font-size:22px;letter-spacing:2px">CostPro</div>
+        <div style="font-size:10px;opacity:0.75;letter-spacing:3px;margin-top:2px">WHOLESALE · BULK · SAVINGS</div>
+      </div>
+      <div style="text-align:center;padding:48px 24px 32px">
+        <div style="font-size:48px;margin-bottom:12px">${pxIcon('🔒',48)}</div>
+        <div style="font-size:17px;font-weight:900;color:var(--text);margin-bottom:6px">Store Locked</div>
+        <div style="font-size:13px;color:var(--text-muted);line-height:1.5">CostPro unlocks at <strong>Level ${STORE_UNLOCK_LEVEL}</strong> alongside the Business tab.<br>Keep growing your portfolio to unlock bulk supplies.</div>
+        <div style="margin-top:20px;background:var(--surface);border:2px solid var(--border);border-radius:10px;padding:14px">
+          <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:8px">Unlocks at Level ${STORE_UNLOCK_LEVEL}</div>
+          <div style="font-size:12px;color:var(--text);line-height:1.8">🏪 Vending Machine business<br>🍬 Snack inventory — stock your machines<br>🌸 Laundry supplies (when laundromat is owned)</div>
+        </div>
+      </div>`;
+    return;
+  }
+
+  const inv  = state.costpro_inventory || {};
+  const lm   = state.laundromat;
+
+  const snackCards = COSTPRO_SNACKS.map(item => {
+    const held = inv[item.key] || 0;
+    return `
+    <div class="card" style="margin-bottom:10px">
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
+        <div style="font-size:28px;line-height:1">${item.icon}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:800;font-size:13px">${item.name}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:1px">${item.desc}</div>
+          <div style="font-size:11px;margin-top:3px">
+            → <span style="color:var(--positive)">${fmt(item.revenue)}</span> per vending cycle
+            · In bag: <strong>${held}</strong>
+          </div>
+        </div>
+        <div style="font-size:15px;font-weight:800;color:var(--primary);flex-shrink:0">${fmt(item.price)}<div style="font-size:10px;font-weight:400;color:var(--text-muted);text-align:right">each</div></div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-sm btn-primary" style="flex:1" onclick="buySnacks('${item.key}',1)">Buy 1</button>
+        <button class="btn btn-sm btn-primary" style="flex:1" onclick="buySnacks('${item.key}',3)">Buy 3 · ${fmt(item.price*3)}</button>
+        <button class="btn btn-sm btn-primary" style="flex:1" onclick="buySnacks('${item.key}',5)">Buy 5 · ${fmt(item.price*5)}</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Laundry supplies — only shown when laundromat is owned
+  let laundrySection = '';
+  if (lm) {
+    const laundryCards = COSTPRO_LAUNDRY.map(item => {
+      const currentDays = item.key === 'soap'
+        ? (lm.soap_days || 0)
+        : item.key === 'softener'
+          ? (lm.softener_days || 0)
+          : (lm.sheets_days || 0);
+      return `
+      <div class="card" style="margin-bottom:10px">
+        <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
+          <div style="font-size:28px;line-height:1">${item.icon}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:800;font-size:13px">${item.name}</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:1px">${item.desc}</div>
+            <div style="font-size:11px;margin-top:3px;color:${currentDays > 0 ? 'var(--positive)' : 'var(--warning)'}">
+              ${currentDays > 0 ? `${currentDays} days remaining` : item.key === 'soap' ? '⚠️ OUT — machines idle!' : 'None stocked'}
+            </div>
+          </div>
+          <div style="font-size:15px;font-weight:800;color:var(--primary);flex-shrink:0">${fmt(item.price)}<div style="font-size:10px;font-weight:400;color:var(--text-muted);text-align:right">each</div></div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm btn-primary" style="flex:1" onclick="buySnacks('${item.key}',1)">Buy 1</button>
+          <button class="btn btn-sm btn-primary" style="flex:1" onclick="buySnacks('${item.key}',3)">Buy 3 · ${fmt(item.price*3)}</button>
+          <button class="btn btn-sm btn-primary" style="flex:1" onclick="buySnacks('${item.key}',5)">Buy 5 · ${fmt(item.price*5)}</button>
+        </div>
+      </div>`;
+    }).join('');
+    laundrySection = `
+      <div class="section-header" style="margin-top:14px">
+        <span class="section-title">🧺 Laundromat Supplies</span>
+      </div>
+      ${laundryCards}`;
+  }
+
+  el.innerHTML = `
+    <div style="background:var(--primary);color:white;text-align:center;padding:14px 16px">
+      <div style="font-family:'Rubik Dirt',cursive;font-size:22px;letter-spacing:2px">CostPro</div>
+      <div style="font-size:10px;opacity:0.75;letter-spacing:3px;margin-top:2px">WHOLESALE · BULK · SAVINGS</div>
+    </div>
+    <div class="section-header" style="margin-top:14px">
+      <span class="section-title">🍬 Vending Supplies</span>
+    </div>
+    ${snackCards}
+    ${laundrySection}
+    <div style="font-size:11px;color:var(--text-muted);text-align:center;padding:8px 0 16px">
+      More products unlock with new businesses.
+    </div>`;
+}
+
+async function buySnacks(itemKey, qty) {
+  const res = await api('/costpro/buy', 'POST', { item_key: itemKey, qty });
+  if (res.error) { toast(res.error, 'error'); return; }
+  await refreshState();
+  renderStore();
+  renderBusiness();
+  toast(`×${qty} purchased!`, 'success');
 }
 
 // ── Mini-game: Quick Tap ──────────────────────────────────────────────────────
@@ -3845,7 +4651,7 @@ function launchPlumbingGame(upgradeKey) {
     </div>
     <div class="pl-arena" id="pl-arena">
       <canvas id="pl-canvas"></canvas>
-      <div class="pl-wrench" id="pl-wrench">${pxIcon('🔧',32)}</div>
+      <div class="pl-wrench" id="pl-wrench">🔧</div>
       <div class="pl-tap-hint" id="pl-tap-hint">TAP TO TIGHTEN!</div>
     </div>
     <div class="pl-start-screen" id="pl-start-screen">
@@ -6138,16 +6944,37 @@ async function advanceDays(days) {
   }
   const res = await api('/advance', 'POST', { days });
   const s   = getSeasonInfo(res.day);
+  const rentPaid     = res.events.filter(e => e.category === 'rent' && e.type === 'positive');
+  const rentProblems = res.events.filter(e => e.category === 'rent' && e.type !== 'positive');
+  const otherEvents  = res.events.filter(e => e.category !== 'rent');
+
+  const eventRow = e => `
+    <div class="event-item">
+      <div class="event-dot ${e.type}"></div>
+      <div class="event-info">
+        <div class="event-prop">${e.prop}</div>
+        <div class="event-text ${e.type}">${e.text}</div>
+      </div>
+    </div>`;
+
+  let rentPaidHtml = '';
+  if (rentPaid.length > 4) {
+    const total = rentPaid.reduce((sum, e) => sum + (e.amount || 0), 0);
+    rentPaidHtml = `
+    <div class="event-item">
+      <div class="event-dot positive"></div>
+      <div class="event-info">
+        <div class="event-text positive">Collected ${fmt(total)} from ${rentPaid.length} tenants</div>
+      </div>
+    </div>`;
+  } else {
+    rentPaidHtml = rentPaid.map(eventRow).join('');
+  }
+
+  const allRows = rentPaidHtml + rentProblems.map(eventRow).join('') + otherEvents.map(eventRow).join('');
   const eventsHtml = res.events.length === 0
     ? '<p class="text-muted text-center" style="padding:16px 0">Nothing happened.</p>'
-    : res.events.map(e => `
-      <div class="event-item">
-        <div class="event-dot ${e.type}"></div>
-        <div class="event-info">
-          <div class="event-prop">${e.prop}</div>
-          <div class="event-text ${e.type}">${e.text}</div>
-        </div>
-      </div>`).join('');
+    : allRows;
 
   _pendingRepairs       = res.repairs        || [];
   _pendingMoraleEvents  = res.morale_events  || [];

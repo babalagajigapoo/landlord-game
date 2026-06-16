@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges">
+  <!-- Machine body -->
+  <rect x="1" y="0" width="14" height="16" fill="#546E7A"/>
+  <!-- Left edge shadow -->
+  <rect x="0" y="0" width="1" height="16" fill="#37474F"/>
+  <!-- Right edge shadow -->
+  <rect x="15" y="0" width="1" height="16" fill="#263238"/>
+  <!-- Top control panel -->
+  <rect x="1" y="0" width="14" height="3" fill="#37474F"/>
+  <!-- Digital display -->
+  <rect x="2" y="0" width="5" height="2" fill="#1A237E"/>
+  <rect x="3" y="0" width="3" height="1" fill="#3F51B5"/>
+  <!-- Indicator lights -->
+  <rect x="8"  y="0" width="1" height="1" fill="#4CAF50"/>
+  <rect x="10" y="0" width="1" height="1" fill="#F44336"/>
+  <rect x="12" y="0" width="1" height="1" fill="#FDD835"/>
+  <!-- Dial -->
+  <rect x="12" y="1" width="2" height="2" fill="#607D8B"/>
+  <rect x="13" y="1" width="1" height="1" fill="#90A4AE"/>
+  <!-- Door frame (dark bezel) -->
+  <rect x="3" y="3" width="10" height="9" fill="#263238"/>
+  <!-- Door glass (porthole) -->
+  <rect x="4" y="4" width="8" height="7" fill="#81D4FA"/>
+  <!-- Inner drum -->
+  <rect x="5" y="5" width="6" height="5" fill="#4FC3F7"/>
+  <!-- Drum agitator holes -->
+  <rect x="5" y="6" width="1" height="1" fill="#0277BD"/>
+  <rect x="7" y="5" width="1" height="1" fill="#0277BD"/>
+  <rect x="9" y="6" width="1" height="1" fill="#0277BD"/>
+  <rect x="7" y="8" width="1" height="1" fill="#0277BD"/>
+  <!-- Clothes hint (tumbling) -->
+  <rect x="6" y="6" width="3" height="2" fill="#FF8A65"/>
+  <!-- Glass shine -->
+  <rect x="4" y="4" width="2" height="3" fill="#B3E5FC"/>
+  <!-- Door handle -->
+  <rect x="11" y="7" width="1" height="2" fill="#B0BEC5"/>
+  <!-- Base panel -->
+  <rect x="1" y="12" width="14" height="3" fill="#455A64"/>
+  <!-- Drain slot -->
+  <rect x="2" y="13" width="5" height="1" fill="#37474F"/>
+  <!-- Feet -->
+  <rect x="2"  y="14" width="2" height="2" fill="#37474F"/>
+  <rect x="12" y="14" width="2" height="2" fill="#37474F"/>
+  <!-- Bottom strip -->
+  <rect x="1" y="15" width="14" height="1" fill="#263238"/>
+</svg>

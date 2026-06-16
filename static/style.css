@@ -91,7 +91,7 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
   top: 8px;
   bottom: 8px;
   left: 0;
-  width: calc(100% / 6);
+  width: calc(100% / 7);
   background: rgba(46, 125, 50, 0.10);
   border-radius: 10px;
   border-top: 2.5px solid var(--primary);
@@ -2839,4 +2839,24 @@ header {
 img[src*="/static/icons/"] {
   image-rendering: pixelated;
   image-rendering: crisp-edges;
+}
+
+
+/* ── Laundromat Machine Animations ──────────────────────────────────────── */
+@keyframes machineWobble {
+  0%   { transform: translateX(-1.5px) rotate(-1.2deg); }
+  100% { transform: translateX(1.5px)  rotate(1.2deg);  }
+}
+.machine-running {
+  animation: machineWobble 0.32s ease-in-out infinite alternate;
+  display: inline-block;
+}
+.machine-idle {
+  opacity: 0.45;
+  display: inline-block;
+}
+.machine-broken {
+  filter: grayscale(1) brightness(0.5);
+  transform: rotate(-10deg);
+  display: inline-block;
 }
