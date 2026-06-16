@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges">
+  <!-- Purple floor/stage -->
+  <rect x="1" y="12" width="14" height="3" fill="#6A1B9A"/>
+  <!-- Left pole -->
+  <rect x="3" y="2" width="2" height="10" fill="#C0C0C0"/>
+  <rect x="3" y="2" width="2" height="1" fill="#E8E8E8"/>
+  <rect x="3" y="11" width="2" height="1" fill="#A0A0A0"/>
+  <!-- Right pole -->
+  <rect x="11" y="2" width="2" height="10" fill="#C0C0C0"/>
+  <rect x="11" y="2" width="2" height="1" fill="#E8E8E8"/>
+  <rect x="11" y="11" width="2" height="1" fill="#A0A0A0"/>
+  <!-- Left dancer (simplified figure) -->
+  <rect x="2" y="5" width="2" height="1" fill="#F48FB1"/>
+  <rect x="2" y="6" width="3" height="3" fill="#CE93D8"/>
+  <rect x="2" y="9" width="1" height="3" fill="#CE93D8"/>
+  <rect x="4" y="9" width="1" height="3" fill="#CE93D8"/>
+  <!-- Right dancer -->
+  <rect x="11" y="4" width="2" height="1" fill="#F48FB1"/>
+  <rect x="10" y="5" width="3" height="3" fill="#BB86FC"/>
+  <rect x="10" y="8" width="1" height="3" fill="#BB86FC"/>
+  <rect x="12" y="8" width="1" height="3" fill="#BB86FC"/>
+  <!-- Stars/sparkles -->
+  <rect x="6" y="3" width="1" height="1" fill="#FFD700"/>
+  <rect x="8" y="1" width="1" height="1" fill="#FFD700"/>
+  <rect x="10" y="3" width="1" height="1" fill="#FFD700"/>
+</svg>

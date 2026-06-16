@@ -1335,6 +1335,9 @@ COSTPRO_ITEMS = {
     "soap":           {"name": "Laundry Soap",          "icon": "🧼", "price": 300,   "desc": "Required to operate. Each case lasts 7 days.",  "category": "laundromat"},
     "softener":       {"name": "Fabric Softener",       "icon": "🌸", "price": 500,   "desc": "+20% daily income. Lasts 10 days per case.",    "category": "laundromat"},
     "sheets":         {"name": "Dryer Sheets",          "icon": "🌬️", "price": 400,   "desc": "+15% daily income. Lasts 10 days per case.",   "category": "laundromat"},
+    "grip_spray":     {"name": "Grip Spray",            "icon": "💦", "price": 400,   "desc": "Required to run classes. Lasts 7 days per case.", "category": "pole_studio"},
+    "protein_shakes": {"name": "Health Drinks",         "icon": "🍹", "price": 600,   "desc": "+25% daily income. Lasts 10 days per case.",   "category": "pole_studio"},
+    "branded_merch":  {"name": "Chicken Wings",         "icon": "🍗", "price": 500,   "desc": "+20% daily income. Lasts 10 days per case.",   "category": "pole_studio"},
 }
 
 # ── Dirty Money Laundromat ─────────────────────────────────────────────────────
@@ -1391,6 +1394,357 @@ LAUNDROMAT_UPGRADES = {
     "card_reader":      {"name": "Card Reader",         "icon": "💳", "cost": 1_500, "desc": "+20% income from this machine."},
     "energy_efficient": {"name": "Energy Efficient",    "icon": "🌿", "cost": 1_000, "desc": "Soap lasts 10 days instead of 7."},
 }
+
+# ── Brass Pole Fitness Studio ──────────────────────────────────────────────────
+POLE_STUDIO_PRICE            = 600_000
+POLE_STUDIO_UNLOCK_LEVEL     = 8
+POLE_STUDIO_START_POLES      = 0
+POLE_STUDIO_MAX_POLES        = 6
+POLE_STUDIO_POLE_PRICES      = [20_000, 25_000, 30_000, 35_000, 45_000, 55_000]
+POLE_STUDIO_ATM_DECAY        = 6
+POLE_STUDIO_CLEAN_DECAY      = 7
+POLE_STUDIO_BREAKDOWN_PCT    = 0.05
+POLE_STUDIO_CLEAN_COST       = 100
+POLE_STUDIO_CLEAN_ENERGY     = 4
+POLE_STUDIO_REPAIR_COST      = 200
+POLE_STUDIO_INSURANCE_WEEKLY = 500
+POLE_STUDIO_PEP_ENERGY       = 3
+POLE_STUDIO_PEP_MOOD         = 20
+POLE_STUDIO_COFFEE_COST      = 300
+POLE_STUDIO_COFFEE_MOOD      = 8
+
+POLE_STUDIO_DANCERS = {
+    "celestia": {"name": "Celestia",  "icon": "💫", "salary": 350, "base_income": 500,
+                 "specialty": "Advanced Technique",
+                 "desc": "The studio's founding instructor. Chose the name 'Celestia' in 2019 after a spiritual awakening. The awakening was a Pilates class. She's fully committed to it.",
+                 "mood_decay": 4, "mood_start": 75},
+    "raven":    {"name": "Raven",     "icon": "🖤", "salary": 400, "base_income": 620,
+                 "specialty": "Competitive Performance",
+                 "desc": "Former competitor on a circuit she describes as 'very prestigious and real.' The trophies are in her car.",
+                 "mood_decay": 7, "mood_start": 80},
+    "sunshine": {"name": "Sunshine",  "icon": "☀️", "salary": 250, "base_income": 370,
+                 "specialty": "Beginner & Senior Wellness",
+                 "desc": "Three separate Yelp reviews have called her 'aggressively wholesome.' She considers this a compliment.",
+                 "mood_decay": 2, "mood_start": 90},
+    "mercedes": {"name": "Mercedes",  "icon": "💼", "salary": 300, "base_income": 460,
+                 "specialty": "Corporate & Private Sessions",
+                 "desc": "Holds an MBA. Books all her own clients. Sends follow-up emails. The emails are extremely professional.",
+                 "mood_decay": 4, "mood_start": 70},
+    "diamond":  {"name": "Diamond",   "icon": "💎", "salary": 350, "base_income": 490,
+                 "specialty": "Late Night & Special Events",
+                 "desc": "Claims to have performed at three celebrity events. All three are unverifiable. The stories are incredible.",
+                 "mood_decay": 6, "mood_start": 65},
+    "gary":     {"name": "Gary",      "icon": "🤷", "salary": 200, "base_income": 340,
+                 "specialty": "Tuesday Mornings",
+                 "desc": "His qualifications are unclear. The Tuesday 9am slot has a 3-month waitlist. He just shrugs.",
+                 "mood_decay": 0, "mood_start": 72},
+}
+
+# demand effect keys: cash_cost, salary_delta, income_bonus, mood_self, mood_all,
+#                     members, reputation, atmosphere, cleanliness, quit
+POLE_STUDIO_DEMANDS = [
+    # ── CELESTIA ──────────────────────────────────────────────────────────────
+    {"key":"cel_warmup",     "dancer":"celestia","deadline":5,"type":"financial",
+     "text":"I'd like a warm-up area near my pole. A yoga mat and a foam roller.",
+     "accept_note":"She sets it up herself. Immediately.",
+     "reject_note":"She handles it professionally and does not forget.",
+     "accept":{"cash_cost":150,"mood_self":15},"reject":{"mood_self":-10}},
+    {"key":"cel_title",      "dancer":"celestia","deadline":6,"type":"ego",
+     "text":"I'd like to be listed as Lead Instructor on all studio materials.",
+     "accept_note":"Mood visibly improves. She says nothing.",
+     "reject_note":"'It's not about the title.' (It is entirely about the title.)",
+     "accept":{"mood_self":20,"members":3},"reject":{"mood_self":-20}},
+    {"key":"cel_showcase",   "dancer":"celestia","deadline":7,"type":"values",
+     "text":"I think we should host a quarterly showcase. I'll organize everything.",
+     "accept_note":"She produces a 4-page planning document within the hour.",
+     "reject_note":"She proposes it again next month. Slightly less warmly.",
+     "accept":{"cash_cost":800,"reputation":20,"members":8,"mood_self":25},"reject":{"mood_self":-15}},
+    {"key":"cel_locker",     "dancer":"celestia","deadline":4,"type":"financial",
+     "text":"I'd like a private locker.",
+     "accept_note":"Organized within the hour.",
+     "reject_note":"A sticky note appears on a locker. It says 'Celestia.' Nobody moves it.",
+     "accept":{"cash_cost":200,"mood_self":10},"reject":{"mood_self":-5}},
+    {"key":"cel_salary",     "dancer":"celestia","deadline":5,"type":"financial",
+     "text":"I've been here since the beginning. I think it's time we discussed a salary review.",
+     "accept_note":"She nods once. That's it.",
+     "reject_note":"She begins 'passively exploring options.'",
+     "accept":{"salary_delta":75,"mood_self":25},"reject":{"mood_self":-20}},
+    {"key":"cel_photo",      "dancer":"celestia","deadline":6,"type":"ego",
+     "text":"The studio photo on the website is from 2019. I'm in it, but barely.",
+     "accept_note":"New photo is stunning. She chose the angles.",
+     "reject_note":"She updates her personal headshot and does not share it with the studio.",
+     "accept":{"cash_cost":500,"mood_self":15,"reputation":5},"reject":{"mood_self":-10}},
+    {"key":"cel_mentorship", "dancer":"celestia","deadline":7,"type":"values",
+     "text":"I'd like to offer a mentorship program for the newer dancers.",
+     "accept_note":"She starts immediately. The newer dancers appreciate it.",
+     "reject_note":"She mentors them informally anyway. You get no credit.",
+     "accept":{"mood_self":20,"mood_all":5},"reject":{"mood_self":-10}},
+    {"key":"cel_coffee",     "dancer":"celestia","deadline":3,"type":"financial",
+     "text":"The break room needs a proper coffee machine. Not instant.",
+     "accept_note":"A French press and a bag of single-origin beans appear two days later.",
+     "reject_note":"A French press appears from somewhere. Nobody asks.",
+     "accept":{"cash_cost":300,"mood_self":10,"mood_all":5},"reject":{"mood_self":-5}},
+    # ── RAVEN ─────────────────────────────────────────────────────────────────
+    {"key":"rav_rechrome",   "dancer":"raven","deadline":2,"type":"financial",
+     "text":"My pole needs re-chroming. This week.",
+     "accept_note":"New pole. Raven approves without saying so.",
+     "reject_note":"She meant it.",
+     "accept":{"cash_cost":600,"mood_self":20},"reject":{"mood_self":-40,"quit":True}},
+    {"key":"rav_slot",       "dancer":"raven","deadline":3,"type":"scheduling",
+     "text":"I want the 7pm slot. That's my time.",
+     "accept_note":"She takes the slot. Doesn't thank you.",
+     "reject_note":"She takes it anyway on day 4.",
+     "accept":{"mood_self":15,"mood_all":-5},"reject":{"mood_self":-25}},
+    {"key":"rav_comp_off",   "dancer":"raven","deadline":4,"type":"scheduling",
+     "text":"I entered a regional competition. I need Friday off.",
+     "accept_note":"She returns with a trophy. She says it's 'very legitimate.'",
+     "reject_note":"Personal day. She left a note.",
+     "accept":{"mood_self":30,"reputation":10},"reject":{"mood_self":-20}},
+    {"key":"rav_sound",      "dancer":"raven","deadline":5,"type":"financial",
+     "text":"The sound system needs to be replaced.",
+     "accept_note":"The whole studio sounds better.",
+     "reject_note":"Mood in freefall. She's 'listening to offers.'",
+     "accept":{"cash_cost":1500,"mood_self":20,"mood_all":5},"reject":{"mood_self":-30}},
+    {"key":"rav_billing",    "dancer":"raven","deadline":3,"type":"ego",
+     "text":"I want top billing on all promotional material. My name first.",
+     "accept_note":"She sends you her preferred font.",
+     "reject_note":"She prints her own schedule card and tapes it to the door.",
+     "accept":{"mood_self":20,"mood_all":-5},"reject":{"mood_self":-20}},
+    {"key":"rav_vegas",      "dancer":"raven","deadline":4,"type":"scheduling",
+     "text":"There's a competition in Vegas. I need four days and $500 toward travel.",
+     "accept_note":"She places. She sends one photo. No caption.",
+     "reject_note":"She submits a leave notice. You're not sure if it's a demand or a resignation.",
+     "accept":{"cash_cost":500,"mood_self":35,"reputation":15},"reject":{"mood_self":-25}},
+    {"key":"rav_sponsor",    "dancer":"raven","deadline":5,"type":"financial",
+     "text":"I've been offered a grip spray sponsorship. You get 20% of the deal.",
+     "accept_note":"Checks arrive on schedule. Raven handles everything.",
+     "reject_note":"She takes it personally. You get nothing.",
+     "accept":{"mood_self":15,"income_bonus":150},"reject":{"mood_self":-10}},
+    {"key":"rav_ultimatum",  "dancer":"raven","deadline":2,"type":"ultimatum",
+     "text":"I've had an offer from Chromatic Fitness. Match what I'm worth or I go.",
+     "accept_note":"She stays. One nod of acknowledgment.",
+     "reject_note":"She goes. Very professionally. Same day.",
+     "accept":{"salary_delta":150,"mood_self":25},"reject":{"mood_self":-50,"quit":True}},
+    # ── SUNSHINE ──────────────────────────────────────────────────────────────
+    {"key":"sun_shelter",    "dancer":"sunshine","deadline":6,"type":"values",
+     "text":"Could we host a free class for the women's shelter? I hope that's okay to ask.",
+     "accept_note":"She cries a little. Just a little.",
+     "reject_note":"She does it on her own time. You feel genuinely bad.",
+     "accept":{"reputation":15,"members":5,"mood_self":25},"reject":{"mood_self":-10}},
+    {"key":"sun_microwave",  "dancer":"sunshine","deadline":4,"type":"financial",
+     "text":"Could we get a microwave for the break room? The paper cups are a little sad.",
+     "accept_note":"She stocks it with instant oatmeal for everyone.",
+     "reject_note":"A microwave appears from her car two days later.",
+     "accept":{"cash_cost":80,"mood_self":15,"mood_all":8},"reject":{"mood_self":-5}},
+    {"key":"sun_bday",       "dancer":"sunshine","deadline":5,"type":"values",
+     "text":"One of my seniors is turning 80. Could the studio host her party? Just the space.",
+     "accept_note":"Sunshine decorates at 6am. The student cries happy tears.",
+     "reject_note":"She finds another venue. The student tells everyone about Sunshine, not the studio.",
+     "accept":{"members":4,"reputation":5,"mood_self":20},"reject":{"mood_self":-8}},
+    {"key":"sun_cert",       "dancer":"sunshine","deadline":7,"type":"financial",
+     "text":"Could the studio cover half of my certification? I'd pay the rest myself.",
+     "accept_note":"She earns the cert. Mentions the studio in her thank-you post.",
+     "reject_note":"She pays herself. 'It's totally fine.' Mood drops quietly.",
+     "accept":{"cash_cost":300,"mood_self":20},"reject":{"mood_self":-10}},
+    {"key":"sun_junior",     "dancer":"sunshine","deadline":7,"type":"values",
+     "text":"Could we offer junior fitness classes? For kids? You can absolutely say no.",
+     "accept_note":"Six families sign up before she finishes the flyer.",
+     "reject_note":"She starts a private class in the park. Six families follow her there.",
+     "accept":{"members":6,"reputation":8,"mood_self":25},"reject":{"mood_self":-10}},
+    {"key":"sun_fundraiser", "dancer":"sunshine","deadline":5,"type":"values",
+     "text":"There's a local fitness fundraiser. Could the studio sponsor a table?",
+     "accept_note":"She brings a banner and three dancers. Reputation boost.",
+     "reject_note":"She sponsors it herself. Lists the studio anyway.",
+     "accept":{"cash_cost":400,"reputation":12,"members":4,"mood_self":20},"reject":{"mood_self":-10}},
+    {"key":"sun_benefit",    "dancer":"sunshine","deadline":6,"type":"values",
+     "text":"My student broke her wrist. She can't afford the bills. Could the studio do a benefit class?",
+     "accept_note":"The community shows up. Studio is packed.",
+     "reject_note":"Sunshine holds the class on her day off. You get no credit.",
+     "accept":{"reputation":20,"members":6,"mood_self":30},"reject":{"mood_self":-15}},
+    {"key":"sun_pizza",      "dancer":"sunshine","deadline":4,"type":"values",
+     "text":"Could we do a staff appreciation thing? Just pizza and an hour together.",
+     "accept_note":"Everyone shows up. Even Gary brings a dessert.",
+     "reject_note":"She brings pizza anyway. It lands differently.",
+     "accept":{"cash_cost":150,"mood_all":10,"mood_self":15},"reject":{"mood_self":-8}},
+    # ── MERCEDES ──────────────────────────────────────────────────────────────
+    {"key":"mer_commission", "dancer":"mercedes","deadline":6,"type":"financial",
+     "text":"I've drafted a corporate expansion proposal. 10% commission on sessions I book.",
+     "accept_note":"Corporate bookings triple within the week.",
+     "reject_note":"She manages bookings less aggressively. You notice.",
+     "accept":{"mood_self":20,"income_bonus":200},"reject":{"mood_self":-15}},
+    {"key":"mer_raise",      "dancer":"mercedes","deadline":3,"type":"ultimatum",
+     "text":"I've been approached with an outside contract. I'd like to discuss a counter-offer.",
+     "accept_note":"She stays. One professional email of acknowledgment.",
+     "reject_note":"She accepts the contract. 24-hour notice. Very professional email.",
+     "accept":{"salary_delta":100,"mood_self":20},"reject":{"mood_self":-40,"quit":True}},
+    {"key":"mer_lighting",   "dancer":"mercedes","deadline":5,"type":"financial",
+     "text":"The changing room lighting needs upgrading for client-facing areas.",
+     "accept_note":"Clients comment on it unprompted.",
+     "reject_note":"A spreadsheet arrives projecting the cost of not doing it over 12 months.",
+     "accept":{"cash_cost":400,"reputation":5,"cleanliness":10,"mood_self":10},"reject":{"mood_self":-10}},
+    {"key":"mer_retainer",   "dancer":"mercedes","deadline":5,"type":"scheduling",
+     "text":"Authorization to offer a corporate client a 15% retainer discount.",
+     "accept_note":"Guaranteed weekly income. Mercedes is satisfied.",
+     "reject_note":"She asks again next week with better data.",
+     "accept":{"mood_self":12,"income_bonus":300},"reject":{"mood_self":-10}},
+    {"key":"mer_booking_line","dancer":"mercedes","deadline":5,"type":"financial",
+     "text":"I'd like a dedicated booking line for private and corporate inquiries.",
+     "accept_note":"She immediately has three leads she couldn't close before.",
+     "reject_note":"She forwards inquiries through her personal email. You see none of them.",
+     "accept":{"cash_cost":150,"mood_self":12,"income_bonus":100},"reject":{"mood_self":-8}},
+    {"key":"mer_lunchtime",  "dancer":"mercedes","deadline":7,"type":"scheduling",
+     "text":"I've identified an underserved market: lunchtime express classes for office workers.",
+     "accept_note":"Books solid every day within the first week.",
+     "reject_note":"'Noted.' It goes in a document. The document has seventeen pages.",
+     "accept":{"mood_self":20,"members":5,"income_bonus":200},"reject":{"mood_self":-12}},
+    {"key":"mer_events_title","dancer":"mercedes","deadline":5,"type":"ego",
+     "text":"I'd like the title 'Events Director' for private booking conversations. It helps close deals.",
+     "accept_note":"She had business cards printed before you answered.",
+     "reject_note":"She puts it on her business cards anyway. Her business cards. That she had printed.",
+     "accept":{"mood_self":15,"income_bonus":150},"reject":{"mood_self":-10}},
+    {"key":"mer_expense",    "dancer":"mercedes","deadline":5,"type":"financial",
+     "text":"I've been paying for client entertainment out of pocket. I'd like expense reimbursement.",
+     "accept_note":"Corporate income increases noticeably. ROI is immediate.",
+     "reject_note":"She stops taking clients to lunch. Corporate bookings slow.",
+     "accept":{"cash_cost":200,"mood_self":15,"income_bonus":180},"reject":{"mood_self":-10}},
+    # ── DIAMOND ───────────────────────────────────────────────────────────────
+    {"key":"dia_fog",        "dancer":"diamond","deadline":4,"type":"financial",
+     "text":"I need the fog machine. You know why.",
+     "accept_note":"She sets it up herself. Immediately. It looks incredible.",
+     "reject_note":"'I can't perform without ambiance.' She performs. It's not the same.",
+     "accept":{"cash_cost":800,"atmosphere":20,"mood_self":25},"reject":{"mood_self":-20}},
+    {"key":"dia_event_night","dancer":"diamond","deadline":3,"type":"scheduling",
+     "text":"I've been offered a private event Saturday night. I need the night.",
+     "accept_note":"She returns with cash and a story she's still telling.",
+     "reject_note":"She books it anyway through 'a connection.' You find out Monday.",
+     "accept":{"income_bonus":3000,"mood_self":15},"reject":{"mood_self":-20}},
+    {"key":"dia_journalist", "dancer":"diamond","deadline":5,"type":"ego",
+     "text":"A journalist wants to interview me about my journey. The studio should be featured.",
+     "accept_note":"The article is beautiful. Three of the quotes are about her.",
+     "reject_note":"She does the interview. Mentions the studio 'briefly.'",
+     "accept":{"reputation":12,"members":6,"mood_self":20},"reject":{"reputation":4,"mood_self":-10}},
+    {"key":"dia_aesthetic",  "dancer":"diamond","deadline":5,"type":"financial",
+     "text":"The late-night aesthetic needs a complete rethink. New lighting, new music, new everything.",
+     "accept_note":"Late-night class has a waitlist for the first time.",
+     "reject_note":"'I'll make do.' Reviews for the late class get slightly worse.",
+     "accept":{"cash_cost":1200,"income_bonus":400,"mood_self":25},"reject":{"mood_self":-15}},
+    {"key":"dia_drapes",     "dancer":"diamond","deadline":5,"type":"financial",
+     "text":"The entrance needs to feel different. Not bad. Just... different. Drapes, maybe. Something velvet.",
+     "accept_note":"Three new clients mention the entrance in their first session.",
+     "reject_note":"She hangs a scarf near her pole. It's not nothing.",
+     "accept":{"cash_cost":600,"atmosphere":15,"reputation":5,"mood_self":20},"reject":{"mood_self":-12}},
+    {"key":"dia_miami",      "dancer":"diamond","deadline":3,"type":"scheduling",
+     "text":"I've been offered a performance in Miami. I need a long weekend.",
+     "accept_note":"She returns with $1,500 in cash and a story she tells very selectively.",
+     "reject_note":"She goes anyway. 'Back Monday.'",
+     "accept":{"income_bonus":1500,"mood_self":40},"reject":{"mood_self":-25}},
+    {"key":"dia_rename",     "dancer":"diamond","deadline":6,"type":"ego",
+     "text":"I want to rename my late-night class. 'Midnight Ascension.' I have other options.",
+     "accept_note":"Bookings for that class increase 10% immediately.",
+     "reject_note":"Everyone calls it that anyway within two weeks.",
+     "accept":{"reputation":5,"income_bonus":150,"mood_self":15},"reject":{"mood_self":-8}},
+    {"key":"dia_soundbath",  "dancer":"diamond","deadline":4,"type":"values",
+     "text":"There's an energy in the studio this week. Not good. We need a deep clean and a sound bath.",
+     "accept_note":"The whole studio feels different. Lighter. Everyone notices.",
+     "reject_note":"She burns incense near her pole. It's not up to code. You don't say anything.",
+     "accept":{"cash_cost":200,"cleanliness":30,"atmosphere":10,"mood_all":5,"mood_self":12},"reject":{"mood_self":-12}},
+    # ── GARY ──────────────────────────────────────────────────────────────────
+    {"key":"gary_mug",       "dancer":"gary","deadline":99,"type":"values",
+     "text":"Hey, is it okay if I bring my own mug? The paper cups bother me.",
+     "accept_note":"The mug was already there. Gary brought it last week.",
+     "reject_note":"The mug was already there. Gary brought it last week.",
+     "accept":{"mood_self":0},"reject":{"mood_self":0}},
+    {"key":"gary_start_time","dancer":"gary","deadline":99,"type":"scheduling",
+     "text":"Any chance Tuesday could start 10 minutes later? No rush.",
+     "accept_note":"Gary arrives at the same time.",
+     "reject_note":"Gary arrives at the same time.",
+     "accept":{"mood_self":0},"reject":{"mood_self":0}},
+    {"key":"gary_music",     "dancer":"gary","deadline":99,"type":"values",
+     "text":"Could the playlist have a little classic rock sometimes? Just a thought.",
+     "accept_note":"Gary doesn't check if you did it.",
+     "reject_note":"Gary doesn't check if you did it.",
+     "accept":{"mood_self":0},"reject":{"mood_self":0}},
+    {"key":"gary_plant",     "dancer":"gary","deadline":99,"type":"values",
+     "text":"Is it alright if I put a small plant on the windowsill near my pole?",
+     "accept_note":"It's already there. Gary brought it on day one. He named it.",
+     "reject_note":"It's already there. Gary brought it on day one. He named it.",
+     "accept":{"mood_self":0},"reject":{"mood_self":0}},
+    {"key":"gary_jacket",    "dancer":"gary","deadline":99,"type":"values",
+     "text":"Someone left a jacket in Tuesday class three weeks ago. Should I donate it?",
+     "accept_note":"Gary nods. Done.",
+     "reject_note":"Gary nods. Done.",
+     "accept":{"mood_self":0},"reject":{"mood_self":0}},
+    {"key":"gary_raven",     "dancer":"gary","deadline":99,"type":"values",
+     "text":"This might not be my place — but Raven seems stressed lately. Is she okay?",
+     "accept_note":"Gary nods. There's nothing you can do with this information.",
+     "reject_note":"Gary nods. There's nothing you can do with this information.",
+     "accept":{"mood_self":0},"reject":{"mood_self":0}},
+]
+
+POLE_STUDIO_EVENTS = [
+    {"text":"A chiropractor started recommending aerial fitness for core strength. Walk-ins tripled.",          "type":"positive","effect":"members",   "value": 6},
+    {"text":"Your studio was cited in a 'Surprising Wellness Trends' piece. New memberships surged.",          "type":"positive","effect":"reputation","value":12},
+    {"text":"The senior center booked a morning class. Zero complaints. Twelve new members.",                  "type":"positive","effect":"members",   "value": 8},
+    {"text":"A corporate team booked the studio for a team-building session. HR called it 'transformative.'", "type":"positive","effect":"income",    "value":3000},
+    {"text":"Someone's first-class TikTok hit 200k views. You didn't ask questions.",                         "type":"positive","effect":"members",   "value":10},
+    {"text":"Physical therapy clinic sent over three patients for 'core rehabilitation.' They loved it.",      "type":"positive","effect":"members",   "value": 4},
+    {"text":"Bachelorette party booked the whole studio for Saturday night. A very good Saturday.",           "type":"positive","effect":"income",    "value":4500},
+    {"text":"A fitness magazine asked to run a small feature. You said yes.",                                 "type":"positive","effect":"reputation","value": 8},
+    {"text":"Gary went viral on a local Facebook group. Membership inquiries up.",                            "type":"positive","effect":"members",   "value":10},
+    {"text":"A local school asked about a youth program. Sunshine has already said yes on your behalf.",      "type":"positive","effect":"members",   "value": 5},
+    {"text":"A pole bent mid-advanced-class. The instructor called it 'interpretive movement.' The ceiling fan did not survive.", "type":"negative","effect":"break_pole","value":1},
+    {"text":"A news van parked outside for three hours. They left. You got 14 new members from the foot traffic.", "type":"positive","effect":"members","value":5},
+    {"text":"A 1-star Yelp review: 'Expected something different.' Your regulars buried it in 5-stars.",      "type":"negative","effect":"reputation","value":-5},
+    {"text":"Grip spray ran out mid-session. Everyone agreed it was the most character-building class yet.",  "type":"negative","effect":"atmosphere","value":-15},
+    {"text":"Health inspector arrived unannounced. Passed with flying colors. He asked about beginner class.", "type":"positive","effect":"reputation","value":8},
+    {"text":"Someone tracked mud through the studio during the 6pm class.",                                   "type":"negative","effect":"cleanliness","value":-20},
+    {"text":"Chromatic Fitness is running a promotion. A few members checked it out.",                        "type":"negative","effect":"members",   "value":-5},
+    {"text":"A fire alarm test mid-class cleared the building. No income that hour.",                         "type":"negative","effect":"income",    "value":-500},
+    {"text":"City repaving outside — limited parking, foot traffic way down today.",                          "type":"negative","effect":"income",    "value":-600},
+    {"text":"Raven won a regional championship. The trophy is now in the lobby.",                             "type":"positive","effect":"reputation","value":10},
+]
+
+POLE_STUDIO_UPGRADES = {
+    "chrome_polish": {"name": "Chrome Polish Kit",  "icon": "✨", "cost": 2_000, "desc": "Cuts bend chance in half."},
+    "led_halo":      {"name": "LED Halo Lighting",  "icon": "💡", "cost": 2_500, "desc": "+20% income from this pole."},
+    "grip_coating":  {"name": "Grip Coating",        "icon": "💪", "cost": 1_500, "desc": "+10% income, grip spray lasts 10 days."},
+}
+
+POLE_STUDIO_STAFF = {
+    "vibe_manager":   {"name": "Vibe Manager",   "icon": "🎶", "cost": 200, "desc": "Auto-maintains atmosphere above 75%."},
+    "studio_cleaner": {"name": "Studio Cleaner", "icon": "🧹", "cost": 175, "desc": "Auto-cleans when cleanliness drops below 70%. Shows up early. Asks no questions."},
+}
+
+def _pole_studio_dancer_state(key):
+    d = POLE_STUDIO_DANCERS[key]
+    return {"hired": False, "mood": d["mood_start"], "demands_fulfilled": 0, "salary_delta": 0}
+
+def _apply_demand_effects(s, ps, effects, dancer_key):
+    """Apply a demand's effect dict to state."""
+    if effects.get("cash_cost"):
+        s["cash"] = max(0, s["cash"] - effects["cash_cost"])
+    if effects.get("salary_delta"):
+        ps["dancers"][dancer_key]["salary_delta"] = \
+            ps["dancers"][dancer_key].get("salary_delta", 0) + effects["salary_delta"]
+    if effects.get("income_bonus"):
+        s["cash"] += effects["income_bonus"]
+    if effects.get("mood_self"):
+        d = ps["dancers"].get(dancer_key, {})
+        if dancer_key != "gary":
+            d["mood"] = max(0, min(100, d.get("mood", 72) + effects["mood_self"]))
+        ps["dancers"][dancer_key] = d
+    if effects.get("mood_all"):
+        for dk, dd in ps["dancers"].items():
+            if dd.get("hired") and dk != "gary":
+                dd["mood"] = max(0, min(100, dd.get("mood", 72) + effects["mood_all"]))
+    if effects.get("members"):
+        ps["members"] = max(0, min(100, ps.get("members", 0) + effects["members"]))
+    if effects.get("reputation"):
+        ps["reputation"] = max(0, min(100, ps.get("reputation", 0) + effects["reputation"]))
+    if effects.get("atmosphere"):
+        ps["atmosphere"] = max(0, min(100, ps.get("atmosphere", 0) + effects["atmosphere"]))
+    if effects.get("cleanliness"):
+        ps["cleanliness"] = max(0, min(100, ps.get("cleanliness", 0) + effects["cleanliness"]))
 
 def generate_jobs():
     """TEST MODE: all job types available, zero energy cost."""
@@ -1979,6 +2333,7 @@ def _migrate_state(s):
     s.setdefault("vinny_hired", False)
     s.setdefault("costpro_inventory", {})
     s.setdefault("laundromat", None)
+    s.setdefault("pole_studio", None)
     s.setdefault("tax_year_flip_income", 0)
     s.setdefault("tax_year_rent_income", 0)
     s.setdefault("tax_extension_filed", False)
@@ -2061,6 +2416,7 @@ def api_state():
         "vinny_hired":            s.get("vinny_hired", False),
         "costpro_inventory":      s.get("costpro_inventory", {}),
         "laundromat":             s.get("laundromat"),
+        "pole_studio":            s.get("pole_studio"),
     })
 
 @app.route('/api/market', methods=['GET', 'POST'])
@@ -3343,6 +3699,187 @@ def api_advance():
 
         s["laundromat"] = lm
 
+    # ── Brass Pole Fitness Studio advance ─────────────────────────────────────
+    ps = s.get("pole_studio")
+    if ps and ps.get("owned"):
+        staff         = ps.setdefault("staff",       {"vibe_manager": False, "studio_cleaner": False})
+        ps.setdefault("dancers",     {k: _pole_studio_dancer_state(k) for k in POLE_STUDIO_DANCERS})
+        ps.setdefault("poles",       [{"id": i, "upgrades": {}, "broken": False}
+                                      for i in range(ps.get("pole_count", POLE_STUDIO_START_POLES))])
+        ps.setdefault("active_demands", [])
+        poles = ps["poles"]
+
+        for _day in range(days):
+            # Insurance weekly charge
+            if ps.get("insurance"):
+                ps["insurance_days"] = ps.get("insurance_days", 7) - 1
+                if ps["insurance_days"] <= 0:
+                    ps["insurance_days"] = 7
+                    s["cash"] = max(0, s["cash"] - POLE_STUDIO_INSURANCE_WEEKLY)
+
+            # Atmosphere + cleanliness natural decay
+            ps["atmosphere"]  = max(0, ps.get("atmosphere", 100)  - POLE_STUDIO_ATM_DECAY)
+            ps["cleanliness"] = max(0, ps.get("cleanliness", 100) - POLE_STUDIO_CLEAN_DECAY)
+
+            # Vibe manager: auto-maintain atmosphere
+            if staff.get("vibe_manager"):
+                s["cash"] = max(0, s["cash"] - POLE_STUDIO_STAFF["vibe_manager"]["cost"])
+                if ps["atmosphere"] < 75:
+                    ps["atmosphere"] = min(100, ps["atmosphere"] + 20)
+
+            # Studio cleaner: auto-clean
+            if staff.get("studio_cleaner"):
+                s["cash"] = max(0, s["cash"] - POLE_STUDIO_STAFF["studio_cleaner"]["cost"])
+                if ps["cleanliness"] < 70:
+                    ps["cleanliness"] = min(100, ps["cleanliness"] + 25)
+
+            # Pole breakdowns (random unless chrome polish upgrade)
+            for pole in poles:
+                if not pole.get("broken"):
+                    bd = 0.025 if not pole.get("upgrades", {}).get("chrome_polish") else 0.01
+                    if random.random() < bd:
+                        pole["broken"] = True
+
+            # Demand countdown and auto-expiry
+            new_demands = []
+            for dem in ps.get("active_demands", []):
+                dem["days_left"] = dem.get("days_left", 5) - 1
+                if dem["days_left"] > 0:
+                    new_demands.append(dem)
+                else:
+                    # Demand expired — apply reject effects and mark dancer unhappy
+                    spec = next((d for d in POLE_STUDIO_DEMANDS if d["key"] == dem["key"]), None)
+                    if spec:
+                        dk = spec["dancer"]
+                        _apply_demand_effects(s, ps, spec["reject"], dk)
+                        if spec["reject"].get("quit") and ps["dancers"].get(dk, {}).get("hired"):
+                            ps["dancers"][dk]["hired"] = False
+                            events.append({"prop": "Brass Pole Fitness Studio",
+                                           "text": f"{POLE_STUDIO_DANCERS[dk]['name']} quit. The demand expired.",
+                                           "type": "negative", "category": "business"})
+                    events.append({"prop": "Brass Pole Fitness Studio",
+                                   "text": f"A dancer demand expired unresolved.",
+                                   "type": "warning", "category": "business"})
+            ps["active_demands"] = new_demands
+
+            # Possibly spawn a new demand (6% chance per day, one at a time)
+            if len(ps["active_demands"]) < 2 and random.random() < 0.06:
+                hired_keys = [k for k, dd in ps["dancers"].items() if dd.get("hired")]
+                if hired_keys:
+                    dk = random.choice(hired_keys)
+                    eligible = [d for d in POLE_STUDIO_DEMANDS
+                                if d["dancer"] == dk
+                                and d["key"] not in [ad["key"] for ad in ps["active_demands"]]
+                                and d["key"] not in ps.get("fulfilled_demands", [])]
+                    if eligible:
+                        spec = random.choice(eligible)
+                        ps["active_demands"].append({
+                            "key": spec["key"],
+                            "dancer": dk,
+                            "days_left": spec["deadline"],
+                        })
+                        events.append({"prop": "Brass Pole Fitness Studio",
+                                       "text": f"{POLE_STUDIO_DANCERS[dk]['name']} has a new demand.",
+                                       "type": "warning", "category": "business"})
+
+            # Grip spray required to run
+            if ps.get("grip_spray_days", 0) <= 0:
+                ps["atmosphere"] = max(0, ps.get("atmosphere", 50) - 10)
+                continue
+            ps["grip_spray_days"] -= 1
+
+            # Mood decay per dancer
+            for dk, dd in ps["dancers"].items():
+                if dd.get("hired") and dk != "gary":
+                    dd["mood"] = max(0, dd.get("mood", 72) - POLE_STUDIO_DANCERS[dk]["mood_decay"])
+
+            # Count active working poles with hired dancers
+            working_poles = [
+                pole for i, pole in enumerate(poles)
+                if not pole.get("broken")
+                and list(ps["dancers"].values())[i if i < len(ps["dancers"]) else 0].get("hired", False)
+            ]
+            hired_dancers = [dd for dd in ps["dancers"].values() if dd.get("hired")]
+            active_count  = min(len(working_poles), len(hired_dancers))
+            if active_count == 0:
+                continue
+
+            # Base income per active dancer-pole pair
+            income = 0
+            for i, dd in enumerate([dd for dd in ps["dancers"].values() if dd.get("hired")]):
+                dk_key = [k for k, v in ps["dancers"].items() if v is dd][0]
+                base   = POLE_STUDIO_DANCERS[dk_key]["base_income"]
+                # Mood multiplier: 0.5 at 0% → 1.3 at 100%
+                mood_m = 0.5 + dd.get("mood", 50) / 100 * 0.8
+                # LED halo upgrade on matched pole
+                pole_i = list(ps["dancers"].keys()).index(dk_key)
+                led_m  = 1.2 if (pole_i < len(poles) and poles[pole_i].get("upgrades", {}).get("led_halo")) else 1.0
+                grip_m = 1.1 if (pole_i < len(poles) and poles[pole_i].get("upgrades", {}).get("grip_coating")) else 1.0
+                income += round(base * mood_m * led_m * grip_m)
+
+            # Atmosphere + cleanliness multipliers
+            atm_m = 0.5 + ps.get("atmosphere", 100) / 100 * 0.7
+            cln_m = 0.6 + ps.get("cleanliness", 100) / 100 * 0.5
+            income = round(income * atm_m * cln_m)
+
+            # Reputation multiplier (0-100 → 0.7x–1.5x)
+            rep_m  = 0.7 + ps.get("reputation", 0) / 100 * 0.8
+            income = round(income * rep_m)
+
+            # Members multiplier
+            mem_m  = 1.0 + ps.get("members", 0) / 100 * 0.5
+            income = round(income * mem_m)
+
+            # CostPro supply bonuses
+            if ps.get("protein_shake_days", 0) > 0:
+                income = round(income * 1.25)
+                ps["protein_shake_days"] -= 1
+            if ps.get("merch_days", 0) > 0:
+                income = round(income * 1.20)
+                ps["merch_days"] -= 1
+
+            # Random event (5% per day)
+            if random.random() < 0.05:
+                evt    = random.choice(POLE_STUDIO_EVENTS)
+                effect = evt["effect"]
+                val    = evt["value"]
+                if effect == "members":
+                    ps["members"] = max(0, min(100, ps.get("members", 0) + int(val)))
+                elif effect == "reputation":
+                    ps["reputation"] = max(0, min(100, ps.get("reputation", 0) + int(val)))
+                elif effect == "income":
+                    income = max(0, income + int(val))
+                elif effect == "income_mult":
+                    income = max(0, round(income * (1 + val)))
+                elif effect == "atmosphere":
+                    ps["atmosphere"] = max(0, min(100, ps.get("atmosphere", 100) + int(val)))
+                elif effect == "cleanliness":
+                    ps["cleanliness"] = max(0, min(100, ps.get("cleanliness", 100) + int(val)))
+                elif effect == "break_pole":
+                    working_ps = [p for p in poles if not p.get("broken")]
+                    if working_ps:
+                        random.choice(working_ps)["broken"] = True
+                events.append({
+                    "prop":     "Brass Pole Fitness Studio",
+                    "text":     evt["text"],
+                    "type":     evt["type"],
+                    "category": "business",
+                })
+
+            # Reputation and members slow drift
+            if random.random() < 0.30:
+                ps["reputation"] = min(100, ps.get("reputation", 0) + 1)
+            if random.random() < 0.25:
+                ps["members"] = min(100, ps.get("members", 0) + 1)
+            # Small decay when reputation is high (harder to maintain)
+            if ps.get("reputation", 0) > 70 and random.random() < 0.20:
+                ps["reputation"] = max(0, ps["reputation"] - 1)
+
+            s["cash"]          += income
+            ps["total_earned"]  = ps.get("total_earned", 0) + income
+
+        s["pole_studio"] = ps
+
     # Build rent summary events
     for pid, rs in rent_log.items():
         if rs["collected"] > 0 or rs["missed"] > 0:
@@ -4071,6 +4608,20 @@ def api_costpro_buy():
         elif key == "sheets":
             lm["sheets_days"] = lm.get("sheets_days", 0) + 10 * qty
         s["laundromat"] = lm
+    elif item.get("category") == "pole_studio":
+        ps = s.get("pole_studio")
+        if not ps:
+            s["cash"] += total
+            return jsonify({"error": "You don't own the Brass Pole Fitness Studio yet!"}), 400
+        has_grip_coat = any(p.get("upgrades", {}).get("grip_coating") for p in ps.get("poles", []))
+        if key == "grip_spray":
+            days_per_case = 10 if has_grip_coat else 7
+            ps["grip_spray_days"] = ps.get("grip_spray_days", 0) + days_per_case * qty
+        elif key == "protein_shakes":
+            ps["protein_shake_days"] = ps.get("protein_shake_days", 0) + 10 * qty
+        elif key == "branded_merch":
+            ps["merch_days"] = ps.get("merch_days", 0) + 10 * qty
+        s["pole_studio"] = ps
     else:
         inv     = s.setdefault("costpro_inventory", {})
         inv[key] = inv.get(key, 0) + qty
@@ -4264,6 +4815,287 @@ def api_laundromat_insurance():
         "text": f"Laundromat insurance {'activated ($400/week)' if lm['insurance'] else 'cancelled'}."})
     save(s)
     return jsonify({"success": True, "insurance": lm["insurance"]})
+
+@app.route('/api/pole_studio/buy', methods=['POST'])
+def api_pole_studio_buy():
+    s = load()
+    if s.get("pole_studio") and s["pole_studio"].get("owned"):
+        return jsonify({"error": "Already owned"}), 400
+    if s.get("level", 0) < POLE_STUDIO_UNLOCK_LEVEL:
+        return jsonify({"error": f"Requires Level {POLE_STUDIO_UNLOCK_LEVEL}"}), 400
+    if s["cash"] < POLE_STUDIO_PRICE:
+        return jsonify({"error": "Not enough cash"}), 400
+    s["cash"] -= POLE_STUDIO_PRICE
+    s["pole_studio"] = {
+        "owned": True, "pole_count": POLE_STUDIO_START_POLES,
+        "poles": [{"id": i, "upgrades": {}, "broken": False}
+                  for i in range(POLE_STUDIO_START_POLES)],
+        "dancers": {k: _pole_studio_dancer_state(k) for k in POLE_STUDIO_DANCERS},
+        "staff": {"vibe_manager": False, "studio_cleaner": False},
+        "atmosphere": 80, "cleanliness": 90, "reputation": 10, "members": 0,
+        "grip_spray_days": 0, "protein_shake_days": 0, "merch_days": 0,
+        "insurance": False, "insurance_days": 7,
+        "active_demands": [], "fulfilled_demands": [], "total_earned": 0,
+    }
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": "Brass Pole Fitness Studio acquired. The poles are chrome. The vibe is immaculate."})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/pole_studio/buy_pole', methods=['POST'])
+def api_pole_studio_buy_pole():
+    s  = load()
+    ps = s.get("pole_studio")
+    if not ps or not ps.get("owned"):
+        return jsonify({"error": "No studio"}), 400
+    pc = ps.get("pole_count", POLE_STUDIO_START_POLES)
+    if pc >= POLE_STUDIO_MAX_POLES:
+        return jsonify({"error": "Max poles reached"}), 400
+    dancers     = ps.get("dancers", {})
+    hired_count = sum(1 for dd in dancers.values() if dd.get("hired"))
+    if hired_count < pc:
+        return jsonify({"error": "Hire a dancer for the current pole before building another."}), 400
+    price = POLE_STUDIO_POLE_PRICES[pc]
+    if s["cash"] < price:
+        return jsonify({"error": "Not enough cash"}), 400
+    s["cash"] -= price
+    ps["pole_count"] = pc + 1
+    ps.setdefault("poles", []).append({"id": pc, "upgrades": {}, "broken": False})
+    s["log"].insert(0, {"day": s["day"], "type": "neutral",
+        "text": f"New pole installed (#{pc + 1}). Ready for a dancer."})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/pole_studio/hire_dancer', methods=['POST'])
+def api_pole_studio_hire_dancer():
+    s    = load()
+    ps   = s.get("pole_studio")
+    data = request.get_json(silent=True) or {}
+    dk   = data.get("dancer")
+    if not ps or not ps.get("owned"):
+        return jsonify({"error": "No studio"}), 400
+    if dk not in POLE_STUDIO_DANCERS:
+        return jsonify({"error": "Unknown dancer"}), 400
+    dancers = ps.setdefault("dancers", {k: _pole_studio_dancer_state(k) for k in POLE_STUDIO_DANCERS})
+    if dancers[dk].get("hired"):
+        return jsonify({"error": "Already hired"}), 400
+    hired_count = sum(1 for dd in dancers.values() if dd.get("hired"))
+    if hired_count >= ps.get("pole_count", POLE_STUDIO_START_POLES):
+        return jsonify({"error": "Build another pole first"}), 400
+    dancers[dk]["hired"] = True
+    dancers[dk]["mood"]  = POLE_STUDIO_DANCERS[dk]["mood_start"]
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"{POLE_STUDIO_DANCERS[dk]['name']} {POLE_STUDIO_DANCERS[dk]['icon']} joins the studio."})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/pole_studio/fire_dancer', methods=['POST'])
+def api_pole_studio_fire_dancer():
+    s    = load()
+    ps   = s.get("pole_studio")
+    data = request.get_json(silent=True) or {}
+    dk   = data.get("dancer")
+    if not ps or not ps.get("owned"):
+        return jsonify({"error": "No studio"}), 400
+    dancers = ps.setdefault("dancers", {})
+    if not dancers.get(dk, {}).get("hired"):
+        return jsonify({"error": "Not hired"}), 400
+    dancers[dk]["hired"] = False
+    s["log"].insert(0, {"day": s["day"], "type": "neutral",
+        "text": f"{POLE_STUDIO_DANCERS[dk]['name']} has left the studio."})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/pole_studio/clean', methods=['POST'])
+def api_pole_studio_clean():
+    s  = load()
+    ps = s.get("pole_studio")
+    if not ps or not ps.get("owned"):
+        return jsonify({"error": "No studio"}), 400
+    energy = s.get("energy", 0)
+    if energy < POLE_STUDIO_CLEAN_ENERGY:
+        return jsonify({"error": "Not enough energy"}), 400
+    if s["cash"] < POLE_STUDIO_CLEAN_COST:
+        return jsonify({"error": "Not enough cash"}), 400
+    s["energy"] = energy - POLE_STUDIO_CLEAN_ENERGY
+    s["cash"]   = s["cash"] - POLE_STUDIO_CLEAN_COST
+    ps["cleanliness"] = min(100, ps.get("cleanliness", 0) + 40)
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": "Studio cleaned. The floors shine. Gary notices."})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/pole_studio/pep_talk', methods=['POST'])
+def api_pole_studio_pep_talk():
+    s    = load()
+    ps   = s.get("pole_studio")
+    data = request.get_json(silent=True) or {}
+    dk   = data.get("dancer")
+    if not ps or not ps.get("owned"):
+        return jsonify({"error": "No studio"}), 400
+    energy = s.get("energy", 0)
+    if energy < POLE_STUDIO_PEP_ENERGY:
+        return jsonify({"error": "Not enough energy"}), 400
+    dancers = ps.setdefault("dancers", {})
+    if dk and dk != "gary" and dancers.get(dk, {}).get("hired"):
+        last_pep = dancers[dk].get("pep_day", -1)
+        if last_pep == s["day"]:
+            return jsonify({"error": f"Already gave {POLE_STUDIO_DANCERS[dk]['name']} a pep talk today."}), 400
+        s["energy"] = energy - POLE_STUDIO_PEP_ENERGY
+        dancers[dk]["mood"]    = min(100, dancers[dk].get("mood", 50) + POLE_STUDIO_PEP_MOOD)
+        dancers[dk]["pep_day"] = s["day"]
+        name = POLE_STUDIO_DANCERS[dk]["name"]
+        s["log"].insert(0, {"day": s["day"], "type": "positive",
+            "text": f"Pep talk with {name}. Mood improved."})
+        save(s)
+        return jsonify({"success": True})
+    return jsonify({"error": "Invalid dancer"}), 400
+
+@app.route('/api/pole_studio/team_coffee', methods=['POST'])
+def api_pole_studio_team_coffee():
+    s  = load()
+    ps = s.get("pole_studio")
+    if not ps or not ps.get("owned"):
+        return jsonify({"error": "No studio"}), 400
+    last_coffee = ps.get("last_coffee_day", -999)
+    if s["day"] - last_coffee < 7:
+        days_left = 7 - (s["day"] - last_coffee)
+        return jsonify({"error": f"Team coffee is on cooldown — {days_left} day(s) left."}), 400
+    if s["cash"] < POLE_STUDIO_COFFEE_COST:
+        return jsonify({"error": "Not enough cash"}), 400
+    s["cash"] -= POLE_STUDIO_COFFEE_COST
+    ps["last_coffee_day"] = s["day"]
+    dancers   = ps.setdefault("dancers", {})
+    boosted   = 0
+    for dk, dd in dancers.items():
+        if dd.get("hired") and dk != "gary":
+            dd["mood"] = min(100, dd.get("mood", 50) + POLE_STUDIO_COFFEE_MOOD)
+            boosted += 1
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"Team coffee! {boosted} dancer(s) felt the appreciation."})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/pole_studio/resolve_demand', methods=['POST'])
+def api_pole_studio_resolve_demand():
+    s    = load()
+    ps   = s.get("pole_studio")
+    data = request.get_json(silent=True) or {}
+    key  = data.get("key")
+    action = data.get("action", "accept")  # "accept" or "reject"
+    if not ps or not ps.get("owned"):
+        return jsonify({"error": "No studio"}), 400
+    spec = next((d for d in POLE_STUDIO_DEMANDS if d["key"] == key), None)
+    if not spec:
+        return jsonify({"error": "Unknown demand"}), 400
+    effects = spec["accept"] if action == "accept" else spec["reject"]
+    dk = spec["dancer"]
+    _apply_demand_effects(s, ps, effects, dk)
+    if effects.get("quit") and ps["dancers"].get(dk, {}).get("hired"):
+        ps["dancers"][dk]["hired"] = False
+        events_msg = f"{POLE_STUDIO_DANCERS[dk]['name']} has left the studio."
+    else:
+        events_msg = spec["accept_note"] if action == "accept" else spec["reject_note"]
+    # Remove from active demands
+    ps["active_demands"] = [d for d in ps.get("active_demands", []) if d["key"] != key]
+    ps.setdefault("fulfilled_demands", []).append(key)
+    s["log"].insert(0, {"day": s["day"], "type": "positive" if action == "accept" else "neutral",
+        "text": events_msg})
+    save(s)
+    return jsonify({"success": True, "msg": events_msg})
+
+@app.route('/api/pole_studio/upgrade_pole', methods=['POST'])
+def api_pole_studio_upgrade_pole():
+    s    = load()
+    ps   = s.get("pole_studio")
+    data = request.get_json(silent=True) or {}
+    pole_idx = data.get("pole_idx", 0)
+    upg      = data.get("upgrade")
+    if not ps or not ps.get("owned"):
+        return jsonify({"error": "No studio"}), 400
+    if upg not in POLE_STUDIO_UPGRADES:
+        return jsonify({"error": "Unknown upgrade"}), 400
+    poles = ps.setdefault("poles", [])
+    if pole_idx >= len(poles):
+        return jsonify({"error": "Invalid pole"}), 400
+    cost = POLE_STUDIO_UPGRADES[upg]["cost"]
+    if s["cash"] < cost:
+        return jsonify({"error": "Not enough cash"}), 400
+    s["cash"] -= cost
+    poles[pole_idx].setdefault("upgrades", {})[upg] = True
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"Pole #{pole_idx + 1} upgraded: {POLE_STUDIO_UPGRADES[upg]['name']}."})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/pole_studio/repair_pole', methods=['POST'])
+def api_pole_studio_repair_pole():
+    s    = load()
+    ps   = s.get("pole_studio")
+    data = request.get_json(silent=True) or {}
+    pole_idx = data.get("pole_idx", 0)
+    if not ps or not ps.get("owned"):
+        return jsonify({"error": "No studio"}), 400
+    poles = ps.setdefault("poles", [])
+    if pole_idx >= len(poles) or not poles[pole_idx].get("broken"):
+        return jsonify({"error": "Pole not broken"}), 400
+    repair_cost = 0 if ps.get("insurance") else POLE_STUDIO_REPAIR_COST
+    if s["cash"] < repair_cost:
+        return jsonify({"error": "Not enough cash"}), 400
+    s["cash"] -= repair_cost
+    poles[pole_idx]["broken"] = False
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"Pole #{pole_idx + 1} repaired and ready."})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/pole_studio/hire_staff', methods=['POST'])
+def api_pole_studio_hire_staff():
+    s    = load()
+    ps   = s.get("pole_studio")
+    data = request.get_json(silent=True) or {}
+    role = data.get("role")
+    if not ps or not ps.get("owned"):
+        return jsonify({"error": "No studio"}), 400
+    if role not in POLE_STUDIO_STAFF:
+        return jsonify({"error": "Unknown role"}), 400
+    staff = ps.setdefault("staff", {})
+    if staff.get(role):
+        return jsonify({"error": "Already hired"}), 400
+    staff[role] = True
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"{POLE_STUDIO_STAFF[role]['name']} hired."})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/pole_studio/fire_staff', methods=['POST'])
+def api_pole_studio_fire_staff():
+    s    = load()
+    ps   = s.get("pole_studio")
+    data = request.get_json(silent=True) or {}
+    role = data.get("role")
+    if not ps or not ps.get("owned"):
+        return jsonify({"error": "No studio"}), 400
+    staff = ps.setdefault("staff", {})
+    staff[role] = False
+    s["log"].insert(0, {"day": s["day"], "type": "neutral",
+        "text": f"{POLE_STUDIO_STAFF[role]['name']} let go."})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/pole_studio/insurance', methods=['POST'])
+def api_pole_studio_insurance():
+    s  = load()
+    ps = s.get("pole_studio")
+    if not ps:
+        return jsonify({"error": "No studio"}), 400
+    ps["insurance"] = not ps.get("insurance", False)
+    if ps["insurance"]:
+        ps["insurance_days"] = 7
+    s["log"].insert(0, {"day": s["day"], "type": "neutral",
+        "text": f"Studio insurance {'activated ($500/week)' if ps['insurance'] else 'cancelled'}."})
+    save(s)
+    return jsonify({"success": True, "insurance": ps["insurance"]})
 
 @app.route('/api/reset', methods=['POST'])
 def api_reset():

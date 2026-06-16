@@ -2860,3 +2860,23 @@ img[src*="/static/icons/"] {
   transform: rotate(-10deg);
   display: inline-block;
 }
+
+/* ── Brass Pole Fitness Studio ───────────────────────────────────────────── */
+@keyframes poleShimmer {
+  0%   { filter: brightness(1);   }
+  50%  { filter: brightness(1.4); }
+  100% { filter: brightness(1);   }
+}
+@keyframes poleFloat {
+  0%   { transform: translateY(0px);   }
+  50%  { transform: translateY(-3px);  }
+  100% { transform: translateY(0px);   }
+}
+.ps-pole-active {
+  animation: poleShimmer 2s ease-in-out infinite;
+  display: inline-block;
+}
+.ps-dancer-idle {
+  animation: poleFloat 3s ease-in-out infinite;
+  display: inline-block;
+}
