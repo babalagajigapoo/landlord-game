@@ -704,7 +704,7 @@ function navTo(page) {
   if (page === 'personal')   renderPersonal();
   if (page === 'business')   renderBusiness();
   if (page === 'store')      renderStore();
-  if (page === 'properties') { renderProperties(); if (_currentPropTab === 'newbuilds') renderNewBuilds(); }
+  if (page === 'properties') { renderProperties(); if (_currentPropTab === 'newbuilds') renderNewBuilds(); if (_currentPropTab === 'commercial') renderCommercial(); }
 }
 
 // ── Render All ────────────────────────────────────────────────────────────────
@@ -712,7 +712,8 @@ function renderAll() {
   renderDashboard();
   renderMarket();
   renderProperties();
-  if (_currentPropTab === 'newbuilds') renderNewBuilds();
+  if (_currentPropTab === 'newbuilds')  renderNewBuilds();
+  if (_currentPropTab === 'commercial') renderCommercial();
   if (currentPage === 'settings')  renderSettings();
   if (currentPage === 'finances')  renderFinances();
   if (currentPage === 'personal')  renderPersonal();
@@ -1001,37 +1002,14 @@ function renderProperties() {
   const el = document.getElementById('property-list');
   if (!el) return;
 
-  const residential  = (state.properties || []).filter(p => !p.commercial);
-  const commercial   = (state.properties || []).filter(p =>  p.commercial);
+  const residential = (state.properties || []).filter(p => !p.commercial);
 
-  if (residential.length === 0 && commercial.length === 0) {
+  if (residential.length === 0) {
     el.innerHTML = `<div class="empty-state">
       <div class="empty-icon">${pxIcon('🏗️', 48)}</div>
       <div class="empty-text">No rental properties yet</div>
       <div class="empty-sub">Head to the Market tab to buy your first property</div>
     </div>`;
-    return;
-  }
-
-  // Commercial section at top
-  let commercialSection = '';
-  if (commercial.length > 0) {
-    const isOpen = _propHoodOpen['Commerce Row'] !== false;
-    commercialSection = `
-    <div class="hood-section">
-      <div class="hood-header" onclick="toggleHoodSection('Commerce Row')">
-        <span class="hood-name">${pxIcon('🏙️', 16)} Commerce Row</span>
-        <div style="display:flex;align-items:center;gap:8px">
-          <span style="font-size:11px;color:var(--text-muted)">${commercial.length} building${commercial.length !== 1 ? 's' : ''}</span>
-          <span class="hood-chevron">${isOpen ? '▲' : '▼'}</span>
-        </div>
-      </div>
-      ${isOpen ? `<div class="hood-props">${commercial.map(p => commercialPortfolioCardHtml(p)).join('')}</div>` : ''}
-    </div>`;
-  }
-
-  if (residential.length === 0) {
-    el.innerHTML = commercialSection;
     return;
   }
 
@@ -1042,7 +1020,7 @@ function renderProperties() {
     byHood[p.neighborhood].push(p);
   });
 
-  el.innerHTML = commercialSection + Object.entries(byHood).map(([hood, props]) => {
+  el.innerHTML = Object.entries(byHood).map(([hood, props]) => {
     const isOpen  = _propHoodOpen[hood] !== false; // default open
     const rented  = props.filter(p =>  p.tenant);
     const vacant  = props.filter(p => !p.tenant);
@@ -1206,14 +1184,39 @@ let _currentPropTab = 'portfolio';
 
 function switchPropTab(tab) {
   _currentPropTab = tab;
-  ['portfolio', 'newbuilds'].forEach(t => {
+  ['portfolio', 'commercial', 'newbuilds'].forEach(t => {
     const el  = document.getElementById('prop-' + t);
     const btn = document.querySelector(`.fin-tab[data-prop-tab="${t}"]`);
     if (el)  el.style.display = t === tab ? '' : 'none';
     if (btn) btn.classList.toggle('active', t === tab);
   });
-  if (tab === 'newbuilds') renderNewBuilds();
-  if (tab === 'portfolio') renderProperties();
+  if (tab === 'newbuilds')  renderNewBuilds();
+  if (tab === 'portfolio')  renderProperties();
+  if (tab === 'commercial') renderCommercial();
+}
+
+function renderCommercial() {
+  const el = document.getElementById('commercial-list');
+  if (!el || !state) return;
+  const buildings = (state.properties || []).filter(p => p.commercial);
+  if (buildings.length === 0) {
+    const level = state.level || 0;
+    if (level < COMMERCE_ROW_UNLOCK_LEVEL) {
+      el.innerHTML = `<div class="empty-state" style="padding:32px 16px;text-align:center">
+        <div style="font-size:48px;margin-bottom:12px">${pxIcon('🔒', 48)}</div>
+        <div style="font-size:15px;font-weight:800;margin-bottom:6px">Unlocks at Level ${COMMERCE_ROW_UNLOCK_LEVEL}</div>
+        <div style="font-size:12px;color:var(--text-muted)">Buy Strip Malls, Office Buildings, and Mixed-Use properties in Commerce Row.</div>
+      </div>`;
+    } else {
+      el.innerHTML = `<div class="empty-state" style="padding:32px 16px;text-align:center">
+        <div style="font-size:48px;margin-bottom:12px">${pxIcon('🏙️', 48)}</div>
+        <div style="font-size:15px;font-weight:800;margin-bottom:6px">No commercial properties yet</div>
+        <div style="font-size:12px;color:var(--text-muted)">Head to the Market tab to buy a Strip Mall, Office Building, or Mixed-Use Building.</div>
+      </div>`;
+    }
+    return;
+  }
+  el.innerHTML = buildings.map(p => commercialPortfolioCardHtml(p)).join('');
 }
 
 function renderNewBuilds() {
