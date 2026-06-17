@@ -157,7 +157,8 @@ function starterSquatterActive() {
 function firstSaleDone() {
   return (state?.level || 0) >= 1;
 }
-let marketListings  = [];
+let marketListings      = [];
+let commercialListings  = [];
 let marketHoodOpen  = {};   // tracks which hood sections are expanded; undefined = open
 let currentFinTab   = 'bank'; // active sub-tab inside Finances
 let currentPage     = 'dashboard';
@@ -175,7 +176,22 @@ const HOOD_TIERS = {
   'Cedarvale Estates': 'premium',
 };
 
-const NEW_BUILDS_UNLOCK_LEVEL = 9;
+const NEW_BUILDS_UNLOCK_LEVEL    = 9;
+const COMMERCE_ROW_UNLOCK_LEVEL  = 11;
+
+const COMMERCIAL_TYPES_DATA = {
+  strip_mall:      { name: 'Strip Mall',          icon: '🏪', unit_count: 4, price: 950000,   overhead: 2500, sqft: 8000,  desc: 'Four retail-facing storefronts. High traffic, high turnover.' },
+  office_building: { name: 'Office Building',     icon: '🏢', unit_count: 3, price: 1400000,  overhead: 3500, sqft: 12000, desc: 'Professional tenants, longer leases, quieter events.' },
+  mixed_use:       { name: 'Mixed-Use Building',  icon: '🏬', unit_count: 5, price: 1800000,  overhead: 4000, sqft: 18000, desc: 'Three commercial floors and two upper-level office suites.' },
+};
+
+const BUSINESS_TENANT_DATA = {
+  restaurant: { name: 'Restaurant',  icon: '🍽️', monthly_rent: 8500,  lease_days: 56,  desc: 'High traffic. Great rent but inspections are common.' },
+  retail:     { name: 'Retail Shop', icon: '🛍️', monthly_rent: 5500,  lease_days: 28,  desc: 'Short leases, decent income.' },
+  law_office: { name: 'Law Office',  icon: '⚖️', monthly_rent: 9000,  lease_days: 112, desc: 'Quiet, long-term, pays well.' },
+  salon:      { name: 'Salon',       icon: '💈', monthly_rent: 6000,  lease_days: 56,  desc: 'Steady income, reasonable events.' },
+  gym:        { name: 'Gym',         icon: '🏋️', monthly_rent: 11000, lease_days: 84,  desc: 'Highest rent, but heavy wear.' },
+};
 
 const BUILD_CREWS_DATA = {
   handys:   { name: "Handy's Crew",      icon: '🔨', buy_cost:  15000, daily_rate:  400, speed_mult: 1.00, desc: "Small local crew. Reliable, affordable. Best value on small builds." },
@@ -217,8 +233,9 @@ let _pendingLevelUp       = null;  // new level number waiting to be shown after
 let _pendingRepairs       = [];   // repair events queued after advancing
 let _currentRepair        = null; // repair being handled right now
 let _pendingJob           = null; // side job being played
-let _pendingSquatter      = null; // squatter event queued after repairs
-let _pendingMoraleEvents  = [];   // morale-choice events queued after repairs
+let _pendingSquatter         = null; // squatter event queued after repairs
+let _pendingMoraleEvents     = [];   // morale-choice events queued after repairs
+let _pendingCommercialEvents = [];   // commercial events (lease renewals, inspections, subletting)
 let _pendingRenewalOffers = [];   // lease renewal offers queued after advancing
 let _pendingTaxEvent      = null; // tax-due event queued after advancing
 
@@ -481,8 +498,9 @@ async function refreshState() {
 }
 
 async function loadMarket() {
-  const data     = await api('/market');
-  marketListings = data.listings;
+  const data      = await api('/market');
+  marketListings  = data.listings || [];
+  commercialListings = data.commercial_listings || [];
 }
 
 // ── Header ────────────────────────────────────────────────────────────────────
@@ -568,8 +586,8 @@ const LEVEL_UNLOCKS = {
         unlocks: ["🏛️ Luxury Villa available in Personal → Homes ($750,000)", "🏗️ New Builds unlocked — build homes from scratch in Cedarvale Estates (buy a permit in Personal → New Builds)"] },
   10: { joke: "Double digits. Gerald can already smell the ambition from here.",
         unlocks: ["📈 Endgame territory — maximize every income stream", "🚗 Speedy Suds Car Wash unlocked in Business tab"] },
-  11: { joke: "The Mansion is one level away. Try not to trip over your own net worth.",
-        unlocks: ["📈 Almost there — one more push for the Mansion"] },
+  11: { joke: "Strip malls, office buildings, and gyms. Your empire just went corporate.",
+        unlocks: ["🏙️ Commerce Row unlocked — buy commercial properties in the Market (Strip Malls, Office Buildings, Mixed-Use Buildings)", "📈 Commercial tenants pay monthly: Restaurants $8,500, Law Offices $9,000, Gyms $11,000"] },
   12: { joke: "There's a room in the Mansion you've never entered. Gerald has been living there.",
         unlocks: ["🏰 Mansion available in Personal → Homes ($1,500,000)"] },
   13: { joke: "Thirteen. The city is basically yours at this point. Don't tell the tenants.",
@@ -806,7 +824,53 @@ function renderMarket() {
         ${isOpen ? `<div class="market-hood-body">${cards}</div>` : ''}
       </div>`;
   }).join('');
-  el.innerHTML = sections;
+  // Commerce Row commercial section
+  let commerceHtml = '';
+  const level = (state && state.level) || 0;
+  if (level >= COMMERCE_ROW_UNLOCK_LEVEL) {
+    if (commercialListings.length === 0) {
+      commerceHtml = `
+        <div class="market-hood-section">
+          <div class="market-hood-header badge-commercial">
+            <span class="market-hood-emoji">${pxIcon('🏙️', 32)}</span>
+            <div>
+              <div class="market-hood-name">Commerce Row</div>
+              <div class="market-hood-desc">The city's commercial and business core</div>
+            </div>
+            <span class="market-hood-count">Sold out</span>
+          </div>
+          <div class="market-hood-body"><div class="hood-empty" style="padding:14px">All commercial buildings sold — advance time to refresh.</div></div>
+        </div>`;
+    } else {
+      const cards = commercialListings.map(p => commercialMarketCardHtml(p)).join('');
+      commerceHtml = `
+        <div class="market-hood-section">
+          <div class="market-hood-header badge-commercial">
+            <span class="market-hood-emoji">${pxIcon('🏙️', 32)}</span>
+            <div>
+              <div class="market-hood-name">Commerce Row</div>
+              <div class="market-hood-desc">The city's commercial and business core</div>
+            </div>
+            <span class="market-hood-count">${commercialListings.length} building${commercialListings.length !== 1 ? 's' : ''}</span>
+          </div>
+          <div class="market-hood-body">${cards}</div>
+        </div>`;
+    }
+  } else {
+    commerceHtml = `
+      <div class="market-hood-section">
+        <div class="market-hood-header badge-commercial" style="opacity:0.6">
+          <span class="market-hood-emoji">${pxIcon('🔒', 32)}</span>
+          <div>
+            <div class="market-hood-name">Commerce Row</div>
+            <div class="market-hood-desc">Commercial properties — Strip Malls, Office Buildings &amp; more</div>
+          </div>
+          <span class="market-hood-count" style="font-size:11px">Level ${COMMERCE_ROW_UNLOCK_LEVEL}</span>
+        </div>
+      </div>`;
+  }
+
+  el.innerHTML = sections + commerceHtml;
 }
 
 function toggleMarketHood(hood) {
@@ -872,9 +936,66 @@ async function buyProperty(id) {
   );
 }
 
+function commercialMarketCardHtml(p) {
+  const ct         = COMMERCIAL_TYPES_DATA[p.type] || {};
+  const canAfford  = p.purchase_price <= (state ? state.cash : 0);
+  const maxRent    = p.units.reduce((sum, _) => sum + Math.max(...Object.values(BUSINESS_TENANT_DATA).map(b => b.monthly_rent)), 0);
+  const minOverhead = ct.overhead || 0;
+  const condPct_   = Math.min(100, Math.round((p.condition / 250) * 100));
+  return `
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon">${pxIcon(ct.icon || '🏢')}</div>
+      <div style="flex:1">
+        <div class="card-title">${p.address}</div>
+        <div class="card-subtitle">${ct.name} · ${(p.sqft || 0).toLocaleString()} sqft · ${ct.unit_count} units</div>
+      </div>
+    </div>
+    <div class="condition-wrap">
+      <div class="condition-top">
+        <span class="condition-lbl">Condition</span>
+        <span class="condition-val" style="color:${tierColor(condTier(p.condition))};font-weight:900">${condTier(p.condition)} Tier</span>
+      </div>
+      <div class="condition-bar"><div class="condition-fill ${condClass(p.condition)}" style="width:${condPct_}%"></div></div>
+    </div>
+    <div class="money-row"><span class="mr-label">Asking Price</span><span class="mr-value">${fmt(p.purchase_price)}</span></div>
+    <div class="money-row"><span class="mr-label">Monthly Overhead</span><span class="mr-value" style="color:var(--negative)">−${fmt(minOverhead)}/mo</span></div>
+    <div class="money-row"><span class="mr-label">Max Monthly Income</span><span class="mr-value green">up to ${fmt(maxRent)}/mo (fully leased)</span></div>
+    <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px">
+      ${Object.values(BUSINESS_TENANT_DATA).map(b => `<span style="background:var(--surface2);border-radius:4px;padding:2px 7px;font-size:11px">${b.icon} ${b.name} ${fmt(b.monthly_rent)}/mo</span>`).join('')}
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-top:12px">
+      <button class="btn btn-primary btn-sm" onclick="buyCommercial(${p.id})" ${!canAfford ? 'disabled style="opacity:0.4"' : ''}>
+        Buy ${fmt(p.purchase_price)}
+      </button>
+    </div>
+  </div>`;
+}
+
+async function buyCommercial(id) {
+  const listing = commercialListings.find(p => p.id === id);
+  if (!listing) return;
+  if (listing.purchase_price > state.cash) { toast('Not enough cash!', 'error'); return; }
+  const ct = COMMERCIAL_TYPES_DATA[listing.type] || {};
+  showConfirmModal(
+    `Buy ${ct.name}?`,
+    `${listing.address} · ${fmt(listing.purchase_price)}`,
+    async () => {
+      const res = await api('/commercial/buy', 'POST', { listing_id: id });
+      if (res.error) { toast(res.error, 'error'); return; }
+      closeModal();
+      toast(`Purchased ${ct.name} on ${listing.address}!`, 'success');
+      commercialListings = commercialListings.filter(p => p.id !== id);
+      await refreshState();
+      renderAll();
+    }
+  );
+}
+
 async function refreshMarketListings() {
   const data = await api('/market/refresh', 'POST');
-  marketListings = data.listings || [];
+  marketListings     = data.listings || [];
+  commercialListings = data.commercial_listings || [];
   renderMarket();
 }
 
@@ -882,7 +1003,11 @@ async function refreshMarketListings() {
 function renderProperties() {
   const el = document.getElementById('property-list');
   if (!el) return;
-  if (!state.properties || state.properties.length === 0) {
+
+  const residential  = (state.properties || []).filter(p => !p.commercial);
+  const commercial   = (state.properties || []).filter(p =>  p.commercial);
+
+  if (residential.length === 0 && commercial.length === 0) {
     el.innerHTML = `<div class="empty-state">
       <div class="empty-icon">${pxIcon('🏗️', 48)}</div>
       <div class="empty-text">No rental properties yet</div>
@@ -891,14 +1016,36 @@ function renderProperties() {
     return;
   }
 
+  // Commercial section at top
+  let commercialSection = '';
+  if (commercial.length > 0) {
+    const isOpen = _propHoodOpen['Commerce Row'] !== false;
+    commercialSection = `
+    <div class="hood-section">
+      <div class="hood-header" onclick="toggleHoodSection('Commerce Row')">
+        <span class="hood-name">${pxIcon('🏙️', 16)} Commerce Row</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:11px;color:var(--text-muted)">${commercial.length} building${commercial.length !== 1 ? 's' : ''}</span>
+          <span class="hood-chevron">${isOpen ? '▲' : '▼'}</span>
+        </div>
+      </div>
+      ${isOpen ? `<div class="hood-props">${commercial.map(p => commercialPortfolioCardHtml(p)).join('')}</div>` : ''}
+    </div>`;
+  }
+
+  if (residential.length === 0) {
+    el.innerHTML = commercialSection;
+    return;
+  }
+
   // Group by neighborhood
   const byHood = {};
-  state.properties.forEach(p => {
+  residential.forEach(p => {
     if (!byHood[p.neighborhood]) byHood[p.neighborhood] = [];
     byHood[p.neighborhood].push(p);
   });
 
-  el.innerHTML = Object.entries(byHood).map(([hood, props]) => {
+  el.innerHTML = commercialSection + Object.entries(byHood).map(([hood, props]) => {
     const isOpen  = _propHoodOpen[hood] !== false; // default open
     const rented  = props.filter(p =>  p.tenant);
     const vacant  = props.filter(p => !p.tenant);
@@ -933,6 +1080,119 @@ function renderProperties() {
       </div>` : ''}
     </div>`;
   }).join('');
+}
+
+function commercialPortfolioCardHtml(p) {
+  const ct          = COMMERCIAL_TYPES_DATA[p.type] || {};
+  const condPct_    = Math.min(100, Math.round((p.condition / 250) * 100));
+  const totalRent   = p.units.reduce((s, u) => s + (u.monthly_rent || 0), 0);
+  const occupied    = p.units.filter(u => u.business_type).length;
+  const unitRows    = p.units.map(u => {
+    const bt = u.business_type ? (BUSINESS_TENANT_DATA[u.business_type] || {}) : null;
+    if (u.renewal_pending) {
+      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);gap:8px">
+        <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0">
+          <span style="font-size:16px">${bt ? bt.icon : '🏢'}</span>
+          <div style="min-width:0">
+            <div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${u.tenant_name}</div>
+            <div style="font-size:10px;color:var(--warning)">⏰ Lease renewal pending</div>
+          </div>
+        </div>
+        <span style="font-size:11px;color:var(--text-muted);white-space:nowrap">${fmt(u.monthly_rent)}/mo</span>
+      </div>`;
+    }
+    if (!bt) {
+      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);gap:8px">
+        <div style="display:flex;align-items:center;gap:6px;flex:1">
+          <span style="font-size:16px">⬜</span>
+          <span style="font-size:12px;color:var(--text-muted);font-style:italic">Vacant unit</span>
+        </div>
+        <button class="btn btn-sm btn-primary" style="font-size:10px;padding:3px 8px" onclick="findCommercialTenant(${p.id},${u.idx})">Find Tenant</button>
+      </div>`;
+    }
+    const leaseLabel = u.lease_days_remaining <= 7
+      ? `<span style="color:var(--warning);font-size:10px">⚠ ${u.lease_days_remaining}d left</span>`
+      : `<span style="font-size:10px;color:var(--text-muted)">${u.lease_days_remaining}d left</span>`;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);gap:8px">
+      <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0">
+        <span style="font-size:16px">${bt.icon}</span>
+        <div style="min-width:0">
+          <div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${u.tenant_name}</div>
+          <div style="font-size:10px;color:var(--text-muted)">${bt.name} · ${leaseLabel}</div>
+        </div>
+      </div>
+      <span style="font-size:11px;font-weight:700;color:var(--positive);white-space:nowrap">${fmt(u.monthly_rent)}/mo</span>
+    </div>`;
+  }).join('');
+
+  return `<div class="card">
+    <div class="card-header">
+      <div class="card-icon">${pxIcon(ct.icon || '🏢')}</div>
+      <div style="flex:1">
+        <div class="card-title">${p.address}</div>
+        <div class="card-subtitle">${ct.name} · ${(p.sqft || 0).toLocaleString()} sqft · ${occupied}/${ct.unit_count} occupied</div>
+      </div>
+    </div>
+    <div class="condition-wrap">
+      <div class="condition-top">
+        <span class="condition-lbl">Building Condition</span>
+        <span class="condition-val" style="color:${tierColor(condTier(p.condition))};font-weight:900">${condTier(p.condition)} Tier</span>
+      </div>
+      <div class="condition-bar"><div class="condition-fill ${condClass(p.condition)}" style="width:${condPct_}%"></div></div>
+    </div>
+    <div class="money-row"><span class="mr-label">Monthly Income</span><span class="mr-value green">${fmt(totalRent)}/mo</span></div>
+    <div class="money-row" style="margin-bottom:10px"><span class="mr-label">Monthly Overhead</span><span class="mr-value" style="color:var(--negative)">−${fmt(ct.overhead || 0)}/mo</span></div>
+    <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:6px">Units</div>
+    ${unitRows}
+  </div>`;
+}
+
+async function findCommercialTenant(pid, unitIdx) {
+  const res = await api(`/commercial/${pid}/get_applicants`, 'POST', { unit_idx: unitIdx });
+  if (res.error) { toast(res.error, 'error'); return; }
+  const apps = res.applicants || [];
+  const rows = apps.map(a => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);gap:10px">
+      <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
+        <span style="font-size:24px">${a.icon}</span>
+        <div style="min-width:0">
+          <div style="font-size:13px;font-weight:800">${a.name}</div>
+          <div style="font-size:11px;color:var(--text-muted)">${a.display_name} · ${Math.round(a.lease_days / 28)} season lease</div>
+          <div style="font-size:11px;color:var(--text-muted)">${a.desc}</div>
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:13px;font-weight:800;color:var(--positive)">${fmt(a.monthly_rent)}/mo</div>
+        <button class="btn btn-primary btn-sm" style="margin-top:4px;font-size:11px" onclick="acceptCommercialTenant(${pid},${unitIdx},'${a.biz_type}','${a.name.replace(/'/g,"\\'")}')"
+        >Accept</button>
+      </div>
+    </div>`).join('');
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">${pxIcon('🏢',18)} Business Applicants</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Select a tenant for this unit</div>
+    ${rows}
+    <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:14px" onclick="closeModal()">Close</button>
+  `);
+}
+
+async function acceptCommercialTenant(pid, unitIdx, bizType, bizName) {
+  const res = await api(`/commercial/${pid}/accept_tenant`, 'POST', { unit_idx: unitIdx, biz_type: bizType, biz_name: bizName });
+  if (res.error) { toast(res.error, 'error'); return; }
+  closeModal();
+  toast(`${bizName} moved in!`, 'success');
+  await refreshState();
+  renderProperties();
+}
+
+async function commercialEventRespond(pid, unitIdx, evType, choice, extraData) {
+  const payload = { prop_id: pid, unit_idx: unitIdx, event_type: evType, choice, ...extraData };
+  const res = await api('/commercial/event_respond', 'POST', payload);
+  if (res.error) { toast(res.error, 'error'); return; }
+  closeModal();
+  await refreshState();
+  renderProperties();
+  drainCommercialEvents();
 }
 
 function toggleHoodSection(hood) {
@@ -8288,12 +8548,13 @@ async function advanceDays(days) {
     ? '<p class="text-muted text-center" style="padding:16px 0">Nothing happened.</p>'
     : allRows;
 
-  _pendingRepairs       = res.repairs        || [];
-  _pendingMoraleEvents  = res.morale_events  || [];
-  _pendingRenewalOffers = res.renewal_offers || [];
+  _pendingRepairs          = res.repairs           || [];
+  _pendingMoraleEvents     = res.morale_events     || [];
+  _pendingRenewalOffers    = res.renewal_offers    || [];
+  _pendingCommercialEvents = res.commercial_events || [];
   _pendingSquatter      = (res.events || []).find(e => e.type === 'squatter') || null;
   _pendingTaxEvent      = (res.tax_event && res.tax_event.amount >= 0) ? res.tax_event : null;
-  const totalPending    = _pendingRepairs.length + _pendingMoraleEvents.length + _pendingRenewalOffers.length;
+  const totalPending    = _pendingRepairs.length + _pendingMoraleEvents.length + _pendingRenewalOffers.length + _pendingCommercialEvents.length;
   const repairNote = _pendingRepairs.length > 0
     ? `<div style="background:var(--warning-bg,#FFF8E1);border:2px solid var(--warning);border-radius:var(--radius-sm);padding:10px 12px;margin-top:12px;font-size:13px;font-weight:700">
         ${pxIcon('🔧',16)} ${_pendingRepairs.length} repair${_pendingRepairs.length > 1 ? 's' : ''} need${_pendingRepairs.length === 1 ? 's' : ''} attention!</div>`
@@ -8317,7 +8578,9 @@ async function advanceDays(days) {
       ? `Respond to Requests (${_pendingMoraleEvents.length})`
       : _pendingRenewalOffers.length > 0
         ? `Review Leases (${_pendingRenewalOffers.length})`
-        : 'Continue';
+        : _pendingCommercialEvents.length > 0
+          ? `Business Events (${_pendingCommercialEvents.length})`
+          : 'Continue';
 
   if (totalPending > 0 || _pendingTaxEvent) _modalLocked = true;
   openModal(`
@@ -8346,6 +8609,8 @@ function continueFromEvents() {
     showNextMoraleEvent();
   } else if (_pendingRenewalOffers.length > 0) {
     showNextRenewalOffer();
+  } else if (_pendingCommercialEvents.length > 0) {
+    drainCommercialEvents();
   } else if (_pendingSquatter) {
     const sq = _pendingSquatter;
     _pendingSquatter = null;
@@ -8612,6 +8877,55 @@ async function respondRenewal(propId, agree) {
   await refreshState();
   renderAll();
   showNextRenewalOffer();
+}
+
+function drainCommercialEvents() {
+  if (_pendingCommercialEvents.length === 0) { continueFromEvents(); return; }
+  showCommercialEventModal(_pendingCommercialEvents.shift());
+}
+
+function showCommercialEventModal(ev) {
+  const bt = ev.biz_type ? (BUSINESS_TENANT_DATA[ev.biz_type] || {}) : {};
+  const icon = ev.biz_icon || bt.icon || '🏢';
+
+  if (ev.type === 'lease_renewal') {
+    openModal(`
+      <div class="modal-handle"></div>
+      <div class="modal-title">${pxIcon('🔄',18)} Lease Renewal</div>
+      <div class="modal-subtitle">${ev.prop_label}</div>
+      <div style="font-size:14px;margin:12px 0">${icon} <strong>${ev.tenant_name}</strong>'s lease has expired.</div>
+      <div class="money-row"><span class="mr-label">Current Rent</span><span class="mr-value">${fmt(ev.current_rent)}/mo</span></div>
+      <div class="money-row" style="margin-bottom:14px"><span class="mr-label">Bump Offer (+10%)</span><span class="mr-value green">${fmt(ev.bumped_rent)}/mo</span></div>
+      <button class="btn btn-primary btn-full" onclick="commercialEventRespond(${ev.prop_id},${ev.unit_idx},'lease_renewal','accept',{})">Renew — Same Rate</button>
+      <button class="btn btn-secondary btn-full mt-8" onclick="commercialEventRespond(${ev.prop_id},${ev.unit_idx},'lease_renewal','bump',{})">Bump to ${fmt(ev.bumped_rent)}/mo</button>
+      <button class="btn btn-ghost btn-full mt-8" onclick="commercialEventRespond(${ev.prop_id},${ev.unit_idx},'lease_renewal','decline',{})">Let Them Go</button>
+      ${_pendingCommercialEvents.length > 0 ? `<div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:8px">${_pendingCommercialEvents.length} more event(s) after this</div>` : ''}
+    `);
+  } else if (ev.type === 'inspection_fail') {
+    openModal(`
+      <div class="modal-handle"></div>
+      <div class="modal-title">${pxIcon('🚨',18)} Inspection Failed</div>
+      <div class="modal-subtitle">${ev.prop_label}</div>
+      <div style="font-size:13px;margin:12px 0;color:var(--text-muted)">${icon} <strong>${ev.tenant_name}</strong> received a failed health/safety inspection. Pay the repairs or they'll walk.</div>
+      <div class="money-row" style="margin-bottom:14px"><span class="mr-label">Repair Cost</span><span class="mr-value" style="color:var(--negative)">${fmt(ev.repair_cost)}</span></div>
+      <button class="btn btn-primary btn-full" onclick="commercialEventRespond(${ev.prop_id},${ev.unit_idx},'inspection_fail','pay',{repair_cost:${ev.repair_cost}})">Pay ${fmt(ev.repair_cost)} — Keep Tenant</button>
+      <button class="btn btn-ghost btn-full mt-8" onclick="commercialEventRespond(${ev.prop_id},${ev.unit_idx},'inspection_fail','ignore',{repair_cost:${ev.repair_cost}})">Ignore — Lose Tenant</button>
+      ${_pendingCommercialEvents.length > 0 ? `<div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:8px">${_pendingCommercialEvents.length} more event(s) after this</div>` : ''}
+    `);
+  } else if (ev.type === 'sublet_request') {
+    openModal(`
+      <div class="modal-handle"></div>
+      <div class="modal-title">${pxIcon('🤝',18)} Sublet Request</div>
+      <div class="modal-subtitle">${ev.prop_label}</div>
+      <div style="font-size:13px;margin:12px 0;color:var(--text-muted)">${icon} <strong>${ev.tenant_name}</strong> wants to sublet part of their space. Approve for a monthly bonus.</div>
+      <div class="money-row" style="margin-bottom:14px"><span class="mr-label">Monthly Bonus</span><span class="mr-value green">+${fmt(ev.bonus_monthly)}/mo</span></div>
+      <button class="btn btn-primary btn-full" onclick="commercialEventRespond(${ev.prop_id},${ev.unit_idx},'sublet_request','approve',{bonus_monthly:${ev.bonus_monthly}})">Approve Sublet</button>
+      <button class="btn btn-ghost btn-full mt-8" onclick="commercialEventRespond(${ev.prop_id},${ev.unit_idx},'sublet_request','deny',{})">Deny</button>
+      ${_pendingCommercialEvents.length > 0 ? `<div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:8px">${_pendingCommercialEvents.length} more event(s) after this</div>` : ''}
+    `);
+  } else {
+    drainCommercialEvents();
+  }
 }
 
 function showNextRepair() {

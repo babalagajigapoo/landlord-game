@@ -190,9 +190,10 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
   text-transform: uppercase;
   letter-spacing: 0.3px;
 }
-.badge-budget  { background: #FFF3E0; color: #E65100; }
-.badge-mid     { background: #E3F2FD; color: #1565C0; }
-.badge-premium { background: #F3E5F5; color: #6A1B9A; }
+.badge-budget     { background: #FFF3E0; color: #E65100; }
+.badge-mid        { background: #E3F2FD; color: #1565C0; }
+.badge-premium    { background: #F3E5F5; color: #6A1B9A; }
+.badge-commercial { background: #E8F5E9; color: #1B5E20; }
 
 /* ── Property Stats Row ──────────────────────────────────────── */
 .prop-stats { display: flex; gap: 14px; margin-bottom: 10px; flex-wrap: wrap; }
@@ -479,9 +480,10 @@ main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + 8px); }
   margin-bottom: 0;
   border-bottom: 1px solid rgba(0,0,0,0.08);
 }
-.market-hood-header.badge-budget  { background: #FFF3E0; }
-.market-hood-header.badge-mid     { background: #E3F2FD; }
-.market-hood-header.badge-premium { background: #F3E5F5; }
+.market-hood-header.badge-budget     { background: #FFF3E0; }
+.market-hood-header.badge-mid        { background: #E3F2FD; }
+.market-hood-header.badge-premium    { background: #F3E5F5; }
+.market-hood-header.badge-commercial { background: #E8F5E9; }
 
 .market-hood-emoji { font-size: 24px; flex-shrink: 0; }
 .market-hood-name  { font-size: 14px; font-weight: 800; line-height: 1.2; }
@@ -2786,11 +2788,12 @@ header {
 .tenant-chip { border: 2px solid var(--positive) !important; }
 .vacant-chip { border: 2px solid var(--border) !important; }
 
-.card-badge, .badge-budget, .badge-mid, .badge-premium,
+.card-badge, .badge-budget, .badge-mid, .badge-premium, .badge-commercial,
 .deal-tag, .deal-good, .deal-bad { border-radius: 0 !important; }
-.badge-budget  { border: 1px solid #E65100 !important; }
-.badge-mid     { border: 1px solid #1565C0 !important; }
-.badge-premium { border: 1px solid #6A1B9A !important; }
+.badge-budget     { border: 1px solid #E65100 !important; }
+.badge-mid        { border: 1px solid #1565C0 !important; }
+.badge-premium    { border: 1px solid #6A1B9A !important; }
+.badge-commercial { border: 1px solid #1B5E20 !important; }
 .deal-good { border: 1px solid #2E7D32 !important; }
 .deal-bad  { border: 1px solid #C62828 !important; }
 

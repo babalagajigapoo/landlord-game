@@ -88,6 +88,7 @@ NEIGHBORHOODS = {
     "Riverside":          {"price_mult": 1.40, "rent_mult": 1.35, "desc": "Desirable suburb, great schools",           "tier": "premium"},
     "Newbay":             {"price_mult": 1.60, "rent_mult": 1.55, "desc": "High-demand urban core",                    "tier": "premium"},
     "Cedarvale Estates":  {"price_mult": 1.80, "rent_mult": 1.70, "desc": "Exclusive custom-built community",          "tier": "premium"},
+    "Commerce Row":       {"price_mult": 1.00, "rent_mult": 1.00, "desc": "The city's commercial and business core",    "tier": "commercial"},
 }
 
 # ── XP / Level System ──────────────────────────────────────────────────────────
@@ -1887,11 +1888,104 @@ CAR_WASH_EVENTS = [
 NEW_BUILDS_UNLOCK_LEVEL = 9
 BUILDING_PERMIT_COST    = 100_000
 
+HOOD_STREETS["Commerce Row"] = [
+    "Commerce Blvd", "Trade St", "Market Row", "Industry Ave",
+    "Enterprise Dr", "Capital Way", "Merchant Ln", "Exchange St",
+    "Business Pkwy", "Commerce Park Dr",
+]
+
 HOOD_STREETS["Cedarvale Estates"] = [
     "Cedarvale Blvd", "Hearthstone Dr", "Millbrook Ln", "Stonegate Rd",
     "Ashford Way", "Cresthollow Ct", "Elmcroft Ave", "Fairlawn Dr",
     "Glenbrook Pl", "Harborview Cir",
 ]
+
+# ── Commercial Properties ──────────────────────────────────────────────────────
+COMMERCE_ROW_UNLOCK_LEVEL = 11
+
+COMMERCIAL_TYPES = {
+    "strip_mall": {
+        "name": "Strip Mall", "icon": "🏪",
+        "unit_count": 4, "price": 950_000, "overhead": 2_500, "sqft": 8_000,
+        "desc": "Four retail-facing storefronts. High traffic, high turnover.",
+    },
+    "office_building": {
+        "name": "Office Building", "icon": "🏢",
+        "unit_count": 3, "price": 1_400_000, "overhead": 3_500, "sqft": 12_000,
+        "desc": "Professional tenants, longer leases, quieter events.",
+    },
+    "mixed_use": {
+        "name": "Mixed-Use Building", "icon": "🏬",
+        "unit_count": 5, "price": 1_800_000, "overhead": 4_000, "sqft": 18_000,
+        "desc": "Three commercial floors and two upper-level office suites.",
+    },
+}
+
+BUSINESS_TENANT_TYPES = {
+    "restaurant": {
+        "name": "Restaurant", "icon": "🍽️",
+        "monthly_rent": 8_500, "lease_days": 56, "event_chance": 0.15,
+        "desc": "High traffic. Great rent but inspection events are common.",
+        "names": ["Brick & Smoke BBQ", "The Hungry Fork", "Mambo Kitchen", "Noodle House",
+                  "Golden Spoon Diner", "Harbor Grill", "Casa Verde", "The Rustic Table"],
+    },
+    "retail": {
+        "name": "Retail Shop", "icon": "🛍️",
+        "monthly_rent": 5_500, "lease_days": 28, "event_chance": 0.08,
+        "desc": "Short leases, decent income. Moderate turnover.",
+        "names": ["QuickMart", "Corner Finds", "Daily Goods", "Bloom Boutique",
+                  "The Gear Stop", "Sunrise Goods", "Main St Market", "Fifth Ave Finds"],
+    },
+    "law_office": {
+        "name": "Law Office", "icon": "⚖️",
+        "monthly_rent": 9_000, "lease_days": 112, "event_chance": 0.03,
+        "desc": "Quiet, long-term, pays well. The dream tenant.",
+        "names": ["Fletcher & Associates", "Caldwell Law Group", "Stone Legal",
+                  "Harmon & Pierce LLC", "Vance Law", "Burke & Rowe Legal"],
+    },
+    "salon": {
+        "name": "Salon", "icon": "💈",
+        "monthly_rent": 6_000, "lease_days": 56, "event_chance": 0.08,
+        "desc": "Steady income, reasonable events. Popular anchor tenant.",
+        "names": ["Shear Bliss", "The Cut Above", "Platinum Cuts",
+                  "Studio 9 Salon", "The Style Bar", "Velvet Scissors"],
+    },
+    "gym": {
+        "name": "Gym", "icon": "🏋️",
+        "monthly_rent": 11_000, "lease_days": 84, "event_chance": 0.12,
+        "desc": "Highest rent, but equipment wear is no joke.",
+        "names": ["Iron District", "Peak Fitness", "Grind Athletics",
+                  "FitCore Gym", "Steel & Sweat", "Apex Performance"],
+    },
+}
+
+def _gen_commercial_market(start_id):
+    listings, nid = [], start_id
+    types = list(COMMERCIAL_TYPES.keys())
+    for t_key in random.sample(types, min(len(types), random.randint(2, 3))):
+        ctype  = COMMERCIAL_TYPES[t_key]
+        street = random.choice(HOOD_STREETS["Commerce Row"])
+        addr   = f"{random.randint(10, 99) * 100 + random.randint(1, 99)} {street}"
+        units  = [{"idx": i, "business_type": None, "tenant_name": None,
+                   "lease_days_remaining": 0, "monthly_rent": 0, "renewal_pending": False}
+                  for i in range(ctype["unit_count"])]
+        listings.append({
+            "id":               nid,
+            "commercial":       True,
+            "type":             t_key,
+            "neighborhood":     "Commerce Row",
+            "address":          addr,
+            "condition":        random.randint(80, 100),
+            "purchase_price":   ctype["price"],
+            "overhead_monthly": ctype["overhead"],
+            "sqft":             ctype["sqft"],
+            "units":            units,
+            "upgrades":         {},
+            "pending_reno":     None,
+            "purchase_day":     None,
+        })
+        nid += 1
+    return listings, nid
 
 BUILD_CREWS = {
     "handys":   {"name": "Handy's Crew",      "icon": "🔨", "buy_cost":  15_000, "daily_rate":  400, "speed_mult": 1.00, "desc": "Small local crew. Reliable, affordable. Best value on small builds."},
@@ -2332,6 +2426,10 @@ def upgrade_cooldown_remaining(upg_val, current_day):
     return max(0, RENO_COOLDOWN - (current_day - upg_val.get("day", 0)))
 
 def calc_market_value(prop):
+    # Commercial properties use purchase price as their market value baseline
+    if prop.get("commercial"):
+        ctype = COMMERCIAL_TYPES.get(prop.get("type", ""), {})
+        return prop.get("purchase_price", ctype.get("price", 0))
     if prop.get("fixed_market_value"):
         val = prop["fixed_market_value"]
         for key, upg_val in prop.get("upgrades", {}).items():
@@ -2350,6 +2448,8 @@ def calc_market_value(prop):
     return val
 
 def calc_monthly_rent(prop):
+    if prop.get("commercial"):
+        return sum(u.get("monthly_rent", 0) for u in prop.get("units", []))
     n         = NEIGHBORHOODS[prop["neighborhood"]]
     base      = int((prop["sqft"] * 1.1 + prop["bedrooms"] * 400 + prop["bathrooms"] * 150) * n["rent_mult"])
     cond_mult = 0.6 + (prop["condition"] / MAX_CONDITION) * 0.5
@@ -2481,7 +2581,7 @@ def new_game():
     starter = make_starter_home()
     state = {
         "cash": STARTING_CASH, "day": 1, "next_id": 2,
-        "properties": [starter], "market": [], "log": [],
+        "properties": [starter], "market": [], "commercial_market": [], "log": [],
         "applicants_cache": {},
         "last_bank_day": 1,
         "energy": PLAYER_HOMES[0]["max_energy"],
@@ -2557,6 +2657,7 @@ def _migrate_state(s):
     s.setdefault("laundromat", None)
     s.setdefault("pole_studio", None)
     s.setdefault("car_wash", None)
+    s.setdefault("commercial_market", [])
     s.setdefault("tax_year_flip_income", 0)
     s.setdefault("tax_year_rent_income", 0)
     s.setdefault("tax_extension_filed", False)
@@ -2651,27 +2752,37 @@ def api_market():
     s = load()
     unlocked = get_unlocked_neighborhoods(s.get("level", 0))
     if not unlocked:
-        return jsonify({"listings": [], "level_locked": True})
-    # Only regenerate when a brand-new neighborhood just unlocked (or first load).
-    # Do NOT regenerate just because all listings in a hood were purchased —
-    # the market only refills on day advance.
+        return jsonify({"listings": [], "commercial_listings": [], "level_locked": True})
     generated_for  = set(s.get("market_unlocked_hoods", []))
     newly_unlocked = set(unlocked) - generated_for
     if newly_unlocked or not s.get("market"):
         s["market"], s["next_id"] = _gen_market(s["next_id"], hoods=unlocked)
         s["market_unlocked_hoods"] = list(unlocked)
         save(s)
-    return jsonify({"listings": [enrich(p, s["day"]) for p in s["market"]]})
+    # Generate commercial market if level unlocked and not yet generated
+    if s.get("level", 0) >= COMMERCE_ROW_UNLOCK_LEVEL and not s.get("commercial_market"):
+        s["commercial_market"], s["next_id"] = _gen_commercial_market(s["next_id"])
+        save(s)
+    commercial = s.get("commercial_market", [])
+    return jsonify({
+        "listings":            [enrich(p, s["day"]) for p in s["market"]],
+        "commercial_listings": commercial,
+    })
 
 @app.route('/api/market/refresh', methods=['POST'])
 def api_market_refresh():
     s = load()
     unlocked = get_unlocked_neighborhoods(s.get("level", 0))
     if not unlocked:
-        return jsonify({"listings": [], "level_locked": True})
+        return jsonify({"listings": [], "commercial_listings": [], "level_locked": True})
     s["market"], s["next_id"] = _gen_market(s["next_id"], hoods=unlocked)
+    if s.get("level", 0) >= COMMERCE_ROW_UNLOCK_LEVEL:
+        s["commercial_market"], s["next_id"] = _gen_commercial_market(s["next_id"])
     save(s)
-    return jsonify({"listings": [enrich(p, s["day"]) for p in s["market"]]})
+    return jsonify({
+        "listings":            [enrich(p, s["day"]) for p in s["market"]],
+        "commercial_listings": s.get("commercial_market", []),
+    })
 
 @app.route('/api/buy', methods=['POST'])
 def api_buy():
@@ -3182,11 +3293,12 @@ def api_advance():
     if any(isinstance(p.get("squatter"), dict) and p["squatter"].get("starter") for p in s["properties"]):
         return jsonify({"error": "There's a squatter in your house. Time isn't going anywhere until you deal with that."}), 400
     events             = []
-    new_repairs        = []
-    new_morale_events  = []
-    new_renewal_offers = []
-    rent_log           = {}   # prop_id -> summary dict
-    squatter_spawned   = False
+    new_repairs            = []
+    new_morale_events      = []
+    new_renewal_offers     = []
+    new_commercial_events  = []
+    rent_log               = {}   # prop_id -> summary dict
+    squatter_spawned       = False
 
     tax_event = None
 
@@ -3491,6 +3603,105 @@ def api_advance():
                         s["log"].insert(0, {"day": current_day, "type": "info",
                             "text": f"{tenant_name} {msg} at {target_prop['type']} in {target_prop['neighborhood']} (condition +{actual_gain})"})
                     # ── Add handlers for future event types here ──────────────
+
+        # ── Commercial properties tick ────────────────────────────────────────
+        for prop in s["properties"]:
+            if not prop.get("commercial"):
+                continue
+            ctype = COMMERCIAL_TYPES.get(prop["type"])
+            if not ctype:
+                continue
+            prop_label = f"{ctype['name']} — Commerce Row"
+
+            # Daily overhead
+            s["cash"] = max(0, s["cash"] - int(ctype["overhead"] / 28))
+
+            for unit in prop.get("units", []):
+                btype_key = unit.get("business_type")
+                if not btype_key:
+                    continue
+                btype = BUSINESS_TENANT_TYPES.get(btype_key)
+                if not btype:
+                    continue
+                if unit.get("renewal_pending"):
+                    continue  # waiting on player response
+
+                # Daily rent
+                daily_rent = int(unit["monthly_rent"] / 28)
+                s["cash"] += daily_rent
+                s["tax_year_rent_income"] = s.get("tax_year_rent_income", 0) + daily_rent
+
+                # Lease countdown
+                unit["lease_days_remaining"] = max(0, unit.get("lease_days_remaining", 0) - 1)
+
+                if unit["lease_days_remaining"] <= 0:
+                    unit["renewal_pending"] = True
+                    new_commercial_events.append({
+                        "prop_id":      prop["id"],
+                        "unit_idx":     unit["idx"],
+                        "type":         "lease_renewal",
+                        "biz_type":     btype_key,
+                        "biz_icon":     btype["icon"],
+                        "tenant_name":  unit["tenant_name"],
+                        "prop_label":   prop_label,
+                        "current_rent": unit["monthly_rent"],
+                        "bumped_rent":  int(unit["monthly_rent"] * 1.10),
+                    })
+                    continue
+
+                # Random event roll
+                if random.random() < btype["event_chance"] / 28:
+                    ev_type = random.choices(
+                        ["inspection_fail", "boom_season", "business_closed", "sublet_request"],
+                        weights=[3, 3, 2, 2]
+                    )[0]
+                    if ev_type == "boom_season":
+                        bonus = random.randint(2_000, 5_000)
+                        s["cash"] += bonus
+                        events.append({"prop": prop_label, "type": "positive", "category": "commercial",
+                            "text": f"💰 {unit['tenant_name']} had a great month — bonus ${bonus:,}!"})
+                        s["log"].insert(0, {"day": current_day, "type": "positive",
+                            "text": f"{unit['tenant_name']} boom season — +${bonus:,} at {prop_label}"})
+                    elif ev_type == "business_closed":
+                        name = unit["tenant_name"]
+                        unit["business_type"] = None
+                        unit["tenant_name"]   = None
+                        unit["lease_days_remaining"] = 0
+                        unit["monthly_rent"]  = 0
+                        events.append({"prop": prop_label, "type": "warning", "category": "commercial",
+                            "text": f"🚪 {name} closed overnight — unit now vacant."})
+                        s["log"].insert(0, {"day": current_day, "type": "warning",
+                            "text": f"{name} closed at {prop_label} — unit vacant"})
+                    elif ev_type == "inspection_fail":
+                        cost = random.randint(3_000, 8_000)
+                        new_commercial_events.append({
+                            "prop_id":     prop["id"],
+                            "unit_idx":    unit["idx"],
+                            "type":        "inspection_fail",
+                            "biz_type":    btype_key,
+                            "biz_icon":    btype["icon"],
+                            "tenant_name": unit["tenant_name"],
+                            "prop_label":  prop_label,
+                            "repair_cost": cost,
+                        })
+                    elif ev_type == "sublet_request":
+                        bonus_mo = random.randint(300, 800)
+                        new_commercial_events.append({
+                            "prop_id":      prop["id"],
+                            "unit_idx":     unit["idx"],
+                            "type":         "sublet_request",
+                            "biz_type":     btype_key,
+                            "biz_icon":     btype["icon"],
+                            "tenant_name":  unit["tenant_name"],
+                            "prop_label":   prop_label,
+                            "bonus_monthly": bonus_mo,
+                        })
+
+            # Condition degradation (per occupied unit type)
+            restaurant_ct = sum(1 for u in prop["units"] if u.get("business_type") == "restaurant")
+            gym_ct        = sum(1 for u in prop["units"] if u.get("business_type") == "gym")
+            cond_loss     = 0.05 + 0.10 * restaurant_ct + 0.08 * gym_ct
+            prop["condition"] = max(0, prop.get("condition", 100) - cond_loss)
 
         # Scheduled renovations — convert to pending when start_day arrives
         for prop in s["properties"]:
@@ -4320,11 +4531,12 @@ def api_advance():
         "day":       s["day"],
         "cash":      s["cash"],
         "net_worth": s["cash"] + sum(calc_market_value(p) for p in s["properties"]),
-        "events":        events,
-        "repairs":       new_repairs,
-        "morale_events":  new_morale_events,
-        "renewal_offers": new_renewal_offers,
-        "tax_event":      tax_event,
+        "events":             events,
+        "repairs":            new_repairs,
+        "morale_events":      new_morale_events,
+        "renewal_offers":     new_renewal_offers,
+        "commercial_events":  new_commercial_events,
+        "tax_event":          tax_event,
     })
 
 
@@ -5883,6 +6095,159 @@ def api_cancel_build():
         "text": f"{NEW_BUILD_SIZES[build['size']]['name']} build cancelled. ${refund:,} refunded (40%)."})
     save(s)
     return jsonify({"success": True, "refund": refund, "cash": s["cash"]})
+
+@app.route('/api/commercial/buy', methods=['POST'])
+def api_commercial_buy():
+    s    = load()
+    data = request.get_json(silent=True) or {}
+    cid  = data.get("listing_id")
+    if s.get("level", 0) < COMMERCE_ROW_UNLOCK_LEVEL:
+        return jsonify({"error": f"Reach Level {COMMERCE_ROW_UNLOCK_LEVEL} to unlock Commerce Row"}), 400
+    prop = next((p for p in s.get("commercial_market", []) if p["id"] == cid), None)
+    if not prop:
+        return jsonify({"error": "Listing not found"}), 404
+    if prop["purchase_price"] > s["cash"]:
+        return jsonify({"error": "Not enough cash"}), 400
+    s["cash"] -= prop["purchase_price"]
+    prop["purchase_day"] = s["day"]
+    s["properties"].append(prop)
+    s["commercial_market"] = [p for p in s["commercial_market"] if p["id"] != cid]
+    ctype = COMMERCIAL_TYPES[prop["type"]]
+    s["log"].insert(0, {"day": s["day"], "type": "buy",
+        "text": f"Bought {ctype['name']} on {prop['address']} for ${prop['purchase_price']:,}"})
+    save(s)
+    return jsonify({"success": True, "cash": s["cash"]})
+
+@app.route('/api/commercial/<int:pid>/get_applicants', methods=['POST'])
+def api_commercial_get_applicants(pid):
+    s    = load()
+    data = request.get_json(silent=True) or {}
+    uidx = data.get("unit_idx")
+    prop = next((p for p in s["properties"] if p["id"] == pid and p.get("commercial")), None)
+    if not prop:
+        return jsonify({"error": "Property not found"}), 404
+    unit = next((u for u in prop["units"] if u["idx"] == uidx), None)
+    if not unit:
+        return jsonify({"error": "Unit not found"}), 404
+    if unit.get("business_type"):
+        return jsonify({"error": "Unit already occupied"}), 400
+    # Generate 3 random business applicants
+    biz_types = list(BUSINESS_TENANT_TYPES.keys())
+    chosen    = random.sample(biz_types, min(3, len(biz_types)))
+    applicants = []
+    for bt in chosen:
+        btype = BUSINESS_TENANT_TYPES[bt]
+        applicants.append({
+            "biz_type":     bt,
+            "name":         random.choice(btype["names"]),
+            "icon":         btype["icon"],
+            "display_name": btype["name"],
+            "monthly_rent": btype["monthly_rent"],
+            "lease_days":   btype["lease_days"],
+            "desc":         btype["desc"],
+        })
+    unit["applicants"] = applicants
+    save(s)
+    return jsonify({"success": True, "applicants": applicants})
+
+@app.route('/api/commercial/<int:pid>/accept_tenant', methods=['POST'])
+def api_commercial_accept_tenant(pid):
+    s    = load()
+    data = request.get_json(silent=True) or {}
+    uidx     = data.get("unit_idx")
+    biz_type = data.get("biz_type")
+    biz_name = data.get("biz_name")
+    prop = next((p for p in s["properties"] if p["id"] == pid and p.get("commercial")), None)
+    if not prop:
+        return jsonify({"error": "Property not found"}), 404
+    unit = next((u for u in prop["units"] if u["idx"] == uidx), None)
+    if not unit:
+        return jsonify({"error": "Unit not found"}), 404
+    btype = BUSINESS_TENANT_TYPES.get(biz_type)
+    if not btype:
+        return jsonify({"error": "Invalid business type"}), 400
+    unit["business_type"]      = biz_type
+    unit["tenant_name"]        = biz_name or random.choice(btype["names"])
+    unit["monthly_rent"]       = btype["monthly_rent"]
+    unit["lease_days_remaining"] = btype["lease_days"]
+    unit["renewal_pending"]    = False
+    unit["applicants"]         = []
+    ctype = COMMERCIAL_TYPES[prop["type"]]
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"{unit['tenant_name']} ({btype['name']}) moved into {ctype['name']} on {prop['address']}"})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/commercial/event_respond', methods=['POST'])
+def api_commercial_event_respond():
+    s    = load()
+    data = request.get_json(silent=True) or {}
+    pid      = data.get("prop_id")
+    uidx     = data.get("unit_idx")
+    ev_type  = data.get("event_type")
+    choice   = data.get("choice")   # "accept" / "decline" / "bump"
+    prop = next((p for p in s["properties"] if p["id"] == pid and p.get("commercial")), None)
+    if not prop:
+        return jsonify({"error": "Property not found"}), 404
+    unit = next((u for u in prop["units"] if u["idx"] == uidx), None)
+    if not unit:
+        return jsonify({"error": "Unit not found"}), 404
+    ctype = COMMERCIAL_TYPES[prop["type"]]
+    btype = BUSINESS_TENANT_TYPES.get(unit.get("business_type", ""))
+    prop_label = f"{ctype['name']} — Commerce Row"
+
+    if ev_type == "lease_renewal":
+        if choice == "accept":
+            unit["lease_days_remaining"] = btype["lease_days"] if btype else 56
+            unit["renewal_pending"]      = False
+            s["log"].insert(0, {"day": s["day"], "type": "positive",
+                "text": f"{unit['tenant_name']} renewed lease at {prop_label} — same rate"})
+        elif choice == "bump":
+            unit["monthly_rent"]         = int(unit["monthly_rent"] * 1.10)
+            unit["lease_days_remaining"] = btype["lease_days"] if btype else 56
+            unit["renewal_pending"]      = False
+            s["log"].insert(0, {"day": s["day"], "type": "positive",
+                "text": f"{unit['tenant_name']} renewed at +10% — now ${unit['monthly_rent']:,}/mo at {prop_label}"})
+        elif choice == "decline":
+            name = unit["tenant_name"]
+            unit["business_type"]        = None
+            unit["tenant_name"]          = None
+            unit["lease_days_remaining"] = 0
+            unit["monthly_rent"]         = 0
+            unit["renewal_pending"]      = False
+            s["log"].insert(0, {"day": s["day"], "type": "warning",
+                "text": f"{name} vacated after lease expired at {prop_label}"})
+
+    elif ev_type == "inspection_fail":
+        cost = data.get("repair_cost", 0)
+        if choice == "pay":
+            if s["cash"] < cost:
+                return jsonify({"error": f"Need ${cost:,}"}), 400
+            s["cash"] -= cost
+            s["log"].insert(0, {"day": s["day"], "type": "info",
+                "text": f"Paid ${cost:,} inspection repair at {prop_label} — {unit['tenant_name']} stays"})
+        elif choice == "ignore":
+            name = unit["tenant_name"]
+            unit["business_type"]        = None
+            unit["tenant_name"]          = None
+            unit["lease_days_remaining"] = 0
+            unit["monthly_rent"]         = 0
+            unit["renewal_pending"]      = False
+            s["log"].insert(0, {"day": s["day"], "type": "warning",
+                "text": f"{name} left after failed inspection at {prop_label}"})
+
+    elif ev_type == "sublet_request":
+        bonus_mo = data.get("bonus_monthly", 0)
+        if choice == "approve":
+            unit["monthly_rent"] = unit.get("monthly_rent", 0) + bonus_mo
+            s["log"].insert(0, {"day": s["day"], "type": "positive",
+                "text": f"Approved sublet at {prop_label} — rent +${bonus_mo:,}/mo"})
+        else:
+            s["log"].insert(0, {"day": s["day"], "type": "info",
+                "text": f"Denied sublet request at {prop_label}"})
+
+    save(s)
+    return jsonify({"success": True, "cash": s["cash"]})
 
 @app.route('/api/reset', methods=['POST'])
 def api_reset():
