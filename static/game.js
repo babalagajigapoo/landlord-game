@@ -159,7 +159,8 @@ function firstSaleDone() {
 }
 let marketListings      = [];
 let commercialListings  = [];
-let marketHoodOpen  = {};   // tracks which hood sections are expanded; undefined = open
+let marketHoodOpen     = {};   // tracks which hood sections are expanded; undefined = open
+let _currentMarketTab  = 'residential';
 let currentFinTab   = 'bank'; // active sub-tab inside Finances
 let currentPage     = 'dashboard';
 let pendingUpgrade  = null;
@@ -711,6 +712,7 @@ function navTo(page) {
 function renderAll() {
   renderDashboard();
   renderMarket();
+  if (_currentMarketTab === 'commercial') renderCommercialMarket();
   renderProperties();
   if (_currentPropTab === 'newbuilds')  renderNewBuilds();
   if (_currentPropTab === 'commercial') renderCommercial();
@@ -825,53 +827,41 @@ function renderMarket() {
         ${isOpen ? `<div class="market-hood-body">${cards}</div>` : ''}
       </div>`;
   }).join('');
-  // Commerce Row commercial section
-  let commerceHtml = '';
-  const level = (state && state.level) || 0;
-  if (level >= COMMERCE_ROW_UNLOCK_LEVEL) {
-    if (commercialListings.length === 0) {
-      commerceHtml = `
-        <div class="market-hood-section">
-          <div class="market-hood-header badge-commercial">
-            <span class="market-hood-emoji">${pxIcon('🏙️', 32)}</span>
-            <div>
-              <div class="market-hood-name">Commerce Row</div>
-              <div class="market-hood-desc">The city's commercial and business core</div>
-            </div>
-            <span class="market-hood-count">Sold out</span>
-          </div>
-          <div class="market-hood-body"><div class="hood-empty" style="padding:14px">All commercial buildings sold — advance time to refresh.</div></div>
-        </div>`;
-    } else {
-      const cards = commercialListings.map(p => commercialMarketCardHtml(p)).join('');
-      commerceHtml = `
-        <div class="market-hood-section">
-          <div class="market-hood-header badge-commercial">
-            <span class="market-hood-emoji">${pxIcon('🏙️', 32)}</span>
-            <div>
-              <div class="market-hood-name">Commerce Row</div>
-              <div class="market-hood-desc">The city's commercial and business core</div>
-            </div>
-            <span class="market-hood-count">${commercialListings.length} building${commercialListings.length !== 1 ? 's' : ''}</span>
-          </div>
-          <div class="market-hood-body">${cards}</div>
-        </div>`;
-    }
-  } else {
-    commerceHtml = `
-      <div class="market-hood-section">
-        <div class="market-hood-header badge-commercial" style="opacity:0.6">
-          <span class="market-hood-emoji">${pxIcon('🔒', 32)}</span>
-          <div>
-            <div class="market-hood-name">Commerce Row</div>
-            <div class="market-hood-desc">Commercial properties — Strip Malls, Office Buildings &amp; more</div>
-          </div>
-          <span class="market-hood-count" style="font-size:11px">Level ${COMMERCE_ROW_UNLOCK_LEVEL}</span>
-        </div>
-      </div>`;
-  }
+  el.innerHTML = sections;
+}
 
-  el.innerHTML = sections + commerceHtml;
+function switchMarketTab(tab) {
+  _currentMarketTab = tab;
+  ['residential', 'commercial'].forEach(t => {
+    const el  = document.getElementById('mkt-' + t);
+    const btn = document.querySelector(`.fin-tab[data-mkt-tab="${t}"]`);
+    if (el)  el.style.display = t === tab ? '' : 'none';
+    if (btn) btn.classList.toggle('active', t === tab);
+  });
+  if (tab === 'commercial') renderCommercialMarket();
+}
+
+function renderCommercialMarket() {
+  const el = document.getElementById('commercial-market-list');
+  if (!el || !state) return;
+  const level = state.level || 0;
+  if (level < COMMERCE_ROW_UNLOCK_LEVEL) {
+    el.innerHTML = `<div class="empty-state" style="padding:32px 16px;text-align:center">
+      <div style="font-size:48px;margin-bottom:12px">${pxIcon('🔒', 48)}</div>
+      <div style="font-size:15px;font-weight:800;margin-bottom:6px">Unlocks at Level ${COMMERCE_ROW_UNLOCK_LEVEL}</div>
+      <div style="font-size:12px;color:var(--text-muted)">Reach Level ${COMMERCE_ROW_UNLOCK_LEVEL} to unlock Strip Malls, Office Buildings, and Mixed-Use properties.</div>
+    </div>`;
+    return;
+  }
+  if (commercialListings.length === 0) {
+    el.innerHTML = `<div class="empty-state" style="padding:32px 16px;text-align:center">
+      <div style="font-size:48px;margin-bottom:12px">${pxIcon('🏙️', 48)}</div>
+      <div style="font-size:15px;font-weight:800;margin-bottom:6px">No commercial listings</div>
+      <div style="font-size:12px;color:var(--text-muted)">All buildings have been purchased. Advance time to refresh the market.</div>
+    </div>`;
+    return;
+  }
+  el.innerHTML = commercialListings.map(p => commercialMarketCardHtml(p)).join('');
 }
 
 function toggleMarketHood(hood) {
@@ -995,6 +985,7 @@ async function refreshMarketListings() {
   marketListings     = data.listings || [];
   commercialListings = data.commercial_listings || [];
   renderMarket();
+  renderCommercialMarket();
 }
 
 // ── Properties ────────────────────────────────────────────────────────────────

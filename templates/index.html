@@ -84,10 +84,16 @@
 
     <!-- Market -->
     <div id="page-market" class="page">
-      <div class="section-header">
-        <span class="section-title">Properties for Sale</span>
+      <div class="fin-subnav">
+        <button class="fin-tab active" data-mkt-tab="residential" onclick="switchMarketTab('residential')">🏠 Residential</button>
+        <button class="fin-tab"        data-mkt-tab="commercial"  onclick="switchMarketTab('commercial')">🏙️ Commerce Row</button>
       </div>
-      <div id="market-list"></div>
+      <div id="mkt-residential">
+        <div id="market-list"></div>
+      </div>
+      <div id="mkt-commercial" style="display:none">
+        <div id="commercial-market-list"></div>
+      </div>
     </div>
 
     <!-- Properties -->
