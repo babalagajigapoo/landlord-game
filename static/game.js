@@ -186,11 +186,11 @@ const COMMERCIAL_TYPES_DATA = {
 };
 
 const BUSINESS_TENANT_DATA = {
-  restaurant: { name: 'Restaurant',  icon: '🍽️', monthly_rent: 8500,  lease_days: 56,  desc: 'High traffic. Great rent but inspections are common.' },
-  retail:     { name: 'Retail Shop', icon: '🛍️', monthly_rent: 5500,  lease_days: 28,  desc: 'Short leases, decent income.' },
-  law_office: { name: 'Law Office',  icon: '⚖️', monthly_rent: 9000,  lease_days: 112, desc: 'Quiet, long-term, pays well.' },
-  salon:      { name: 'Salon',       icon: '💈', monthly_rent: 6000,  lease_days: 56,  desc: 'Steady income, reasonable events.' },
-  gym:        { name: 'Gym',         icon: '🏋️', monthly_rent: 11000, lease_days: 84,  desc: 'Highest rent, but heavy wear.' },
+  restaurant: { name: 'Restaurant',  icon: '🍽️', monthly_rent: 8500,  lease_days: 112, desc: 'High traffic. Great rent but inspections are common.' },
+  retail:     { name: 'Retail Shop', icon: '🛍️', monthly_rent: 5500,  lease_days: 84,  desc: 'Steady income, moderate turnover.' },
+  law_office: { name: 'Law Office',  icon: '⚖️', monthly_rent: 9000,  lease_days: 224, desc: 'Quiet, long-term, pays well.' },
+  salon:      { name: 'Salon',       icon: '💈', monthly_rent: 6000,  lease_days: 112, desc: 'Steady income, reasonable events.' },
+  gym:        { name: 'Gym',         icon: '🏋️', monthly_rent: 11000, lease_days: 168, desc: 'Highest rent, but heavy wear.' },
 };
 
 const BUILD_CREWS_DATA = {
@@ -961,9 +961,6 @@ function commercialMarketCardHtml(p) {
     <div class="money-row"><span class="mr-label">Asking Price</span><span class="mr-value">${fmt(p.purchase_price)}</span></div>
     <div class="money-row"><span class="mr-label">Monthly Overhead</span><span class="mr-value" style="color:var(--negative)">−${fmt(minOverhead)}/mo</span></div>
     <div class="money-row"><span class="mr-label">Max Monthly Income</span><span class="mr-value green">up to ${fmt(maxRent)}/mo (fully leased)</span></div>
-    <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px">
-      ${Object.values(BUSINESS_TENANT_DATA).map(b => `<span style="background:var(--surface2);border-radius:4px;padding:2px 7px;font-size:11px">${b.icon} ${b.name} ${fmt(b.monthly_rent)}/mo</span>`).join('')}
-    </div>
     <div style="display:flex;justify-content:flex-end;margin-top:12px">
       <button class="btn btn-primary btn-sm" onclick="buyCommercial(${p.id})" ${!canAfford ? 'disabled style="opacity:0.4"' : ''}>
         Buy ${fmt(p.purchase_price)}
