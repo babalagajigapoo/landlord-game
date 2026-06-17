@@ -92,10 +92,16 @@
 
     <!-- Properties -->
     <div id="page-properties" class="page">
-      <div class="section-header">
-        <span class="section-title">My Portfolio</span>
+      <div class="fin-subnav">
+        <button class="fin-tab active" data-prop-tab="portfolio" onclick="switchPropTab('portfolio')">Portfolio</button>
+        <button class="fin-tab"        data-prop-tab="newbuilds" onclick="switchPropTab('newbuilds')">🏗️ New Builds</button>
       </div>
-      <div id="property-list"></div>
+      <div id="prop-portfolio">
+        <div id="property-list"></div>
+      </div>
+      <div id="prop-newbuilds" style="display:none">
+        <div id="new-builds-list"></div>
+      </div>
     </div>
 
     <!-- Finances (Bank + Stocks + Taxes) -->

@@ -82,11 +82,12 @@ HOOD_PROP_CONFIG = {
 }
 
 NEIGHBORHOODS = {
-    "Midtown":   {"price_mult": 0.70, "rent_mult": 0.75, "desc": "Crumbling blocks, forgotten by time", "tier": "budget"},
-    "Northside": {"price_mult": 0.85, "rent_mult": 0.90, "desc": "Gritty streets, high turnover",       "tier": "budget"},
-    "Westwood":  {"price_mult": 1.00, "rent_mult": 1.00, "desc": "Solid middle-class area",               "tier": "mid"},
-    "Riverside": {"price_mult": 1.40, "rent_mult": 1.35, "desc": "Desirable suburb, great schools",       "tier": "premium"},
-    "Newbay":    {"price_mult": 1.60, "rent_mult": 1.55, "desc": "High-demand urban core",                "tier": "premium"},
+    "Midtown":            {"price_mult": 0.70, "rent_mult": 0.75, "desc": "Crumbling blocks, forgotten by time",       "tier": "budget"},
+    "Northside":          {"price_mult": 0.85, "rent_mult": 0.90, "desc": "Gritty streets, high turnover",             "tier": "budget"},
+    "Westwood":           {"price_mult": 1.00, "rent_mult": 1.00, "desc": "Solid middle-class area",                   "tier": "mid"},
+    "Riverside":          {"price_mult": 1.40, "rent_mult": 1.35, "desc": "Desirable suburb, great schools",           "tier": "premium"},
+    "Newbay":             {"price_mult": 1.60, "rent_mult": 1.55, "desc": "High-demand urban core",                    "tier": "premium"},
+    "Cedarvale Estates":  {"price_mult": 1.80, "rent_mult": 1.70, "desc": "Exclusive custom-built community",          "tier": "premium"},
 }
 
 # ── XP / Level System ──────────────────────────────────────────────────────────
@@ -1250,8 +1251,16 @@ PLAYER_HOMES = [
 ]
 
 STORE_ITEMS = {
-    "coffee_maker": {"name": "Coffee Maker", "icon": "☕",  "cost":   499, "max_energy_bonus": 2, "recharge_bonus": 0, "desc": "A decent drip machine. +2 max energy."},
-    "new_bed":      {"name": "New Bed",       "icon": "🛏️", "cost": 4_999, "max_energy_bonus": 0, "recharge_bonus": 1, "desc": "Memory foam. You wake up ready. +1 recharge/day."},
+    "coffee_maker":   {"name": "Coffee Maker",             "icon": "☕",  "cost":   499, "unlock_level": 1, "max_energy_bonus": 2, "recharge_bonus": 0, "desc": "A decent drip machine. +2 max energy."},
+    "desk_fan":       {"name": "Desk Fan",                  "icon": "🌀",  "cost":   199, "unlock_level": 1, "max_energy_bonus": 1, "recharge_bonus": 0, "desc": "Not air conditioning. Close enough. +1 max energy."},
+    "house_plant":    {"name": "House Plant",               "icon": "🪴",  "cost":    89, "unlock_level": 2, "max_energy_bonus": 0, "recharge_bonus": 0, "desc": "Studies show it helps. You're not asking questions. 15% chance to block 1 morale loss/day."},
+    "blackout_curtains": {"name": "Blackout Curtains",      "icon": "🪟",  "cost":   149, "unlock_level": 2, "max_energy_bonus": 0, "recharge_bonus": 1, "desc": "Sleep deeper. Wake up less angry. +1 recharge/day."},
+    "new_bed":        {"name": "New Bed",                   "icon": "🛏️", "cost": 4_999, "unlock_level": 3, "max_energy_bonus": 0, "recharge_bonus": 1, "desc": "Memory foam. You wake up ready. +1 recharge/day."},
+    "mini_fridge":    {"name": "Mini Fridge",               "icon": "🧊",  "cost":   349, "unlock_level": 3, "max_energy_bonus": 2, "recharge_bonus": 0, "desc": "Snacks within arm's reach. Peak efficiency. +2 max energy."},
+    "whiteboard":     {"name": "Whiteboard",                "icon": "📋",  "cost":   249, "unlock_level": 4, "max_energy_bonus": 0, "recharge_bonus": 0, "desc": "You mapped out the whole job. Bob charges less. 6% off all contractor renovation costs."},
+    "filing_cabinet": {"name": "Filing Cabinet",            "icon": "🗂️", "cost":   449, "unlock_level": 5, "max_energy_bonus": 0, "recharge_bonus": 0, "desc": "Everything is documented. Problems get caught early. 15% lower repair event chance."},
+    "headphones":     {"name": "Noise-Cancelling Headphones","icon": "🎧", "cost":   699, "unlock_level": 6, "max_energy_bonus": 0, "recharge_bonus": 0, "desc": "You stop engaging. They interpret it as professionalism. -1 morale decay/day across all properties."},
+    "negotiation_book":{"name": "Negotiation Book",         "icon": "📖",  "cost":   999, "unlock_level": 7, "max_energy_bonus": 0, "recharge_bonus": 0, "desc": "You read it twice. Vendors can tell. +4% on all property sale prices."},
 }
 
 # ── Vending Machine Business ───────────────────────────────────────────────────
@@ -1338,6 +1347,11 @@ COSTPRO_ITEMS = {
     "grip_spray":     {"name": "Grip Spray",            "icon": "💦", "price": 400,   "desc": "Required to run classes. Lasts 7 days per case.", "category": "pole_studio"},
     "protein_shakes": {"name": "Health Drinks",         "icon": "🍹", "price": 600,   "desc": "+25% daily income. Lasts 10 days per case.",   "category": "pole_studio"},
     "branded_merch":  {"name": "Chicken Wings",         "icon": "🍗", "price": 500,   "desc": "+20% daily income. Lasts 10 days per case.",   "category": "pole_studio"},
+    "cw_basic_soap":    {"name": "Basic Soap",           "icon": "🧼", "price": 350,   "desc": "Required to operate. 7 days per case.",               "category": "car_wash"},
+    "cw_standard_soap": {"name": "Standard Soap",        "icon": "🫧", "price": 500,   "desc": "Required for Standard Wash+. 10 days per case.",      "category": "car_wash"},
+    "cw_premium_wax":   {"name": "Premium Wax",          "icon": "✨", "price": 700,   "desc": "Required for Deluxe+. +30% income on Deluxe tier. 8 days per case.", "category": "car_wash"},
+    "cw_tire_shine":    {"name": "Tire Shine",           "icon": "🖤", "price": 400,   "desc": "+15% income across all bays. 10 days per case.",      "category": "car_wash"},
+    "cw_air_freshener": {"name": "Air Fresheners",       "icon": "🌲", "price": 300,   "desc": "+10% regulars growth rate. 12 days per case.",        "category": "car_wash"},
 }
 
 # ── Dirty Money Laundromat ─────────────────────────────────────────────────────
@@ -1746,6 +1760,209 @@ def _apply_demand_effects(s, ps, effects, dancer_key):
     if effects.get("cleanliness"):
         ps["cleanliness"] = max(0, min(100, ps.get("cleanliness", 0) + effects["cleanliness"]))
 
+# ── Slippery When Washed Car Wash ─────────────────────────────────────────────
+CAR_WASH_PRICE            = 600_000
+CAR_WASH_UNLOCK_LEVEL     = 10
+CAR_WASH_START_BAYS       = 1
+CAR_WASH_MAX_BAYS         = 5
+CAR_WASH_BAY_PRICES       = [100_000, 175_000, 275_000, 400_000]  # 4 additional bays
+CAR_WASH_BASE_INCOME      = 220   # per bay per day before multipliers
+CAR_WASH_WATER_DECAY      = 8
+CAR_WASH_EQUIP_DECAY      = 6
+CAR_WASH_MORALE_DECAY     = 5
+CAR_WASH_BREAKDOWN_PCT    = 0.04
+CAR_WASH_REPRESSURIZE_COST = 400
+CAR_WASH_REPAIR_COST      = 250
+CAR_WASH_PEP_ENERGY       = 3
+CAR_WASH_PEP_MORALE       = 20
+CAR_WASH_LUNCH_COST       = 400
+CAR_WASH_LUNCH_MORALE     = 12
+CAR_WASH_LUNCH_COOLDOWN   = 7
+CAR_WASH_INSURANCE_WEEKLY = 600
+
+# Package multipliers — highest available tier auto-applies
+CAR_WASH_PACKAGES = {
+    "basic":    {"name": "Basic Rinse",          "icon": "💦", "mult": 1.0,
+                 "desc": "Just water. Gets the job done. Mostly."},
+    "standard": {"name": "Standard Wash",         "icon": "🫧", "mult": 1.75,
+                 "req_supply": "cw_standard_soap",
+                 "desc": "Soap + rinse. The classic. Requires Standard Soap."},
+    "deluxe":   {"name": "Deluxe Wax & Shine",   "icon": "✨", "mult": 3.0,
+                 "req_supply": "cw_premium_wax", "req_upgrade": "dryer_arch",
+                 "desc": "Soap + wax + rinse + dry. Requires Premium Wax and Dryer Arch."},
+    "premium":  {"name": "Premium Full Detail",   "icon": "💎", "mult": 5.0,
+                 "req_staff": "rhonda",
+                 "desc": "The full treatment. Requires Rhonda. Worth the wait. Rhonda is slow."},
+}
+
+CAR_WASH_STAFF = {
+    "terry": {
+        "name": "Terry", "icon": "💧", "cost": 180,
+        "desc": "Head Wash Technician. 22 years in the business. He considers himself an artist. "
+                "He has opinions about water temperature. He will share them.",
+        "effect": "morale_decay_half",
+    },
+    "brianna": {
+        "name": "Brianna", "icon": "📋", "cost": 220,
+        "desc": "Shift Manager. Produced a 47-step laminated flow chart for 'optimal wash sequencing.' "
+                "It works. +20% bay output. Reduces morale decay.",
+        "effect": "output_boost",
+    },
+    "squeegee_kid": {
+        "name": "The Squeegee Kid", "icon": "🪟", "cost": 80,
+        "desc": "Name unknown. Shows up 65% of days. On the days he shows up, he is excellent. "
+                "He has three other jobs. They are all similar.",
+        "effect": "show_up_chance",
+    },
+    "dave": {
+        "name": "Dave", "icon": "🌀", "cost": 120,
+        "desc": "The Vacuum Guy. Only does vacuums. Refuses any other task. "
+                "47 five-star Yelp reviews. Dave does not know what Yelp is.",
+        "effect": "vacuum_bonus",
+    },
+    "rhonda": {
+        "name": "Rhonda", "icon": "✨", "cost": 250,
+        "desc": "Detailer. Takes 3 hours per car. They look incredible. Rhonda is very slow. "
+                "She knows. She is unbothered. Unlocks Premium Full Detail.",
+        "effect": "unlock_premium",
+    },
+    "manny": {
+        "name": "Manny", "icon": "🔧", "cost": 160,
+        "desc": "On-site Repairman. Always has the right tool, usually in his back pocket. "
+                "Restores +5 condition/day per bay. Broken bays fix themselves overnight. He hums while he works.",
+        "effect": "auto_repair",
+    },
+}
+
+CAR_WASH_BAY_UPGRADES = {
+    "nozzles":   {"name": "High-Pressure Nozzles", "icon": "🔩", "cost": 15_000,
+                  "desc": "+25% income from this bay. Cuts equipment decay in half."},
+    "foam":      {"name": "Foam Cannon",            "icon": "🫧", "cost": 12_000,
+                  "desc": "+20% income from this bay. +10 reputation on install."},
+    "led_sign":  {"name": "LED Arch Sign",          "icon": "💡", "cost": 18_000,
+                  "desc": "+15% income from this bay. Boosts regulars growth rate."},
+    "conveyor":  {"name": "Conveyor Belt",          "icon": "⚙️", "cost": 35_000,
+                  "desc": "+30% income from this bay. Eliminates Squeegee Kid no-show penalty."},
+}
+
+CAR_WASH_GLOBAL_UPGRADES = {
+    "waiting_room_tv":  {"name": "Waiting Room TV",      "icon": "📺", "cost":  8_000,
+                         "desc": "Reduces regulars drain from long-wait events."},
+    "loyalty_machine":  {"name": "Loyalty Card Machine", "icon": "💳", "cost": 12_000,
+                         "desc": "Doubles regulars build rate."},
+    "water_tank":       {"name": "Industrial Water Tank","icon": "🛢️", "cost": 25_000,
+                         "desc": "Water pressure decays 60% slower."},
+    "dryer_arch":       {"name": "Automated Dryer Arch", "icon": "🌬️", "cost": 30_000,
+                         "desc": "Required to offer Deluxe Wax & Shine package."},
+}
+
+CAR_WASH_EVENTS = [
+    {"text": "Bird migration season. Every car in town is a crime scene. Business is booming.",                       "type": "positive",  "effect": "income",     "value":  2000},
+    {"text": "It rained last night. Walk-ins down. The regulars still showed.",                                       "type": "positive",  "effect": "regulars",   "value":     4},
+    {"text": "The Squeegee Kid posted a video from your wash. 8,000 views. He didn't ask.",                           "type": "positive",  "effect": "reputation", "value":    12},
+    {"text": "Dave won a local vacuum award. He accepted it with a nod. There was no speech.",                        "type": "positive",  "effect": "reputation", "value":     8},
+    {"text": "Brianna's laminated flow chart was featured in an operations newsletter. Morale is up.",                "type": "positive",  "effect": "morale",     "value":    15},
+    {"text": "A customer complained about a scratch that was already there. It was not.",                             "type": "negative",  "effect": "reputation", "value":    -8},
+    {"text": "Local competitor opened nearby with a 'Grand Opening' discount.",                                       "type": "negative",  "effect": "regulars",   "value":    -5},
+    {"text": "A luxury car came through. Rhonda handled it personally.",                                              "type": "positive",  "effect": "income",     "value":  3500},
+    {"text": "Health inspector arrived unannounced. Passed with flying colors. She asked about the wax.",             "type": "positive",  "effect": "reputation", "value":     6},
+    {"text": "Water main pressure drop city-wide. Extra maintenance needed.",                                         "type": "negative",  "effect": "water",      "value":   -20},
+    {"text": "Equipment overheated during peak summer hours.",                                                        "type": "negative",  "effect": "equip",      "value":   -20},
+    {"text": "The Squeegee Kid didn't show up.",                                                                      "type": "negative",  "effect": "income",     "value":  -400},
+    {"text": "Someone tipped Terry $40. He used it to buy a thermometer for the rinse water.",                        "type": "positive",  "effect": "morale",     "value":    10},
+    {"text": "A local school booked a field trip to see the operation. Eight new memberships followed.",              "type": "positive",  "effect": "regulars",   "value":     6},
+    {"text": "City repaving outside — foot traffic down today.",                                                      "type": "negative",  "effect": "income",     "value":  -600},
+    {"text": "Detailing package review went viral on a local Facebook group.",                                        "type": "positive",  "effect": "reputation", "value":    10},
+    {"text": "A car came in that needed more than a wash. Rhonda did not comment. The car left spotless.",            "type": "positive",  "effect": "income",     "value":  2000},
+    {"text": "Terry gave a 20-minute speech about the importance of rinse temperature. Morale dipped slightly.",      "type": "negative",  "effect": "morale",     "value":    -8},
+    {"text": "Pump broke mid-shift.",                                                                                 "type": "negative",  "effect": "break_bay",  "value":     1},
+    {"text": "Free car wash promotion at a dealership nearby. Walk-ins slowed.",                                      "type": "negative",  "effect": "regulars",   "value":    -4},
+    {"text": "Dave's Yelp page got cited in a 'Hidden Gems' article. Regulars up.",                                   "type": "positive",  "effect": "regulars",   "value":     5},
+    {"text": "Sudden hailstorm. Every car needs a wash afterwards.",                                                  "type": "positive",  "effect": "income",     "value":  4000},
+    {"text": "A returning regular left a $100 tip. Brianna documented it in the flow chart.",                         "type": "positive",  "effect": "income",     "value":   100},
+    {"text": "Power surge damaged equipment across all bays.",                                                        "type": "negative",  "effect": "equip_all",  "value":   -15},
+]
+
+# ── New Builds System ─────────────────────────────────────────────────────────
+NEW_BUILDS_UNLOCK_LEVEL = 9
+BUILDING_PERMIT_COST    = 100_000
+
+HOOD_STREETS["Cedarvale Estates"] = [
+    "Cedarvale Blvd", "Hearthstone Dr", "Millbrook Ln", "Stonegate Rd",
+    "Ashford Way", "Cresthollow Ct", "Elmcroft Ave", "Fairlawn Dr",
+    "Glenbrook Pl", "Harborview Cir",
+]
+
+BUILD_CREWS = {
+    "handys":   {"name": "Handy's Crew",      "icon": "🔨", "buy_cost":  15_000, "daily_rate":  400, "speed_mult": 1.00, "desc": "Small local crew. Reliable, affordable. Best value on small builds."},
+    "summit":   {"name": "Summit Builders",   "icon": "🏗️", "buy_cost":  35_000, "daily_rate":  700, "speed_mult": 0.85, "desc": "Mid-size team with solid references. 15% faster than Handy's."},
+    "apex":     {"name": "Apex Construction", "icon": "⚙️", "buy_cost":  75_000, "daily_rate": 1200, "speed_mult": 0.70, "desc": "Professional outfit. 30% faster. Worth it on larger projects."},
+    "pinnacle": {"name": "Pinnacle Group",    "icon": "🏆", "buy_cost": 150_000, "daily_rate": 2000, "speed_mult": 0.55, "desc": "Elite construction firm. Nearly twice the speed. Premium price."},
+}
+
+NEW_BUILD_SIZES = {
+    "studio":    {"name": "Studio Cottage",   "icon": "🏠", "base_days":  84, "build_cost":  80_000, "finished_value":  300_000,
+                  "prop_type": "Bungalow",    "beds": 1, "baths": 1, "sqft":  680,
+                  "desc": "Compact single-story cottage. Quick build, solid return on a budget."},
+    "townhouse": {"name": "Townhouse",        "icon": "🏘️", "base_days": 140, "build_cost": 160_000, "finished_value":  450_000,
+                  "prop_type": "Townhouse",   "beds": 2, "baths": 2, "sqft": 1250,
+                  "desc": "Two-story townhouse with modern finishes. Good rental or flip."},
+    "sfh":       {"name": "Single Family",    "icon": "🏡", "base_days": 168, "build_cost": 280_000, "finished_value":  700_000,
+                  "prop_type": "Colonial",    "beds": 3, "baths": 2, "sqft": 1900,
+                  "desc": "Classic single-family home. Strong value, broad appeal."},
+    "executive": {"name": "Executive Home",   "icon": "🏰", "base_days": 196, "build_cost": 450_000, "finished_value": 1_100_000,
+                  "prop_type": "Colonial",    "beds": 4, "baths": 3, "sqft": 3200,
+                  "desc": "Spacious executive residence. Premium lot, premium returns."},
+    "estate":    {"name": "Estate",           "icon": "🏯", "base_days": 224, "build_cost": 700_000, "finished_value": 1_750_000,
+                  "prop_type": "Mansion",     "beds": 6, "baths": 5, "sqft": 7500,
+                  "desc": "The flagship build. Two full years in construction. Worth every day."},
+}
+
+def _complete_new_build(s, build):
+    """Convert a finished build into a real property on state.properties."""
+    size   = NEW_BUILD_SIZES[build["size"]]
+    nid    = s.get("next_id", 1000)
+    s["next_id"] = nid + 1
+    address = _make_address("Cedarvale Estates")
+    prop = {
+        "id": nid,
+        "type": size["prop_type"],
+        "neighborhood": "Cedarvale Estates",
+        "address": address,
+        "bedrooms":  size["beds"],
+        "bathrooms": size["baths"],
+        "sqft":      size["sqft"],
+        "condition": 250,
+        "upgrades": {},
+        "premium_upgrades": list(build.get("premium_upgrades", [])),
+        "squatter": None,
+        "vacant_since": s["day"],
+        "pending_reno": None, "pending_premium": None,
+        "scheduled_reno": None, "scheduled_premium": None,
+        "tenant": None, "days_rented": 0,
+        "total_rent_collected": 0, "total_repair_costs": 0,
+        "purchase_price": 0,
+        "new_build": True,
+        "fixed_market_value": size["finished_value"] + sum(
+            PREMIUM_UPGRADES[k]["value_bonus"] for k in build.get("premium_upgrades", []) if k in PREMIUM_UPGRADES
+        ),
+    }
+    s["properties"].append(prop)
+    return prop
+
+def _get_car_wash_package(cw):
+    """Return the highest package tier currently available."""
+    staff   = cw.get("staff",   {})
+    inv     = cw.get("supplies", {})
+    g_upgs  = cw.get("global_upgrades", {})
+    if staff.get("rhonda") and inv.get("cw_standard_soap", 0) > 0 and inv.get("cw_premium_wax", 0) > 0 and g_upgs.get("dryer_arch"):
+        return "premium"
+    if inv.get("cw_premium_wax", 0) > 0 and g_upgs.get("dryer_arch"):
+        return "deluxe"
+    if inv.get("cw_standard_soap", 0) > 0:
+        return "standard"
+    return "basic"
+
 def generate_jobs():
     """TEST MODE: all job types available, zero energy cost."""
     jobs = []
@@ -2102,8 +2319,10 @@ def _get_home_stats(s):
     max_e = max(h["max_energy"] for h in homes_owned)
     rch   = max(h["recharge"]   for h in homes_owned)
     items = s.get("owned_items", {})
-    max_e += STORE_ITEMS["coffee_maker"]["max_energy_bonus"] if items.get("coffee_maker") else 0
-    rch   += STORE_ITEMS["new_bed"]["recharge_bonus"]        if items.get("new_bed") else 0
+    for key, item in STORE_ITEMS.items():
+        if items.get(key):
+            max_e += item.get("max_energy_bonus", 0)
+            rch   += item.get("recharge_bonus", 0)
     return max_e, rch
 
 def upgrade_cooldown_remaining(upg_val, current_day):
@@ -2138,7 +2357,10 @@ def calc_monthly_rent(prop):
                     for k, v in prop.get("upgrades", {}).items())
     # premium_weekly is per-week; monthly_rent is used as 4-week equivalent
     premium_weekly = get_premium_bonuses(prop)["rent"]
-    return int(base * cond_mult) + bonus + (premium_weekly * 4)
+    total = int(base * cond_mult) + bonus + (premium_weekly * 4)
+    if prop.get("new_build"):
+        total = int(total * 1.25)
+    return total
 
 def calc_fair_weekly_rent(prop):
     return max(1, round(calc_monthly_rent(prop) / 4))
@@ -2334,6 +2556,7 @@ def _migrate_state(s):
     s.setdefault("costpro_inventory", {})
     s.setdefault("laundromat", None)
     s.setdefault("pole_studio", None)
+    s.setdefault("car_wash", None)
     s.setdefault("tax_year_flip_income", 0)
     s.setdefault("tax_year_rent_income", 0)
     s.setdefault("tax_extension_filed", False)
@@ -2417,6 +2640,10 @@ def api_state():
         "costpro_inventory":      s.get("costpro_inventory", {}),
         "laundromat":             s.get("laundromat"),
         "pole_studio":            s.get("pole_studio"),
+        "car_wash":               s.get("car_wash"),
+        "building_permit":        s.get("building_permit", False),
+        "owned_crews":            s.get("owned_crews", []),
+        "active_builds":          s.get("active_builds", []),
     })
 
 @app.route('/api/market', methods=['GET', 'POST'])
@@ -2548,6 +2775,8 @@ def api_renovate():
             return jsonify({"error": "Unknown contractor"}), 400
         cont      = CONTRACTORS[contractor_key]
         cost      = _reno_cost(prop, upg["base_cost"], cont["cost_mult"])
+        if s.get("owned_items", {}).get("whiteboard"):
+            cost = int(cost * 0.94)
         quality   = random.randint(cont["q_min"], cont["q_max"])
         cont_name = cont["name"]
     is_vacant    = not prop.get("tenant")
@@ -2786,6 +3015,8 @@ def api_sell():
         sale = prop["fixed_market_value"]
     else:
         sale = int(calc_market_value(prop) * random.uniform(0.95, 1.05))
+    if s.get("owned_items", {}).get("negotiation_book"):
+        sale = int(sale * 1.04)
     profit = sale - prop["purchase_price"]
     s["cash"] += sale
     if profit > 0:
@@ -3099,7 +3330,10 @@ def api_advance():
         tenant_props = [p for p in s["properties"] if p.get("tenant") and not _is_special_tenant(p["tenant"])]
         tenant_count = len(tenant_props)
         if tenant_count > 0:
+            owned_items  = s.get("owned_items", {})
             event_chance = min(0.15 + 0.01 * tenant_count, 0.75)
+            if owned_items.get("filing_cabinet"):
+                event_chance *= 0.85
             if random.random() < event_chance:
                 target_prop = random.choice(tenant_props)
                 t           = target_prop["tenant"]
@@ -3207,6 +3441,12 @@ def api_advance():
                     elif chosen_event["type"] == "morale_auto":
                         # Auto events: apply morale silently, show in advance events list
                         delta = chosen_event.get("morale_delta", 0)
+                        # House plant: 15% chance to block 1 point of morale loss
+                        if delta < 0 and owned_items.get("house_plant") and random.random() < 0.15:
+                            delta = min(0, delta + 1)
+                        # Headphones: negative morale events reduced by 1 point
+                        if delta < 0 and owned_items.get("headphones"):
+                            delta = min(0, delta + 1)
                         icon  = chosen_event.get("icon", "💬")
                         tenant_name = t.get("name", "Your tenant")
                         msg   = chosen_event.get("message", "Something happened with your tenant.")
@@ -3880,6 +4120,163 @@ def api_advance():
 
         s["pole_studio"] = ps
 
+    # ── Slippery When Washed advance ──────────────────────────────────────────
+    cw = s.get("car_wash")
+    if cw and cw.get("owned"):
+        bays      = cw.setdefault("bays", [{"id": i, "upgrades": {}, "broken": False}
+                                            for i in range(cw.get("bay_count", CAR_WASH_START_BAYS))])
+        staff     = cw.setdefault("staff", {k: False for k in CAR_WASH_STAFF})
+        g_upgs    = cw.setdefault("global_upgrades", {})
+        sup       = cw.setdefault("supplies", {})
+
+        for _day in range(days):
+            # Insurance weekly charge
+            if cw.get("insurance"):
+                cw["insurance_days"] = cw.get("insurance_days", 7) - 1
+                if cw["insurance_days"] <= 0:
+                    cw["insurance_days"] = 7
+                    s["cash"] = max(0, s["cash"] - CAR_WASH_INSURANCE_WEEKLY)
+
+            # Water pressure decay (slower with industrial tank)
+            water_decay = CAR_WASH_WATER_DECAY * (0.4 if g_upgs.get("water_tank") else 1.0)
+            cw["water_pressure"] = max(0, cw.get("water_pressure", 100) - water_decay)
+
+            # Equipment decay per bay
+            for bay in bays:
+                if bay.get("broken"):
+                    if staff.get("manny"):
+                        bay["broken"] = False
+                        bay["condition"] = min(100, bay.get("condition", 0) + 10)
+                else:
+                    bd = CAR_WASH_BREAKDOWN_PCT * (0.5 if bay.get("upgrades", {}).get("nozzles") else 1.0)
+                    if random.random() < bd:
+                        bay["broken"] = True
+                    decay = CAR_WASH_EQUIP_DECAY * (0.5 if bay.get("upgrades", {}).get("nozzles") else 1.0)
+                    bay["condition"] = max(0, bay.get("condition", 100) - decay)
+                    if staff.get("manny"):
+                        bay["condition"] = min(100, bay.get("condition", 100) + 5)
+
+            # Morale decay
+            morale_decay = CAR_WASH_MORALE_DECAY
+            if staff.get("brianna"): morale_decay = max(1, morale_decay - 2)
+            if staff.get("terry"):   morale_decay = max(1, morale_decay - 1)
+            cw["morale"] = max(0, cw.get("morale", 80) - morale_decay)
+
+            # Staff daily costs
+            for role, hired in staff.items():
+                if hired:
+                    s["cash"] = max(0, s["cash"] - CAR_WASH_STAFF[role]["cost"])
+
+            # No basic soap = no income
+            if sup.get("cw_basic_soap", 0) <= 0:
+                cw["regulars"] = max(0, cw.get("regulars", 0) - 3)
+                continue
+            sup["cw_basic_soap"] -= 1
+
+            # Determine active package
+            pkg_key = _get_car_wash_package(cw)
+            pkg_mult = CAR_WASH_PACKAGES[pkg_key]["mult"]
+
+            # Consume package-specific supplies
+            if pkg_key in ("standard", "deluxe", "premium") and sup.get("cw_standard_soap", 0) > 0:
+                sup["cw_standard_soap"] = max(0, sup["cw_standard_soap"] - 1)
+            if pkg_key in ("deluxe", "premium") and sup.get("cw_premium_wax", 0) > 0:
+                sup["cw_premium_wax"] = max(0, sup["cw_premium_wax"] - 1)
+
+            # Income per working bay
+            working_bays = [b for b in bays if not b.get("broken")]
+            income = 0
+            for bay in working_bays:
+                upgs    = bay.get("upgrades", {})
+                base    = CAR_WASH_BASE_INCOME
+                bay_m   = 1.0
+                if upgs.get("nozzles"):  bay_m *= 1.25
+                if upgs.get("foam"):     bay_m *= 1.20
+                if upgs.get("led_sign"): bay_m *= 1.15
+                if upgs.get("conveyor"): bay_m *= 1.30
+                # Condition penalty: 0.6 at 0% → 1.0 at 100%
+                cond_m  = 0.6 + bay.get("condition", 100) / 100 * 0.4
+                income += round(base * bay_m * cond_m)
+
+            # Global multipliers
+            income = round(income * pkg_mult)
+
+            # Brianna output boost
+            if staff.get("brianna"): income = round(income * 1.20)
+
+            # Squeegee Kid: 35% chance of not showing up when hired
+            if staff.get("squeegee_kid"):
+                showed_up = random.random() < 0.65
+                if not showed_up:
+                    # no-show penalty only if no conveyor belt on any bay
+                    has_conveyor = any(b.get("upgrades", {}).get("conveyor") for b in working_bays)
+                    if not has_conveyor:
+                        income = round(income * 0.85)
+
+            # Dave vacuum bonus
+            if staff.get("dave"): income = round(income * 1.12)
+
+            # Water pressure multiplier: 0.5 at 0% → 1.0 at 100%
+            water_m = 0.5 + cw.get("water_pressure", 100) / 100 * 0.5
+            income  = round(income * water_m)
+
+            # Morale multiplier: 0.6 at 0% → 1.1 at 100%
+            morale_m = 0.6 + cw.get("morale", 80) / 100 * 0.5
+            income   = round(income * morale_m)
+
+            # Supply bonuses
+            if sup.get("cw_tire_shine", 0) > 0:
+                income = round(income * 1.15)
+                sup["cw_tire_shine"] = max(0, sup["cw_tire_shine"] - 1)
+            if sup.get("cw_air_freshener", 0) > 0:
+                cw["regulars"] = min(100, cw.get("regulars", 0) + 0.1)
+
+            # Reputation + regulars multipliers
+            rep_m = 0.7 + cw.get("reputation", 0) / 100 * 0.8
+            reg_m = 1.0 + cw.get("regulars",   0) / 100 * 0.5
+            income = round(income * rep_m * reg_m)
+
+            # Random event 5% per day
+            if random.random() < 0.05:
+                evt    = random.choice(CAR_WASH_EVENTS)
+                effect = evt["effect"]
+                val    = evt["value"]
+                if effect == "income":
+                    income = max(0, income + int(val))
+                elif effect == "reputation":
+                    cw["reputation"] = max(0, min(100, cw.get("reputation", 0) + int(val)))
+                elif effect == "regulars":
+                    cw["regulars"] = max(0, min(100, cw.get("regulars", 0) + int(val)))
+                elif effect == "morale":
+                    cw["morale"] = max(0, min(100, cw.get("morale", 80) + int(val)))
+                elif effect == "water":
+                    cw["water_pressure"] = max(0, min(100, cw.get("water_pressure", 100) + int(val)))
+                elif effect == "equip":
+                    for b in bays:
+                        b["condition"] = max(0, b.get("condition", 100) + int(val))
+                elif effect == "equip_all":
+                    for b in bays:
+                        b["condition"] = max(0, b.get("condition", 100) + int(val))
+                elif effect == "break_bay":
+                    working = [b for b in bays if not b.get("broken")]
+                    if working:
+                        random.choice(working)["broken"] = True
+                events.append({"prop": "Slippery When Washed", "text": evt["text"],
+                                "type": evt["type"], "category": "business"})
+
+            # Regulars slow build
+            if random.random() < 0.35:
+                cw["regulars"] = min(100, cw.get("regulars", 0) + 2)
+            if random.random() < 0.25 and g_upgs.get("loyalty_machine"):
+                cw["regulars"] = min(100, cw.get("regulars", 0) + 2)
+            if cw.get("reputation", 0) > 60 and random.random() < 0.15:
+                cw["reputation"] = max(0, cw["reputation"] - 1)
+
+            s["cash"]         += income
+            cw["total_earned"] = cw.get("total_earned", 0) + income
+
+        s["car_wash"] = cw
+
     # Build rent summary events
     for pid, rs in rent_log.items():
         if rs["collected"] > 0 or rs["missed"] > 0:
@@ -3892,6 +4289,26 @@ def api_advance():
                     "warning"  if rs["collected"] > 0 else "negative")
             events.append({"prop": rs["prop"], "text": txt, "type": etype,
                            "category": "rent", "amount": rs["collected"]})
+
+    # ── New Builds tick ──────────────────────────────────────────────
+    active_builds     = s.get("active_builds", [])
+    completed_ids     = []
+    for build in active_builds:
+        if build.get("paused"):
+            continue
+        crew_key  = build.get("crew")
+        crew      = BUILD_CREWS.get(crew_key, BUILD_CREWS["handys"])
+        daily_pay = crew["daily_rate"] * days
+        s["cash"] = max(0, s["cash"] - daily_pay)
+        build["days_remaining"] = max(0, build.get("days_remaining", 1) - days)
+        build["total_crew_paid"] = build.get("total_crew_paid", 0) + daily_pay
+        if build["days_remaining"] <= 0:
+            completed_ids.append(build["id"])
+            prop = _complete_new_build(s, build)
+            events.append({"prop": "Cedarvale Estates",
+                           "text": f"Build complete! Your {NEW_BUILD_SIZES[build['size']]['name']} at {prop['address']} is ready.",
+                           "type": "positive", "category": "build"})
+    s["active_builds"] = [b for b in active_builds if b["id"] not in completed_ids]
 
     _update_stock_prices(s, days)
     _roll_special_contractors(s)
@@ -4401,9 +4818,11 @@ def api_store_buy_item():
     item     = STORE_ITEMS.get(item_key)
     if not item:
         return jsonify({"error": "Unknown item"}), 400
-    if item_key in {"coffee_maker", "new_bed"}:
-        if any(isinstance(p.get("squatter"), dict) and p["squatter"].get("starter") for p in s["properties"]):
-            return jsonify({"error": "Treat yourself later. Right now you've got a squatter problem."}), 400
+    unlock_level = item.get("unlock_level", 0)
+    if unlock_level > 0 and s.get("level", 0) < unlock_level:
+        return jsonify({"error": f"Unlocks at Level {unlock_level}"}), 400
+    if any(isinstance(p.get("squatter"), dict) and p["squatter"].get("starter") for p in s["properties"]):
+        return jsonify({"error": "Treat yourself later. Right now you've got a squatter problem."}), 400
     items = s.setdefault("owned_items", {})
     if items.get(item_key):
         return jsonify({"error": "You already own this!"}), 400
@@ -4622,6 +5041,16 @@ def api_costpro_buy():
         elif key == "branded_merch":
             ps["merch_days"] = ps.get("merch_days", 0) + 10 * qty
         s["pole_studio"] = ps
+    elif item.get("category") == "car_wash":
+        cw = s.get("car_wash")
+        if not cw:
+            s["cash"] += total
+            return jsonify({"error": "You don't own Slippery When Washed yet!"}), 400
+        sup = cw.setdefault("supplies", {})
+        days_map = {"cw_basic_soap": 7, "cw_standard_soap": 10,
+                    "cw_premium_wax": 8, "cw_tire_shine": 10, "cw_air_freshener": 12}
+        sup[key] = sup.get(key, 0) + days_map.get(key, 7) * qty
+        s["car_wash"] = cw
     else:
         inv     = s.setdefault("costpro_inventory", {})
         inv[key] = inv.get(key, 0) + qty
@@ -5096,6 +5525,364 @@ def api_pole_studio_insurance():
         "text": f"Studio insurance {'activated ($500/week)' if ps['insurance'] else 'cancelled'}."})
     save(s)
     return jsonify({"success": True, "insurance": ps["insurance"]})
+
+def _cw_check(s):
+    cw = s.get("car_wash")
+    if not cw or not cw.get("owned"):
+        return None, jsonify({"error": "No car wash"}), 400
+    return cw, None, None
+
+@app.route('/api/car_wash/buy', methods=['POST'])
+def api_car_wash_buy():
+    s = load()
+    if s.get("car_wash") and s["car_wash"].get("owned"):
+        return jsonify({"error": "Already owned"}), 400
+    if s.get("level", 0) < CAR_WASH_UNLOCK_LEVEL:
+        return jsonify({"error": f"Requires Level {CAR_WASH_UNLOCK_LEVEL}"}), 400
+    if s["cash"] < CAR_WASH_PRICE:
+        return jsonify({"error": "Not enough cash"}), 400
+    s["cash"] -= CAR_WASH_PRICE
+    s["car_wash"] = {
+        "owned": True, "bay_count": CAR_WASH_START_BAYS,
+        "bays": [{"id": 0, "upgrades": {}, "broken": False, "condition": 100}],
+        "staff": {k: False for k in CAR_WASH_STAFF},
+        "global_upgrades": {},
+        "supplies": {},
+        "water_pressure": 100, "morale": 80,
+        "reputation": 5, "regulars": 0,
+        "insurance": False, "insurance_days": 7,
+        "total_earned": 0,
+    }
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": "Slippery When Washed is open. The sign is crooked. It adds character."})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/car_wash/build_bay', methods=['POST'])
+def api_car_wash_build_bay():
+    s  = load()
+    cw = s.get("car_wash")
+    if not cw or not cw.get("owned"):
+        return jsonify({"error": "No car wash"}), 400
+    bc = cw.get("bay_count", CAR_WASH_START_BAYS)
+    if bc >= CAR_WASH_MAX_BAYS:
+        return jsonify({"error": "Maximum 5 bays reached"}), 400
+    price = CAR_WASH_BAY_PRICES[bc - CAR_WASH_START_BAYS]
+    if s["cash"] < price:
+        return jsonify({"error": "Not enough cash"}), 400
+    s["cash"] -= price
+    cw["bay_count"] = bc + 1
+    cw.setdefault("bays", []).append({"id": bc, "upgrades": {}, "broken": False, "condition": 100})
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"Bay #{bc + 1} constructed. The sign is still crooked."})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/car_wash/hire_staff', methods=['POST'])
+def api_car_wash_hire_staff():
+    s    = load()
+    cw   = s.get("car_wash")
+    data = request.get_json(silent=True) or {}
+    role = data.get("role")
+    if not cw or not cw.get("owned"):
+        return jsonify({"error": "No car wash"}), 400
+    if role not in CAR_WASH_STAFF:
+        return jsonify({"error": "Unknown role"}), 400
+    staff = cw.setdefault("staff", {})
+    if staff.get(role):
+        return jsonify({"error": "Already hired"}), 400
+    staff[role] = True
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"{CAR_WASH_STAFF[role]['name']} is on the team."})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/car_wash/fire_staff', methods=['POST'])
+def api_car_wash_fire_staff():
+    s    = load()
+    cw   = s.get("car_wash")
+    data = request.get_json(silent=True) or {}
+    role = data.get("role")
+    if not cw or not cw.get("owned"):
+        return jsonify({"error": "No car wash"}), 400
+    cw.setdefault("staff", {})[role] = False
+    s["log"].insert(0, {"day": s["day"], "type": "neutral",
+        "text": f"{CAR_WASH_STAFF[role]['name']} let go."})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/car_wash/upgrade_bay', methods=['POST'])
+def api_car_wash_upgrade_bay():
+    s    = load()
+    cw   = s.get("car_wash")
+    data = request.get_json(silent=True) or {}
+    bay_idx = data.get("bay_idx", 0)
+    upg     = data.get("upgrade")
+    if not cw or not cw.get("owned"):
+        return jsonify({"error": "No car wash"}), 400
+    if upg not in CAR_WASH_BAY_UPGRADES:
+        return jsonify({"error": "Unknown upgrade"}), 400
+    bays = cw.setdefault("bays", [])
+    if bay_idx >= len(bays):
+        return jsonify({"error": "Invalid bay"}), 400
+    cost = CAR_WASH_BAY_UPGRADES[upg]["cost"]
+    if s["cash"] < cost:
+        return jsonify({"error": "Not enough cash"}), 400
+    s["cash"] -= cost
+    bays[bay_idx].setdefault("upgrades", {})[upg] = True
+    if upg == "foam":
+        cw["reputation"] = min(100, cw.get("reputation", 0) + 10)
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"Bay #{bay_idx + 1}: {CAR_WASH_BAY_UPGRADES[upg]['name']} installed."})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/car_wash/global_upgrade', methods=['POST'])
+def api_car_wash_global_upgrade():
+    s    = load()
+    cw   = s.get("car_wash")
+    data = request.get_json(silent=True) or {}
+    upg  = data.get("upgrade")
+    if not cw or not cw.get("owned"):
+        return jsonify({"error": "No car wash"}), 400
+    if upg not in CAR_WASH_GLOBAL_UPGRADES:
+        return jsonify({"error": "Unknown upgrade"}), 400
+    g = cw.setdefault("global_upgrades", {})
+    if g.get(upg):
+        return jsonify({"error": "Already installed"}), 400
+    cost = CAR_WASH_GLOBAL_UPGRADES[upg]["cost"]
+    if s["cash"] < cost:
+        return jsonify({"error": "Not enough cash"}), 400
+    s["cash"] -= cost
+    g[upg] = True
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"Slippery When Washed: {CAR_WASH_GLOBAL_UPGRADES[upg]['name']} installed."})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/car_wash/repair_bay', methods=['POST'])
+def api_car_wash_repair_bay():
+    s    = load()
+    cw   = s.get("car_wash")
+    data = request.get_json(silent=True) or {}
+    bay_idx = data.get("bay_idx", 0)
+    if not cw or not cw.get("owned"):
+        return jsonify({"error": "No car wash"}), 400
+    bays = cw.setdefault("bays", [])
+    if bay_idx >= len(bays):
+        return jsonify({"error": "Invalid bay"}), 400
+    repair_cost = 0 if cw.get("insurance") else CAR_WASH_REPAIR_COST
+    if s["cash"] < repair_cost:
+        return jsonify({"error": "Not enough cash"}), 400
+    s["cash"] -= repair_cost
+    bays[bay_idx]["broken"]    = False
+    bays[bay_idx]["condition"] = 80
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"Bay #{bay_idx + 1} repaired and back in service."})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/car_wash/repressurize', methods=['POST'])
+def api_car_wash_repressurize():
+    s  = load()
+    cw = s.get("car_wash")
+    if not cw or not cw.get("owned"):
+        return jsonify({"error": "No car wash"}), 400
+    if s["cash"] < CAR_WASH_REPRESSURIZE_COST:
+        return jsonify({"error": "Not enough cash"}), 400
+    s["cash"] -= CAR_WASH_REPRESSURIZE_COST
+    cw["water_pressure"] = min(100, cw.get("water_pressure", 0) + 50)
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": "Water pressure restored."})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/car_wash/pep_talk', methods=['POST'])
+def api_car_wash_pep_talk():
+    s    = load()
+    cw   = s.get("car_wash")
+    data = request.get_json(silent=True) or {}
+    if not cw or not cw.get("owned"):
+        return jsonify({"error": "No car wash"}), 400
+    energy = s.get("energy", 0)
+    if energy < CAR_WASH_PEP_ENERGY:
+        return jsonify({"error": "Not enough energy"}), 400
+    if cw.get("pep_day") == s["day"]:
+        return jsonify({"error": "Already gave the team a pep talk today."}), 400
+    s["energy"]    = energy - CAR_WASH_PEP_ENERGY
+    cw["morale"]   = min(100, cw.get("morale", 80) + CAR_WASH_PEP_MORALE)
+    cw["pep_day"]  = s["day"]
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": "Pep talk delivered. Terry made a counterpoint about water temperature."})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/car_wash/team_lunch', methods=['POST'])
+def api_car_wash_team_lunch():
+    s  = load()
+    cw = s.get("car_wash")
+    if not cw or not cw.get("owned"):
+        return jsonify({"error": "No car wash"}), 400
+    last = cw.get("last_lunch_day", -999)
+    if s["day"] - last < CAR_WASH_LUNCH_COOLDOWN:
+        days_left = CAR_WASH_LUNCH_COOLDOWN - (s["day"] - last)
+        return jsonify({"error": f"Team lunch on cooldown — {days_left} day(s) left."}), 400
+    if s["cash"] < CAR_WASH_LUNCH_COST:
+        return jsonify({"error": "Not enough cash"}), 400
+    s["cash"] -= CAR_WASH_LUNCH_COST
+    cw["morale"]        = min(100, cw.get("morale", 80) + CAR_WASH_LUNCH_MORALE)
+    cw["last_lunch_day"] = s["day"]
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": "Team lunch. Dave ordered a vacuum-shaped sandwich. Nobody commented."})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/car_wash/insurance', methods=['POST'])
+def api_car_wash_insurance():
+    s  = load()
+    cw = s.get("car_wash")
+    if not cw:
+        return jsonify({"error": "No car wash"}), 400
+    cw["insurance"] = not cw.get("insurance", False)
+    if cw["insurance"]:
+        cw["insurance_days"] = 7
+    s["log"].insert(0, {"day": s["day"], "type": "neutral",
+        "text": f"Car wash insurance {'activated ($600/week)' if cw['insurance'] else 'cancelled'}."})
+    save(s)
+    return jsonify({"success": True, "insurance": cw["insurance"]})
+
+# ── New Builds routes ─────────────────────────────────────────────────────────
+
+@app.route('/api/new_builds/buy_permit', methods=['POST'])
+def api_buy_permit():
+    s = load()
+    if s.get("level", 0) < NEW_BUILDS_UNLOCK_LEVEL:
+        return jsonify({"error": f"Reach Level {NEW_BUILDS_UNLOCK_LEVEL} to unlock New Builds"}), 400
+    if s.get("building_permit"):
+        return jsonify({"error": "You already own a building permit"}), 400
+    if s["cash"] < BUILDING_PERMIT_COST:
+        return jsonify({"error": f"Need ${BUILDING_PERMIT_COST:,}"}), 400
+    s["cash"] -= BUILDING_PERMIT_COST
+    s["building_permit"] = True
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": "Building permit purchased. You can now build homes in Cedarvale Estates."})
+    save(s)
+    return jsonify({"success": True, "cash": s["cash"]})
+
+@app.route('/api/new_builds/buy_crew', methods=['POST'])
+def api_buy_crew():
+    s    = load()
+    data = request.get_json(silent=True) or {}
+    crew_key = data.get("crew")
+    if crew_key not in BUILD_CREWS:
+        return jsonify({"error": "Unknown crew"}), 400
+    if not s.get("building_permit"):
+        return jsonify({"error": "Purchase a building permit first"}), 400
+    owned = s.get("owned_crews", [])
+    if crew_key in owned:
+        return jsonify({"error": "You already own this crew"}), 400
+    cost = BUILD_CREWS[crew_key]["buy_cost"]
+    if s["cash"] < cost:
+        return jsonify({"error": f"Need ${cost:,}"}), 400
+    s["cash"] -= cost
+    owned.append(crew_key)
+    s["owned_crews"] = owned
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"{BUILD_CREWS[crew_key]['name']} is now on your roster."})
+    save(s)
+    return jsonify({"success": True, "cash": s["cash"]})
+
+@app.route('/api/new_builds/start', methods=['POST'])
+def api_start_build():
+    s    = load()
+    data = request.get_json(silent=True) or {}
+    size_key  = data.get("size")
+    crew_key  = data.get("crew")
+    premiums  = data.get("premium_upgrades", [])
+
+    if not s.get("building_permit"):
+        return jsonify({"error": "No building permit"}), 400
+    if size_key not in NEW_BUILD_SIZES:
+        return jsonify({"error": "Invalid size"}), 400
+    if crew_key not in BUILD_CREWS:
+        return jsonify({"error": "Invalid crew"}), 400
+    if crew_key not in s.get("owned_crews", []):
+        return jsonify({"error": "You don't own that crew"}), 400
+
+    # Check crew not already on another build
+    for b in s.get("active_builds", []):
+        if b.get("crew") == crew_key and not b.get("paused"):
+            return jsonify({"error": f"{BUILD_CREWS[crew_key]['name']} is already assigned to another build"}), 400
+
+    # Validate premium upgrades
+    for pk in premiums:
+        if pk not in PREMIUM_UPGRADES:
+            return jsonify({"error": f"Unknown upgrade: {pk}"}), 400
+
+    size = NEW_BUILD_SIZES[size_key]
+    crew = BUILD_CREWS[crew_key]
+    premium_cost = sum(PREMIUM_UPGRADES[pk]["cost"] for pk in premiums)
+    total_upfront = size["build_cost"] + premium_cost
+
+    if s["cash"] < total_upfront:
+        return jsonify({"error": f"Need ${total_upfront:,} upfront (build + upgrades)"}), 400
+
+    s["cash"] -= total_upfront
+
+    days = max(1, round(size["base_days"] * crew["speed_mult"]))
+    build_id = s.get("next_build_id", 1)
+    s["next_build_id"] = build_id + 1
+
+    build = {
+        "id": build_id,
+        "size": size_key,
+        "crew": crew_key,
+        "premium_upgrades": premiums,
+        "days_remaining": days,
+        "total_days": days,
+        "paused": False,
+        "started_day": s["day"],
+        "build_cost": size["build_cost"],
+        "premium_cost": premium_cost,
+        "total_crew_paid": 0,
+    }
+    s.setdefault("active_builds", []).append(build)
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"Construction started on a {size['name']} in Cedarvale Estates. ETA: {days} days."})
+    save(s)
+    return jsonify({"success": True, "cash": s["cash"], "build": build})
+
+@app.route('/api/new_builds/toggle_pause', methods=['POST'])
+def api_toggle_build_pause():
+    s    = load()
+    data = request.get_json(silent=True) or {}
+    bid  = data.get("build_id")
+    build = next((b for b in s.get("active_builds", []) if b["id"] == bid), None)
+    if not build:
+        return jsonify({"error": "Build not found"}), 404
+    build["paused"] = not build.get("paused", False)
+    state_str = "paused" if build["paused"] else "resumed"
+    s["log"].insert(0, {"day": s["day"], "type": "neutral",
+        "text": f"{NEW_BUILD_SIZES[build['size']]['name']} construction {state_str}."})
+    save(s)
+    return jsonify({"success": True, "paused": build["paused"]})
+
+@app.route('/api/new_builds/cancel', methods=['POST'])
+def api_cancel_build():
+    s    = load()
+    data = request.get_json(silent=True) or {}
+    bid  = data.get("build_id")
+    build = next((b for b in s.get("active_builds", []) if b["id"] == bid), None)
+    if not build:
+        return jsonify({"error": "Build not found"}), 404
+    # Refund 40% of upfront costs
+    refund = round((build["build_cost"] + build.get("premium_cost", 0)) * 0.40)
+    s["cash"] += refund
+    s["active_builds"] = [b for b in s["active_builds"] if b["id"] != bid]
+    s["log"].insert(0, {"day": s["day"], "type": "warning",
+        "text": f"{NEW_BUILD_SIZES[build['size']]['name']} build cancelled. ${refund:,} refunded (40%)."})
+    save(s)
+    return jsonify({"success": True, "refund": refund, "cash": s["cash"]})
 
 @app.route('/api/reset', methods=['POST'])
 def api_reset():

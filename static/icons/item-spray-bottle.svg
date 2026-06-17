@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges">
+  <!-- bottle body -->
+  <rect x="3" y="6" width="8" height="9" fill="#AB47BC"/>
+  <rect x="4" y="5" width="6" height="2" fill="#AB47BC"/>
+  <!-- label area -->
+  <rect x="4" y="8" width="6" height="4" fill="#CE93D8"/>
+  <rect x="5" y="9" width="4" height="2" fill="#F3E5F5"/>
+  <!-- pump head -->
+  <rect x="5" y="3" width="4" height="3" fill="#7B1FA2"/>
+  <!-- pump stem going up -->
+  <rect x="8" y="1" width="2" height="3" fill="#6A1B9A"/>
+  <!-- nozzle pointing right -->
+  <rect x="9" y="2" width="4" height="2" fill="#6A1B9A"/>
+  <!-- trigger -->
+  <rect x="10" y="4" width="2" height="2" fill="#4A148C"/>
+  <!-- spray dots coming out -->
+  <rect x="13" y="1" width="2" height="1" fill="#B3E5FC"/>
+  <rect x="14" y="3" width="1" height="1" fill="#B3E5FC"/>
+  <rect x="13" y="5" width="2" height="1" fill="#B3E5FC"/>
+</svg>

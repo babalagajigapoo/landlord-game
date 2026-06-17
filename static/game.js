@@ -109,6 +109,30 @@ const PIXEL_ICONS = {
   '🛏️': 'store-bed',
   '🛒': 'ui-cart',
   '📚': 'ui-books',
+  // ── Business supplies & items ─────────────────────────────────────────────
+  '🧼': 'item-soap',
+  '🫧': 'item-bubbles',
+  '✨': 'item-sparkles',
+  '🖤': 'item-tire-shine',
+  '🍹': 'item-drink',
+  '🍗': 'item-chicken',
+  '🎒': 'ui-backpack',
+  '🌀': 'worker-vacuum',
+  '🎶': 'item-music',
+  '🧹': 'item-broom',
+  '\u{1F32C}️': 'item-wind',
+  '\u{1F32C}': 'item-wind',
+  '🍬': 'item-candy',
+  '🍫': 'item-chocolate',
+  '🧁': 'item-cupcake',
+  '🔩': 'item-nozzle',
+  '💡': 'item-lightbulb',
+  '📺': 'item-tv',
+  '💳': 'item-loyalty-card',
+  '\u{1F6E2}️': 'item-barrel',
+  '\u{1F6E2}': 'item-barrel',
+  '💪': 'item-grip',
+  '💦': 'item-spray-bottle',
 };
 
 function pxIcon(emoji, size) {
@@ -148,6 +172,36 @@ const HOOD_TIERS = {
   Midtown: 'budget', Northside: 'budget',
   Westwood: 'mid',
   Riverside: 'premium', Newbay: 'premium',
+  'Cedarvale Estates': 'premium',
+};
+
+const NEW_BUILDS_UNLOCK_LEVEL = 9;
+
+const BUILD_CREWS_DATA = {
+  handys:   { name: "Handy's Crew",      icon: '🔨', buy_cost:  15000, daily_rate:  400, speed_mult: 1.00, desc: "Small local crew. Reliable, affordable. Best value on small builds." },
+  summit:   { name: 'Summit Builders',   icon: '🏗️', buy_cost:  35000, daily_rate:  700, speed_mult: 0.85, desc: "Mid-size team with solid references. 15% faster than Handy's." },
+  apex:     { name: 'Apex Construction', icon: '⚙️', buy_cost:  75000, daily_rate: 1200, speed_mult: 0.70, desc: "Professional outfit. 30% faster. Worth it on larger projects." },
+  pinnacle: { name: 'Pinnacle Group',    icon: '🏆', buy_cost: 150000, daily_rate: 2000, speed_mult: 0.55, desc: "Elite construction firm. Nearly twice the speed. Premium price." },
+};
+
+const NEW_BUILD_SIZES_DATA = {
+  studio:    { name: 'Studio Cottage',  icon: '🏠', base_days:  84, build_cost:  80000, finished_value:  300000, desc: "Compact single-story cottage. Quick build, solid return on a budget." },
+  townhouse: { name: 'Townhouse',       icon: '🏘️', base_days: 140, build_cost: 160000, finished_value:  450000, desc: "Two-story townhouse with modern finishes. Good rental or flip." },
+  sfh:       { name: 'Single Family',   icon: '🏡', base_days: 168, build_cost: 280000, finished_value:  700000, desc: "Classic single-family home. Strong value, broad appeal." },
+  executive: { name: 'Executive Home',  icon: '🏰', base_days: 196, build_cost: 450000, finished_value: 1100000, desc: "Spacious executive residence. Premium lot, premium returns." },
+  estate:    { name: 'Estate',          icon: '🏯', base_days: 224, build_cost: 700000, finished_value: 1750000, desc: "The flagship build. Two full years in construction. Worth every day." },
+};
+
+const PREMIUM_UPGRADES_DATA = {
+  ev_charger: { name: 'EV Charging Station', icon: '⚡', cost:  4000, rent_bonus:  20, value_bonus:  5000 },
+  smarthome:  { name: 'Smart Home Package',  icon: '📱', cost:  5500, rent_bonus:  32, value_bonus:  7000 },
+  deck:       { name: 'Deck & Patio',        icon: '🪵', cost:  9000, rent_bonus:  45, value_bonus: 11000 },
+  hot_tub:    { name: 'Hot Tub / Spa',       icon: '🛁', cost: 12000, rent_bonus:  60, value_bonus: 13000 },
+  garage:     { name: '2-Car Garage',        icon: '🚗', cost: 16000, rent_bonus:  85, value_bonus: 20000 },
+  solar:      { name: 'Solar Panel Array',   icon: '☀️', cost: 19000, rent_bonus:  65, value_bonus: 22000 },
+  basement:   { name: 'Finished Basement',   icon: '🏗️', cost: 22000, rent_bonus: 130, value_bonus: 27000 },
+  pool:       { name: 'Swimming Pool',       icon: '🏊', cost: 28000, rent_bonus: 175, value_bonus: 32000 },
+  adu:        { name: 'Guest House / ADU',   icon: '🏡', cost: 48000, rent_bonus: 325, value_bonus: 55000 },
 };
 
 let _prevCash = null;   // tracks last known cash for float animation
@@ -511,7 +565,7 @@ const LEVEL_UNLOCKS = {
   8:  { joke: "The bank calls you by your first name. That's either a great sign or a sign you owe them money.",
         unlocks: ["📈 Keep scaling — the premium districts are yours to dominate", "💃 Brass Pole Fitness Studio unlocked in Business tab ($600,000) — 6 poles, 6 dancers, one very confused Gary"] },
   9:  { joke: "Heated floors. A wine cellar. Someone else mows the lawn. You made it.",
-        unlocks: ["🏛️ Luxury Villa available in Personal → Homes ($750,000)"] },
+        unlocks: ["🏛️ Luxury Villa available in Personal → Homes ($750,000)", "🏗️ New Builds unlocked — build homes from scratch in Cedarvale Estates (buy a permit in Personal → New Builds)"] },
   10: { joke: "Double digits. Gerald can already smell the ambition from here.",
         unlocks: ["📈 Endgame territory — maximize every income stream", "🚗 Speedy Suds Car Wash unlocked in Business tab"] },
   11: { joke: "The Mansion is one level away. Try not to trip over your own net worth.",
@@ -627,11 +681,12 @@ function navTo(page) {
   if (pageEl) pageEl.classList.add('active');
   if (btnEl)  btnEl.classList.add('active');
   slideNavIndicator(page);
-  if (page === 'finances') renderFinances();
-  if (page === 'settings') renderSettings();
-  if (page === 'personal') renderPersonal();
-  if (page === 'business') renderBusiness();
-  if (page === 'store')    renderStore();
+  if (page === 'finances')   renderFinances();
+  if (page === 'settings')   renderSettings();
+  if (page === 'personal')   renderPersonal();
+  if (page === 'business')   renderBusiness();
+  if (page === 'store')      renderStore();
+  if (page === 'properties') { renderProperties(); if (_currentPropTab === 'newbuilds') renderNewBuilds(); }
 }
 
 // ── Render All ────────────────────────────────────────────────────────────────
@@ -639,6 +694,7 @@ function renderAll() {
   renderDashboard();
   renderMarket();
   renderProperties();
+  if (_currentPropTab === 'newbuilds') renderNewBuilds();
   if (currentPage === 'settings')  renderSettings();
   if (currentPage === 'finances')  renderFinances();
   if (currentPage === 'personal')  renderPersonal();
@@ -889,6 +945,244 @@ function switchHoodTab(hood, tab) {
   renderProperties();
 }
 
+let _currentPropTab = 'portfolio';
+
+function switchPropTab(tab) {
+  _currentPropTab = tab;
+  ['portfolio', 'newbuilds'].forEach(t => {
+    const el  = document.getElementById('prop-' + t);
+    const btn = document.querySelector(`.fin-tab[data-prop-tab="${t}"]`);
+    if (el)  el.style.display = t === tab ? '' : 'none';
+    if (btn) btn.classList.toggle('active', t === tab);
+  });
+  if (tab === 'newbuilds') renderNewBuilds();
+  if (tab === 'portfolio') renderProperties();
+}
+
+function renderNewBuilds() {
+  const el = document.getElementById('new-builds-list');
+  if (!el || !state) return;
+
+  const level      = state.level || 0;
+  const hasPermit  = !!state.building_permit;
+  const ownedCrews = state.owned_crews || [];
+  const builds     = state.active_builds || [];
+
+  if (level < NEW_BUILDS_UNLOCK_LEVEL) {
+    el.innerHTML = `<div class="empty-state" style="padding:32px 16px;text-align:center">
+      <div style="font-size:48px;margin-bottom:12px">${pxIcon('🔒', 48)}</div>
+      <div style="font-size:15px;font-weight:800;margin-bottom:6px">Unlocks at Level ${NEW_BUILDS_UNLOCK_LEVEL}</div>
+      <div style="font-size:12px;color:var(--text-muted)">Build brand-new homes from the ground up in Cedarvale Estates.</div>
+    </div>`;
+    return;
+  }
+
+  if (!hasPermit) {
+    el.innerHTML = `<div style="padding:16px;text-align:center">
+      <div style="font-size:40px;margin-bottom:10px">📋</div>
+      <div style="font-size:14px;font-weight:800;margin-bottom:6px">Building Permit Required</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px">Purchase a building permit in Personal → New Builds to unlock construction.</div>
+      <button class="btn btn-primary" onclick="navTo('personal')" style="font-size:13px">Go to Personal Tab</button>
+    </div>`;
+    return;
+  }
+
+  if (ownedCrews.length === 0) {
+    el.innerHTML = `<div style="padding:16px;text-align:center">
+      <div style="font-size:40px;margin-bottom:10px">🔨</div>
+      <div style="font-size:14px;font-weight:800;margin-bottom:6px">No Crews Hired</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px">Hire at least one building crew in Personal → New Builds to start a project.</div>
+      <button class="btn btn-primary" onclick="navTo('personal')" style="font-size:13px">Hire a Crew</button>
+    </div>`;
+    return;
+  }
+
+  // Build cards for active builds
+  const buildCards = builds.length === 0
+    ? `<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">No active builds. Start a project below.</div>`
+    : builds.map(b => {
+        const size   = NEW_BUILD_SIZES_DATA[b.size];
+        const crew   = BUILD_CREWS_DATA[b.crew];
+        const pct    = Math.round(((b.total_days - b.days_remaining) / b.total_days) * 100);
+        const daysLeft = b.days_remaining;
+        const seasons = (daysLeft / 28).toFixed(1);
+        const paused = b.paused;
+        const premiums = (b.premium_upgrades || []).map(k => PREMIUM_UPGRADES_DATA[k]?.name).filter(Boolean);
+        return `
+        <div style="background:var(--card-bg);border:2px solid ${paused ? '#555' : 'var(--primary)'};border-radius:8px;padding:12px;margin-bottom:10px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+            <div style="font-size:28px;line-height:1">${pxIcon(size.icon, 28)}</div>
+            <div style="flex:1">
+              <div style="font-size:14px;font-weight:800">${size.name}</div>
+              <div style="font-size:11px;color:var(--text-muted)">${crew.name} · ${paused ? '<span style="color:#FFA726">Paused</span>' : `${fmt(crew.daily_rate)}/day`}</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:11px;color:var(--text-muted)">${daysLeft}d left</div>
+              <div style="font-size:10px;color:var(--text-muted)">(~${seasons} seasons)</div>
+            </div>
+          </div>
+          <div style="background:var(--surface-2);border-radius:4px;height:8px;margin-bottom:8px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:${paused ? '#FFA726' : 'var(--primary)'};transition:width 0.3s"></div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <div style="font-size:10px;color:var(--text-muted)">${pct}% complete</div>
+            <div style="font-size:10px;color:var(--text-muted)">Est. Finished Value:~${fmt(size.finished_value + (b.premium_upgrades||[]).reduce((s,k) => s+(PREMIUM_UPGRADES_DATA[k]?.value_bonus||0), 0))}</div>
+          </div>
+          ${premiums.length > 0 ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">${premiums.map(n => `<span style="background:var(--surface-2);color:var(--text-muted);padding:2px 6px;font-size:9px;border-radius:3px">${n}</span>`).join('')}</div>` : ''}
+          <div style="display:flex;gap:6px">
+            <button onclick="toggleBuildPause(${b.id})" style="flex:1;padding:6px;background:${paused ? 'var(--primary)' : '#37474F'};border:none;color:white;border-radius:4px;font-size:11px;font-weight:700;cursor:pointer">${paused ? '▶ Resume' : '⏸ Pause'}</button>
+            <button onclick="cancelBuild(${b.id},'${size.name}')" style="padding:6px 10px;background:none;border:1px solid var(--negative);color:var(--negative);border-radius:4px;font-size:11px;cursor:pointer">Cancel</button>
+          </div>
+        </div>`;
+      }).join('');
+
+  el.innerHTML = `
+    <div style="padding:12px;max-width:480px;margin:0 auto">
+      <div style="margin-bottom:12px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:8px">Active Projects</div>
+        ${buildCards}
+      </div>
+      <button onclick="showStartBuildModal()" style="width:100%;padding:12px;background:var(--primary);border:none;color:white;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer">+ Start New Project</button>
+    </div>`;
+}
+
+function showStartBuildModal() {
+  const ownedCrews = state.owned_crews || [];
+  const activeBuildCrews = (state.active_builds || []).filter(b => !b.paused).map(b => b.crew);
+
+  const sizeOptions = Object.entries(NEW_BUILD_SIZES_DATA).map(([key, s]) => `
+    <label style="display:flex;align-items:flex-start;gap:10px;padding:10px;border:2px solid var(--border);border-radius:6px;cursor:pointer;margin-bottom:6px;transition:border-color 0.15s" onclick="nbSelectSize('${key}',this)">
+      <input type="radio" name="nb-size" value="${key}" style="margin-top:3px;flex-shrink:0">
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:800">${pxIcon(s.icon, 16)} ${s.name}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${s.desc}</div>
+        <div style="font-size:10px;color:var(--text-muted);margin-top:3px;font-weight:700">Build cost: ${fmt(s.build_cost)} · Est. Finished Value:${fmt(s.finished_value)}</div>
+      </div>
+    </label>`).join('');
+
+  const crewOptions = ownedCrews.map(key => {
+    const c = BUILD_CREWS_DATA[key];
+    const busy = activeBuildCrews.includes(key);
+    return `
+    <label style="display:flex;align-items:flex-start;gap:10px;padding:10px;border:2px solid var(--border);border-radius:6px;cursor:${busy?'not-allowed':'pointer'};margin-bottom:6px;opacity:${busy?0.5:1}" ${busy ? '' : `onclick="nbSelectCrew('${key}',this)"`}>
+      <input type="radio" name="nb-crew" value="${key}" ${busy ? 'disabled' : ''} style="margin-top:3px;flex-shrink:0">
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:800">${pxIcon(c.icon, 16)} ${c.name}${busy ? ' <span style="font-size:10px;color:#FFA726">(busy)</span>' : ''}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${fmt(c.daily_rate)}/day · ${Math.round((1 - c.speed_mult) * 100)}% faster</div>
+      </div>
+    </label>`;
+  }).join('');
+
+  const upgradeOptions = Object.entries(PREMIUM_UPGRADES_DATA).map(([key, u]) => `
+    <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:4px;cursor:pointer;margin-bottom:4px">
+      <input type="checkbox" name="nb-upgrade" value="${key}" onchange="nbUpdateCostSummary()" style="flex-shrink:0">
+      <div style="flex:1">
+        <span style="font-size:12px;font-weight:700">${pxIcon(u.icon,14)} ${u.name}</span>
+        <span style="font-size:11px;color:var(--text-muted);margin-left:6px">+${fmt(u.cost)} · +${fmt(u.value_bonus)} value</span>
+      </div>
+    </label>`).join('');
+
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">Start New Build</div>
+    <div style="max-height:60vh;overflow-y:auto;padding-bottom:8px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin-bottom:8px">Choose Size</div>
+      ${sizeOptions}
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin:12px 0 8px">Assign Crew</div>
+      ${crewOptions}
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin:12px 0 8px">Premium Upgrades <span style="font-weight:400">(optional — paid upfront)</span></div>
+      ${upgradeOptions}
+      <div id="nb-cost-summary" style="margin-top:12px;padding:10px;background:var(--surface-2);border-radius:6px;font-size:12px;color:var(--text-muted);text-align:center">Select a size and crew to see cost</div>
+    </div>
+    <button onclick="submitStartBuild()" style="width:100%;margin-top:12px;padding:12px;background:var(--primary);border:none;color:white;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer">Start Build</button>
+  `);
+}
+
+function nbSelectSize(key, el) {
+  document.querySelectorAll('label[onclick^="nbSelectSize"]').forEach(l => l.style.borderColor = 'var(--border)');
+  el.style.borderColor = 'var(--primary)';
+  nbUpdateCostSummary();
+}
+
+function nbSelectCrew(key, el) {
+  document.querySelectorAll('label[onclick^="nbSelectCrew"]').forEach(l => l.style.borderColor = 'var(--border)');
+  el.style.borderColor = 'var(--primary)';
+  nbUpdateCostSummary();
+}
+
+function nbUpdateCostSummary() {
+  const sizeEl  = document.querySelector('input[name="nb-size"]:checked');
+  const crewEl  = document.querySelector('input[name="nb-crew"]:checked');
+  const summary = document.getElementById('nb-cost-summary');
+  if (!summary) return;
+  if (!sizeEl || !crewEl) { summary.textContent = 'Select a size and crew to see cost'; return; }
+  const size  = NEW_BUILD_SIZES_DATA[sizeEl.value];
+  const crew  = BUILD_CREWS_DATA[crewEl.value];
+  const upgrades = Array.from(document.querySelectorAll('input[name="nb-upgrade"]:checked')).map(i => i.value);
+  const upgCost  = upgrades.reduce((t, k) => t + (PREMIUM_UPGRADES_DATA[k]?.cost || 0), 0);
+  const days     = Math.round(size.base_days * crew.speed_mult);
+  const crewTotal = days * crew.daily_rate;
+  const upfront  = size.build_cost + upgCost;
+  const total    = upfront + crewTotal;
+  const value    = size.finished_value + upgrades.reduce((t, k) => t + (PREMIUM_UPGRADES_DATA[k]?.value_bonus || 0), 0);
+  const seasons     = (days / 28).toFixed(1);
+  const years       = (days / 112).toFixed(1);
+  const timeLabel   = days >= 112 ? `${years} years` : `${seasons} seasons`;
+  summary.innerHTML = `
+    <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>Build time</span><span style="font-weight:700">${days} days (~${timeLabel})</span></div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>Build cost</span><span style="font-weight:700">${fmt(size.build_cost)}</span></div>
+    ${upgCost > 0 ? `<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>Upgrades</span><span style="font-weight:700">${fmt(upgCost)}</span></div>` : ''}
+    <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>Crew pay (${days} days)</span><span style="font-weight:700">${fmt(crewTotal)}</span></div>
+    <div style="border-top:1px solid var(--border);padding-top:4px;margin-top:4px;display:flex;justify-content:space-between"><span style="font-weight:700">Total invested</span><span style="font-weight:800;color:var(--negative)">${fmt(total)}</span></div>
+    <div style="display:flex;justify-content:space-between;margin-top:4px"><span style="font-weight:700">Est. Finished Value</span><span style="font-weight:800;color:var(--positive)">${fmt(value)}</span></div>
+    <div style="display:flex;justify-content:space-between"><span>Profit</span><span style="font-weight:800;color:${value - total >= 0 ? 'var(--positive)' : 'var(--negative)'}">${fmt(value - total)}</span></div>`;
+}
+
+async function submitStartBuild() {
+  const sizeEl  = document.querySelector('input[name="nb-size"]:checked');
+  const crewEl  = document.querySelector('input[name="nb-crew"]:checked');
+  if (!sizeEl) { toast('Select a build size', 'warning'); return; }
+  if (!crewEl) { toast('Select a crew', 'warning'); return; }
+  const upgrades = Array.from(document.querySelectorAll('input[name="nb-upgrade"]:checked')).map(i => i.value);
+  const res = await api('/new_builds/start', 'POST', { size: sizeEl.value, crew: crewEl.value, premium_upgrades: upgrades });
+  if (res.error) { toast(res.error, 'error'); return; }
+  closeModal();
+  await refreshState();
+  renderNewBuilds();
+  toast(`Construction started! ${NEW_BUILD_SIZES_DATA[sizeEl.value].name} underway in Cedarvale Estates.`, 'success');
+}
+
+async function toggleBuildPause(buildId) {
+  const res = await api('/new_builds/toggle_pause', 'POST', { build_id: buildId });
+  if (res.error) { toast(res.error, 'error'); return; }
+  await refreshState();
+  renderNewBuilds();
+  toast(res.paused ? 'Construction paused.' : 'Construction resumed.', 'info');
+}
+
+function cancelBuild(buildId, sizeName) {
+  openModal(`
+    <div style="text-align:center;padding:8px 0">
+      <div style="font-size:32px;margin-bottom:8px">🚧</div>
+      <div style="font-size:16px;font-weight:700;margin-bottom:6px">Cancel ${sizeName}?</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:6px">You'll receive a <strong>40% refund</strong> on build and upgrade costs.</div>
+      <div style="font-size:12px;color:var(--negative);margin-bottom:16px">Crew pay already spent is not refunded.</div>
+      <div style="display:flex;gap:8px;justify-content:center">
+        <button onclick="closeModal()" style="padding:8px 18px;background:var(--card-bg);border:1px solid var(--border);color:var(--text-1);border-radius:4px;cursor:pointer;font-size:13px">Keep Building</button>
+        <button onclick="cancelBuildConfirmed(${buildId})" style="padding:8px 18px;background:#c0392b;border:none;color:white;border-radius:4px;cursor:pointer;font-size:13px;font-weight:700">Cancel Build</button>
+      </div>
+    </div>`);
+}
+
+async function cancelBuildConfirmed(buildId) {
+  closeModal();
+  const res = await api('/new_builds/cancel', 'POST', { build_id: buildId });
+  if (res.error) { toast(res.error, 'error'); return; }
+  await refreshState();
+  renderNewBuilds();
+  toast(`Build cancelled. ${fmt(res.refund)} refunded.`, 'info');
+}
+
 function playerHomeCardHtml() {
   const homeKey  = state.player_home || 'grandmas_basement';
   const maxE     = state.max_energy || 6;
@@ -1004,8 +1298,16 @@ async function moveIn(homeKey) {
 // ── Personal Tab ──────────────────────────────────────────────────────────────
 
 const STORE_ITEM_DATA = [
-  { key: 'coffee_maker', name: 'Coffee Maker', icon: '☕',  cost:  499, bonus: '+2 ⚡ max energy',   desc: 'A decent drip machine. Never run on empty again.' },
-  { key: 'new_bed',      name: 'New Bed',       icon: '🛏️', cost: 4999, bonus: '+1 ⚡/day recharge', desc: 'Memory foam. You wake up ready to hustle.' },
+  { key: 'coffee_maker',    name: 'Coffee Maker',               icon: '☕',  cost:  499, unlock_level: 1, bonus: '+2 ⚡ max energy',                          desc: 'A decent drip machine. Never run on empty again.' },
+  { key: 'desk_fan',        name: 'Desk Fan',                   icon: '🌀',  cost:  199, unlock_level: 1, bonus: '+1 ⚡ max energy',                          desc: 'Not air conditioning. Close enough.' },
+  { key: 'house_plant',     name: 'House Plant',                icon: '🪴',  cost:   89, unlock_level: 2, bonus: '15% chance to block 1 morale loss/day',     desc: 'Studies show it helps. You\'re not asking questions.' },
+  { key: 'blackout_curtains', name: 'Blackout Curtains',        icon: '🪟',  cost:  149, unlock_level: 2, bonus: '+1 ⚡/day recharge',                        desc: 'Sleep deeper. Wake up less angry.' },
+  { key: 'new_bed',         name: 'New Bed',                    icon: '🛏️', cost: 4999, unlock_level: 3, bonus: '+1 ⚡/day recharge',                        desc: 'Memory foam. You wake up ready to hustle.' },
+  { key: 'mini_fridge',     name: 'Mini Fridge',                icon: '🧊',  cost:  349, unlock_level: 3, bonus: '+2 ⚡ max energy',                          desc: 'Snacks within arm\'s reach. Peak efficiency.' },
+  { key: 'whiteboard',      name: 'Whiteboard',                 icon: '📋',  cost:  249, unlock_level: 4, bonus: '6% off all contractor renovation costs',    desc: 'You mapped out the whole job. Bob charges less.' },
+  { key: 'filing_cabinet',  name: 'Filing Cabinet',             icon: '🗂️', cost:  449, unlock_level: 5, bonus: '15% lower repair event chance',             desc: 'Everything is documented. Problems get caught early.' },
+  { key: 'headphones',      name: 'Noise-Cancelling Headphones',icon: '🎧',  cost:  699, unlock_level: 6, bonus: 'Reduces morale loss events by 1 point',     desc: 'You stop engaging. They interpret it as professionalism.' },
+  { key: 'negotiation_book',name: 'Negotiation Book',           icon: '📖',  cost:  999, unlock_level: 7, bonus: '+4% on all property sale prices',           desc: 'You read it twice. Vendors can tell.' },
 ];
 
 const DIY_CLASS_DATA = [
@@ -1033,7 +1335,7 @@ function diyUnlocked(upgradeKey) {
   return classKey ? !!((state.diy_classes || {})[classKey]) : true;
 }
 
-let _personalOpen = { homes: false, classes: false, store: false };
+let _personalOpen = { homes: false, classes: false, store: false, newbuilds: false };
 
 function renderPersonal() {
   const el = document.getElementById('page-personal');
@@ -1149,13 +1451,20 @@ function renderPersonal() {
   // ── Store rows ─────────────────────────────────────────────────
   const squatterBlocked = starterSquatterActive();
   const storeRows = STORE_ITEM_DATA.map(item => {
-    const owned      = !!ownedItems[item.key];
-    const isLocked   = squatterBlocked && !owned;
-    const canAfford  = !owned && !isLocked && state.cash >= item.cost;
+    const owned        = !!ownedItems[item.key];
+    const levelLocked  = !owned && (state.level || 0) < (item.unlock_level || 0);
+    const isLocked     = !owned && !levelLocked && squatterBlocked;
+    const canAfford    = !owned && !levelLocked && !isLocked && state.cash >= item.cost;
+
+    let badge = '';
+    if (owned)            badge = `<span style="background:var(--positive);color:#fff;border-radius:5px;font-size:10px;padding:2px 7px;font-weight:700">✓ Owned</span>`;
+    else if (levelLocked) badge = `<span style="background:#555;color:#fff;border-radius:5px;font-size:10px;padding:2px 7px;font-weight:700">${pxIcon('🔒',12)} LVL ${item.unlock_level}</span>`;
 
     let actionBtn = '';
     if (owned) {
       actionBtn = `<button class="btn btn-ghost btn-sm" disabled style="font-size:11px;opacity:0.5">Owned</button>`;
+    } else if (levelLocked) {
+      actionBtn = `<button class="btn btn-ghost btn-sm" disabled style="font-size:11px">Lvl ${item.unlock_level}</button>`;
     } else if (isLocked) {
       actionBtn = `<button class="btn btn-ghost btn-sm" disabled style="font-size:11px">🚨 Later</button>`;
     } else if (canAfford) {
@@ -1165,15 +1474,14 @@ function renderPersonal() {
     }
 
     return `
-    <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);${owned ? 'opacity:0.6' : ''}">
-      <div style="font-size:22px;line-height:1;flex-shrink:0">${pxIcon(item.icon)}</div>
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);${owned || levelLocked ? 'opacity:0.6' : ''}">
+      <div style="font-size:22px;line-height:1;flex-shrink:0">${pxIcon(levelLocked ? '🔒' : item.icon)}</div>
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-          <span style="font-size:13px;font-weight:800">${item.name}</span>
-          ${owned ? `<span style="background:var(--positive);color:#fff;border-radius:5px;font-size:10px;padding:2px 7px;font-weight:700">✓ Owned</span>` : ''}
+          <span style="font-size:13px;font-weight:800">${item.name}</span>${badge}
         </div>
-        <div style="font-size:11px;color:var(--text-muted);margin-top:1px">${item.desc}</div>
-        <div style="font-size:11px;font-weight:700;color:var(--primary);margin-top:1px">${item.bonus}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:1px">${levelLocked ? `Unlocks at Level ${item.unlock_level}` : item.desc}</div>
+        ${!levelLocked ? `<div style="font-size:11px;font-weight:700;color:var(--primary);margin-top:1px">${item.bonus}</div>` : ''}
       </div>
       <div style="flex-shrink:0">${actionBtn}</div>
     </div>`;
@@ -1194,6 +1502,64 @@ function renderPersonal() {
       ${isOpen ? `<div>${content}</div>` : ''}
     </div>`;
   };
+
+  // ── New Builds rows (permit + crews) ──────────────────────────────
+  const nbLevel     = NEW_BUILDS_UNLOCK_LEVEL;
+  const nbUnlocked  = (state.level || 0) >= nbLevel;
+  const hasPermit   = !!state.building_permit;
+  const ownedCrews  = state.owned_crews || [];
+
+  const permitRow = (() => {
+    const locked   = !nbUnlocked;
+    const canAfford = nbUnlocked && !hasPermit && state.cash >= 100000;
+    let badge = '';
+    if (hasPermit)      badge = `<span style="background:var(--positive);color:#fff;border-radius:5px;font-size:10px;padding:2px 7px;font-weight:700">✓ Owned</span>`;
+    else if (locked)    badge = `<span style="background:#555;color:#fff;border-radius:5px;font-size:10px;padding:2px 7px;font-weight:700">${pxIcon('🔒',12)} LVL ${nbLevel}</span>`;
+    let btn = '';
+    if (hasPermit)      btn = `<button class="btn btn-ghost btn-sm" disabled style="font-size:11px;opacity:0.5">Owned</button>`;
+    else if (locked)    btn = `<button class="btn btn-ghost btn-sm" disabled style="font-size:11px">Lvl ${nbLevel}</button>`;
+    else if (canAfford) btn = `<button class="btn btn-primary btn-sm" onclick="buyBuildingPermit()" style="font-size:11px">Buy ${fmt(100000)}</button>`;
+    else                btn = `<button class="btn btn-ghost btn-sm" disabled style="font-size:11px">Need ${fmt(100000)}</button>`;
+    return `
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);${hasPermit?'opacity:0.6':''}">
+      <div style="font-size:22px;line-height:1;flex-shrink:0">${pxIcon(locked ? '🔒' : '📋')}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="font-size:13px;font-weight:800">Building Permit</span>${badge}
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${locked ? `Unlocks at Level ${nbLevel}` : 'One-time purchase. Required to start any new build in Cedarvale Estates.'}</div>
+      </div>
+      <div style="flex-shrink:0">${btn}</div>
+    </div>`;
+  })();
+
+  const crewRows = Object.entries(BUILD_CREWS_DATA).map(([key, crew]) => {
+    const locked    = !nbUnlocked || !hasPermit;
+    const owned     = ownedCrews.includes(key);
+    const canAfford = !locked && !owned && state.cash >= crew.buy_cost;
+    let badge = '';
+    if (owned)  badge = `<span style="background:var(--positive);color:#fff;border-radius:5px;font-size:10px;padding:2px 7px;font-weight:700">✓ Hired</span>`;
+    let btn = '';
+    if (owned)          btn = `<button class="btn btn-ghost btn-sm" disabled style="font-size:11px;opacity:0.5">Hired</button>`;
+    else if (locked)    btn = `<button class="btn btn-ghost btn-sm" disabled style="font-size:11px">${hasPermit ? `Lvl ${nbLevel}` : 'Need Permit'}</button>`;
+    else if (canAfford) btn = `<button class="btn btn-primary btn-sm" onclick="buyBuildCrew('${key}')" style="font-size:11px">Buy ${fmt(crew.buy_cost)}</button>`;
+    else                btn = `<button class="btn btn-ghost btn-sm" disabled style="font-size:11px">Need ${fmt(crew.buy_cost)}</button>`;
+    return `
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);${owned?'opacity:0.6':''}">
+      <div style="font-size:22px;line-height:1;flex-shrink:0">${pxIcon(locked && !owned ? '🔒' : crew.icon)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="font-size:13px;font-weight:800">${crew.name}</span>${badge}
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${crew.desc}</div>
+        <div style="font-size:10px;color:var(--text-muted);margin-top:2px;font-weight:700">${fmt(crew.daily_rate)}/day · ${Math.round((1 - crew.speed_mult) * 100)}% faster than baseline</div>
+      </div>
+      <div style="flex-shrink:0">${btn}</div>
+    </div>`;
+  }).join('');
+
+  const nbContent   = permitRow + crewRows;
+  const nbMeta      = !nbUnlocked ? `Unlocks at Lvl ${nbLevel}` : `${ownedCrews.length + (hasPermit ? 1 : 0)} / ${Object.keys(BUILD_CREWS_DATA).length + 1} owned`;
 
   const homesUnlocked = unlockedKeys.length;
   const classesCount  = Object.keys(diyClasses).length;
@@ -1228,9 +1594,10 @@ function renderPersonal() {
         </div>
       </div>
 
-      ${personalSection('homes',   `${pxIcon('🏡',16)} Home Upgrades`, homeRows,  `${homesUnlocked}/${PLAYER_HOME_DATA.length} unlocked`)}
-      ${personalSection('classes', `${pxIcon('📚',16)} Skill Classes`, classRows, `${classesCount}/${DIY_CLASS_DATA.length} done`)}
-      ${personalSection('store',   `${pxIcon('🛒',16)} Personal Store`, storeRows, `${storeOwned}/${STORE_ITEM_DATA.length} owned`)}
+      ${personalSection('homes',     `${pxIcon('🏡',16)} Home Upgrades`,  homeRows,  `${homesUnlocked}/${PLAYER_HOME_DATA.length} unlocked`)}
+      ${personalSection('classes',   `${pxIcon('📚',16)} Skill Classes`,   classRows, `${classesCount}/${DIY_CLASS_DATA.length} done`)}
+      ${personalSection('store',     `${pxIcon('🛒',16)} Personal Store`,  storeRows, `${storeOwned}/${STORE_ITEM_DATA.length} owned`)}
+      ${personalSection('newbuilds', `${pxIcon('🏗️',16)} New Builds`,      nbContent, nbMeta)}
 
     </div>`;
 }
@@ -1254,6 +1621,22 @@ async function buyDiyClass(classKey) {
   await refreshState();
   renderPersonal();
   toast(`${res.class_name} completed! New DIY skills unlocked.`);
+}
+
+async function buyBuildingPermit() {
+  const res = await api('/new_builds/buy_permit', 'POST');
+  if (res.error) { toast(res.error, 'warning'); return; }
+  await refreshState();
+  renderPersonal();
+  toast('Building permit purchased! Head to My Properties → New Builds to start.', 'success');
+}
+
+async function buyBuildCrew(crewKey) {
+  const res = await api('/new_builds/buy_crew', 'POST', { crew: crewKey });
+  if (res.error) { toast(res.error, 'warning'); return; }
+  await refreshState();
+  renderPersonal();
+  toast(`${BUILD_CREWS_DATA[crewKey].name} hired!`, 'success');
 }
 
 function portfolioCardHtml(p) {
@@ -2544,7 +2927,7 @@ function renderBusiness() {
     { id: 'vending',      name: 'Vending Machine Entrepreneur', unlockLevel: 3,  icon: 'business-vending',      content: renderVendingContent     },
     { id: 'laundromat',   name: 'Dirty Money Laundromat',       unlockLevel: 5,  icon: 'business-laundromat',   content: renderLaundromContent    },
     { id: 'pole_studio',  name: 'Brass Pole Fitness Studio',    unlockLevel: 8,  icon: 'business-pole-studio',  content: renderPoleStudioContent  },
-    { id: 'carwash',      name: 'Speedy Suds Car Wash',         unlockLevel: 10, icon: null,                    content: null                     },
+    { id: 'car_wash',     name: 'Slippery When Washed',         unlockLevel: 10, icon: 'business-car-wash',     content: renderCarWashContent     },
   ];
 
   const cards = bizDefs.map(biz => {
@@ -2596,7 +2979,7 @@ function renderVendingContent() {
     .join('');
   const invBar = `
     <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:10px 0;font-size:12px">
-      <span style="color:var(--text-muted)">🎒</span>
+      ${pxIcon('🎒', 16)}
       ${totalInv > 0 ? invBadges : `<span style="color:var(--warning);font-size:11px">No snacks — <span style="text-decoration:underline;cursor:pointer" onclick="navTo('store')">visit CostPro</span></span>`}
     </div>`;
 
@@ -2616,7 +2999,7 @@ function renderVendingContent() {
           <div style="flex:1;min-width:0">
             <div style="font-weight:800;font-size:13px">Vending Machine #${vm.slot}</div>
             <div style="font-size:11px;color:var(--text-muted)">📍 ${vm.location}</div>
-            <div style="font-size:11px;margin-top:3px">${tierMeta.icon} ${tierMeta.name}</div>
+            <div style="font-size:11px;margin-top:3px">${pxIcon(tierMeta.icon, 16)} ${tierMeta.name}</div>
             <div style="margin-top:6px">
               <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-bottom:3px">
                 <span>Stock</span><span style="color:${barColor}">${stockLabel}</span>
@@ -2750,15 +3133,15 @@ function renderLaundromContent() {
       <span style="color:var(--text-muted)">|</span>
       <span>${working}/${machineCount} running${broken > 0 ? ` · <span style="color:var(--negative)">${broken} broken</span>` : ''}</span>
       <span style="color:var(--text-muted)">|</span>
-      <span style="color:${soapColor}">🧼 ${soapLabel}</span>
+      <span style="color:${soapColor}">${pxIcon('🧼', 14)} ${soapLabel}</span>
     </div>`;
 
   // Supplies row
   const supRow = `
     <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:11px;margin-bottom:12px">
-      <span>🌸 ${lm.softener_days > 0 ? lm.softener_days + 'd' : '—'}</span>
+      <span>${pxIcon('🌸', 14)} ${lm.softener_days > 0 ? lm.softener_days + 'd' : '—'}</span>
       <span style="color:var(--text-muted)">|</span>
-      <span>🌬️ ${lm.sheets_days > 0 ? lm.sheets_days + 'd' : '—'}</span>
+      <span>${pxIcon('🌬️', 14)} ${lm.sheets_days > 0 ? lm.sheets_days + 'd' : '—'}</span>
       <span style="color:var(--text-muted)">|</span>
       <span style="cursor:pointer;text-decoration:underline;color:var(--accent)" onclick="navTo('store')">Buy Supplies →</span>
     </div>`;
@@ -2819,7 +3202,7 @@ function renderLaundromContent() {
     const hired = (lm.staff || {})[role] || false;
     return `
       <div style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);margin-bottom:6px">
-        <div style="font-size:20px">${meta.icon}</div>
+        ${pxIcon(meta.icon, 20)}
         <div style="flex:1">
           <div style="font-weight:800;font-size:12px">${meta.name}</div>
           <div style="font-size:10px;color:var(--text-muted)">${meta.desc}</div>
@@ -3003,7 +3386,7 @@ function showBuyVendingModal() {
     const qty = inv[`snacks_${key}`] || 0;
     return `
       <div style="${qty === 0 ? 'opacity:0.4;' : ''}display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);margin-bottom:8px">
-        <div style="font-size:22px">${meta.icon}</div>
+        ${pxIcon(meta.icon, 22)}
         <div style="flex:1">
           <div style="font-weight:800;font-size:12px">${meta.name}</div>
           <div style="font-size:10px;color:var(--text-muted)">→ ${fmt(meta.revenue)}/cycle · ×${qty} in bag</div>
@@ -3038,7 +3421,7 @@ function showRestockModal(vmId) {
     const qty = inv[`snacks_${key}`] || 0;
     return `
       <div style="${qty === 0 ? 'opacity:0.4;' : ''}display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);margin-bottom:8px">
-        <div style="font-size:22px">${meta.icon}</div>
+        ${pxIcon(meta.icon, 22)}
         <div style="flex:1">
           <div style="font-weight:800;font-size:12px">${meta.name}</div>
           <div style="font-size:10px;color:var(--text-muted)">→ ${fmt(meta.revenue)}/cycle · ×${qty} in bag</div>
@@ -3223,6 +3606,56 @@ function _psRepTier(rep) {
   return t;
 }
 
+function dancerPixelArt(key) {
+  const C = {
+    celestia: { hair:'#C0BFFF', outfit:'#8B2FC9', skin:'#FDBCB4', accent:'#FFD700', eyes:'#3D1A6E', shoe:'#6A0DAD' },
+    raven:    { hair:'#111111', outfit:'#1A1A2E', skin:'#C68642',  accent:'#78909C', eyes:'#111111', shoe:'#263238' },
+    sunshine: { hair:'#FFD700', outfit:'#FF9800', skin:'#FDBCB4',  accent:'#FFF176', eyes:'#5D4037', shoe:'#E65100' },
+    mercedes: { hair:'#5D4037', outfit:'#455A64', skin:'#FDBCB4',  accent:'#CFD8DC', eyes:'#37474F', shoe:'#263238' },
+    diamond:  { hair:'#29B6F6', outfit:'#B2EBF2', skin:'#FDBCB4',  accent:'#80DEEA', eyes:'#0277BD', shoe:'#01579B' },
+    gary:     { hair:'#8D6E63', outfit:'#546E7A', skin:'#FFCC80',  accent:'#90A4AE', eyes:'#4E342E', shoe:'#37474F' },
+  };
+  const c = C[key] || C.gary;
+  const isGary = key === 'gary';
+  const mouthFill = isGary ? c.skin : '#E57373';
+  return `<svg viewBox="0 0 16 24" width="36" height="54" shape-rendering="crispEdges" style="image-rendering:pixelated;display:inline-block;vertical-align:middle">
+    <!-- chrome pole (runs full height, right-center) -->
+    <rect x="9" y="0" width="2" height="24" fill="#9E9E9E"/>
+    <rect x="9" y="0" width="1" height="24" fill="#E0E0E0"/>
+    <!-- hair -->
+    <rect x="2" y="1" width="6" height="2" fill="${c.hair}"/>
+    <!-- head -->
+    <rect x="2" y="3" width="6" height="4" fill="${c.skin}"/>
+    <!-- eyes -->
+    <rect x="3" y="4" width="1" height="1" fill="${c.eyes}"/>
+    <rect x="5" y="4" width="1" height="1" fill="${c.eyes}"/>
+    <!-- expression -->
+    <rect x="3" y="6" width="3" height="1" fill="${mouthFill}"/>
+    <!-- neck -->
+    <rect x="4" y="7" width="2" height="1" fill="${c.skin}"/>
+    <!-- grip arm reaching toward pole -->
+    <rect x="6" y="5" width="4" height="2" fill="${c.outfit}"/>
+    <!-- hand gripping pole (skin over pole = gripping effect) -->
+    <rect x="8" y="7" width="2" height="2" fill="${c.skin}"/>
+    <!-- free arm extended left ${isGary ? '(raised shrug)' : ''} -->
+    <rect x="0" y="${isGary ? 5 : 8}" width="3" height="2" fill="${c.outfit}"/>
+    <rect x="0" y="${isGary ? 5 : 8}" width="1" height="1" fill="${c.skin}"/>
+    <!-- body -->
+    <rect x="2" y="8" width="7" height="5" fill="${c.outfit}"/>
+    <!-- accent stripe -->
+    <rect x="3" y="9" width="5" height="2" fill="${c.accent}"/>
+    <!-- left leg down -->
+    <rect x="2" y="13" width="3" height="7" fill="${c.outfit}"/>
+    <!-- right leg kicked/wrapped around pole -->
+    <rect x="9" y="13" width="5" height="2" fill="${c.outfit}"/>
+    <rect x="12" y="15" width="3" height="5" fill="${c.outfit}"/>
+    <!-- left shoe -->
+    <rect x="1" y="20" width="4" height="2" fill="${c.shoe}"/>
+    <!-- right shoe -->
+    <rect x="12" y="20" width="4" height="2" fill="${c.shoe}"/>
+  </svg>`;
+}
+
 function renderPoleStudioContent() {
   const ps = state.pole_studio;
   const inv = state.costpro_inventory || {};
@@ -3230,7 +3663,7 @@ function renderPoleStudioContent() {
   if (!ps || !ps.owned) {
     return `
       <div style="padding:16px 0;text-align:center">
-        <div style="font-size:36px;margin-bottom:8px">🎪</div>
+        <img src="/static/icons/business-pole-studio.svg" width="64" height="64" style="image-rendering:pixelated;display:block;margin:0 auto 10px">
         <div style="font-size:15px;font-weight:700;color:#E8D5F5;margin-bottom:4px">Brass Pole Fitness Studio</div>
         <div style="font-size:12px;color:#C4A8E0;margin-bottom:16px">6 poles. 6 dancers. One very confused Gary.</div>
         <button class="btn-primary" onclick="psBuy()" style="background:#7B2D8B;border:none;color:#E8D5F5;padding:10px 24px;font-size:14px;cursor:pointer">
@@ -3315,7 +3748,7 @@ function renderPoleStudioContent() {
       return `
         <div style="background:#2A1035;border:1px solid #5A2D7A;padding:10px;margin-bottom:6px">
           <div style="display:flex;align-items:center;gap:8px">
-            <span style="font-size:20px">${dmeta.icon}</span>
+            ${dancerPixelArt(dk)}
             <div style="flex:1">
               <div style="font-weight:700;color:#E8D5F5;font-size:12px">${dmeta.name} <span style="font-size:10px;color:#C4A8E0">— ${dmeta.specialty}</span></div>
               <div style="font-size:10px;color:#C4A8E0;font-style:italic">${dmeta.desc}</div>
@@ -3329,7 +3762,7 @@ function renderPoleStudioContent() {
     return `
       <div style="background:#2A1035;border:1px solid ${poleBroken ? '#e74c3c' : '#7B2D8B'};padding:10px;margin-bottom:6px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-          <span style="font-size:20px">${dmeta.icon}</span>
+          ${dancerPixelArt(dk)}
           <div style="flex:1">
             <div style="font-weight:700;color:#E8D5F5;font-size:12px">${dmeta.name}</div>
             <div style="font-size:10px;color:#9B7BB8">${dmeta.specialty}</div>
@@ -3368,7 +3801,7 @@ function renderPoleStudioContent() {
     const hired = staff[role];
     return `
       <div style="display:flex;align-items:center;gap:8px;padding:8px;background:#2A1035;border:1px solid #5A2D7A;margin-bottom:6px">
-        <span style="font-size:18px">${meta.icon}</span>
+        ${pxIcon(meta.icon, 20)}
         <div style="flex:1;font-size:11px">
           <div style="font-weight:700;color:#E8D5F5">${meta.name}</div>
           <div style="color:#9B7BB8">${meta.desc}</div>
@@ -3386,9 +3819,9 @@ function renderPoleStudioContent() {
   // ── Supplies status
   const suppliesHtml = `
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
-      <span style="background:${gripDays > 0 ? '#3A1A4A' : '#4A0000'};border:1px solid ${gripDays > 0 ? '#7B2D8B' : '#e74c3c'};color:${gripDays > 0 ? '#E8D5F5' : '#FF5252'};padding:4px 8px;font-size:11px">💦 Grip Spray: ${gripDays > 0 ? gripDays+'d' : 'OUT'}</span>
-      ${shakeDays > 0 ? `<span style="background:#3A1A4A;border:1px solid #7B2D8B;color:#E8D5F5;padding:4px 8px;font-size:11px">🍹 Health Drinks: ${shakeDays}d</span>` : ''}
-      ${merchDays > 0 ? `<span style="background:#3A1A4A;border:1px solid #7B2D8B;color:#E8D5F5;padding:4px 8px;font-size:11px">🍗 Chicken Wings: ${merchDays}d</span>` : ''}
+      <span style="background:${gripDays > 0 ? '#3A1A4A' : '#4A0000'};border:1px solid ${gripDays > 0 ? '#7B2D8B' : '#e74c3c'};color:${gripDays > 0 ? '#E8D5F5' : '#FF5252'};padding:4px 8px;font-size:11px">${pxIcon('💦', 14)} Grip Spray: ${gripDays > 0 ? gripDays+'d' : 'OUT'}</span>
+      ${shakeDays > 0 ? `<span style="background:#3A1A4A;border:1px solid #7B2D8B;color:#E8D5F5;padding:4px 8px;font-size:11px">${pxIcon('🍹', 14)} Health Drinks: ${shakeDays}d</span>` : ''}
+      ${merchDays > 0 ? `<span style="background:#3A1A4A;border:1px solid #7B2D8B;color:#E8D5F5;padding:4px 8px;font-size:11px">${pxIcon('🍗', 14)} Chicken Wings: ${merchDays}d</span>` : ''}
       ${gripDays === 0 ? `<button onclick="navTo('store')" style="background:#7B2D8B;border:none;color:#E8D5F5;padding:4px 10px;font-size:11px;cursor:pointer">🛒 Buy Grip Spray</button>` : ''}
     </div>`;
 
@@ -3539,7 +3972,7 @@ function psPoleUpgradeMenu(poleIdx) {
     return `
       <div style="background:#2A1035;border:1px solid ${has ? '#7B2D8B' : '#3A1A4A'};padding:12px;margin-bottom:8px;border-radius:4px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-          <span style="font-size:20px">${meta.icon}</span>
+          ${pxIcon(meta.icon, 20)}
           <div style="flex:1">
             <div style="font-weight:700;color:#E8D5F5;font-size:13px">${meta.name}</div>
             <div style="font-size:11px;color:#C4A8E0;margin-top:2px">${meta.desc}</div>
@@ -3602,6 +4035,329 @@ async function psToggleInsurance() {
   toast(r.insurance ? 'Studio insurance activated.' : 'Insurance cancelled.', 'info');
 }
 
+// ── Slippery When Washed ─────────────────────────────────────────────────────
+const CW_STAFF = {
+  terry:         { name: 'Terry',             icon: '💧', cost: 180, desc: 'Head Wash Technician. 22 years in the business. He considers himself an artist. He has opinions about water temperature. He will share them.' },
+  brianna:       { name: 'Brianna',           icon: '📋', cost: 220, desc: 'Shift Manager. Produced a 47-step laminated flow chart for optimal wash sequencing. It works. +20% bay output. Reduces morale decay.' },
+  squeegee_kid:  { name: 'The Squeegee Kid', icon: '🪟', cost:  80, desc: 'Name unknown. Shows up 65% of days. On the days he shows up, he is excellent. He has three other jobs. They are all similar.' },
+  dave:          { name: 'Dave',              icon: '🌀', cost: 120, desc: 'The Vacuum Guy. Only does vacuums. Refuses any other task. 47 five-star Yelp reviews. Dave does not know what Yelp is.' },
+  rhonda:        { name: 'Rhonda',            icon: '✨', cost: 250, desc: 'Detailer. Takes 3 hours per car. They look incredible. Rhonda is very slow. She knows. She is unbothered. Unlocks Premium Full Detail.' },
+  manny:         { name: 'Manny',             icon: '🔧', cost: 160, desc: 'On-site Repairman. Always has the right tool, usually in his back pocket. Restores +5 condition/day per bay. Broken bays fix themselves overnight. He hums while he works.' },
+};
+
+const CW_BAY_UPGRADES = {
+  nozzles:  { name: 'High-Pressure Nozzles', icon: '🔩', cost: 15000, desc: '+25% income from this bay. Cuts equipment decay in half.' },
+  foam:     { name: 'Foam Cannon',           icon: '🫧', cost: 12000, desc: '+20% income from this bay. +10 reputation on install.' },
+  led_sign: { name: 'LED Arch Sign',         icon: '💡', cost: 18000, desc: '+15% income from this bay. Boosts regulars growth.' },
+  conveyor: { name: 'Conveyor Belt',         icon: '⚙️', cost: 35000, desc: '+30% income. Eliminates Squeegee Kid no-show penalty.' },
+};
+
+const CW_GLOBAL_UPGRADES = {
+  waiting_room_tv: { name: 'Waiting Room TV',       icon: '📺', cost:  8000, desc: 'Reduces regulars drain from wait events.' },
+  loyalty_machine: { name: 'Loyalty Card Machine',  icon: '💳', cost: 12000, desc: 'Doubles regulars build rate.' },
+  water_tank:      { name: 'Industrial Water Tank',  icon: '🛢️', cost: 25000, desc: 'Water pressure decays 60% slower.' },
+  dryer_arch:      { name: 'Automated Dryer Arch',   icon: '🌬️', cost: 30000, desc: 'Required for Deluxe Wax & Shine package.' },
+};
+
+const CW_PACKAGES = {
+  basic:    { name: 'Basic Rinse',        icon: '💦' },
+  standard: { name: 'Standard Wash',      icon: '🫧' },
+  deluxe:   { name: 'Deluxe Wax & Shine', icon: '✨' },
+  premium:  { name: 'Premium Detail',     icon: '💎' },
+};
+
+const CW_BAY_PRICES   = [100000, 175000, 275000, 400000];
+const CW_MAX_BAYS     = 5;
+const CW_WASH_PRICE   = 600000;
+const CW_UNLOCK_LEVEL = 10;
+
+function cwAnimatedCar(bayIdx, broken) {
+  const bubbleCount = 6;
+  const bubbles = Array.from({length: bubbleCount}, (_, i) => {
+    const left  = 8 + (i * 14) % 78;
+    const delay = (i * 0.7).toFixed(1);
+    const size  = 4 + (i % 3) * 2;
+    const dur   = (2.5 + (i % 3) * 0.8).toFixed(1);
+    return `<div style="position:absolute;left:${left}%;bottom:${8 + (i%2)*10}%;width:${size}px;height:${size}px;background:rgba(180,230,255,0.7);animation:cwBubble ${dur}s ${delay}s ease-in infinite;pointer-events:none;image-rendering:pixelated"></div>`;
+  }).join('');
+
+  const bodyC  = broken ? '#555' : '#2196F3';
+  const roofC  = broken ? '#444' : '#1565C0';
+  const hoodC  = broken ? '#4A4A4A' : '#1976D2';
+  const winC   = broken ? '#777' : '#B3E5FC';
+  const lightC = broken ? '#888' : '#FFEE58';
+  const tailC  = broken ? '#888' : '#EF5350';
+  const doorC  = broken ? '#4A4A4A' : '#1976D2';
+
+  return `
+    <div style="position:relative;width:90px;height:52px;margin:4px auto">
+      <div style="animation:cwCarBob 2.4s ease-in-out infinite;position:relative">
+        <svg viewBox="0 0 90 52" width="90" height="52" shape-rendering="crispEdges" style="overflow:visible">
+          <rect x="4"  y="22" width="82" height="14" fill="${bodyC}"/>
+          <rect x="56" y="16" width="26" height="8"  fill="${hoodC}"/>
+          <rect x="14" y="8"  width="44" height="16" fill="${roofC}"/>
+          <rect x="16" y="10" width="12" height="12" fill="${winC}"/>
+          <rect x="44" y="10" width="12" height="12" fill="${winC}"/>
+          <rect x="40" y="10" width="2"  height="14" fill="${roofC}"/>
+          <rect x="80" y="24" width="6"  height="6"  fill="${lightC}"/>
+          <rect x="4"  y="24" width="6"  height="6"  fill="${tailC}"/>
+          <rect x="80" y="30" width="8"  height="4"  fill="#90CAF9"/>
+          <rect x="2"  y="30" width="8"  height="4"  fill="#90CAF9"/>
+          <rect x="28" y="24" width="16" height="8"  fill="${doorC}"/>
+          <rect x="56" y="32" width="16" height="16" fill="#212121"/>
+          <rect x="58" y="34" width="12" height="12" fill="#616161"/>
+          <rect x="61" y="37" width="6"  height="6"  fill="#9E9E9E"/>
+          <rect x="14" y="32" width="16" height="16" fill="#212121"/>
+          <rect x="16" y="34" width="12" height="12" fill="#616161"/>
+          <rect x="19" y="37" width="6"  height="6"  fill="#9E9E9E"/>
+          ${broken ? `<rect x="38" y="10" width="2" height="2" fill="#FF5252"/>
+          <rect x="42" y="10" width="2" height="2" fill="#FF5252"/>
+          <rect x="40" y="12" width="2" height="2" fill="#FF5252"/>
+          <rect x="38" y="14" width="2" height="2" fill="#FF5252"/>
+          <rect x="42" y="14" width="2" height="2" fill="#FF5252"/>` : ''}
+        </svg>
+      </div>
+      ${broken ? '' : bubbles}
+    </div>`;
+}
+
+function renderCarWashContent() {
+  const cw = state.car_wash;
+  if (!cw || !cw.owned) {
+    const lvl = state.level || 0;
+    const canAfford = (state.cash || 0) >= CW_WASH_PRICE;
+    const canLevel  = lvl >= CW_UNLOCK_LEVEL;
+    return `
+      <div style="text-align:center;padding:20px 10px">
+        <img src="/static/icons/business-car-wash.svg" width="80" height="80" style="image-rendering:pixelated;display:block;margin:0 auto 8px">
+        <div style="font-size:14px;font-weight:700;color:#1E88E5;margin-bottom:4px">Slippery When Washed</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:16px">The sign is already crooked. It adds character.</div>
+        <button onclick="cwBuy()" ${(!canAfford||!canLevel)?'disabled':''} style="background:${canAfford&&canLevel?'#1E88E5':'#555'};border:none;color:white;padding:10px 24px;font-size:13px;font-weight:700;cursor:${canAfford&&canLevel?'pointer':'not-allowed'};border-radius:4px;width:100%">
+          ${!canLevel ? `🔒 Requires Level ${CW_UNLOCK_LEVEL}` : !canAfford ? `💸 $${CW_WASH_PRICE.toLocaleString()} required` : `🚿 Open for $${CW_WASH_PRICE.toLocaleString()}`}
+        </button>
+      </div>`;
+  }
+
+  const bays     = cw.bays     || [];
+  const staff    = cw.staff    || {};
+  const gUpgs    = cw.global_upgrades || {};
+  const sup      = cw.supplies || {};
+  const currentDay = state.day || 0;
+
+  // Determine active package
+  const hasSoap   = (sup.cw_basic_soap    || 0) > 0;
+  const hasStdSoap= (sup.cw_standard_soap || 0) > 0;
+  const hasWax    = (sup.cw_premium_wax   || 0) > 0;
+  const hasRhonda = staff.rhonda;
+  const hasDryer  = gUpgs.dryer_arch;
+  let pkgKey = 'basic';
+  if (hasRhonda && hasStdSoap && hasWax && hasDryer) pkgKey = 'premium';
+  else if (hasWax && hasDryer) pkgKey = 'deluxe';
+  else if (hasStdSoap) pkgKey = 'standard';
+  const pkg = CW_PACKAGES[pkgKey];
+
+  // Meters
+  const waterPct  = Math.round(cw.water_pressure || 0);
+  const moralePct = Math.round(cw.morale || 0);
+  const repPct    = Math.round(cw.reputation || 0);
+  const regPct    = Math.round(cw.regulars || 0);
+  const wColor    = waterPct < 30 ? '#e74c3c' : waterPct < 60 ? '#FF9800' : '#2196F3';
+  const mColor    = moralePct < 30 ? '#e74c3c' : moralePct < 60 ? '#FF9800' : '#4CAF50';
+
+  function meter(label, pct, color, extra='') {
+    return `<div style="margin-bottom:6px">
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:#aaa;margin-bottom:2px">
+        <span>${label}</span><span style="color:${color}">${pct}%${extra}</span>
+      </div>
+      <div style="background:#1a2a3a;height:7px;border-radius:4px;overflow:hidden">
+        <div style="width:${pct}%;height:100%;background:${color};border-radius:4px;transition:width 0.3s"></div>
+      </div>
+    </div>`;
+  }
+
+  const lunchCooldown = Math.max(0, 7 - (currentDay - (cw.last_lunch_day || -999)));
+  const pepUsed = cw.pep_day === currentDay;
+
+  // Bay cards
+  const bayCards = bays.map((bay, i) => {
+    const broken   = bay.broken;
+    const cond     = Math.round(bay.condition || 0);
+    const condColor= cond < 30 ? '#e74c3c' : cond < 60 ? '#FF9800' : '#4CAF50';
+    const upgs     = bay.upgrades || {};
+    const allUpgs  = Object.keys(CW_BAY_UPGRADES).every(u => upgs[u]);
+    return `
+      <div style="background:#0D1E2E;border:2px solid ${broken?'#e74c3c':'#1565C0'};border-radius:6px;padding:10px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <div style="font-size:12px;font-weight:700;color:#90CAF9">Bay #${i+1}</div>
+          <div style="flex:1;font-size:10px;color:#64B5F6">Condition: <span style="color:${condColor}">${cond}%</span></div>
+          ${broken
+            ? `<button onclick="cwRepairBay(${i})" style="background:#e74c3c;border:none;color:white;padding:3px 8px;font-size:10px;cursor:pointer;border-radius:3px">🔧 Repair $250</button>`
+            : (!allUpgs ? `<button onclick="cwBayUpgradeMenu(${i})" style="background:#0D47A1;border:1px solid #1E88E5;color:#90CAF9;padding:3px 8px;font-size:10px;cursor:pointer;border-radius:3px">🔧 Upgrades</button>` : '')}
+        </div>
+        ${cwAnimatedCar(i, broken)}
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">
+          ${Object.entries(CW_BAY_UPGRADES).filter(([u]) => upgs[u]).map(([u,m]) =>
+            `<span style="background:#0D47A1;color:#90CAF9;padding:2px 6px;font-size:9px;border-radius:2px">${m.icon} ${m.name}</span>`
+          ).join('')}
+        </div>
+      </div>`;
+  }).join('');
+
+  const nextBayPrice = CW_BAY_PRICES[bays.length - 1] || null;
+  const canBuildBay  = bays.length < CW_MAX_BAYS;
+
+  // Staff cards
+  const staffCards = Object.entries(CW_STAFF).map(([role, meta]) => {
+    const hired = staff[role];
+    return `
+      <div style="display:flex;align-items:center;gap:8px;padding:8px;background:#0D1E2E;border:1px solid ${hired?'#1E88E5':'#1a2a3a'};border-radius:4px;margin-bottom:6px">
+        ${pxIcon(meta.icon, 20)}
+        <div style="flex:1">
+          <div style="font-weight:700;color:#90CAF9;font-size:12px">${meta.name} <span style="color:#64B5F6;font-weight:400;font-size:10px">$${meta.cost}/day</span></div>
+          <div style="font-size:10px;color:#546E7A">${meta.desc}</div>
+        </div>
+        ${hired
+          ? `<button onclick="cwFireStaff('${role}')" style="background:none;border:1px solid #1a3a4a;color:#546E7A;padding:3px 8px;font-size:10px;cursor:pointer;border-radius:3px">✕</button>`
+          : `<button onclick="cwHireStaff('${role}')" style="background:#1E88E5;border:none;color:white;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;border-radius:3px;white-space:nowrap">Hire</button>`}
+      </div>`;
+  }).join('');
+
+  // Global upgrades
+  const globalUpgHtml = Object.entries(CW_GLOBAL_UPGRADES).map(([key, meta]) => {
+    const has = gUpgs[key];
+    return `
+      <div style="display:flex;align-items:center;gap:8px;padding:8px;background:#0D1E2E;border:1px solid ${has?'#1E88E5':'#1a2a3a'};border-radius:4px;margin-bottom:6px">
+        ${pxIcon(meta.icon, 20)}
+        <div style="flex:1">
+          <div style="font-weight:700;color:#90CAF9;font-size:12px">${meta.name}</div>
+          <div style="font-size:10px;color:#546E7A">${meta.desc}</div>
+        </div>
+        ${has
+          ? `<span style="font-size:11px;color:#4CAF50">✅ Installed</span>`
+          : `<button onclick="cwGlobalUpgrade('${key}')" style="background:#1E88E5;border:none;color:white;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;border-radius:3px;white-space:nowrap">$${meta.cost.toLocaleString()}</button>`}
+      </div>`;
+  }).join('');
+
+  // Supply status badges
+  const supplyBadges = [
+    ['cw_basic_soap','🧼','Basic Soap'],['cw_standard_soap','🫧','Std Soap'],
+    ['cw_premium_wax','✨','Premium Wax'],['cw_tire_shine','🖤','Tire Shine'],
+    ['cw_air_freshener','🌲','Air Fresh'],
+  ].map(([k,icon,label]) => {
+    const days = sup[k] || 0;
+    return days > 0
+      ? `<span style="background:#0D47A1;border:1px solid #1E88E5;color:#90CAF9;padding:3px 7px;font-size:10px;border-radius:3px">${pxIcon(icon, 14)} ${label}: ${days}d</span>`
+      : '';
+  }).filter(Boolean).join('');
+
+  return `
+    <div style="background:#071525;padding:12px;border-radius:4px">
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+        ${meter('💧 Water Pressure', waterPct, wColor, waterPct < 40 ? ' ⚠️':'')}
+        ${meter('😊 Staff Morale',   moralePct, mColor)}
+        ${meter('⭐ Reputation',     repPct, '#FFD700')}
+        ${meter('👥 Regulars',       regPct, '#4CAF50')}
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px">
+        <div style="font-size:11px;color:#546E7A">Active Package: <span style="color:#90CAF9;font-weight:700">${pkg.icon} ${pkg.name}</span></div>
+        <div style="font-size:11px;color:#546E7A">Total Earned: <span style="color:#4CAF50">$${(cw.total_earned||0).toLocaleString()}</span></div>
+      </div>
+
+      ${!hasSoap ? `<div style="background:#4A0000;border:1px solid #e74c3c;color:#FF5252;padding:6px;font-size:11px;margin-bottom:8px;border-radius:3px">⚠️ Out of Basic Soap — no income!</div>` : ''}
+      ${waterPct < 30 ? `<div style="background:#1a2000;border:1px solid #FF9800;color:#FF9800;padding:6px;font-size:11px;margin-bottom:8px;border-radius:3px">⚠️ Water pressure critical — <button onclick="cwRepressurize()" style="background:#FF9800;border:none;color:#000;padding:2px 8px;font-size:10px;font-weight:700;cursor:pointer;border-radius:2px">Repressurize $400</button></div>` : ''}
+
+      ${supplyBadges ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px">${supplyBadges}</div>` : ''}
+
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+        ${pepUsed
+          ? `<span style="padding:6px 12px;font-size:11px;color:#546E7A;background:#0D1E2E;border:1px solid #1a2a3a;border-radius:3px">💬 Pep talk done today</span>`
+          : `<button onclick="cwPepTalk()" style="background:#1565C0;border:none;color:#90CAF9;padding:6px 12px;font-size:11px;cursor:pointer;border-radius:3px">💬 Pep Talk ⚡3</button>`}
+        ${lunchCooldown > 0
+          ? `<span style="padding:6px 12px;font-size:11px;color:#546E7A;background:#0D1E2E;border:1px solid #1a2a3a;border-radius:3px">🍔 Lunch in ${lunchCooldown}d</span>`
+          : `<button onclick="cwTeamLunch()" style="background:#1565C0;border:none;color:#90CAF9;padding:6px 12px;font-size:11px;cursor:pointer;border-radius:3px">🍔 Team Lunch ($400)</button>`}
+        <button onclick="cwToggleInsurance()" style="background:${cw.insurance?'#1B5E20':'#1565C0'};border:none;color:#90CAF9;padding:6px 12px;font-size:11px;cursor:pointer;border-radius:3px">
+          🛡️ ${cw.insurance ? `Insurance ✓ ($600/wk)` : 'Get Insurance ($600/wk)'}
+        </button>
+        ${waterPct < 80 ? `<button onclick="cwRepressurize()" style="background:#1565C0;border:none;color:#90CAF9;padding:6px 12px;font-size:11px;cursor:pointer;border-radius:3px">💧 Repressurize ($400)</button>` : ''}
+      </div>
+
+      <div style="font-size:11px;font-weight:700;color:#1E88E5;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">🚗 Wash Bays (${bays.length}/${CW_MAX_BAYS})</div>
+      ${bayCards}
+      ${canBuildBay
+        ? `<button onclick="cwBuildBay()" style="width:100%;background:#071525;border:2px dashed #1565C0;color:#1E88E5;padding:10px;font-size:12px;cursor:pointer;margin-bottom:12px;border-radius:4px">
+            ➕ Build Bay #${bays.length+1} — $${nextBayPrice.toLocaleString()}
+           </button>`
+        : `<div style="font-size:11px;color:#546E7A;text-align:center;margin-bottom:12px">All 5 bays built.</div>`}
+
+      <div style="font-size:11px;font-weight:700;color:#1E88E5;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">👔 Staff</div>
+      ${staffCards}
+
+      <div style="font-size:11px;font-weight:700;color:#1E88E5;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;margin-top:4px">🏗️ Facility Upgrades</div>
+      ${globalUpgHtml}
+    </div>`;
+}
+
+function cwBayUpgradeMenu(bayIdx) {
+  const bays = (state.car_wash && state.car_wash.bays) || [];
+  const bay  = bays[bayIdx];
+  if (!bay) return;
+  const upgs = bay.upgrades || {};
+
+  const rows = Object.entries(CW_BAY_UPGRADES).map(([key, meta]) => {
+    const has = !!upgs[key];
+    return `
+      <div style="background:#0D1E2E;border:1px solid ${has?'#1E88E5':'#1a2a3a'};padding:12px;margin-bottom:8px;border-radius:4px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          ${pxIcon(meta.icon, 20)}
+          <div style="flex:1">
+            <div style="font-weight:700;color:#90CAF9;font-size:13px">${meta.name}</div>
+            <div style="font-size:11px;color:#546E7A;margin-top:2px">${meta.desc}</div>
+          </div>
+          <div style="font-size:13px;font-weight:700;color:#1E88E5;white-space:nowrap">$${meta.cost.toLocaleString()}</div>
+        </div>
+        ${has
+          ? `<div style="font-size:11px;color:#4CAF50">✅ Installed</div>`
+          : `<button onclick="cwUpgradeBay(${bayIdx},'${key}');closeModal()" style="width:100%;margin-top:6px;background:#1E88E5;border:none;color:white;padding:8px;font-size:12px;font-weight:700;cursor:pointer;border-radius:3px">Install — $${meta.cost.toLocaleString()}</button>`}
+      </div>`;
+  }).join('');
+
+  openModal(`
+    <div class="modal-handle"></div>
+    <div style="background:#071525;padding:16px;min-height:100px">
+      <div style="font-size:14px;font-weight:700;color:#90CAF9;margin-bottom:4px">🔧 Bay #${bayIdx+1} Upgrades</div>
+      <div style="font-size:11px;color:#546E7A;margin-bottom:14px">Permanent upgrades for this bay only.</div>
+      ${rows}
+      <button onclick="closeModal()" style="width:100%;background:#0D1E2E;border:1px solid #1a2a3a;color:#546E7A;padding:8px;font-size:12px;cursor:pointer;border-radius:3px;margin-top:4px">Close</button>
+    </div>`);
+}
+
+async function cwBuy()                       { const r = await api('/car_wash/buy','POST'); if(r.error){toast(r.error,'error');return;} await refreshState(); renderBusiness(); toast('Slippery When Washed is open!','success'); }
+async function cwBuildBay()                  { const r = await api('/car_wash/build_bay','POST'); if(r.error){toast(r.error,'error');return;} await refreshState(); renderBusiness(); toast('New bay built!','success'); }
+async function cwHireStaff(role)             { const r = await api('/car_wash/hire_staff','POST',{role}); if(r.error){toast(r.error,'error');return;} await refreshState(); renderBusiness(); toast(`${CW_STAFF[role].name} hired.`,'success'); }
+function cwFireStaff(role) {
+  const meta = CW_STAFF[role];
+  openModal(`
+    <div style="text-align:center;padding:8px 0">
+      <div style="font-size:32px;margin-bottom:8px">${pxIcon(meta.icon, 32)}</div>
+      <div style="font-size:16px;font-weight:700;margin-bottom:6px">Fire ${meta.name}?</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px">This will remove them from your payroll immediately.</div>
+      <div style="display:flex;gap:8px;justify-content:center">
+        <button onclick="closeModal()" style="padding:8px 18px;background:var(--card-bg);border:1px solid var(--border);color:var(--text-1);border-radius:4px;cursor:pointer;font-size:13px">Cancel</button>
+        <button onclick="cwFireStaffConfirmed('${role}')" style="padding:8px 18px;background:#c0392b;border:none;color:white;border-radius:4px;cursor:pointer;font-size:13px;font-weight:700">Fire</button>
+      </div>
+    </div>`);
+}
+async function cwFireStaffConfirmed(role) { closeModal(); const r = await api('/car_wash/fire_staff','POST',{role}); if(r.error){toast(r.error,'error');return;} await refreshState(); renderBusiness(); toast(`${CW_STAFF[role].name} let go.`,'info'); }
+async function cwUpgradeBay(bayIdx,upgrade)  { const r = await api('/car_wash/upgrade_bay','POST',{bay_idx:bayIdx,upgrade}); if(r.error){toast(r.error,'error');return;} await refreshState(); renderBusiness(); toast(`${CW_BAY_UPGRADES[upgrade].name} installed.`,'success'); }
+async function cwGlobalUpgrade(upgrade)      { const r = await api('/car_wash/global_upgrade','POST',{upgrade}); if(r.error){toast(r.error,'error');return;} await refreshState(); renderBusiness(); toast(`${CW_GLOBAL_UPGRADES[upgrade].name} installed.`,'success'); }
+async function cwRepairBay(bayIdx)           { const r = await api('/car_wash/repair_bay','POST',{bay_idx:bayIdx}); if(r.error){toast(r.error,'error');return;} await refreshState(); renderBusiness(); toast('Bay repaired.','success'); }
+async function cwRepressurize()              { const r = await api('/car_wash/repressurize','POST'); if(r.error){toast(r.error,'error');return;} await refreshState(); renderBusiness(); toast('Water pressure restored.','success'); }
+async function cwPepTalk()                   { const r = await api('/car_wash/pep_talk','POST'); if(r.error){toast(r.error,'error');return;} await refreshState(); renderBusiness(); toast('Pep talk delivered. Terry commented on water temperature.','success'); }
+async function cwTeamLunch()                 { const r = await api('/car_wash/team_lunch','POST'); if(r.error){toast(r.error,'error');return;} await refreshState(); renderBusiness(); toast('Team lunch done.','success'); }
+async function cwToggleInsurance()           { const r = await api('/car_wash/insurance','POST'); if(r.error){toast(r.error,'error');return;} await refreshState(); renderBusiness(); toast(r.insurance?'Insurance activated.':'Insurance cancelled.','info'); }
+
 // ── CostPro Wholesale Store ───────────────────────────────────────────────────
 const COSTPRO_SNACKS = [
   { key: 'snacks_cheap',   name: 'Generic Brand Snacks', icon: '🍬', price: 400,   desc: 'Budget snacks. They sell, barely.',            revenue: 800   },
@@ -3656,7 +4412,7 @@ function renderStore() {
     return `
     <div class="card" style="margin-bottom:10px">
       <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
-        <div style="font-size:28px;line-height:1">${item.icon}</div>
+        ${pxIcon(item.icon, 28)}
         <div style="flex:1;min-width:0">
           <div style="font-weight:800;font-size:13px">${item.name}</div>
           <div style="font-size:11px;color:var(--text-muted);margin-top:1px">${item.desc}</div>
@@ -3684,7 +4440,7 @@ function renderStore() {
       return `
       <div class="card" style="margin-bottom:10px">
         <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
-          <div style="font-size:28px;line-height:1">${item.icon}</div>
+          ${pxIcon(item.icon, 28)}
           <div style="flex:1;min-width:0">
             <div style="font-weight:800;font-size:13px">${item.name}</div>
             <div style="font-size:11px;color:var(--text-muted);margin-top:1px">${item.desc}</div>
@@ -3720,7 +4476,7 @@ function renderStore() {
       return `
       <div class="card" style="margin-bottom:10px">
         <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
-          <div style="font-size:28px;line-height:1">${item.icon}</div>
+          ${pxIcon(item.icon, 28)}
           <div style="flex:1;min-width:0">
             <div style="font-weight:800;font-size:13px">${item.name}</div>
             <div style="font-size:11px;color:var(--text-muted);margin-top:1px">${item.desc}</div>
@@ -3744,6 +4500,46 @@ function renderStore() {
       ${laundryCards}`;
   }
 
+  // Car wash supplies — only shown when car wash is owned
+  let cwSection = '';
+  const cwst = state.car_wash;
+  if (cwst && cwst.owned) {
+    const CW_STORE_ITEMS = [
+      { key: 'cw_basic_soap',    icon: '🧼', name: 'Basic Soap',     price: 350, daysKey: 'cw_basic_soap',    warnText: '⚠️ OUT — no income!' },
+      { key: 'cw_standard_soap', icon: '🫧', name: 'Standard Soap',  price: 500, daysKey: 'cw_standard_soap', warnText: 'None stocked' },
+      { key: 'cw_premium_wax',   icon: '✨', name: 'Premium Wax',    price: 700, daysKey: 'cw_premium_wax',   warnText: 'None stocked' },
+      { key: 'cw_tire_shine',    icon: '🖤', name: 'Tire Shine',     price: 400, daysKey: 'cw_tire_shine',    warnText: 'None stocked' },
+      { key: 'cw_air_freshener', icon: '🌲', name: 'Air Fresheners', price: 300, daysKey: 'cw_air_freshener', warnText: 'None stocked' },
+    ];
+    const cwSupplies = cwst.supplies || {};
+    const cwCards = CW_STORE_ITEMS.map(item => {
+      const days = cwSupplies[item.daysKey] || 0;
+      return `
+      <div class="card" style="margin-bottom:10px">
+        <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
+          ${pxIcon(item.icon, 28)}
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:800;font-size:13px">${item.name}</div>
+            <div style="font-size:11px;margin-top:3px;color:${days > 0 ? 'var(--positive)' : 'var(--warning)'}">
+              ${days > 0 ? `${days} days remaining` : item.warnText}
+            </div>
+          </div>
+          <div style="font-size:15px;font-weight:800;color:var(--primary);flex-shrink:0">${fmt(item.price)}<div style="font-size:10px;font-weight:400;color:var(--text-muted);text-align:right">each</div></div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm btn-primary" style="flex:1" onclick="buySnacks('${item.key}',1)">Buy 1</button>
+          <button class="btn btn-sm btn-primary" style="flex:1" onclick="buySnacks('${item.key}',3)">Buy 3 · ${fmt(item.price*3)}</button>
+          <button class="btn btn-sm btn-primary" style="flex:1" onclick="buySnacks('${item.key}',5)">Buy 5 · ${fmt(item.price*5)}</button>
+        </div>
+      </div>`;
+    }).join('');
+    cwSection = `
+      <div class="section-header" style="margin-top:14px">
+        <span class="section-title">🚗 Car Wash Supplies</span>
+      </div>
+      ${cwCards}`;
+  }
+
   el.innerHTML = `
     <div style="background:var(--primary);color:white;text-align:center;padding:14px 16px">
       <div style="font-family:'Rubik Dirt',cursive;font-size:22px;letter-spacing:2px">CostPro</div>
@@ -3755,6 +4551,7 @@ function renderStore() {
     ${snackCards}
     ${laundrySection}
     ${poleSection}
+    ${cwSection}
     <div style="font-size:11px;color:var(--text-muted);text-align:center;padding:8px 0 16px">
       More products unlock with new businesses.
     </div>`;
