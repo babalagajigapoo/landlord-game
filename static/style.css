@@ -91,6 +91,7 @@ header {
 .xp-bar-fill      { height: 100%; background: linear-gradient(90deg, #FFD54F, #FFAB40); border-radius: 10px; transition: width 0.6s ease; }
 
 main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) / 2 + 8px); }
+main:has(#page-dashboard.active) { overflow-y: hidden; }
 
 /* ── Bottom Nav ──────────────────────────────────────────────── */
 .bottom-nav {
