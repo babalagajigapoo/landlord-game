@@ -425,6 +425,7 @@ function updateHeader() {
     else if (lvl >= 14)  xpNextLbl.textContent = 'Fully maxed out!';
     else                 xpNextLbl.textContent = `→ Level ${lvl + 1}`;
   }
+  syncMusicToLevel(musicTargetLevel());
 }
 
 function animateCashChange(delta) {
@@ -600,6 +601,8 @@ function navTo(page) {
 
 // ── Render All ────────────────────────────────────────────────────────────────
 function renderAll() {
+  initMusicSynths();
+  setupMusicAutoStart();
   renderDashboard();
   renderMarket();
   if (_currentMarketTab === 'commercial') renderCommercialMarket();
@@ -9594,6 +9597,173 @@ async function doWithdraw() {
   renderBank();
 }
 
+// ── Music System ──────────────────────────────────────────────────────────────
+const MUSIC_VOLS        = [-4, -5, -1, -21, -11, -15];
+const MUSIC_LAYER_NAMES = ['Xylophone','Drums','Bass','String Pads','Counter-Melody','Bell Shimmer'];
+
+let _musicReady           = false;
+let _musicStarted         = false;
+let _musicVolNodes        = [];
+let _musicEnabled         = localStorage.getItem('musicEnabled') !== '0';
+let _musicAutoStartHandler = null;
+
+function musicTargetLevel() {
+  if (!_musicEnabled) return -1;
+  const gameLevel = state ? Math.min(state.level ?? 0, 5) : 0;
+  const manual    = localStorage.getItem('musicManualLevel');
+  return manual !== null ? Math.min(parseInt(manual), gameLevel) : gameLevel;
+}
+
+function initMusicSynths() {
+  if (_musicReady || typeof Tone === 'undefined') return;
+  _musicReady = true;
+
+  const mute = v => { v.volume.value = -Infinity; return v; };
+  const xylV = mute(new Tone.Volume(0).toDestination());
+  const drmV = mute(new Tone.Volume(0).toDestination());
+  const basV = mute(new Tone.Volume(0).toDestination());
+  const padV = mute(new Tone.Volume(0).toDestination());
+  const cntV = mute(new Tone.Volume(0).toDestination());
+  const belV = mute(new Tone.Volume(0).toDestination());
+  _musicVolNodes = [xylV, drmV, basV, padV, cntV, belV];
+
+  const xyl = new Tone.PolySynth(Tone.Synth, {
+    oscillator: { type: 'triangle' },
+    envelope: { attack: 0.001, decay: 0.2, sustain: 0, release: 0.1 }
+  }).connect(xylV);
+  const mel = [
+    'E5',null,'C5','A4', null,'G5','E5',null, 'C5','E5','A4',null, 'D5',null,'E5',null,
+    'D5',null,'B4','G4', null,'F5','D5',null, 'B4','D5','G4',null, 'C5','B4','A4','G4',
+    'C5',null,'A4','F4', null,'E5','C5',null, 'A4','C5','F4',null, 'B4',null,'C5',null,
+    'B4',null,'G4','E4', null,'D5','B4',null, 'G4','B4','E4',null, 'G4','A4','B4','C5'
+  ];
+  new Tone.Sequence((t,n) => { if(n) xyl.triggerAttackRelease(n,'8n',t); }, mel, '16n').start(0);
+
+  const kick  = new Tone.MembraneSynth({ pitchDecay:0.08, octaves:6, envelope:{attack:0.001,decay:0.25,sustain:0,release:0.1} }).connect(drmV);
+  const snare = new Tone.NoiseSynth({ noise:{type:'white'}, envelope:{attack:0.001,decay:0.1,sustain:0,release:0.05} }).connect(drmV);
+  const hh    = new Tone.MetalSynth({ frequency:500, harmonicity:4, modulationIndex:20, resonance:4000, octaves:1.5, envelope:{attack:0.001,decay:0.03,release:0.01} }).connect(drmV);
+  const kp    = [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0];
+  new Tone.Sequence((t,v) => { if(v) kick.triggerAttackRelease('C1','8n',t); }, [...kp,...kp,...kp,...kp], '16n').start(0);
+  new Tone.Sequence((t,v) => { if(v) snare.triggerAttackRelease('16n',t); }, [
+    0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,
+    0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,
+    0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,
+    0,0,0,0,1,0,0,0,0,0,0,0,1,1,1,1
+  ], '16n').start(0);
+  new Tone.Sequence((t,v) => { if(v) hh.triggerAttackRelease('32n',t); },
+    [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0], '16n').start(0);
+
+  const bFilt = new Tone.Filter({ frequency:580, type:'lowpass', rolloff:-24 }).connect(basV);
+  const bDist = new Tone.Distortion(0.1).connect(bFilt);
+  const bass  = new Tone.Synth({
+    oscillator: { type:'fatsawtooth', spread:18, count:2 },
+    envelope: { attack:0.006, decay:0.12, sustain:0.9, release:2.2 }
+  }).connect(bDist);
+  const bn = [
+    'A1',null,null,null,'C2',null,null,null,'E1',null,null,null,'A1',null,null,null,
+    'G1',null,null,null,'B1',null,null,null,'D2',null,null,null,'G1',null,null,null,
+    'F1',null,null,null,'A1',null,null,null,'C2',null,null,null,'F1',null,null,null,
+    'E1',null,null,null,'G1',null,null,null,'B1',null,null,null,'E1',null,null,null
+  ];
+  new Tone.Sequence((t,n) => { if(n) bass.triggerAttackRelease(n,'2n',t); }, bn, '16n').start(0);
+
+  const pFilt = new Tone.Filter({ frequency:1100, type:'lowpass' }).connect(padV);
+  const pads  = new Tone.PolySynth(Tone.Synth, {
+    oscillator: { type:'sawtooth' },
+    envelope: { attack:1.8, decay:0.3, sustain:0.88, release:4 }
+  }).connect(pFilt);
+  new Tone.Sequence((t,c) => { if(c) pads.triggerAttackRelease(c,'1m',t); }, [
+    ['A2','E3','A3','C4','E4'],null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,
+    ['G2','D3','G3','B3','D4'],null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,
+    ['F2','C3','F3','A3','C4'],null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,
+    ['E2','B2','E3','G#3','B3'],null,null,null,null,null,null,null,null,null,null,null,null,null,null,null
+  ], '16n').start(0);
+
+  const counter = new Tone.Synth({
+    oscillator: { type:'sine' },
+    envelope: { attack:0.08, decay:0.3, sustain:0.55, release:0.9 }
+  }).connect(cntV);
+  const cn = [
+    'A3',null,null,null,'C4',null,null,null,'E4',null,null,null,'G4',null,null,null,
+    'G3',null,null,null,'B3',null,null,null,'D4',null,null,null,'F4',null,null,null,
+    'F3',null,null,null,'A3',null,null,null,'C4',null,null,null,'E4',null,null,null,
+    'E3',null,null,null,'G#3',null,null,null,'B3',null,null,null,'D4',null,null,null
+  ];
+  new Tone.Sequence((t,n) => { if(n) counter.triggerAttackRelease(n,'4n',t); }, cn, '16n').start(0);
+
+  const bell = new Tone.Synth({
+    oscillator: { type:'triangle' },
+    envelope: { attack:0.001, decay:0.45, sustain:0, release:0.35 }
+  }).connect(belV);
+  const blnotes = [
+    'A5','C6','E5','A5','A5','C6','E5','A5','A5','C6','E5','A5','A5','C6','E5','A5',
+    'G5','B5','D5','G5','G5','B5','D5','G5','G5','B5','D5','G5','G5','B5','D5','G5',
+    'F5','A5','C5','F5','F5','A5','C5','F5','F5','A5','C5','F5','F5','A5','C5','F5',
+    'E5','G#5','B4','E5','E5','G#5','B4','E5','E5','G#5','B4','E5','E5','G#5','B4','E5'
+  ];
+  new Tone.Sequence((t,n) => { if(n) bell.triggerAttackRelease(n,'16n',t); }, blnotes, '16n').start(0);
+
+  Tone.getTransport().bpm.value = 92;
+}
+
+function syncMusicToLevel(targetLevel) {
+  if (!_musicReady || !_musicStarted || _musicVolNodes.length === 0) return;
+  for (let i = 0; i <= 5; i++) {
+    const shouldPlay = _musicEnabled && i <= targetLevel;
+    const vol        = _musicVolNodes[i].volume.value;
+    if (shouldPlay && vol <= -50)  _musicVolNodes[i].volume.rampTo(MUSIC_VOLS[i], 2);
+    if (!shouldPlay && vol > -50)  _musicVolNodes[i].volume.rampTo(-Infinity, 1.5);
+  }
+}
+
+function _clearMusicAutoStart() {
+  if (_musicAutoStartHandler) {
+    document.removeEventListener('click',      _musicAutoStartHandler, true);
+    document.removeEventListener('touchstart', _musicAutoStartHandler, true);
+    _musicAutoStartHandler = null;
+  }
+}
+
+function setupMusicAutoStart() {
+  if (!_musicEnabled || _musicStarted || _musicAutoStartHandler) return;
+  _musicAutoStartHandler = async () => {
+    _clearMusicAutoStart();
+    if (!_musicReady) initMusicSynths();
+    await Tone.start();
+    if (!_musicStarted) {
+      _musicStarted = true;
+      Tone.getTransport().start();
+      syncMusicToLevel(musicTargetLevel());
+    }
+  };
+  document.addEventListener('click',      _musicAutoStartHandler, true);
+  document.addEventListener('touchstart', _musicAutoStartHandler, true);
+}
+
+async function toggleMusicEnabled(on) {
+  _musicEnabled = on;
+  localStorage.setItem('musicEnabled', on ? '1' : '0');
+  if (on) {
+    _clearMusicAutoStart();
+    if (!_musicReady) initMusicSynths();
+    await Tone.start();
+    if (!_musicStarted) {
+      _musicStarted = true;
+      Tone.getTransport().start();
+    }
+    syncMusicToLevel(musicTargetLevel());
+  } else {
+    syncMusicToLevel(-1);
+  }
+  renderSettings();
+}
+
+function setMusicManualLevel(val) {
+  if (val === '') localStorage.removeItem('musicManualLevel');
+  else            localStorage.setItem('musicManualLevel', val);
+  syncMusicToLevel(musicTargetLevel());
+}
+
 // ── Settings ──────────────────────────────────────────────────────────────────
 function toggleDarkMode(on) {
   document.body.classList.toggle('dark', on);
@@ -9603,8 +9773,10 @@ function toggleDarkMode(on) {
 function renderSettings() {
   const el = document.getElementById('page-settings');
   if (!el || !state) return;
-  const s = getSeasonInfo(state.day);
-  const darkOn = localStorage.getItem('darkMode') === '1';
+  const s         = getSeasonInfo(state.day);
+  const darkOn    = localStorage.getItem('darkMode') === '1';
+  const gameLevel = Math.min(state.level ?? 0, 5);
+  const manualLvl = localStorage.getItem('musicManualLevel');
   el.innerHTML = `
     <div class="section-header"><span class="section-title">${pxIcon('⚙️',18)} Settings</span></div>
 
@@ -9629,6 +9801,32 @@ function renderSettings() {
           <span class="dark-toggle-track"></span>
         </label>
       </div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <div style="font-size:14px;font-weight:800;margin-bottom:10px">🎵 Music</div>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:13px;font-weight:600">Background Music</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Soundtrack for your empire</div>
+        </div>
+        <label class="dark-toggle">
+          <input type="checkbox" ${_musicEnabled ? 'checked' : ''} onchange="toggleMusicEnabled(this.checked)">
+          <span class="dark-toggle-track"></span>
+        </label>
+      </div>
+      ${_musicEnabled ? (gameLevel >= 1 ? `
+      <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
+        <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">Soundtrack Layer</div>
+        <select onchange="setMusicManualLevel(this.value)" style="width:100%;padding:9px 12px;font-size:13px;border:1.5px solid var(--border);border-radius:10px;background:var(--bg-card);color:var(--text-primary);outline:none;appearance:auto">
+          <option value="" ${manualLvl === null ? 'selected' : ''}>Auto (follows your level)</option>
+          ${[0,1,2,3,4,5].filter(i => i <= gameLevel).map(i => {
+            const names = ['Xylophone only','+ Drums','+ Bass','+ String Pads','+ Counter-Melody','+ Bell Shimmer'];
+            return `<option value="${i}" ${manualLvl === String(i) ? 'selected' : ''}>Layer ${i} — ${names[i]}</option>`;
+          }).join('')}
+        </select>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:6px">Level up to unlock all 6 layers</div>
+      </div>` : `<div style="margin-top:10px;font-size:12px;color:var(--text-muted);font-style:italic">🎚️ Level up to unlock more soundtrack layers</div>`) : ''}
     </div>
 
     <div class="card" style="margin-top:12px">
