@@ -1,151 +1,12 @@
-// ── Pixel Art Icons ───────────────────────────────────────────────────────────
-const PIXEL_ICONS = {
-  // Property types
-  '\u{1F3DA}\uFE0F': 'house-bungalow',   // 🏚️
-  '\u{1F3E0}':         'house-ranch',       // 🏠
-  '\u{1F3DB}\uFE0F': 'house-colonial',    // 🏛️
-  '\u{1F3D9}\uFE0F': 'house-townhouse',   // 🏙️
-  '\u{1F3E2}':         'house-condo',       // 🏢
-  '\u{1F3D8}\uFE0F': 'house-duplex',      // 🏘️
-  '\u{1F3F0}':         'house-mansion',     // 🏰
-  '\u{1F3E1}':         'home-bungalow',     // 🏡
-  // Seasons
-  '\u{1F338}':         'season-spring',     // 🌸
-  '\u2600\uFE0F':     'season-summer',     // ☀️
-  '\u{1F342}':         'season-fall',       // 🍂
-  '\u2744\uFE0F':     'season-winter',     // ❄️
-  // Repairs
-  '\u{1F527}':         'repair-plumbing',   // 🔧
-  '\u26A1':            'repair-electrical', // ⚡
-  '\u{1F4E6}':         'repair-appliance',  // 📦
-  '\u{1F41B}':         'repair-pest',       // 🐛
-  '\u{1F321}\uFE0F': 'repair-hvac',       // 🌡️
-  // Upgrades
-  '\u{1F33F}':         'upgrade-landscaping',// 🌿
-  '\u{1F3A8}':         'upgrade-paint',     // 🎨
-  '\u{1FAB5}':         'upgrade-flooring',  // 🪵
-  '\u{1FA9F}':         'upgrade-windows',   // 🪟
-  '\u{1F6BF}':         'upgrade-bathrooms', // 🚿
-  '\u{1F373}':         'upgrade-kitchen',   // 🍳
-  // Premium upgrades
-  '\u{1F4F1}':         'premium-smarthome', // 📱
-  '\u{1F6C1}':         'premium-hottub',    // 🛁
-  '\u{1F697}':         'premium-garage',    // 🚗
-  '\u{1F3D7}\uFE0F': 'premium-basement',  // 🏗️
-  '\u{1F3CA}':         'premium-pool',      // 🏊
-  // Neighborhoods
-  '\u{1F332}':         'hood-northside',    // 🌲
-  '\u{1F30A}':         'hood-riverside',    // 🌊
-  '\u{1F306}':         'hood-newbay',       // 🌆
-  // Tenant types
-  '\u{1F3CB}\uFE0F': 'tenant-gym',        // 🏋️
-  '\u{1F3B8}':         'tenant-musician',   // 🎸
-  '\u{1F468}\u200D\u{1F373}': 'tenant-chef',      // 👨‍🍳
-  '\u{1F468}\u200D\u{1F469}\u200D\u{1F467}\u200D\u{1F466}': 'tenant-family', // 👨‍👩‍👧‍👦
-  '\u{1F476}':         'tenant-baby',       // 👶
-  '\u{1F474}':         'tenant-elderly',    // 👴
-  '\u{1F9D1}\u200D\u{1F467}': 'tenant-single-parent', // 🧑‍👧
-  '\u{1F464}':         'tenant-generic',    // 👤
-  '\uD83D\uDC64':     'tenant-generic',    // 👤 alt encoding
-  // Loans
-  '\u{1F4B5}':         'loan-cash',         // 💵
-  '\u{1F91D}':         'loan-friend',       // 🤝
-  '\u{1F3E6}':         'loan-bank',         // 🏦
-  '\u{1F4BC}':         'nav-business',      // 💼
-  // Player homes
-  '\u{1F6CB}\uFE0F': 'home-rental',       // 🛋️
-  // Stats / nav
-  '\u{1F4B0}':         'nav-finances',      // 💰
-  '\u{1F4CA}':         'nav-dashboard',     // 📊
-  '\u{1F3EA}':         'nav-market',        // 🏪
-  '\u{1F4B9}':         'stat-stocks',       // 💹
-  '\u{1F4C8}':         'stat-networth',     // 📈
-  '\u2699\uFE0F':     'settings-gear',     // ⚙️
-  // Tools
-  '\u{1F6E0}\uFE0F': 'diy-tools',         // 🛠️
-  // Special tenants
-  '⭐':             'stat-star',         // ⭐
-  '😠':             'face-angry',        // 😠
-  '⭐':             'stat-star',         // ⭐
-  '😠':             'face-angry',        // 😠
-  '🔱':        'special-phil',      // 🔱
-  '🎩':        'special-goldbergs', // 🎩
-  // ── Added in third round ─────────────────────────────────────────────────
-  '💸': 'ui-money',
-  '🔨': 'tool-hammer',
-  '🗓️': 'ui-calendar',
-  '📅': 'ui-calendar',
-  '🔒': 'ui-lock',
-  '🧰': 'tool-box',
-  '🚨': 'ui-siren',
-  '🧾': 'ui-receipt',
-  '📋': 'ui-clipboard',
-  '📄': 'ui-clipboard',
-  '🔄': 'ui-refresh',
-  '✅': 'ui-check',
-  '❌': 'ui-cross',
-  '👋': 'ui-wave',
-  '💬': 'ui-chat',
-  '⏳': 'ui-hourglass',
-  '🧱': 'ui-brick',
-  '🪚': 'ui-saw',
-  '🪜': 'ui-ladder',
-  '💧': 'ui-water',
-  '📐': 'ui-level',
-  '🪣': 'ui-bucket',
-  '🖌️': 'ui-roller',
-  '⚖️': 'ui-gavel',
-  '🔑': 'ui-key',
-  '🗑': 'ui-trash',
-  '🏆': 'stat-star',
-  '📊': 'nav-dashboard',
-  '💹': 'stat-stocks',
-  '📈': 'stat-networth',
-  '🦰': 'ui-water',
-  '🍴': 'upgrade-kitchen',
-  '🚿': 'upgrade-bathrooms',
-  '🧱': 'ui-brick',
-  '☕': 'store-coffee',
-  '🛏️': 'store-bed',
-  '🛒': 'ui-cart',
-  '📚': 'ui-books',
-  // ── Business supplies & items ─────────────────────────────────────────────
-  '🧼': 'item-soap',
-  '🫧': 'item-bubbles',
-  '✨': 'item-sparkles',
-  '🖤': 'item-tire-shine',
-  '🍹': 'item-drink',
-  '🍗': 'item-chicken',
-  '🎒': 'ui-backpack',
-  '🌀': 'worker-vacuum',
-  '🎶': 'item-music',
-  '🧹': 'item-broom',
-  '\u{1F32C}️': 'item-wind',
-  '\u{1F32C}': 'item-wind',
-  '🍬': 'item-candy',
-  '🍫': 'item-chocolate',
-  '🧁': 'item-cupcake',
-  '🔩': 'item-nozzle',
-  '💡': 'item-lightbulb',
-  '📺': 'item-tv',
-  '💳': 'item-loyalty-card',
-  '\u{1F6E2}️': 'item-barrel',
-  '\u{1F6E2}': 'item-barrel',
-  '💪': 'item-grip',
-  '💦': 'item-spray-bottle',
-};
+// Apply saved dark mode before first render to prevent flash
+if (localStorage.getItem('darkMode') === '1') document.body.classList.add('dark');
+
+// ── Pixel Art Icons (cleared — all icons use raw emoji) ──────────────────────
+const PIXEL_ICONS = {};
+
 
 function pxIcon(emoji, size) {
-  if (!emoji) return '';
-  size = size || 28;
-  let name = PIXEL_ICONS[emoji];
-  if (!name) {
-    // Try stripping variation selectors (U+FE0F / U+FE0E) and zero-width joiners
-    const stripped = emoji.replace(/[︎️‍]/g, '');
-    name = PIXEL_ICONS[stripped];
-  }
-  if (!name) return emoji;
-  return '<img src="/static/icons/' + name + '.svg" width="' + size + '" height="' + size + '" style="image-rendering:pixelated;vertical-align:middle;display:inline-block" alt="' + emoji + '">';
+  return emoji || '';
 }
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -1732,1948 +1593,6 @@ function homeTierUnlocked(unlock_home) {
 }
 
 // ── Sprite pixel-art data (top-down view, 16x16) ──────────────────────────
-const _SC = {
-  '.':null,'a':'#3B1A08','b':'#7A4020','c':'#9B5A28','d':'#C49A6C','e':'#EDE0C4',
-  'f':'#4A7DC4','F':'#2E5A98','h':'#8AAED4','k':'#4CAF50','K':'#2E7D32','l':'#A8D5A2',
-  'n':'#C44B4B','N':'#8B1A1A','i':'#FF6B35','I':'#CC3300','j':'#FFB347',
-  'q':'#4ECDC4','Q':'#2AA898','r':'#8BE8E0','R':'#1A8078',
-  '0':'#111','1':'#222','2':'#333','3':'#444','4':'#555','5':'#666','6':'#777','7':'#888','8':'#999','9':'#AAA',
-  'p':'#9B59B6','P':'#6C3483','x':'#B8860B','X':'#F5D76E','y':'#E8D4B0','Y':'#F5ECD0',
-  'o':'#888','O':'#444','g':'#333','G':'#555','m':'#CCC','w':'#EEE','v':'#2C3E8C','V':'#4A5FAE',
-  's':'#8B5A2B','S':'#5C3317','t':'#FF3300','T':'#FF6600','u':'#B0D4F5','U':'#6BA3D4',
-  'z':'#D4A4B4','Z':'#8B4A6B',
-};
-const SPRITE_DATA = {
-  // 32x32 true top-down sprites
-  new_bed:{d:[
-    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-    'bddddddddddddddddddddddddddddeb.',
-    'bddddddddddddddddddddddddddddeb.',
-    'bdddddd.....dddddddd.....ddddeb.',
-    'bdddddd.....dddddddd.....ddddeb.',
-    'bdddddd.....dddddddd.....ddddeb.',
-    'bdddddd.....dddddddd.....ddddeb.',
-    'bdddddd.....dddddddd.....ddddeb.',
-    'bfffffffffffffffffffffffffffffeb',
-    'bfFfffffffffffffffffffffffffFeb.',
-    'bfffffffffffffffffffffffffffffeb',
-    'bfffffffffffffffffffffffffffffeb',
-    'bfFfffffffffffffffffffffffffFeb.',
-    'bfffffffffffffffffffffffffffffeb',
-    'bfffffffffffffffffffffffffffffeb',
-    'bfFfffffffffffffffffffffffffFeb.',
-    'bfffffffffffffffffffffffffffffeb',
-    'bfffffffffffffffffffffffffffffeb',
-    'bfFfffffffffffffffffffffffffFeb.',
-    'bfffffffffffffffffffffffffffffeb',
-    'bfffffffffffffffffffffffffffffeb',
-    'bfFfffffffffffffffffffffffffFeb.',
-    'bfffffffffffffffffffffffffffffeb',
-    'bfffffffffffffffffffffffffffffeb',
-    'bfffffffffffffffffffffffffffffeb',
-    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-    '................................',
-    '................................',
-  ]},
-  blackout_curtains:{d:[
-    '44444444444444444444444444444444',
-    '41111111111111144111111111111111',
-    '41wwwwwwwwwwww1441wwwwwwwwwwww14',
-    '41wwwwwwwwwwww1441wwwwwwwwwwww14',
-    '41wwwwwwwwwwww1441wwwwwwwwwwww14',
-    '41wwwwwwwwwwww1441wwwwwwwwwwww14',
-    '41wwwwwwwwwwww1441wwwwwwwwwwww14',
-    '41wwwwwwwwwwww1441wwwwwwwwwwww14',
-    '41wwwwwwwwwwww1441wwwwwwwwwwww14',
-    '41wwwwwwwwwwww1441wwwwwwwwwwww14',
-    '41wwwwwwwwwwww1441wwwwwwwwwwww14',
-    '41wwwwwwwwwwww1441wwwwwwwwwwww14',
-    '41wwwwwwwwwwww1441wwwwwwwwwwww14',
-    '41wwwwwwwwwwww1441wwwwwwwwwwww14',
-    '41wwwwwwwwwwww1441wwwwwwwwwwww14',
-    '41111111111111144111111111111111',
-    '44444444444444444444444444444444',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  coffee_maker:{d:[
-    '................................',
-    '................................',
-    '....11111111111111..............',
-    '....1aaaaaaaaaaaa1..............',
-    '....1abbbbbbbbbba1..............',
-    '....1abbbbbbbbbba1..............',
-    '....1abbbbbbbbbba1..............',
-    '....1abbbbbbbbbba1..............',
-    '....1abbbbbbbbbba1..............',
-    '....1abbbbbbbbbba1..............',
-    '....1axxxxxxxxxxa1..............',
-    '....1aaaaaaaaaaaaa1.............',
-    '....1aaQQQQQQaaa1...............',
-    '....1aaQQQQQQaaa1...............',
-    '....1aaQQQQQQaaa1...............',
-    '....1aaQQQQQQaaa1...............',
-    '....1aaQQQQQQaaa1...............',
-    '....1aaaaaaaaaaaa1..............',
-    '....11111111111111..............',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  instant_pot:{d:[
-    '................................',
-    '................................',
-    '........888888888888............',
-    '......8mmmmmmmmmmmm8............',
-    '.....8mmmmmmmmmmmmmm8...........',
-    '....8mmmmmmmmmmmmmmmm8..........',
-    '....8mmm9999999999mmm8..........',
-    '....8mmm9wwwwwwww9mmm8..........',
-    '....8mmm9wwwwwwww9mmm8..........',
-    '....8mmm9wwwwwwww9mmm8..........',
-    '....8mmm9wwwwwwww9mmm8..........',
-    '....8mmm9wwwwwwww9mmm8..........',
-    '....8mmm9999999999mmm8..........',
-    '....8mmmmmmmmmmmmmmmm8..........',
-    '.....8mmmmmmmmmmmmmm8...........',
-    '......8mmmmmmmmmmmm8............',
-    '........888888888888............',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  desk_fan:{d:[
-    '................................',
-    '................................',
-    '.........888888888..............',
-    '.......88mmmmmmmmmmm88..........',
-    '......8mmmmmmmmmmmmmmmm8........',
-    '.....8mmmmm9999mmmmmmm8.........',
-    '.....8mmmm99mm99mmmmm8..........',
-    '.....8mmmm9mm9mmmmm9m8..........',
-    '.....8mmmm9mm9mmmmm9m8..........',
-    '.....8mmmmm99mm99mmmmm8.........',
-    '.....8mmmmm9999mmmmmmm8.........',
-    '......8mmmmmmmmmmmmmmmm8........',
-    '.......88mmmmmmmmmmm88..........',
-    '.........888888888..............',
-    '...........888mmm888............',
-    '............8mmmmm8.............',
-    '............8mmmmm8.............',
-    '............8888888.............',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  mini_fridge:{d:[
-    'mmmmmmmmmmmmmmmm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    '8888888888888888................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mmmmmmmmmmmmmmmm................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  house_plant:{d:[
-    '................................',
-    '................................',
-    '...........KKK..................',
-    '.........KKlllKK................',
-    '......KKlllkllllKK..............',
-    '.....KllllkKKkllllK.............',
-    '....KlllkKKKKKkllllK............',
-    '....KllkK.....KkllllK...........',
-    '....KlllkK...KkllllK............',
-    '....KlllllKKKlllllK.............',
-    '.....KllllllllllKK..............',
-    '......KKllllllKK................',
-    '.........KKKkKK.................',
-    '..........KKK...................',
-    '..........ccc...................',
-    '..........ccc...................',
-    '..........ccc...................',
-    '..........ccc...................',
-    '.........bbbbb..................',
-    '.........bbbbb..................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  couch:{d:[
-    'vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv',
-    'vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv',
-    'vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv',
-    'vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv',
-    'vVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVv',
-    'vVVfffffffffffVVVVfffffffffffVVV',
-    'vVVfffffffffffVVVVfffffffffffVVV',
-    'vVVfffffffffffVVVVfffffffffffVVV',
-    'vVVfffffffffffVVVVfffffffffffVVV',
-    'vVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVv',
-    'vVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVv',
-    'vVVVfffffffffffffffffffffffVVVVV',
-    'vVVVfffffffffffffffffffffffVVVVV',
-    'vVVVfffffffffffffffffffffffVVVVV',
-    'vVVVfffffffffffffffffffffffVVVVV',
-    'vVVVfffffffffffffffffffffffVVVVV',
-    'vVVVfffffffffffffffffffffffVVVVV',
-    'vVVVfffffffffffffffffffffffVVVVV',
-    'vVVVfffffffffffffffffffffffVVVVV',
-    'vVVVfffffffffffffffffffffffVVVVV',
-    'vVVVfffffffffffffffffffffffVVVVV',
-    'vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv',
-    'vv..........................vvvv',
-    'vv..........................vvvv',
-    'vv..........................vvvv',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  flat_screen_tv:{d:[
-    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-    'b111111111111111111111111111111b',
-    'b100000000000000000000000000001b',
-    'b100000000000000000000000000001b',
-    'b100000000000000000000000000001b',
-    'b100000000000000000000000000001b',
-    'b100000000000000000000000000001b',
-    'b100000000000000000000000000001b',
-    'b100000000000000000000000000001b',
-    'b100000000000000000000000000001b',
-    'b100000000000000000000000000001b',
-    'b100000000000000000000000000001b',
-    'b100000000000000000000000000001b',
-    'b100000000000000000000000000001b',
-    'b100000000000000000000000000001b',
-    'b111111111111111111111111111111b',
-    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  bookshelf:{d:[
-    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
-    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
-    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
-    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
-    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
-    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
-    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
-    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
-    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
-    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
-    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
-    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
-    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
-    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
-    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
-    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
-    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
-    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
-    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  aquarium:{d:[
-    '88888888888888888888888888888888',
-    '8qqqqqqqqqqqqqqqqqqqqqqqqqqqqqq8',
-    '8qqqqqqqqqqqqqqqqqqqqqqqqqqqqqq8',
-    '8qqiqqqqqqqqqqqqqqqqqqqqqqqqqq8.',
-    '8qqqqqqqqqqqqkqqqqqqqqqqqqqqqq8.',
-    '8qqqqqqqqqiqqqqqqqqqqqqqqqqqqq8.',
-    '8qqqkqqqqqqqqqqqqqqqqqqqqqqqq8..',
-    '8qqqqqqqqqqqqqqqqqqqqqqqqqqqqqq8',
-    '8Qqqqqqiqqqqqqqqqqqqqqqqqqqqq8..',
-    '8qqqqqqqqqqqqqqkqqqqqqqqqqqqqq8.',
-    '8qqqkqqqqqqqqqqqqqqqqqqqqqqqq8..',
-    '8qqqqqqqqqqiqqqqqqqqqqqqqqqqqq8.',
-    '8qqqqqqqqqqqqqqQqqqqqqqqqqqqqqq8',
-    '8qiqqqqqqqqqqqqqkqqqqqqqqqqqq8..',
-    '8qqqqqqqqqqqqqqqqqqqqqqqqqqqqqq8',
-    '88888888888888888888888888888888',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  ergonomic_chair:{d:[
-    '................................',
-    '................................',
-    '........11111111111.............',
-    '.......133333333333331..........',
-    '......133555555555331...........',
-    '......133555555555331...........',
-    '......133555555555331...........',
-    '......133555555555331...........',
-    '......133555555555331...........',
-    '......133555555555331...........',
-    '......133555555555331...........',
-    '......133555555555331...........',
-    '......111111111111111...........',
-    '.......1111111111111............',
-    '..............888...............',
-    '..............888...............',
-    '..............888...............',
-    '..........888888888.............',
-    '.........88.......88............',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  whiteboard:{d:[
-    '33333333333333333333333333333333',
-    '3wwwwwwwwwwwwwwwwwwwwwwwwwwwwww3',
-    '3wwwwwwwwwwwwwwwwwwwwwwwwwwwwww3',
-    '3wnnnnnnnwwwwwwwwwwwwwwwwwwww3..',
-    '3wnnnnnnnwwwwwwwwwwwwwwwwwwww3..',
-    '3wwwwwwwwwwwwwwwwwwwwwwwwwwwwww3',
-    '3wwwwwwwwwwkkkkkwwwwwwwwwwwww3..',
-    '3wwwwwwwwwwkkkkkwwwwwwwwwwwww3..',
-    '3wwwwwwwwwwwwwwwwwwwwwwwwwwwwww3',
-    '3wwwwwwwwwwwwwwwwwwwwwwwwwwwwww3',
-    '3wwwwwwwwwwwwwwwwwwwwwwwwwwwwww3',
-    '3wwwwwwwwwwwwwwwwwwwwwwwwwwwwww3',
-    '3wwwwwwwwwwwwwwwwwwwwwwwwwwwwww3',
-    '3wwwwwwwwwwwwwwwwwwwwwwwwwwwwww3',
-    '33333333333333333333333333333333',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  filing_cabinet:{d:[
-    'mmmmmmmmmmmm....................',
-    'm8888888888m....................',
-    'm8wwwwwwww8m....................',
-    'm8wwwwwwww8m....................',
-    'm8wwwwwwww8m....................',
-    'm8888888888m....................',
-    'mmmmmmmmmmmm....................',
-    'm8888888888m....................',
-    'm8wwwwwwww8m....................',
-    'm8wwwwwwww8m....................',
-    'm8wwwwwwww8m....................',
-    'm8888888888m....................',
-    'mmmmmmmmmmmm....................',
-    'm8888888888m....................',
-    'm8wwwwwwww8m....................',
-    'm8wwwwwwww8m....................',
-    'm8wwwwwwww8m....................',
-    'm8888888888m....................',
-    'mmmmmmmmmmmm....................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  headphones:{d:[
-    '................................',
-    '................................',
-    '................................',
-    '........11111111111.............',
-    '......1mmmmmmmmmmm1.............',
-    '.....1m.............1...........',
-    '....1m...............1..........',
-    '....1m...............1..........',
-    '....1m...............1..........',
-    '....1m...............1..........',
-    '....1m...............1..........',
-    '....111111111111111111..........',
-    '....133333333333333331..........',
-    '....133333333333333331..........',
-    '....133333333333333331..........',
-    '....133333333333333331..........',
-    '....111111111111111111..........',
-    '....1m...............1..........',
-    '....1m...............1..........',
-    '....111111111111111111..........',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  negotiation_book:{d:[
-    '................................',
-    '................................',
-    '..NNNNNNNNNNNNNNNNNNNNNNNNNNNN..',
-    '..NaaaaaaaaaaaaaaaaaaaaaaaaaN...',
-    '..NaeeeeeeeeeeeeeeeeeeeeeeeeaN..',
-    '..NaeeeeeeeeeeeeeeeeeeeeeeeeaN..',
-    '..NaeeeeeeeeeeeeeeeeeeeeeeeeaN..',
-    '..NaeeeeeeeeeeeeeeeeeeeeeeeeaN..',
-    '..NaeeeeeeeeeeeeeeeeeeeeeeeeaN..',
-    '..NaeeeeeeeeeeeeeeeeeeeeeeeeaN..',
-    '..NaeeeeeeeeeeeeeeeeeeeeeeeeaN..',
-    '..NaeeeeeeeeeeeeeeeeeeeeeeeeaN..',
-    '..NaeeeeeeeeeeeeeeeeeeeeeeeeaN..',
-    '..NaeeeeeeeeeeeeeeeeeeeeeeeeaN..',
-    '..NaeeeeeeeeeeeeeeeeeeeeeeeeaN..',
-    '..NaeeeeeeeeeeeeeeeeeeeeeeeeaN..',
-    '..NaeeeeeeeeeeeeeeeeeeeeeeeeaN..',
-    '..NaeeeeeeeeeeeeeeeeeeeeeeeeaN..',
-    '..NaaaaaaaaaaaaaaaaaaaaaaaaaaN..',
-    '..NNNNNNNNNNNNNNNNNNNNNNNNNNNN..',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  espresso_machine:{d:[
-    '................................',
-    '................................',
-    '....1111111111111111............',
-    '....1aaaaaaaaaaaaaa1............',
-    '....1ammmmmmmmmmaa1.............',
-    '....1ammmmmmmmmmaa1.............',
-    '....1ammmmmmmmmmaa1.............',
-    '....1ammmmmmmmmmaa1.............',
-    '....1ammmmmmmmmmaa1.............',
-    '....1axxxxxxxxxxaa1.............',
-    '....1axxxxxxxxxxaa1.............',
-    '....1aaaaaaaaaaaaa1.............',
-    '....1a333333333aaa1.............',
-    '....1a333333333aaa1.............',
-    '....1a333333333aaa1.............',
-    '....1a333333333aaa1.............',
-    '....1aaaaaaaaaaaaa1.............',
-    '....1111111111111111............',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  second_monitor:{d:[
-    '................................',
-    '................................',
-    '11111111111111111111111111111111',
-    '1vvvvvvvvvvvvvvvvvvvvvvvvvvvvvv1',
-    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
-    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
-    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
-    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
-    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
-    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
-    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
-    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
-    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
-    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
-    '1vvvvvvvvvvvvvvvvvvvvvvvvvvvvvv1',
-    '11111111111111111111111111111111',
-    '..............8888..............',
-    '.............8mmmm8.............',
-    '.............8mmmm8.............',
-    '...........888888888888.........',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  printer:{d:[
-    'mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm',
-    'm888888888888888888888888888888m',
-    'm8wwwwwwwwwwwwwwwwwwwwwwwwwwww8m',
-    'm8wwwwwwwwwwwwwwwwwwwwwwwwwwww8m',
-    'm8wwwwwwwwwwwwwwwwwwwwwwwwwwww8m',
-    'm8wwwwwwwwwwwwwwwwwwwwwwwwwwww8m',
-    'm888888888888888888888888888888m',
-    'm8wwwwwwwwwwwwwwwwwwwwwwwwwwww8m',
-    'm8wwwwwwwwwwwwwwwwwwwwwwwwwwww8m',
-    'm8wwwwwww333333333333wwwwwww8m..',
-    'm8wwwwwww333333333333wwwwwww8m..',
-    'm8wwwwwww333333333333wwwwwww8m..',
-    'm8wwwwwwwwwwwwwwwwwwwwwwwwwwww8m',
-    'mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  meditation_corner:{d:[
-    '................................',
-    '................................',
-    '................................',
-    '..........kKKKKKKKKkk...........',
-    '.........KKlllllllllKK..........',
-    '........KKlllllllllllKK.........',
-    '.......KKlllllllllllllKK........',
-    '......KKlllllllllllllllKK.......',
-    '......Kllllll.ppp.llllllK.......',
-    '......Kllllll.pPp.llllllK.......',
-    '......Kllllll.ppp.llllllK.......',
-    '......KllllllllllllllllllK......',
-    '.......KKlllllllllllllKK........',
-    '........KKlllllllllllKK.........',
-    '.........KKlllllllllKK..........',
-    '..........KKKKkKKKKKK...........',
-    '..............ccc...............',
-    '..............ccc...............',
-    '..............ccc...............',
-    '.............bbbbb..............',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  wine_rack:{d:[
-    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-    'bNNNbNNNbNNNbNNNbNNNbNNNbNNNbNNN',
-    'bNNNbNNNbNNNbNNNbNNNbNNNbNNNbNNN',
-    'bNNNbNNNbNNNbNNNbNNNbNNNbNNNbNNN',
-    'bNNNbNNNbNNNbNNNbNNNbNNNbNNNbNNN',
-    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-    'bNNNbNNNbNNNbNNNbNNNbNNNbNNNbNNN',
-    'bNNNbNNNbNNNbNNNbNNNbNNNbNNNbNNN',
-    'bNNNbNNNbNNNbNNNbNNNbNNNbNNNbNNN',
-    'bNNNbNNNbNNNbNNNbNNNbNNNbNNNbNNN',
-    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-    'bNNNbNNNbNNNbNNNbNNNbNNNbNNNbNNN',
-    'bNNNbNNNbNNNbNNNbNNNbNNNbNNNbNNN',
-    'bNNNbNNNbNNNbNNNbNNNbNNNbNNNbNNN',
-    'bNNNbNNNbNNNbNNNbNNNbNNNbNNNbNNN',
-    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  gaming_setup:{d:[
-    '11111111111111111111111111111111',
-    '1vvvvvvvvvvvvvvvvvvvvvvvvvvvvvv1',
-    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
-    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
-    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
-    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
-    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
-    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
-    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
-    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
-    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
-    '1vvvvvvvvvvvvvvvvvvvvvvvvvvvvvv1',
-    '11111111111111111111111111111111',
-    '...............88888............',
-    '..............8mmmmm8...........',
-    '..............8mmmmm8...........',
-    '..............8mmmmm8...........',
-    '..............8mmmmm8...........',
-    '..............8mmmmm8...........',
-    '........111111111111111.........',
-    '........133333333333331.........',
-    '........133333333333331.........',
-    '........133333333333331.........',
-    '........111111111111111.........',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  fireplace:{d:[
-    'nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn',
-    'nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn',
-    'nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn',
-    'nn1111111111111111111111111111nn',
-    'nn1000000000000000000000000001nn',
-    'nn10iiiiiiiiiiiiiiiiiiiiiiii01nn',
-    'nn10ijjjjjjjjjjjjjjjjjjjjjji01nn',
-    'nn10ijjjjjjjjjjjjjjjjjjjjjji01nn',
-    'nn10ijjijijijijijijijijijji01nn.',
-    'nn10ijjijijijijijijijijijji01nn.',
-    'nn10ijjijijijijijijijijijji01nn.',
-    'nn10iiiiiiiiiiiiiiiiiiiiiiii01nn',
-    'nn1000000000000000000000000001nn',
-    'nn1111111111111111111111111111nn',
-    'nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn',
-    'cccccccccccccccccccccccccccccccc',
-    'cccccccccccccccccccccccccccccccc',
-    'cccccccccccccccccccccccccccccccc',
-    'cccccccccccccccccccccccccccccccc',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  kitchen_island:{d:[
-    'cccccccccccccccccccccccccccccccc',
-    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
-    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
-    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
-    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
-    'ceeeeeeeee0..0eeeeeeeeeeeeeeeec.',
-    'ceeeeeeeee0..0eeeeeeeeeeeeeeeec.',
-    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
-    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
-    'ceeeeeeeeeeeeeeeeebbbbbeeeeeeec.',
-    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
-    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
-    'ceeeeeeeee0..0eeeeeeeeeeeeeeeec.',
-    'ceeeeeeeee0..0eeeeeeeeeeeeeeeec.',
-    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
-    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
-    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
-    'cccccccccccccccccccccccccccccccc',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  pool_table:{d:[
-    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-    'bccccccccccccccccccccccccccccccb',
-    'bckkkkkkkkkkkkkkkkkkkkkkkkkkkkcb',
-    'bckKwKKKKKKKKKKKKKKKKKKKKKwKkcb.',
-    'bckKKKKKKKKKKKKKKKKKKKKKKKKKKkcb',
-    'bckKKKKKKKKKKKKKKKKKKKKKKKKKKkcb',
-    'bckKKKKKKwKKKwKKKKKKKKKKkcb.....',
-    'bckKKKKKKKKKKKKKKKKKKKKKKKKKKkcb',
-    'bckKKKKKKKKKKKKKKKKKKKKKKKKKKkcb',
-    'bckKKKwwKKKKKKKKKKKKKKwwKKKkcb..',
-    'bckKKKKKKKKKKKKKKKKKKKKKKKKKKkcb',
-    'bckKKKKKKKKKKKKKKKKKKKKKKKKKKkcb',
-    'bckKKKKKKwKKKwKKKKKKKKKKkcb.....',
-    'bckKKKKKKKKKKKKKKKKKKKKKKKKKKkcb',
-    'bckKKKKKKKKKKKKKKKKKKKKKKKKKKkcb',
-    'bckKwKKKKKKKKKKKKKKKKKKKKKwKkcb.',
-    'bckKKKKKKKKKKKKKKKKKKKKKKKKKKkcb',
-    'bckkkkkkkkkkkkkkkkkkkkkkkkkkkkcb',
-    'bccccccccccccccccccccccccccccccb',
-    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  bbq_grill:{d:[
-    '................................',
-    '................................',
-    '........333333333333............',
-    '......33444444444433............',
-    '.....34444444444444443..........',
-    '.....344555555555555543.........',
-    '.....344555555555555543.........',
-    '.....344555555555555543.........',
-    '.....344555555555555543.........',
-    '.....344555555555555543.........',
-    '.....34444444444444443..........',
-    '......33444444444433............',
-    '........333333333333............',
-    '...........888...888............',
-    '...........888...888............',
-    '...........888...888............',
-    '...........888...888............',
-    '...........888...888............',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  fire_pit:{d:[
-    '................................',
-    '................................',
-    '................................',
-    '......8888888888888888..........',
-    '.....8866666666666688...........',
-    '....8866666666666688............',
-    '....88665555555555668...........',
-    '....886655....iiiiii....5668....',
-    '....88665...ijjjjjji...668......',
-    '....88665...ijjjjjji...668......',
-    '....88665...ijjjjjji...668......',
-    '....886655....iiiiii....5668....',
-    '....88665555555555668...........',
-    '.....886655555555556688.........',
-    '.....8866666666666688...........',
-    '......8888888888888888..........',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  garden:{d:[
-    'babababababababababababababababa',
-    'akakakakakakakakakakakakakakakak',
-    'aKaKaKaKaKaKaKaKaKaKaKaKaKaKaKa.',
-    'alalalalalalalalalalalalalalalal',
-    'babababababababababababababababa',
-    'akakakakakakakakakakakakakakakak',
-    'aKaKaKaKaKaKaKaKaKaKaKaKaKaKaKa.',
-    'alalalalalalalalalalalalalalalal',
-    'babababababababababababababababa',
-    'akakakakakakakakakakakakakakakak',
-    'aKaKaKaKaKaKaKaKaKaKaKaKaKaKaKa.',
-    'alalalalalalalalalalalalalalalal',
-    'babababababababababababababababa',
-    'akakakakakakakakakakakakakakakak',
-    'aKaKaKaKaKaKaKaKaKaKaKaKaKaKaKa.',
-    'alalalalalalalalalalalalalalalal',
-    'babababababababababababababababa',
-    'akakakakakakakakakakakakakakakak',
-    'aKaKaKaKaKaKaKaKaKaKaKaKaKaKaKa.',
-    'alalalalalalalalalalalalalalalal',
-    'babababababababababababababababa',
-    'akakakakakakakakakakakakakakakak',
-    'aKaKaKaKaKaKaKaKaKaKaKaKaKaKaKa.',
-    'alalalalalalalalalalalalalalalal',
-    'babababababababababababababababa',
-    'akakakakakakakakakakakakakakakak',
-    'aKaKaKaKaKaKaKaKaKaKaKaKaKaKaKa.',
-    'alalalalalalalalalalalalalalalal',
-    'babababababababababababababababa',
-    'akakakakakakakakakakakakakakakak',
-    'aKaKaKaKaKaKaKaKaKaKaKaKaKaKaKa.',
-    'alalalalalalalalalalalalalalalal',
-  ]},
-  patio_set:{d:[
-    '................................',
-    '................................',
-    '..........cccccccccccc..........',
-    '.........ceeeeeeeeeeeec.........',
-    '.........ceeeeeeeeeeeec.........',
-    '.........ceeeeeeeeeeeec.........',
-    '..........cccccccccccc..........',
-    '................................',
-    '..ssss..............ssss........',
-    '..seees............seees........',
-    '..seees............seees........',
-    '..seees............seees........',
-    '..ssss..............ssss........',
-    '................................',
-    '................................',
-    '..ssss..............ssss........',
-    '..seees............seees........',
-    '..seees............seees........',
-    '..seees............seees........',
-    '..ssss..............ssss........',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  basketball_hoop:{d:[
-    '................................',
-    '...nnnnnnnnnnnnnnnnnnnnnnnnnn...',
-    '...nnnnnnnnnnnnnnnnnnnnnnnnnn...',
-    '...nnnnnnnnnnnnnnnnnnnnnnnnnn...',
-    '...nnnnnnnnnnnnnnnnnnnnnnnnnn...',
-    '...nnnnnnnnnnnnnnnnnnnnnnnnnn...',
-    '...nnnnnnnnnnnnnnnnnnnnnnnnnn...',
-    '..8.........................8...',
-    '..8.........................8...',
-    '..8..........www............8...',
-    '..8.........wwwww...........8...',
-    '..8.........wwwww...........8...',
-    '..8..........www............8...',
-    '..8.........................8...',
-    '..8888888888888888888888888888..',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  workbench_tools:{d:[
-    'cccccccccccccccccccccccccccccccc',
-    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
-    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
-    'ceee444444444444eeeee8888888eec.',
-    'ceee4.........4eeeee8.....8ec...',
-    'ceee4.........4eeeee8.....8ec...',
-    'ceee444444444444eeeee8888888eec.',
-    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
-    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
-    'ceeexxxxxxxxxxxxeeeeexxxxxxxeec.',
-    'ceeexxxxxxxxxxxxeeeeexxxxxxxeec.',
-    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
-    'ceee444444444444eeeee8888888eec.',
-    'ceee4.........4eeeee8.....8ec...',
-    'ceee4.........4eeeee8.....8ec...',
-    'ceee444444444444eeeee8888888eec.',
-    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
-    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
-    'cccccccccccccccccccccccccccccccc',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  hot_tub:{d:[
-    '................................',
-    '................................',
-    '....mmmmmmmmmmmmmmmmmmmmmm......',
-    '...mmqqqqqqqqqqqqqqqqqqmm.......',
-    '..mmqqqqqqqqqqqqqqqqqqqqqqmm....',
-    '..mqqqQQQQQQQQQQQQQQQQQQQQqqqm..',
-    '..mqqqQQQQQQQQQQQQQQQQQQQQqqqm..',
-    '..mqqqQQQQQQQQQQQQQQQQQQQQqqqm..',
-    '..mqqqQQQQQQQQQQQQQQQQQQQQqqqm..',
-    '..mqqqQQQQQQQQQQQQQQQQQQQQqqqm..',
-    '..mqqqQQQQQQQQQQQQQQQQQQQQqqqm..',
-    '..mqqqQQQQQQQQQQQQQQQQQQQQqqqm..',
-    '..mqqqQQQQQQQQQQQQQQQQQQQQqqqm..',
-    '..mqqqQQQQQQQQQQQQQQQQQQQQqqqm..',
-    '..mqqqQQQQQQQQQQQQQQQQQQQQqqqm..',
-    '..mqqqQQQQQQQQQQQQQQQQQQQQqqqm..',
-    '..mqqqQQQQQQQQQQQQQQQQQQQQqqqm..',
-    '..mqqqQQQQQQQQQQQQQQQQQQQQqqqm..',
-    '..mmqqqqqqqqqqqqqqqqqqqqqqmm....',
-    '....mmmmmmmmmmmmmmmmmmmmmm......',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  home_gym:{d:[
-    '................................',
-    '................................',
-    'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-    'x333333333333333333333333333333x',
-    'x333333333333333333333333333333x',
-    'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-    '................................',
-    '11111111111111111111111111111111',
-    '13333333333333333333333333333331',
-    '13333333333333333333333333333331',
-    '13333333333333333333333333333331',
-    '13333333333333333333333333333331',
-    '11111111111111111111111111111111',
-    '................................',
-    '....1111111...........1111111...',
-    '....1333331...........1333331...',
-    '....1333331...........1333331...',
-    '....1111111...........1111111...',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  swimming_pool:{d:[
-    'mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm',
-    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
-    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
-    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
-    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
-    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
-    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
-    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
-    'mrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrm',
-    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
-    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
-    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
-    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
-    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
-    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
-    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
-    'mrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrm',
-    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
-    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
-    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
-    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
-    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
-    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
-    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
-    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
-    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
-    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
-    'mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  sauna:{d:[
-    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-    'bbeeeeeeeeeeeeeeeeeeeeeeeeeeeebb',
-    'bb1111111111111111111111111111bb',
-    'bb1cccccccccccccccccccccccccc1bb',
-    'bb1cccccccccccccccccccccccccc1bb',
-    'bb1cccccccccccccccccccccccccc1bb',
-    'bb1cccccccccccccccccccccccccc1bb',
-    'bb1cccccccccccccccccccccccccc1bb',
-    'bb1cccccccccccccccccccccccccc1bb',
-    'bb1cccccccccccccccccccccccccc1bb',
-    'bb1cccccccccccccccccccccccccc1bb',
-    'bb1cccccccccccccccccccccccccc1bb',
-    'bb1cccccccccccccccccccccccccc1bb',
-    'bb1111111111111111111111111111bb',
-    'bbeeeeeeeeeeeeeeeeeeeeeeeeeeeebb',
-    'bbeeeeeeeeeeeeeeeeeeeeeeeeeeeebb',
-    'bb1111111111111111111111111111bb',
-    'bb1cccccccccccccccccccccccccc1bb',
-    'bb1cccccccccccccccccccccccccc1bb',
-    'bb1cccccccccccccccccccccccccc1bb',
-    'bb1cccccccccccccccccccccccccc1bb',
-    'bb1cccccccccccccccccccccccccc1bb',
-    'bb1cccccccccccccccccccccccccc1bb',
-    'bb1111111111111111111111111111bb',
-    'bbeeeeeeeeeeeeeeeeeeeeeeeeeeeebb',
-    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  motorcycle:{d:[
-    '................................',
-    '................................',
-    '....1111...........1111.........',
-    '...133331.........133331........',
-    '...133331.........133331........',
-    '...133331.........133331........',
-    '....1111...........1111.........',
-    '....444444444444444444444444....',
-    '....455555555555555555555554....',
-    '....45555nnnnnnnnnnnn55554......',
-    '....45555nnnnnnnnnnnn55554......',
-    '....45555nnnnnnnnnnnn55554......',
-    '....455555555555555555555554....',
-    '....444444444444444444444444....',
-    '....1111...........1111.........',
-    '...1mmmm1.........1mmmm1........',
-    '...1mmmm1.........1mmmm1........',
-    '...1mmmm1.........1mmmm1........',
-    '....1111...........1111.........',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  sports_car:{d:[
-    '................................',
-    '................................',
-    '.......1111111111111111.........',
-    '......1nnnnnnnnnnnnnnnnnn1......',
-    '.....1nnnn5555555555nnnnn1......',
-    '.....1nn55555555555555nn1.......',
-    '.....1nn55555555555555nn1.......',
-    '.....1nn55555555555555nn1.......',
-    '.....1nnnnnnnnnnnnnnnnnn1.......',
-    '.....1nnnnnnnnnnnnnnnnnn1.......',
-    '.....1nn55555555555555nn1.......',
-    '.....1nn55555555555555nn1.......',
-    '.....1nnnn5555555555nnnnn1......',
-    '......1nnnnnnnnnnnnnnnnnn1......',
-    '.......1111111111111111.........',
-    '................................',
-    '..11........................11..',
-    '..1N1......................1N1..',
-    '..1N1......................1N1..',
-    '..11........................11..',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  home_theater:{d:[
-    '11111111111111111111111111111111',
-    '10000000000000000000000000000001',
-    '10000000000000000000000000000001',
-    '11111111111111111111111111111111',
-    '................................',
-    'vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv',
-    'vVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVv',
-    'vVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVv',
-    'vVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVv',
-    'vVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVv',
-    'vVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVv',
-    'vVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVv',
-    'vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv',
-    '................................',
-    'nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn',
-    'nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn',
-    'nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn',
-    'nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  smart_home_system:{d:[
-    '................................',
-    '................................',
-    '....ffffffffffffffffffffffff....',
-    '....fVVVVVVVVVVVVVVVVVVVVVVf....',
-    '....fVVVVVVVVVVVVVVVVVVVVVVf....',
-    '....fVVVVVVVVVVVVVVVVVVVVVVf....',
-    '....fVVVVVVVVVVVVVVVVVVVVVVf....',
-    '....fVVVVVVVVVVVVVVVVVVVVVVf....',
-    '....fVVVVVVVVVVVVVVVVVVVVVVf....',
-    '....fVVVVVVVVVVVVVVVVVVVVVVf....',
-    '....fVVVVVVVVVVVVVVVVVVVVVVf....',
-    '....fVVVVVVVVVVVVVVVVVVVVVVf....',
-    '....fVVVVVVVVVVVVVVVVVVVVVVf....',
-    '....fVVVVVVVVVVVVVVVVVVVVVVf....',
-    '....ffffffffffffffffffffffff....',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  grand_piano:{d:[
-    '................................',
-    '................................',
-    '1mmmmmmmmmmmmmm1................',
-    '1mmmmmmmmmmmmmmm1...............',
-    '1mmmmmmmmmmmmmmmm1..............',
-    '1mmmmmmmmmmmmmmmmm1.............',
-    '1mmmmmmmmmmmmmmmmmm1............',
-    '1mmmmmmmmmmmmmmmmmmm1...........',
-    '1mmmmmmmmmmmmmmmmmmmm1..........',
-    '1mmmmmmmmmmmmmmmmmmmm1..........',
-    '1mmmmmmmmmmmmmmmmmmmm1..........',
-    '1mmmmmmmmmmmmmmmmmmm1...........',
-    '1mmmmmmmmmmmmmmmmmm1............',
-    '1mmmmmmmmmmmmmmmmm1.............',
-    '1mmmmmmmmmmmmmmmm1..............',
-    '1mmmmmmmmmmmmmm1................',
-    '111111111111111111111111........',
-    '1w1w1w1w1w1w1w1w1w1w1w1.........',
-    '................................',
-    '........111.....111.............',
-    '........1m1.....1m1.............',
-    '........111.....111.............',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  home_bar:{d:[
-    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-    'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxbb.',
-    'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxbb.',
-    'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxbb.',
-    'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxbb.',
-    'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxbb.',
-    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-    'beeeeeeeeeeeeeeeeeeeeeeeeeeeeeeb',
-    'beeeeeeeeeeeeeeeeeeeeeeeeeeeeeeb',
-    'beeeeeeeeeeeeeeeeeeeeeeeeeeeeeeb',
-    'beeeeeeeeeeeeeeeeeeeeeeeeeeeeeeb',
-    'beeeeeeeeeeeeeeeeeeeeeeeeeeeeeeb',
-    'beeeeeeeeeeeeeeeeeeeeeeeeeeeeeeb',
-    'beeeeeeeeeeeeeeeeeeeeeeeeeeeeeeb',
-    'beeeeeeeeeeeeeeeeeeeeeeeeeeeeeeb',
-    'beeeeeeeeeeeeeeeeeeeeeeeeeeeeeeb',
-    'beeeeeeeeeeeeeeeeeeeeeeeeeeeeeeb',
-    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  art_gallery:{d:[
-    'gggggggggggggggggggggggggggggggg',
-    'g..............................g',
-    'g.nnnn.....kkkk....g...vvvv.....',
-    'g.nnnn.....kkkk....g...vvvv.....',
-    'g.nnnn.....kkkk....g...vvvv.....',
-    'g..............................g',
-    'g..............................g',
-    'g.nnnn.....kkkk....g...vvvv.....',
-    'g.nnnn.....kkkk....g...vvvv.....',
-    'g.nnnn.....kkkk....g...vvvv.....',
-    'g..............................g',
-    'g..............................g',
-    'g.nnnn.....kkkk....g...vvvv.....',
-    'g.nnnn.....kkkk....g...vvvv.....',
-    'g.nnnn.....kkkk....g...vvvv.....',
-    'g..............................g',
-    'gggggggggggggggggggggggggggggggg',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  professional_gym:{d:[
-    '11111111111111111111111111111111',
-    '1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx1',
-    '1x3333333333333333333333333333x1',
-    '1x3333333333333333333333333333x1',
-    '1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx1',
-    '11111111111111111111111111111111',
-    '................................',
-    'ffffffffffffffffffffffffffffffff',
-    'ffffffffffffffffffffffffffffffff',
-    'ffffffffffffffffffffffffffffffff',
-    'ffffffffffffffffffffffffffffffff',
-    '................................',
-    '11111111111111111111111111111111',
-    '1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx1',
-    '1x3333333333333333333333333333x1',
-    '1x3333333333333333333333333333x1',
-    '1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx1',
-    '11111111111111111111111111111111',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  spa_suite:{d:[
-    '................................',
-    '................................',
-    '....mmmmmmmmmmmmmmmmmmmmmm......',
-    '...mmqqqqqqqqqqqqqqqqqqmm.......',
-    '..mmqqqqqqqqqqqqqqqqqqqqqqmm....',
-    '..mqqqQQQQQQQQQQQQQQQQQQQQqqqm..',
-    '..mqqqQQQQQQQQQQQQQQQQQQQQqqqm..',
-    '..mqqQQQQQ.ppp.QQQQQqqm.........',
-    '..mqqQQQQ.pPp.QQQQqm............',
-    '..mqqQQQQ.pPp.QQQQqm............',
-    '..mqqQQQQ.pPp.QQQQqm............',
-    '..mqqQQQQQ.ppp.QQQQQqqm.........',
-    '..mqqqQQQQQQQQQQQQQQQQQQQQqqqm..',
-    '..mqqqQQQQQQQQQQQQQQQQQQQQqqqm..',
-    '..mmqqqqqqqqqqqqqqqqqqqqqqmm....',
-    '....mmmmmmmmmmmmmmmmmmmmmm......',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  luxury_sleep_system:{d:[
-    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-    'beeeeeeeeeeeeeeeeeeeeeeeeeeeeeeb',
-    'beeeeeeeeeeeeeeeeeeeeeeeeeeeeeeb',
-    'beeeeee.....eeeeeeee.....eeeeeb.',
-    'beeeeee.....eeeeeeee.....eeeeeb.',
-    'beeeeee.....eeeeeeee.....eeeeeb.',
-    'beeeeee.....eeeeeeee.....eeeeeb.',
-    'beeeeee.....eeeeeeee.....eeeeeb.',
-    'bffffffffffffffffffffffffffffffb',
-    'bfFffffffffffffffffffffffffFfb..',
-    'bffffffffffffffffffffffffffffffb',
-    'bffffffffffffffffffffffffffffffb',
-    'bfFffffffffffffffffffffffffFfb..',
-    'bffffffffffffffffffffffffffffffb',
-    'bffffffffffffffffffffffffffffffb',
-    'bfFffffffffffffffffffffffffFfb..',
-    'bffffffffffffffffffffffffffffffb',
-    'bffffffffffffffffffffffffffffffb',
-    'bfFffffffffffffffffffffffffFfb..',
-    'bffffffffffffffffffffffffffffffb',
-    'bffffffffffffffffffffffffffffffb',
-    'bfFffffffffffffffffffffffffFfb..',
-    'bffffffffffffffffffffffffffffffb',
-    'bffffffffffffffffffffffffffffffb',
-    'bffffffffffffffffffffffffffffffb',
-    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-    '................................',
-    '................................',
-  ]},
-  indoor_pool:{d:[
-    'mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm',
-    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
-    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
-    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
-    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
-    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
-    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
-    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
-    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
-    'mrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrm',
-    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
-    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
-    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
-    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
-    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
-    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
-    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
-    'mrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrm',
-    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
-    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
-    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
-    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
-    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
-    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
-    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
-    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
-    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
-    'mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  grand_fireplace:{d:[
-    'nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn',
-    'nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn',
-    'nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn',
-    'nn1111111111111111111111111111nn',
-    'nn1000000000000000000000000001nn',
-    'nn10iiiiiiiiiiiiiiiiiiiiiiii01nn',
-    'nn10ijjjjjjjjjjjjjjjjjjjji01nn..',
-    'nn10ijjjjjjjjjjjjjjjjjjjji01nn..',
-    'nn10ijijijijijijijijijiji01nn...',
-    'nn10ijijijijijijijijijiji01nn...',
-    'nn10ijijijijijijijijijiji01nn...',
-    'nn10iiiiiiiiiiiiiiiiiiiiiiii01nn',
-    'nn1000000000000000000000000001nn',
-    'nn1111111111111111111111111111nn',
-    'nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn',
-    'cccccccccccccccccccccccccccccccc',
-    'cccccccccccccccccccccccccccccccc',
-    'cccccccccccccccccccccccccccccccc',
-    'cccccccccccccccccccccccccccccccc',
-    'cccccccccccccccccccccccccccccccc',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  music_studio:{d:[
-    '11111111111111111111111111111111',
-    '1ffffffffffffffffffffffffffffff1',
-    '1ffffffffffffffffffffffffffffff1',
-    '1ffffffffffffffffffffffffffffff1',
-    '11111111111111111111111111111111',
-    '................................',
-    'nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn',
-    'nxnnnnnnnnnnnnnnnnnnnnnnnnnnnxn.',
-    'nxnnnnnnnnnnnnnnnnnnnnnnnnnnnxn.',
-    'nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn',
-    '................................',
-    '11111111111111111111111111111111',
-    '1ffffffffffffffffffffffffffffff1',
-    '1ffffffffffffffffffffffffffffff1',
-    '11111111111111111111111111111111',
-    '................................',
-    '33333333333333333333333333333333',
-    '3111111111111111111111111111133.',
-    '3111111111111111111111111111133.',
-    '33333333333333333333333333333333',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-  smart_fridge:{d:[
-    'mmmmmmmmmmmmmmmm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    '8888888888888888................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwffffffwwwwm................',
-    'mwwwwffffffwwwwm................',
-    'mwwwwffffffwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mwwwwwwwwwwwwwwm................',
-    'mmmmmmmmmmmmmmmm................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-    '................................',
-  ]},
-};
-
-// ── Floor plan room layouts ───────────────────────────────────────────────
-const FLOOR_PLAN_DATA = {
-  grandmas_basement: {
-    rooms: [{ key:'all', label:'THE BASEMENT', x:8, y:8, w:384, h:244, fill:'#141428' }],
-    fallback: { living:'all', bedroom:'all', kitchen:'all', office:'all', garage:'all', outdoor:'all' }
-  },
-  small_apt: {
-    rooms: [
-      { key:'living',  label:'LIVING ROOM', x:8,   y:8, w:200, h:244, fill:'#0d1a2e' },
-      { key:'kitchen', label:'KITCHEN',     x:216, y:8, w:176, h:120, fill:'#1e1206' },
-      { key:'bedroom', label:'BEDROOM',     x:216, y:136, w:176, h:116, fill:'#14102e' },
-    ],
-    fallback: { office:'bedroom', garage:'living', outdoor:'kitchen' }
-  },
-  condo: {
-    rooms: [
-      { key:'living',  label:'LIVING ROOM', x:8,   y:8,   w:192, h:120, fill:'#0d1a2e' },
-      { key:'kitchen', label:'KITCHEN',     x:208, y:8,   w:184, h:120, fill:'#1e1206' },
-      { key:'bedroom', label:'BEDROOM',     x:8,   y:136, w:192, h:116, fill:'#14102e' },
-      { key:'office',  label:'HOME OFFICE', x:208, y:136, w:184, h:116, fill:'#0e1a0e' },
-    ],
-    fallback: { garage:'bedroom', outdoor:'kitchen' }
-  },
-  small_home: {
-    rooms: [
-      { key:'living',  label:'LIVING ROOM', x:8,   y:8,   w:176, h:152, fill:'#0d1a2e' },
-      { key:'kitchen', label:'KITCHEN',     x:192, y:8,   w:200, h:96,  fill:'#1e1206' },
-      { key:'bedroom', label:'BEDROOM',     x:192, y:112, w:200, h:132, fill:'#14102e' },
-      { key:'office',  label:'HOME OFFICE', x:8,   y:168, w:176, h:84,  fill:'#0e1a0e' },
-      { key:'outdoor', label:'BACKYARD',    x:192, y:192, w:200, h:52,  fill:'#0a1e0a' },
-    ],
-    fallback: { garage:'outdoor' }
-  },
-  suburban_home: {
-    rooms: [
-      { key:'living',  label:'LIVING ROOM', x:8,   y:8,   w:148, h:144, fill:'#0d1a2e' },
-      { key:'kitchen', label:'KITCHEN',     x:164, y:8,   w:120, h:96,  fill:'#1e1206' },
-      { key:'bedroom', label:'BEDROOM',     x:292, y:8,   w:100, h:144, fill:'#14102e' },
-      { key:'office',  label:'HOME OFFICE', x:164, y:112, w:120, h:132, fill:'#0e1a0e' },
-      { key:'garage',  label:'GARAGE',      x:8,   y:160, w:148, h:84,  fill:'#1e1a0a' },
-      { key:'outdoor', label:'BACKYARD',    x:292, y:160, w:100, h:84,  fill:'#0a1e0a' },
-    ],
-    fallback: {}
-  },
-  luxury_villa: {
-    rooms: [
-      { key:'living',  label:'GRAND LIVING',   x:8,   y:50,  w:132, h:110, fill:'#0d1a2e' },
-      { key:'kitchen', label:"CHEF'S KITCHEN",  x:148, y:50,  w:104, h:110, fill:'#1e1206' },
-      { key:'bedroom', label:'MASTER SUITE',   x:260, y:50,  w:132, h:110, fill:'#14102e' },
-      { key:'office',  label:'HOME OFFICE',    x:8,   y:168, w:132, h:84,  fill:'#0e1a0e' },
-      { key:'outdoor', label:'POOL & SPA',     x:148, y:168, w:104, h:84,  fill:'#062030' },
-      { key:'garage',  label:'GARAGE',         x:260, y:168, w:132, h:84,  fill:'#1e1a0a' },
-      { key:'_top',    label:'PRIVATE DRIVE',  x:8,   y:4,   w:384, h:38,  fill:'#1a1a28' },
-    ],
-    fallback: {}
-  },
-  mansion: {
-    rooms: [
-      { key:'_foyer',  label:'GRAND FOYER',  x:8,   y:4,   w:384, h:38,  fill:'#1a1228' },
-      { key:'living',  label:'GRAND SALON',  x:8,   y:50,  w:120, h:92,  fill:'#0d1a2e' },
-      { key:'kitchen', label:'GOURMET KITCH',x:136, y:50,  w:120, h:92,  fill:'#1e1206' },
-      { key:'bedroom', label:'MASTER WING',  x:264, y:50,  w:128, h:92,  fill:'#14102e' },
-      { key:'office',  label:'MUSIC & STUDY',x:8,   y:150, w:120, h:94,  fill:'#0e1a0e' },
-      { key:'outdoor', label:'GROUNDS',      x:136, y:150, w:120, h:94,  fill:'#0a1e0a' },
-      { key:'garage',  label:'WELLNESS & GYM',x:264,y:150, w:128, h:94,  fill:'#1a0e1a' },
-    ],
-    fallback: { _foyer:'living' }
-  },
-};
-
-function buildFloorPlanHtml() {
-  return `<canvas id="fp_canvas" width="400" height="260" style="width:100%;max-width:400px;display:block;border-radius:6px;image-rendering:pixelated;image-rendering:crisp-edges"></canvas>`;
-}
-
-function _drawFloorPlan() {
-  const homeKey    = state.player_home || 'grandmas_basement';
-  const ownedItems = state.owned_items || {};
-  const canvas     = document.getElementById('fp_canvas');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const W = 400, H = 260;
-
-  ctx.fillStyle = '#060610';
-  ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = '#0a0a1a';
-  ctx.fillRect(4, 4, 392, 252);
-  ctx.strokeStyle = '#4a5a6a';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(4, 4, 392, 252);
-
-  const fp = FLOOR_PLAN_DATA[homeKey];
-  if (!fp) return;
-
-  fp.rooms.forEach(room => {
-    ctx.fillStyle = room.fill;
-    ctx.fillRect(room.x, room.y, room.w, room.h);
-    ctx.strokeStyle = '#2a3a4a';
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(room.x, room.y, room.w, room.h);
-    ctx.fillStyle = '#4a6a7a';
-    ctx.font = '6px "DotGothic16", monospace';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillText(room.label, room.x + room.w / 2, room.y + 5);
-  });
-
-  const homeIdx = HOME_TIER_ORDER.indexOf(homeKey);
-  const items = STORE_ITEM_DATA.filter(i => {
-    const reqIdx = i.unlock_home ? HOME_TIER_ORDER.indexOf(i.unlock_home) : 0;
-    return homeIdx >= reqIdx;
-  });
-
-  const fallback = fp.fallback || {};
-  const roomMap  = {};
-  fp.rooms.forEach(r => { roomMap[r.key] = r; });
-
-  const roomItems = {};
-  fp.rooms.forEach(r => { roomItems[r.key] = []; });
-
-  items.forEach(item => {
-    let rk = item.room;
-    if (!roomMap[rk]) rk = fallback[item.room] || fp.rooms[fp.rooms.length > 1 ? 1 : 0].key;
-    if (roomItems[rk]) roomItems[rk].push(item);
-  });
-
-  const SC = 1;
-  const SW = 32 * SC;
-  const cellW = SW + 6;  // 38px per cell
-  const cellH = SW + 10; // 42px per cell
-
-  // Items that hug the TOP wall of a room
-  const TOP_WALL_ITEMS = new Set(['flat_screen_tv','home_theater','bookshelf','whiteboard','aquarium','wine_rack','art_gallery','grand_fireplace','fireplace','smart_home_system','new_bed','luxury_sleep_system','couch','sauna']);
-  // Items that go in the BOTTOM part of a room (currently none — all wall items hug the top)
-  const BOTTOM_WALL_ITEMS = new Set([]);
-  // Items that go in the CENTER of a room (large floor pieces)
-  const CENTER_ITEMS = new Set(['pool_table','kitchen_island','hot_tub','swimming_pool','indoor_pool','grand_piano','home_bar','professional_gym']);
-
-  fp.rooms.forEach(room => {
-    if (room.key === '_foyer' || room.key === '_top') return;
-    const rItems = roomItems[room.key] || [];
-    if (!rItems.length) return;
-
-    // Separate items into placement buckets
-    const topWall = rItems.filter(i => TOP_WALL_ITEMS.has(i.key));
-    const bottomWall = rItems.filter(i => BOTTOM_WALL_ITEMS.has(i.key));
-    const center = rItems.filter(i => CENTER_ITEMS.has(i.key));
-    const filler = rItems.filter(i => !TOP_WALL_ITEMS.has(i.key) && !BOTTOM_WALL_ITEMS.has(i.key) && !CENTER_ITEMS.has(i.key));
-
-    const padX = 4;
-    const roomRight = room.x + room.w;
-    const roomBottom = room.y + room.h;
-    const usableW = room.w - padX * 2;
-    const cols = Math.max(1, Math.floor(usableW / cellW));
-
-    function drawItem(item, cx, cy) {
-      if (cx - SW/2 < room.x || cx + SW/2 > roomRight) return;
-      if (cy - SW/2 < room.y || cy + SW/2 + 8 > roomBottom - 2) return;
-      const owned = !!ownedItems[item.key];
-      _drawSprite(ctx, item.key, item.icon, cx, cy, SC, owned);
-      ctx.font = '5px "DotGothic16", monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'top';
-      ctx.fillStyle = owned ? '#FFD700' : 'rgba(255,255,255,0.3)';
-      const lbl = item.name.length > 9 ? item.name.slice(0, 8) + '…' : item.name;
-      ctx.fillText(lbl, cx, cy + SW / 2 + 1);
-    }
-
-    // TOP WALL STRIP: just below room label, left-to-right
-    let topWallOverflow = [];
-    {
-      const topY = room.y + 14 + SW / 2;
-      const maxCols = Math.max(1, Math.floor(usableW / cellW));
-      topWall.forEach((item, idx) => {
-        if (idx >= maxCols) { topWallOverflow.push(item); return; }
-        const cx = room.x + padX + idx * cellW + SW / 2;
-        drawItem(item, cx, topY);
-      });
-    }
-
-    // BOTTOM WALL STRIP: near bottom of room
-    let bottomWallOverflow = [];
-    {
-      const maxCols = Math.max(1, Math.floor(usableW / cellW));
-      const rows = Math.ceil(bottomWall.length / maxCols);
-      bottomWall.forEach((item, idx) => {
-        if (idx >= maxCols * 2) { bottomWallOverflow.push(item); return; }
-        const col = idx % maxCols;
-        const row = Math.floor(idx / maxCols);
-        const cx = room.x + padX + col * cellW + SW / 2;
-        const cy = roomBottom - 10 - SW / 2 - (rows - 1 - row) * cellH;
-        drawItem(item, cx, cy);
-      });
-    }
-
-    // CENTER ITEMS: middle of room
-    {
-      const midY = room.y + room.h / 2;
-      const maxCols = Math.max(1, Math.floor(usableW / cellW));
-      center.forEach((item, idx) => {
-        const col = idx % maxCols;
-        const row = Math.floor(idx / maxCols);
-        const cx = room.x + padX + col * cellW + SW / 2;
-        const cy = midY - SW / 2 + row * cellH;
-        drawItem(item, cx, cy);
-      });
-    }
-
-    // FILLER GRID: remaining items in a compact grid
-    {
-      const allFiller = [...filler, ...topWallOverflow, ...bottomWallOverflow];
-      const topY = room.y + 14 + cellH; // below top wall zone
-      allFiller.forEach((item, idx) => {
-        const col = idx % cols;
-        const row = Math.floor(idx / cols);
-        const cx = room.x + padX + col * cellW + SW / 2;
-        const cy = topY + row * cellH + SW / 2;
-        drawItem(item, cx, cy);
-      });
-    }
-  });
-}
-
-function _drawSprite(ctx, key, icon, cx, cy, sc, owned) {
-  const sp = SPRITE_DATA[key];
-  const sx = Math.round(cx - 16 * sc);
-  const sy = Math.round(cy - 16 * sc);
-  ctx.save();
-  if (!owned) ctx.globalAlpha = 0.18;
-
-  if (sp) {
-    const p = sp.p || {};
-    const d = sp.d;
-    d.forEach((row, py) => {
-      for (let px = 0; px < 32; px++) {
-        const ch = row[px];
-        if (!ch || ch === '.') continue;
-        const col = p[ch] || _SC[ch];
-        if (!col) continue;
-        ctx.fillStyle = col;
-        ctx.fillRect(sx + px * sc, sy + py * sc, sc, sc);
-      }
-    });
-  } else {
-    ctx.fillStyle = owned ? 'rgba(255,210,60,0.15)' : 'rgba(255,255,255,0.04)';
-    ctx.fillRect(sx, sy, 32 * sc, 32 * sc);
-    ctx.font = `${10 * sc}px serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.globalAlpha = owned ? (ctx.globalAlpha > 0.5 ? ctx.globalAlpha : 1) : 0.18;
-    ctx.fillStyle = '#fff';
-    ctx.fillText(icon, cx, cy);
-  }
-
-  ctx.restore();
-  if (owned) {
-    ctx.strokeStyle = 'rgba(255,210,60,0.55)';
-    ctx.lineWidth = 0.5;
-    ctx.strokeRect(sx - 1, sy - 1, 32 * sc + 2, 32 * sc + 2);
-  }
-}
-
 const _ROOM_LABELS = { living:'Living Room', bedroom:'Bedroom', kitchen:'Kitchen', office:'Home Office', garage:'Garage', outdoor:'Outdoor' };
 const _ROOM_ORDER  = ['living','bedroom','kitchen','office','garage','outdoor'];
 
@@ -3713,7 +1632,7 @@ function buildMyHomeContent() {
 
       return `
         <div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--border);${levelLocked?'opacity:0.55':''}">
-          <div style="font-size:20px;line-height:1;flex-shrink:0;image-rendering:pixelated">${item.icon}</div>
+          <div style="font-size:20px;line-height:1;flex-shrink:0">${item.icon}</div>
           <div style="flex:1;min-width:0">
             <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
               <span style="font-size:12px;font-weight:800;font-family:'DotGothic16',monospace">${item.name}</span>${badge}
@@ -5439,10 +3358,10 @@ function renderBusiness() {
   const level = state.level || 0;
 
   const bizDefs = [
-    { id: 'vending',      name: 'Vending Machine Entrepreneur', unlockLevel: 3,  icon: 'business-vending',      content: renderVendingContent     },
-    { id: 'laundromat',   name: 'Dirty Money Laundromat',       unlockLevel: 5,  icon: 'business-laundromat',   content: renderLaundromContent    },
-    { id: 'pole_studio',  name: 'Brass Pole Fitness Studio',    unlockLevel: 8,  icon: 'business-pole-studio',  content: renderPoleStudioContent  },
-    { id: 'car_wash',     name: 'Slippery When Washed',         unlockLevel: 10, icon: 'business-car-wash',     content: renderCarWashContent     },
+    { id: 'vending',      name: 'Vending Machine Entrepreneur', unlockLevel: 3,  icon: 'svg:business-vending', content: renderVendingContent     },
+    { id: 'laundromat',   name: 'Dirty Money Laundromat',       unlockLevel: 5,  icon: 'svg:business-laundromat', content: renderLaundromContent    },
+    { id: 'pole_studio',  name: 'Brass Pole Fitness Studio',    unlockLevel: 8,  icon: '💃',              content: renderPoleStudioContent  },
+    { id: 'car_wash',     name: 'Slippery When Washed',         unlockLevel: 10, icon: '🚗',              content: renderCarWashContent     },
   ];
 
   const cards = bizDefs.map(biz => {
@@ -5459,7 +3378,9 @@ function renderBusiness() {
     }
     const isOpen  = !!_bizOpen[biz.id];
     const iconImg = biz.icon
-      ? `<img src="/static/icons/${biz.icon}.svg" width="30" height="30" style="image-rendering:pixelated;vertical-align:middle">`
+      ? (biz.icon.startsWith('svg:')
+          ? `<img src="/static/icons/${biz.icon.slice(4)}.svg" width="28" height="28" style="vertical-align:middle;image-rendering:pixelated">`
+          : `<span style="font-size:22px;line-height:1">${biz.icon}</span>`)
       : `<span style="font-size:22px">💼</span>`;
     const inner   = isOpen && biz.content ? biz.content() : '';
     const headerBg = isOpen ? 'var(--primary)' : 'var(--surface)';
@@ -5480,6 +3401,46 @@ function renderBusiness() {
   }).join('');
 
   el.innerHTML = `<div class="section-header"><span class="section-title">💼 My Businesses</span></div>${cards}`;
+}
+
+function vinnyIcon() {
+  return `<svg viewBox='0 0 44 56' xmlns='http://www.w3.org/2000/svg' width='48' height='61' style='flex-shrink:0;display:block'>
+    <path d='M5 26 Q6 7 22 5 Q38 7 39 26' fill='#1A0800'/>
+    <path d='M18 14 Q22 19 26 14 Q24 10 22 9 Q20 10 18 14 Z' fill='#1A0800'/>
+    <circle cx='5' cy='28' r='3.5' fill='#C8955A'/>
+    <circle cx='39' cy='28' r='3.5' fill='#C8955A'/>
+    <circle cx='22' cy='27' r='17' fill='#C8955A'/>
+    <ellipse cx='15' cy='25' rx='4.2' ry='2.8' fill='white'/>
+    <ellipse cx='29' cy='25' rx='4.2' ry='2.8' fill='white'/>
+    <circle cx='16' cy='25.5' r='2.3' fill='#2A1400'/>
+    <circle cx='30' cy='25.5' r='2.3' fill='#2A1400'/>
+    <circle cx='16.5' cy='25.2' r='1.1' fill='#0A0400'/>
+    <circle cx='30.5' cy='25.2' r='1.1' fill='#0A0400'/>
+    <circle cx='17' cy='24.8' r='0.5' fill='white'/>
+    <circle cx='31' cy='24.8' r='0.5' fill='white'/>
+    <path d='M11 20.5 Q15.5 17.5 19.5 20' stroke='#1A0800' stroke-width='2.8' fill='none' stroke-linecap='round'/>
+    <path d='M24.5 20 Q28.5 17.5 33 20.5' stroke='#1A0800' stroke-width='2.8' fill='none' stroke-linecap='round'/>
+    <path d='M10.5 23 Q15 21.5 19.5 23' stroke='#9A6840' stroke-width='1.2' fill='none'/>
+    <path d='M24.5 23 Q29 21.5 33.5 23' stroke='#9A6840' stroke-width='1.2' fill='none'/>
+    <path d='M19 28 Q21 26 20 30 Q21.5 33 22 33 Q22.5 33 24 30 Q23 26 25 28' fill='#B07840'/>
+    <ellipse cx='20.5' cy='32.5' rx='1.8' ry='1' fill='#9A5828'/>
+    <ellipse cx='23.5' cy='32.5' rx='1.8' ry='1' fill='#9A5828'/>
+    <path d='M16 37 Q22 35.5 28 37' stroke='#7A3A18' stroke-width='1.8' fill='none' stroke-linecap='round'/>
+    <circle cx='17' cy='38.5' r='0.5' fill='#6A3010' opacity='0.8'/>
+    <circle cx='19' cy='39.2' r='0.5' fill='#6A3010' opacity='0.8'/>
+    <circle cx='22' cy='39.5' r='0.5' fill='#6A3010' opacity='0.8'/>
+    <circle cx='25' cy='39.2' r='0.5' fill='#6A3010' opacity='0.8'/>
+    <circle cx='27' cy='38.5' r='0.5' fill='#6A3010' opacity='0.8'/>
+    <rect x='18' y='44' width='8' height='7' rx='2' fill='#C8955A'/>
+    <path d='M2 56 Q3 47 10 45 Q17 43 22 43 Q27 43 34 45 Q41 47 42 56 Z' fill='#8B0000'/>
+    <path d='M10 45 Q17 43 22 53 Q27 43 34 45 L33 47 Q27 45 22 55 Q17 45 11 47 Z' fill='#C62828'/>
+    <path d='M17 43 Q22 53 27 43' fill='#C8955A'/>
+    <line x1='20' y1='50' x2='21.5' y2='53.5' stroke='#8A4820' stroke-width='0.8' opacity='0.7'/>
+    <line x1='22' y1='49.5' x2='23' y2='53.5' stroke='#8A4820' stroke-width='0.8' opacity='0.7'/>
+    <line x1='24' y1='50' x2='22.5' y2='54' stroke='#8A4820' stroke-width='0.8' opacity='0.7'/>
+    <path d='M17 43 Q22 51 27 43' stroke='#D4A017' stroke-width='2' fill='none' stroke-linecap='round'/>
+    <circle cx='22' cy='51' r='1.2' fill='#D4A017'/>
+  </svg>`;
 }
 
 function renderVendingContent() {
@@ -5510,7 +3471,7 @@ function renderVendingContent() {
     return `
       <div style="border:1px solid var(--border);margin-top:8px;padding:10px">
         <div style="display:flex;align-items:flex-start;gap:10px">
-          <img src="/static/icons/business-vending.svg" width="32" height="32" style="image-rendering:pixelated;flex-shrink:0;margin-top:2px">
+          <img src="/static/icons/business-vending.svg" width="34" height="34" style="flex-shrink:0;margin-top:2px;image-rendering:pixelated;vertical-align:top">
           <div style="flex:1;min-width:0">
             <div style="font-weight:800;font-size:13px">Vending Machine #${vm.slot}</div>
             <div style="font-size:11px;color:var(--text-muted)">📍 ${vm.location}</div>
@@ -5550,7 +3511,7 @@ function renderVendingContent() {
 
   const vinnyCard = vms.length > 0 ? `
     <div style="display:flex;align-items:flex-start;gap:12px;padding:12px;border:1px solid var(--border);margin-top:14px">
-      <img src="/static/icons/business-vinny.svg" width="40" height="40" style="image-rendering:pixelated;flex-shrink:0">
+      ${vinnyIcon()}
       <div style="flex:1">
         <div style="font-weight:800">Cousin Vinny</div>
         <div style="font-size:11px;color:var(--text-muted);margin-top:2px;line-height:1.5">Auto-restocks your empty machines from your inventory. Charges $200 per restock. If your bag is empty, machines stay empty.</div>
@@ -5584,6 +3545,68 @@ const LAUNDROMAT_STAFF_META = {
   repairman: { name: 'Repairman', icon: '🔧', cost: 225, desc: 'Auto-fixes broken machines every day.' },
 };
 
+function laundryMachineIcon(isBroken, isRunning, id) {
+  const clipId   = `lm-clip-${id}`;
+  const ledColor = isBroken ? '#F44336' : isRunning ? '#4CAF50' : '#607D8B';
+  if (isBroken) {
+    return `<svg viewBox="0 0 20 26" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" width="38" height="50" style="display:block;margin:0 auto">
+      <rect x="0" y="0" width="20" height="5" fill="#607D8B"/>
+      <circle cx="2.5" cy="2.5" r="1.2" fill="#F44336"/>
+      <rect x="5" y="1.5" width="1.5" height="2" fill="#455A64"/>
+      <rect x="7.5" y="1.5" width="1.5" height="2" fill="#455A64"/>
+      <rect x="10" y="1.5" width="1.5" height="2" fill="#455A64"/>
+      <circle cx="15" cy="2.5" r="1.8" fill="#455A64"/>
+      <rect x="14.6" y="0.8" width="0.8" height="1" fill="#B0BEC5"/>
+      <rect x="0" y="5" width="20" height="16" fill="#FAFAFA"/>
+      <rect x="0" y="5" width="1" height="16" fill="#CFD8DC"/>
+      <rect x="19" y="5" width="1" height="16" fill="#CFD8DC"/>
+      <circle cx="10" cy="12" r="6.5" fill="#546E7A"/>
+      <circle cx="10" cy="12" r="5.5" fill="#1A1A1A"/>
+      <circle cx="10" cy="12" r="3.5" fill="none" stroke="#292929" stroke-width="0.8"/>
+      <circle cx="10" cy="12" r="1.3" fill="#111"/>
+      <rect x="3.5" y="17.5" width="1.2" height="1.5" fill="#37474F"/>
+      <rect x="15.3" y="17.5" width="1.2" height="1.5" fill="#37474F"/>
+      <ellipse cx="10" cy="21" rx="5.5" ry="2" fill="#546E7A"/>
+      <ellipse cx="10" cy="21" rx="4.5" ry="1.3" fill="#78909C"/>
+      <circle cx="10" cy="21.2" r="0.8" fill="#546E7A"/>
+      <rect x="0" y="23" width="20" height="3" fill="#607D8B"/>
+      <rect x="3" y="24" width="2" height="1" fill="#455A64"/>
+      <rect x="8" y="24" width="2" height="1" fill="#455A64"/>
+    </svg>`;
+  }
+  const glassColor = isRunning ? '#81D4FA' : '#ECEFF1';
+  const drumContents = isRunning
+    ? `<defs><clipPath id="${clipId}"><circle cx="10" cy="12" r="5"/></clipPath></defs>
+       <g clip-path="url(#${clipId})"><animateTransform attributeName="transform" type="rotate" from="0 10 12" to="360 10 12" dur="1.8s" repeatCount="indefinite"/>
+         <rect x="7" y="9.5" width="2.8" height="2.2" rx="0.4" fill="#FF7043"/>
+         <rect x="10.5" y="11.5" width="2.8" height="2" rx="0.4" fill="#26A69A"/>
+         <rect x="7.5" y="13.5" width="2.2" height="2.2" rx="0.4" fill="#FFF176"/>
+       </g>`
+    : `<circle cx="10" cy="12" r="2.5" fill="#CFD8DC" opacity="0.6"/>`;
+  return `<svg viewBox="0 0 20 24" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" width="38" height="46" style="display:block;margin:0 auto">
+    <rect x="0" y="0" width="20" height="5" fill="#607D8B"/>
+    <circle cx="2.5" cy="2.5" r="1.2" fill="${ledColor}"/>
+    <rect x="5" y="1.5" width="1.5" height="2" fill="#455A64"/>
+    <rect x="7.5" y="1.5" width="1.5" height="2" fill="#455A64"/>
+    <rect x="10" y="1.5" width="1.5" height="2" fill="#455A64"/>
+    <circle cx="15" cy="2.5" r="1.8" fill="#455A64"/>
+    <rect x="14.6" y="0.8" width="0.8" height="1" fill="#B0BEC5"/>
+    <rect x="0" y="5" width="20" height="16" fill="#FAFAFA"/>
+    <rect x="0" y="5" width="1" height="16" fill="#CFD8DC"/>
+    <rect x="19" y="5" width="1" height="16" fill="#CFD8DC"/>
+    <circle cx="10" cy="12" r="6.5" fill="#546E7A"/>
+    <circle cx="10" cy="12" r="5.8" fill="#37474F"/>
+    <circle cx="10" cy="12" r="5" fill="${glassColor}"/>
+    ${drumContents}
+    <circle cx="8" cy="10" r="1.3" fill="white" opacity="0.35"/>
+    <rect x="15.5" y="11.5" width="1" height="1" fill="#B0BEC5"/>
+    <rect x="15.5" y="13" width="1" height="1" fill="#B0BEC5"/>
+    <rect x="0" y="21" width="20" height="3" fill="#607D8B"/>
+    <rect x="3" y="22" width="2" height="1" fill="#455A64"/>
+    <rect x="8" y="22" width="2" height="1" fill="#455A64"/>
+  </svg>`;
+}
+
 function renderLaundromContent() {
   const lm = state.laundromat;
 
@@ -5591,7 +3614,7 @@ function renderLaundromContent() {
     const canAfford = state.cash >= 250000;
     return `
       <div style="text-align:center;padding:16px 0">
-        <img src="/static/icons/business-laundromat.svg" width="52" height="52" style="image-rendering:pixelated;margin-bottom:10px">
+        <div style="font-size:52px;line-height:1;margin-bottom:10px">🌀</div>
         <div style="font-weight:800;font-size:14px;margin-bottom:6px">Dirty Money Laundromat</div>
         <div style="font-size:11px;color:var(--text-muted);margin-bottom:14px;line-height:1.6">
           8 machines · daily income · supplies from CostPro<br>
@@ -5675,7 +3698,7 @@ function renderLaundromContent() {
       ? `showLaundroRepairModal(${m.id})`
       : `showLaundroMachineUpgradesModal(${m.id})`;
     return `<div onclick="${onclick}" style="border:1px solid ${border};padding:7px 4px;text-align:center;cursor:pointer;background:${bgColor}">
-      <img src="/static/icons/business-laundromat.svg" class="${animClass}" width="30" height="30" style="image-rendering:pixelated">
+      <div class="${animClass}">${laundryMachineIcon(isBroken, isRunning, m.id)}</div>
       <div style="font-size:9px;color:var(--text-muted);margin-top:2px">#${m.id + 1}</div>
       ${isBroken
         ? `<div style="font-size:9px;color:var(--negative);font-weight:800">⚡3</div>`
@@ -5913,7 +3936,7 @@ function showBuyVendingModal() {
   openModal(`
     <div class="modal-handle"></div>
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
-      <img src="/static/icons/business-vending.svg" width="44" height="44" style="image-rendering:pixelated;flex-shrink:0">
+      <img src="/static/icons/business-vending.svg" width="52" height="52" style="flex-shrink:0;image-rendering:pixelated">
       <div>
         <div style="font-weight:800;font-size:15px">Buy Vending Machine #${slot}</div>
         <div style="font-size:11px;color:var(--text-muted)">📍 ${location}</div>
@@ -5947,7 +3970,7 @@ function showRestockModal(vmId) {
   openModal(`
     <div class="modal-handle"></div>
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
-      <img src="/static/icons/business-vending.svg" width="40" height="40" style="image-rendering:pixelated;flex-shrink:0">
+      <img src="/static/icons/business-vending.svg" width="46" height="46" style="flex-shrink:0;image-rendering:pixelated">
       <div>
         <div style="font-weight:800;font-size:15px">Restock Machine #${vm.slot}</div>
         <div style="font-size:11px;color:var(--text-muted)">📍 ${vm.location}</div>
@@ -6010,7 +4033,7 @@ function showUpgradesModal(vmId) {
   openModal(`
     <div class="modal-handle"></div>
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
-      <img src="/static/icons/business-vending.svg" width="40" height="40" style="image-rendering:pixelated;flex-shrink:0">
+      <img src="/static/icons/business-vending.svg" width="46" height="46" style="flex-shrink:0;image-rendering:pixelated">
       <div>
         <div style="font-weight:800;font-size:15px">Machine #${vm.slot} Upgrades</div>
         <div style="font-size:11px;color:var(--text-muted)">📍 ${vm.location}</div>
@@ -6121,53 +4144,35 @@ function _psRepTier(rep) {
   return t;
 }
 
-function dancerPixelArt(key) {
-  const C = {
-    celestia: { hair:'#C0BFFF', outfit:'#8B2FC9', skin:'#FDBCB4', accent:'#FFD700', eyes:'#3D1A6E', shoe:'#6A0DAD' },
-    raven:    { hair:'#111111', outfit:'#1A1A2E', skin:'#C68642',  accent:'#78909C', eyes:'#111111', shoe:'#263238' },
-    sunshine: { hair:'#FFD700', outfit:'#FF9800', skin:'#FDBCB4',  accent:'#FFF176', eyes:'#5D4037', shoe:'#E65100' },
-    mercedes: { hair:'#5D4037', outfit:'#455A64', skin:'#FDBCB4',  accent:'#CFD8DC', eyes:'#37474F', shoe:'#263238' },
-    diamond:  { hair:'#29B6F6', outfit:'#B2EBF2', skin:'#FDBCB4',  accent:'#80DEEA', eyes:'#0277BD', shoe:'#01579B' },
-    gary:     { hair:'#8D6E63', outfit:'#546E7A', skin:'#FFCC80',  accent:'#90A4AE', eyes:'#4E342E', shoe:'#37474F' },
-  };
-  const c = C[key] || C.gary;
+function dancerPixelArt(key, hired) {
   const isGary = key === 'gary';
-  const mouthFill = isGary ? c.skin : '#E57373';
-  return `<svg viewBox="0 0 16 24" width="36" height="54" shape-rendering="crispEdges" style="image-rendering:pixelated;display:inline-block;vertical-align:middle">
-    <!-- chrome pole (runs full height, right-center) -->
-    <rect x="9" y="0" width="2" height="24" fill="#9E9E9E"/>
-    <rect x="9" y="0" width="1" height="24" fill="#E0E0E0"/>
-    <!-- hair -->
-    <rect x="2" y="1" width="6" height="2" fill="${c.hair}"/>
-    <!-- head -->
-    <rect x="2" y="3" width="6" height="4" fill="${c.skin}"/>
-    <!-- eyes -->
-    <rect x="3" y="4" width="1" height="1" fill="${c.eyes}"/>
-    <rect x="5" y="4" width="1" height="1" fill="${c.eyes}"/>
-    <!-- expression -->
-    <rect x="3" y="6" width="3" height="1" fill="${mouthFill}"/>
-    <!-- neck -->
-    <rect x="4" y="7" width="2" height="1" fill="${c.skin}"/>
-    <!-- grip arm reaching toward pole -->
-    <rect x="6" y="5" width="4" height="2" fill="${c.outfit}"/>
-    <!-- hand gripping pole (skin over pole = gripping effect) -->
-    <rect x="8" y="7" width="2" height="2" fill="${c.skin}"/>
-    <!-- free arm extended left ${isGary ? '(raised shrug)' : ''} -->
-    <rect x="0" y="${isGary ? 5 : 8}" width="3" height="2" fill="${c.outfit}"/>
-    <rect x="0" y="${isGary ? 5 : 8}" width="1" height="1" fill="${c.skin}"/>
-    <!-- body -->
-    <rect x="2" y="8" width="7" height="5" fill="${c.outfit}"/>
-    <!-- accent stripe -->
-    <rect x="3" y="9" width="5" height="2" fill="${c.accent}"/>
-    <!-- left leg down -->
-    <rect x="2" y="13" width="3" height="7" fill="${c.outfit}"/>
-    <!-- right leg kicked/wrapped around pole -->
-    <rect x="9" y="13" width="5" height="2" fill="${c.outfit}"/>
-    <rect x="12" y="15" width="3" height="5" fill="${c.outfit}"/>
-    <!-- left shoe -->
-    <rect x="1" y="20" width="4" height="2" fill="${c.shoe}"/>
-    <!-- right shoe -->
-    <rect x="12" y="20" width="4" height="2" fill="${c.shoe}"/>
+  if (!hired) {
+    return `<svg viewBox="0 0 40 70" xmlns="http://www.w3.org/2000/svg" width="30" height="52" style="flex-shrink:0;opacity:0.3">
+      <rect x="18" y="0" width="4" height="70" fill="#546E7A"/>
+      <rect x="19.2" y="0" width="1.2" height="70" fill="white" opacity="0.2"/>
+    </svg>`;
+  }
+  if (isGary) {
+    return `<svg viewBox="0 0 40 70" xmlns="http://www.w3.org/2000/svg" width="30" height="52" style="flex-shrink:0">
+      <rect x="18" y="0" width="4" height="70" fill="#90A4AE"/>
+      <rect x="19.2" y="0" width="1.2" height="70" fill="white" opacity="0.35"/>
+      <text x="7" y="55" font-size="12" class="ps-rise-1">✨</text>
+      <text x="23" y="44" font-size="10" class="ps-rise-2">⭐</text>
+      <text x="5" y="38" font-size="8" class="ps-rise-3">✦</text>
+      <text x="27" y="50" font-size="9" class="ps-rise-2">✨</text>
+    </svg>`;
+  }
+  return `<svg viewBox="0 0 40 70" xmlns="http://www.w3.org/2000/svg" width="30" height="52" style="flex-shrink:0">
+    <rect x="18" y="0" width="4" height="64" fill="#CFD8DC"/>
+    <rect x="19.2" y="0" width="1.2" height="64" fill="white" opacity="0.4"/>
+    <polygon points="10,2 30,2 38,60 2,60" fill="#FFD700" opacity="0.06"/>
+    <line x1="8" y1="5" x2="3" y2="60" stroke="#FFD700" stroke-width="0.7" opacity="0.2"/>
+    <line x1="16" y1="3" x2="15" y2="60" stroke="#FFD700" stroke-width="0.6" opacity="0.13"/>
+    <line x1="24" y1="3" x2="25" y2="60" stroke="#FFD700" stroke-width="0.6" opacity="0.13"/>
+    <line x1="32" y1="5" x2="37" y2="60" stroke="#FFD700" stroke-width="0.7" opacity="0.2"/>
+    <ellipse cx="20" cy="60" rx="17" ry="4.5" fill="#FFD700" class="ps-spot-a"/>
+    <ellipse cx="20" cy="60" rx="10" ry="3" fill="#FFD700" class="ps-spot-b"/>
+    <ellipse cx="20" cy="60" rx="4" ry="1.5" fill="#FFD700" class="ps-spot-c"/>
   </svg>`;
 }
 
@@ -6178,7 +4183,7 @@ function renderPoleStudioContent() {
   if (!ps || !ps.owned) {
     return `
       <div style="padding:16px 0;text-align:center">
-        <img src="/static/icons/business-pole-studio.svg" width="64" height="64" style="image-rendering:pixelated;display:block;margin:0 auto 10px">
+        <div style="font-size:64px;line-height:1;margin:0 auto 10px">💃</div>
         <div style="font-size:15px;font-weight:700;color:#E8D5F5;margin-bottom:4px">Brass Pole Fitness Studio</div>
         <div style="font-size:12px;color:#C4A8E0;margin-bottom:16px">6 poles. 6 dancers. One very confused Gary.</div>
         <button class="btn-primary" onclick="psBuy()" style="background:#7B2D8B;border:none;color:#E8D5F5;padding:10px 24px;font-size:14px;cursor:pointer">
@@ -6263,7 +4268,7 @@ function renderPoleStudioContent() {
       return `
         <div style="background:#2A1035;border:1px solid #5A2D7A;padding:10px;margin-bottom:6px">
           <div style="display:flex;align-items:center;gap:8px">
-            ${dancerPixelArt(dk)}
+            ${dancerPixelArt(dk, false)}
             <div style="flex:1">
               <div style="font-weight:700;color:#E8D5F5;font-size:12px">${dmeta.name} <span style="font-size:10px;color:#C4A8E0">— ${dmeta.specialty}</span></div>
               <div style="font-size:10px;color:#C4A8E0;font-style:italic">${dmeta.desc}</div>
@@ -6277,7 +4282,7 @@ function renderPoleStudioContent() {
     return `
       <div style="background:#2A1035;border:1px solid ${poleBroken ? '#e74c3c' : '#7B2D8B'};padding:10px;margin-bottom:6px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-          ${dancerPixelArt(dk)}
+          ${dancerPixelArt(dk, true)}
           <div style="flex:1">
             <div style="font-weight:700;color:#E8D5F5;font-size:12px">${dmeta.name}</div>
             <div style="font-size:10px;color:#9B7BB8">${dmeta.specialty}</div>
@@ -6593,44 +4598,14 @@ function cwAnimatedCar(bayIdx, broken) {
     const delay = (i * 0.7).toFixed(1);
     const size  = 4 + (i % 3) * 2;
     const dur   = (2.5 + (i % 3) * 0.8).toFixed(1);
-    return `<div style="position:absolute;left:${left}%;bottom:${8 + (i%2)*10}%;width:${size}px;height:${size}px;background:rgba(180,230,255,0.7);animation:cwBubble ${dur}s ${delay}s ease-in infinite;pointer-events:none;image-rendering:pixelated"></div>`;
+    return `<div style="position:absolute;left:${left}%;bottom:${8 + (i%2)*10}%;width:${size}px;height:${size}px;background:rgba(180,230,255,0.7);animation:cwBubble ${dur}s ${delay}s ease-in infinite;pointer-events:none"></div>`;
   }).join('');
 
-  const bodyC  = broken ? '#555' : '#2196F3';
-  const roofC  = broken ? '#444' : '#1565C0';
-  const hoodC  = broken ? '#4A4A4A' : '#1976D2';
-  const winC   = broken ? '#777' : '#B3E5FC';
-  const lightC = broken ? '#888' : '#FFEE58';
-  const tailC  = broken ? '#888' : '#EF5350';
-  const doorC  = broken ? '#4A4A4A' : '#1976D2';
-
   return `
-    <div style="position:relative;width:90px;height:52px;margin:4px auto">
-      <div style="animation:cwCarBob 2.4s ease-in-out infinite;position:relative">
-        <svg viewBox="0 0 90 52" width="90" height="52" shape-rendering="crispEdges" style="overflow:visible">
-          <rect x="4"  y="22" width="82" height="14" fill="${bodyC}"/>
-          <rect x="56" y="16" width="26" height="8"  fill="${hoodC}"/>
-          <rect x="14" y="8"  width="44" height="16" fill="${roofC}"/>
-          <rect x="16" y="10" width="12" height="12" fill="${winC}"/>
-          <rect x="44" y="10" width="12" height="12" fill="${winC}"/>
-          <rect x="40" y="10" width="2"  height="14" fill="${roofC}"/>
-          <rect x="80" y="24" width="6"  height="6"  fill="${lightC}"/>
-          <rect x="4"  y="24" width="6"  height="6"  fill="${tailC}"/>
-          <rect x="80" y="30" width="8"  height="4"  fill="#90CAF9"/>
-          <rect x="2"  y="30" width="8"  height="4"  fill="#90CAF9"/>
-          <rect x="28" y="24" width="16" height="8"  fill="${doorC}"/>
-          <rect x="56" y="32" width="16" height="16" fill="#212121"/>
-          <rect x="58" y="34" width="12" height="12" fill="#616161"/>
-          <rect x="61" y="37" width="6"  height="6"  fill="#9E9E9E"/>
-          <rect x="14" y="32" width="16" height="16" fill="#212121"/>
-          <rect x="16" y="34" width="12" height="12" fill="#616161"/>
-          <rect x="19" y="37" width="6"  height="6"  fill="#9E9E9E"/>
-          ${broken ? `<rect x="38" y="10" width="2" height="2" fill="#FF5252"/>
-          <rect x="42" y="10" width="2" height="2" fill="#FF5252"/>
-          <rect x="40" y="12" width="2" height="2" fill="#FF5252"/>
-          <rect x="38" y="14" width="2" height="2" fill="#FF5252"/>
-          <rect x="42" y="14" width="2" height="2" fill="#FF5252"/>` : ''}
-        </svg>
+    <div style="position:relative;width:90px;height:60px;margin:4px auto;text-align:center">
+      <div style="animation:cwCarBob 2.4s ease-in-out infinite;position:relative;display:inline-block">
+        <span style="font-size:52px;line-height:1;display:block;filter:${broken ? 'grayscale(1) brightness(0.6)' : 'none'}">🚗</span>
+        ${broken ? '<div style="position:absolute;top:-6px;right:-6px;font-size:16px">💨</div>' : ''}
       </div>
       ${broken ? '' : bubbles}
     </div>`;
@@ -6644,7 +4619,7 @@ function renderCarWashContent() {
     const canLevel  = lvl >= CW_UNLOCK_LEVEL;
     return `
       <div style="text-align:center;padding:20px 10px">
-        <img src="/static/icons/business-car-wash.svg" width="80" height="80" style="image-rendering:pixelated;display:block;margin:0 auto 8px">
+        <div style="font-size:64px;line-height:1;margin:0 auto 8px">🚗</div>
         <div style="font-size:14px;font-weight:700;color:#1E88E5;margin-bottom:4px">Slippery When Washed</div>
         <div style="font-size:11px;color:var(--text-muted);margin-bottom:16px">The sign is already crooked. It adds character.</div>
         <button onclick="cwBuy()" ${(!canAfford||!canLevel)?'disabled':''} style="background:${canAfford&&canLevel?'#1E88E5':'#555'};border:none;color:white;padding:10px 24px;font-size:13px;font-weight:700;cursor:${canAfford&&canLevel?'pointer':'not-allowed'};border-radius:4px;width:100%">
@@ -11620,10 +9595,16 @@ async function doWithdraw() {
 }
 
 // ── Settings ──────────────────────────────────────────────────────────────────
+function toggleDarkMode(on) {
+  document.body.classList.toggle('dark', on);
+  localStorage.setItem('darkMode', on ? '1' : '0');
+}
+
 function renderSettings() {
   const el = document.getElementById('page-settings');
   if (!el || !state) return;
   const s = getSeasonInfo(state.day);
+  const darkOn = localStorage.getItem('darkMode') === '1';
   el.innerHTML = `
     <div class="section-header"><span class="section-title">${pxIcon('⚙️',18)} Settings</span></div>
 
@@ -11634,6 +9615,20 @@ function renderSettings() {
       <div class="money-row"><span class="mr-label">Cash on Hand</span><span class="mr-value">${fmt(state.cash)}</span></div>
       <div class="money-row"><span class="mr-label">Properties</span><span class="mr-value">${state.property_count}</span></div>
       <div class="money-row"><span class="mr-label">Net Worth</span><span class="mr-value green">${fmt(state.net_worth)}</span></div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <div style="font-size:14px;font-weight:800;margin-bottom:10px">🎨 Appearance</div>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:13px;font-weight:600">🌙 Dark Mode</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Easy on the eyes</div>
+        </div>
+        <label class="dark-toggle">
+          <input type="checkbox" ${darkOn ? 'checked' : ''} onchange="toggleDarkMode(this.checked)">
+          <span class="dark-toggle-track"></span>
+        </label>
+      </div>
     </div>
 
     <div class="card" style="margin-top:12px">
