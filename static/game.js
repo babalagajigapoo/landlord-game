@@ -601,7 +601,6 @@ function navTo(page) {
 
 // ── Render All ────────────────────────────────────────────────────────────────
 function renderAll() {
-  initMusicSynths();
   setupMusicAutoStart();
   renderDashboard();
   renderMarket();
@@ -9718,40 +9717,45 @@ function syncMusicToLevel(targetLevel) {
 
 function _clearMusicAutoStart() {
   if (_musicAutoStartHandler) {
-    document.removeEventListener('click',      _musicAutoStartHandler, true);
-    document.removeEventListener('touchstart', _musicAutoStartHandler, true);
+    document.removeEventListener('touchend', _musicAutoStartHandler, false);
+    document.removeEventListener('click',    _musicAutoStartHandler, false);
     _musicAutoStartHandler = null;
   }
 }
 
 function setupMusicAutoStart() {
   if (!_musicEnabled || _musicStarted || _musicAutoStartHandler) return;
-  _musicAutoStartHandler = async () => {
+  // Use a plain function (not async) so iOS recognises the full call stack
+  // as a user-gesture context. Synths are created here (not at page load)
+  // so the AudioContext is born inside the gesture, never pre-suspended.
+  _musicAutoStartHandler = function() {
     _clearMusicAutoStart();
     if (!_musicReady) initMusicSynths();
-    await Tone.start();
-    if (!_musicStarted) {
-      _musicStarted = true;
-      Tone.getTransport().start();
-      syncMusicToLevel(musicTargetLevel());
-    }
+    Tone.start().then(function() {
+      if (!_musicStarted) {
+        _musicStarted = true;
+        Tone.getTransport().start();
+        syncMusicToLevel(musicTargetLevel());
+      }
+    });
   };
-  document.addEventListener('click',      _musicAutoStartHandler, true);
-  document.addEventListener('touchstart', _musicAutoStartHandler, true);
+  document.addEventListener('touchend', _musicAutoStartHandler, false);
+  document.addEventListener('click',    _musicAutoStartHandler, false);
 }
 
-async function toggleMusicEnabled(on) {
+function toggleMusicEnabled(on) {
   _musicEnabled = on;
   localStorage.setItem('musicEnabled', on ? '1' : '0');
   if (on) {
     _clearMusicAutoStart();
     if (!_musicReady) initMusicSynths();
-    await Tone.start();
-    if (!_musicStarted) {
-      _musicStarted = true;
-      Tone.getTransport().start();
-    }
-    syncMusicToLevel(musicTargetLevel());
+    Tone.start().then(function() {
+      if (!_musicStarted) {
+        _musicStarted = true;
+        Tone.getTransport().start();
+      }
+      syncMusicToLevel(musicTargetLevel());
+    });
   } else {
     syncMusicToLevel(-1);
   }
