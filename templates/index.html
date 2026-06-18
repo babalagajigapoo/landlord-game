@@ -148,7 +148,14 @@
     <div id="page-settings" class="page"></div>
 
     <!-- Personal -->
-    <div id="page-personal" class="page"></div>
+    <div id="page-personal" class="page">
+      <div class="fin-subnav">
+        <button class="fin-tab active" data-personal="home"   onclick="switchPersonalTab('home')">🏠 My Home</button>
+        <button class="fin-tab"        data-personal="career" onclick="switchPersonalTab('career')">📈 Career</button>
+      </div>
+      <div id="personal-home"></div>
+      <div id="personal-career" style="display:none"></div>
+    </div>
 
   </main>
 

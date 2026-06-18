@@ -181,17 +181,45 @@ const NEW_BUILDS_UNLOCK_LEVEL    = 9;
 const COMMERCE_ROW_UNLOCK_LEVEL  = 11;
 
 const COMMERCIAL_TYPES_DATA = {
-  strip_mall:      { name: 'Strip Mall',          icon: '🏪', unit_count: 4, price: 950000,   overhead: 2500, sqft: 8000,  desc: 'Four retail-facing storefronts. High traffic, high turnover.' },
-  office_building: { name: 'Office Building',     icon: '🏢', unit_count: 3, price: 1400000,  overhead: 3500, sqft: 12000, desc: 'Professional tenants, longer leases, quieter events.' },
-  mixed_use:       { name: 'Mixed-Use Building',  icon: '🏬', unit_count: 5, price: 1800000,  overhead: 4000, sqft: 18000, desc: 'Three commercial floors and two upper-level office suites.' },
+  strip_mall:      { name: 'Strip Mall',          icon: '🏪', unit_count: 4, price: 950000,   overhead: 2500, sqft: 8000,  superintendent_monthly: 3500, emergency_repair_cost: 12000, desc: 'Four retail-facing storefronts. High traffic, high turnover.' },
+  office_building: { name: 'Office Building',     icon: '🏢', unit_count: 3, price: 1400000,  overhead: 3500, sqft: 12000, superintendent_monthly: 4500, emergency_repair_cost: 15000, desc: 'Professional tenants, longer leases, quieter events.' },
+  mixed_use:       { name: 'Mixed-Use Building',  icon: '🏬', unit_count: 5, price: 1800000,  overhead: 4000, sqft: 18000, superintendent_monthly: 5500, emergency_repair_cost: 20000, desc: 'Three commercial floors and two upper-level office suites.' },
+};
+
+const ASSISTANTS_DATA = {
+  repair: { name: 'Repair Assistant', icon: '🔧', unlock_level: 6,  monthly_fee: 1500, desc: 'Auto-handles all repair events. Always picks the best contractor your budget allows.' },
+  tenant: { name: 'Tenant Assistant', icon: '🤝', unlock_level: 9,  monthly_fee: 3000, desc: 'Handles ~50% of tenant requests automatically, balancing morale and condition.' },
+  estate: { name: 'Estate Manager',   icon: '🏛️', unlock_level: 13, monthly_fee: 6500, desc: 'Full autopilot — every repair and tenant request handled. True passive income mode.' },
+};
+
+const COMMERCIAL_UPGRADES_DATA = {
+  security_system:  { name: 'Security System',         icon: '🔒', cost: 12000, desc: 'Cuts inspection failures and sudden closures by 60%.' },
+  commercial_hvac:  { name: 'Commercial HVAC',          icon: '❄️', cost: 18000, desc: '35% less daily condition loss from tenant wear.' },
+  renovated_common: { name: 'Renovated Common Areas',   icon: '✨', cost: 25000, desc: 'All unit rents permanently +8%.' },
+  fiber_internet:   { name: 'Fiber Internet',           icon: '📡', cost: 9000,  desc: 'Law offices & accounting firms +$500/mo.' },
+  parking_expansion:{ name: 'Parking Expansion',        icon: '🅿️', cost: 20000, desc: 'Reduces events for high-traffic tenants by 40%.' },
+  exterior_facelift:{ name: 'Exterior Facelift',        icon: '🎨', cost: 30000, desc: '+40 condition immediately. All units +$300/mo.' },
 };
 
 const BUSINESS_TENANT_DATA = {
-  restaurant: { name: 'Restaurant',  icon: '🍽️', monthly_rent: 8500,  lease_days: 112, desc: 'High traffic. Great rent but inspections are common.' },
-  retail:     { name: 'Retail Shop', icon: '🛍️', monthly_rent: 5500,  lease_days: 84,  desc: 'Steady income, moderate turnover.' },
-  law_office: { name: 'Law Office',  icon: '⚖️', monthly_rent: 9000,  lease_days: 224, desc: 'Quiet, long-term, pays well.' },
-  salon:      { name: 'Salon',       icon: '💈', monthly_rent: 6000,  lease_days: 112, desc: 'Steady income, reasonable events.' },
-  gym:        { name: 'Gym',         icon: '🏋️', monthly_rent: 11000, lease_days: 168, desc: 'Highest rent, but heavy wear.' },
+  restaurant:       { name: 'Restaurant',       icon: '🍽️', monthly_rent: 8500,  lease_days: 112, desc: 'High traffic. Great rent but inspections are common.' },
+  retail:           { name: 'Retail Shop',      icon: '🛍️', monthly_rent: 5500,  lease_days: 84,  desc: 'Short leases, decent income. Moderate turnover.' },
+  law_office:       { name: 'Law Office',       icon: '⚖️', monthly_rent: 9000,  lease_days: 224, desc: 'Quiet, long-term, pays well.' },
+  salon:            { name: 'Salon',            icon: '💈', monthly_rent: 6000,  lease_days: 112, desc: 'Steady income, reasonable events.' },
+  gym:              { name: 'Gym',              icon: '🏋️', monthly_rent: 11000, lease_days: 168, desc: 'Highest rent, but heavy wear.' },
+  coffee_shop:      { name: 'Coffee Shop',      icon: '☕', monthly_rent: 4200,  lease_days: 84,  desc: 'Popular morning anchor. Steady traffic, low drama.' },
+  barber_shop:      { name: 'Barber Shop',      icon: '🪒', monthly_rent: 3500,  lease_days: 84,  desc: 'Low rent, low drama. Community staple.' },
+  nail_salon:       { name: 'Nail Salon',       icon: '💅', monthly_rent: 3800,  lease_days: 84,  desc: 'Steady clientele. Reliable rent, minimal issues.' },
+  pawn_shop:        { name: 'Pawn Shop',        icon: '🏷️', monthly_rent: 4800,  lease_days: 56,  desc: 'High-traffic, high-risk. Short leases, frequent events.' },
+  tattoo_studio:    { name: 'Tattoo Studio',    icon: '🎨', monthly_rent: 5200,  lease_days: 56,  desc: 'Creative energy. Shorter leases, busier than expected.' },
+  auto_parts:       { name: 'Auto Parts Store', icon: '🔧', monthly_rent: 6800,  lease_days: 84,  desc: 'Industrial foot traffic. Decent rent, moderate wear.' },
+  daycare:          { name: 'Daycare Center',   icon: '🧒', monthly_rent: 6200,  lease_days: 168, desc: 'Long leases, community anchor. Inspections are standard.' },
+  accounting_firm:  { name: 'Accounting Firm',  icon: '📊', monthly_rent: 8000,  lease_days: 168, desc: 'Professional and quiet. Long-term, low hassle.' },
+  pharmacy:         { name: 'Pharmacy',         icon: '💊', monthly_rent: 10000, lease_days: 112, desc: 'High-demand essential business. Very low drama.' },
+  tech_startup:     { name: 'Tech Startup',     icon: '💻', monthly_rent: 9500,  lease_days: 56,  desc: 'High rent but they pivot fast. Short leases, frequent events.' },
+  medical_clinic:   { name: 'Medical Clinic',   icon: '🏥', monthly_rent: 12500, lease_days: 224, desc: 'Top-tier rent, longest leases. Nearly zero trouble.' },
+  dental_office:    { name: 'Dental Office',    icon: '🦷', monthly_rent: 11000, lease_days: 224, desc: 'Ultra-reliable. Great rent, iron-clad leases.' },
+  flooring_express: { name: 'Flooring Express', icon: '🏪', monthly_rent: 20000, lease_days: 224, desc: '⭐ SPECIAL — Pays double. Never any issues.', special: true },
 };
 
 const BUILD_CREWS_DATA = {
@@ -229,6 +257,7 @@ let _modalLocked          = false; // true while event flow is in progress (repa
 let _propDetailId         = null;  // id of the property currently open in detail modal
 let _inPropSubModal       = false; // true when a sub-modal inside a property detail is open
 let _propHoodOpen         = {};    // { 'Maplewood Heights': false } — collapsed neighborhoods
+let _commercialExpanded   = {};    // { propId: true } — expanded commercial cards
 let _propHoodTab          = {};    // { 'Maplewood Heights': 'vacant' } — active sub-tab per hood
 let _pendingLevelUp       = null;  // new level number waiting to be shown after all other modals
 let _pendingRepairs       = [];   // repair events queued after advancing
@@ -266,13 +295,13 @@ const DAILY_ENERGY    = 10;  // fallback only; real max comes from state.max_ene
 const DAYS_PER_YEAR   = DAYS_PER_SEASON * 4;  // 112
 
 const PLAYER_HOME_DATA = [
-  { key: 'grandmas_basement', name: "Grandma's Basement", icon: '🛋️', cost:       0, max_energy:  8, recharge:  1, unlock_level:  0, desc: "Grandma's got a cot, a leaky fridge, and opinions about your life choices. Free rent — if you can survive the casserole." },
-  { key: 'small_apt',         name: 'Small Apartment',    icon: '🏠',  cost:   80000, max_energy: 10, recharge:  3, unlock_level:  1, desc: 'Thin walls, no dishwasher, and a neighbor who practices drums at midnight. Still yours.' },
-  { key: 'condo',             name: 'Condo',              icon: '🏢',  cost:  150000, max_energy: 12, recharge:  5, unlock_level:  3, desc: 'An HOA fee and a parking sticker — welcome to adulthood.' },
-  { key: 'small_home',        name: 'Small Home',         icon: '🏡',  cost:  250000, max_energy: 15, recharge:  7, unlock_level:  5, desc: 'A real yard. A real mortgage. A real lawn to mow at 7am on a Saturday.' },
-  { key: 'suburban_home',     name: 'Suburban Home',      icon: '🏘️',  cost:  400000, max_energy: 18, recharge: 11, unlock_level:  7, desc: 'Cul-de-sac living with a two-car garage and a wave-hello relationship with the neighbors.' },
-  { key: 'luxury_villa',      name: 'Luxury Villa',       icon: '🏛️',  cost:  750000, max_energy: 24, recharge: 19, unlock_level:  9, desc: 'Heated floors, a wine cellar, and someone else mows the lawn.' },
-  { key: 'mansion',           name: 'Mansion',            icon: '🏰',  cost: 1500000, max_energy: 58, recharge: 60, unlock_level: 12, desc: "You have a butler named Gerald and a room you've never entered. Peak existence." },
+  { key: 'grandmas_basement', name: "Grandma's Basement", icon: '🛋️', cost:       0, unlock_level:  0, desc: "Grandma's got a cot, a leaky fridge, and opinions about your life choices. Free rent — if you can survive the casserole." },
+  { key: 'small_apt',         name: 'Small Apartment',    icon: '🏠',  cost:   80000, unlock_level:  2, desc: 'Thin walls, no dishwasher, and a neighbor who practices drums at midnight. Still yours.' },
+  { key: 'condo',             name: 'Condo',              icon: '🏢',  cost:  150000, unlock_level:  4, desc: 'An HOA fee and a parking sticker — welcome to adulthood.' },
+  { key: 'small_home',        name: 'Small Home',         icon: '🏡',  cost:  250000, unlock_level:  7, desc: 'A real yard. A real mortgage. A real lawn to mow at 7am on a Saturday.' },
+  { key: 'suburban_home',     name: 'Suburban Home',      icon: '🏘️',  cost:  400000, unlock_level:  9, desc: 'Cul-de-sac living with a two-car garage and a wave-hello relationship with the neighbors.' },
+  { key: 'luxury_villa',      name: 'Luxury Villa',       icon: '🏛️',  cost:  750000, unlock_level: 11, desc: 'Heated floors, a wine cellar, and someone else mows the lawn.' },
+  { key: 'mansion',           name: 'Mansion',            icon: '🏰',  cost: 1500000, unlock_level: 13, desc: "You have a butler named Gerald and a room you've never entered. Peak existence." },
 ];
 
 function getSeasonInfo(day) {
@@ -1048,25 +1077,31 @@ function renderProperties() {
   }).join('');
 }
 
+function toggleCommercialCard(pid) {
+  const wasOpen = !!_commercialExpanded[pid];
+  _commercialExpanded = {};
+  _commercialExpanded[pid] = !wasOpen;
+  renderCommercial();
+}
+
 function commercialPortfolioCardHtml(p) {
-  const ct          = COMMERCIAL_TYPES_DATA[p.type] || {};
-  const condPct_    = Math.min(100, Math.round((p.condition / 250) * 100));
-  const totalRent   = p.units.reduce((s, u) => s + (u.monthly_rent || 0), 0);
-  const occupied    = p.units.filter(u => u.business_type).length;
-  const unitRows    = p.units.map(u => {
+  const ct       = COMMERCIAL_TYPES_DATA[p.type] || {};
+  const condPct_ = Math.min(100, Math.round((p.condition / 250) * 100));
+  const totalRent = p.units.reduce((s, u) => s + (u.monthly_rent || 0), 0);
+  const occupied  = p.units.filter(u => u.business_type).length;
+  const isOpen    = !!_commercialExpanded[p.id];
+
+  // Compact unit pills shown in collapsed view
+  const unitPills = p.units.map(u => {
     const bt = u.business_type ? (BUSINESS_TENANT_DATA[u.business_type] || {}) : null;
-    if (u.renewal_pending) {
-      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);gap:8px">
-        <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0">
-          <span style="font-size:16px">${bt ? bt.icon : '🏢'}</span>
-          <div style="min-width:0">
-            <div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${u.tenant_name}</div>
-            <div style="font-size:10px;color:var(--warning)">⏰ Lease renewal pending</div>
-          </div>
-        </div>
-        <span style="font-size:11px;color:var(--text-muted);white-space:nowrap">${fmt(u.monthly_rent)}/mo</span>
-      </div>`;
-    }
+    return bt
+      ? `<span style="font-size:13px" title="${u.tenant_name}">${bt.icon}</span>`
+      : `<span style="font-size:13px;opacity:0.35">⬜</span>`;
+  }).join('');
+
+  // Full unit rows (expanded only)
+  const unitRows = p.units.map(u => {
+    const bt = u.business_type ? (BUSINESS_TENANT_DATA[u.business_type] || {}) : null;
     if (!bt) {
       return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);gap:8px">
         <div style="display:flex;align-items:center;gap:6px;flex:1">
@@ -1091,25 +1126,70 @@ function commercialPortfolioCardHtml(p) {
     </div>`;
   }).join('');
 
-  return `<div class="card">
-    <div class="card-header">
-      <div class="card-icon">${pxIcon(ct.icon || '🏢')}</div>
-      <div style="flex:1">
-        <div class="card-title">${p.address}</div>
-        <div class="card-subtitle">${ct.name} · ${(p.sqft || 0).toLocaleString()} sqft · ${occupied}/${ct.unit_count} occupied</div>
+  const expandedHtml = `
+    <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
+      <div class="money-row"><span class="mr-label">Monthly Income</span><span class="mr-value green">${fmt(totalRent)}/mo</span></div>
+      <div class="money-row"><span class="mr-label">Monthly Overhead</span><span class="mr-value" style="color:var(--negative)">−${fmt(ct.overhead || 0)}/mo</span></div>
+      ${p.superintendent
+        ? `<div class="money-row" style="margin-bottom:10px">
+             <span class="mr-label">👷 Superintendent</span>
+             <span style="display:flex;align-items:center;gap:6px">
+               <span class="mr-value" style="color:var(--negative)">−${fmt(ct.superintendent_monthly || 0)}/mo</span>
+               <button class="btn btn-ghost" style="font-size:9px;padding:2px 7px;line-height:1.4" onclick="manageSuperintendent(${p.id},'fire')">Fire</button>
+             </span>
+           </div>`
+        : `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+             <span style="font-size:11px;color:var(--text-muted)">👷 No Superintendent</span>
+             <button class="btn btn-secondary btn-sm" style="font-size:10px;padding:3px 9px" onclick="manageSuperintendent(${p.id},'hire')">Hire (${fmt(ct.superintendent_monthly || 0)}/mo)</button>
+           </div>`
+      }
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:6px">Units</div>
+      ${unitRows}
+      ${p.condition < 75 ? `
+      <div style="margin-top:12px;padding:10px;background:rgba(183,28,28,0.08);border:1px solid #B71C1C;border-radius:8px;display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div>
+          <div style="font-size:12px;font-weight:800;color:#B71C1C">🚨 Building in D Condition</div>
+          <div style="font-size:11px;color:var(--text-muted)">Tenants may leave without repairs</div>
+        </div>
+        <button class="btn btn-sm" style="background:#B71C1C;color:#fff;font-size:11px;white-space:nowrap" onclick="commercialEmergencyRepair(${p.id})">Emergency Repair ${fmt(ct.emergency_repair_cost || 15000)}</button>
+      </div>` : ''}
+      <div style="margin-top:12px">
+        <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:8px">Building Upgrades</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          ${Object.entries(COMMERCIAL_UPGRADES_DATA).map(([key, upg]) => {
+            const owned = (p.upgrades || {})[key];
+            return `<div style="padding:8px;border-radius:6px;border:1px solid ${owned ? 'var(--positive)' : 'var(--border)'};background:${owned ? 'rgba(46,125,50,0.07)' : 'var(--card-bg)'}">
+              <div style="font-size:16px">${upg.icon}</div>
+              <div style="font-size:11px;font-weight:700;margin-top:2px">${upg.name}</div>
+              <div style="font-size:10px;color:var(--text-muted);margin-top:2px;line-height:1.3">${upg.desc}</div>
+              ${owned
+                ? `<div style="font-size:10px;color:var(--positive);font-weight:800;margin-top:4px">✓ Installed</div>`
+                : `<button class="btn btn-secondary btn-sm" style="font-size:10px;padding:2px 7px;margin-top:4px;width:100%" onclick="buyCommercialUpgrade(${p.id},'${key}')">Buy ${fmt(upg.cost)}</button>`
+              }
+            </div>`;
+          }).join('')}
+        </div>
       </div>
+    </div>`;
+
+  return `<div class="card">
+    <div class="card-header" style="cursor:pointer" onclick="toggleCommercialCard(${p.id})">
+      <div class="card-icon">${pxIcon(ct.icon || '🏢')}</div>
+      <div style="flex:1;min-width:0">
+        <div class="card-title">${p.address}</div>
+        <div class="card-subtitle">${ct.name} · ${occupied}/${ct.unit_count || 0} occupied</div>
+      </div>
+      <span style="font-size:18px;color:var(--text-muted);flex-shrink:0;transition:transform 0.2s;${isOpen ? 'transform:rotate(180deg)' : ''}">▾</span>
     </div>
-    <div class="condition-wrap">
+    <div class="condition-wrap" style="margin-bottom:${isOpen ? '0' : '4px'}">
       <div class="condition-top">
         <span class="condition-lbl">Building Condition</span>
         <span class="condition-val" style="color:${tierColor(condTier(p.condition))};font-weight:900">${condTier(p.condition)} Tier</span>
       </div>
       <div class="condition-bar"><div class="condition-fill ${condClass(p.condition)}" style="width:${condPct_}%"></div></div>
     </div>
-    <div class="money-row"><span class="mr-label">Monthly Income</span><span class="mr-value green">${fmt(totalRent)}/mo</span></div>
-    <div class="money-row" style="margin-bottom:10px"><span class="mr-label">Monthly Overhead</span><span class="mr-value" style="color:var(--negative)">−${fmt(ct.overhead || 0)}/mo</span></div>
-    <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:6px">Units</div>
-    ${unitRows}
+    ${!isOpen ? `<div style="display:flex;gap:4px;margin-top:8px;flex-wrap:wrap">${unitPills}</div>` : ''}
+    ${isOpen ? expandedHtml : ''}
   </div>`;
 }
 
@@ -1117,12 +1197,19 @@ async function findCommercialTenant(pid, unitIdx) {
   const res = await api(`/commercial/${pid}/get_applicants`, 'POST', { unit_idx: unitIdx });
   if (res.error) { toast(res.error, 'error'); return; }
   const apps = res.applicants || [];
-  const rows = apps.map(a => `
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);gap:10px">
+  const rows = apps.map(a => {
+    const specialStyle = a.special
+      ? 'border:2px solid #DAA520;border-radius:8px;background:rgba(255,215,0,0.06);padding:10px;margin-bottom:6px;'
+      : 'border-bottom:1px solid var(--border);padding:10px 0;';
+    const specialBadge = a.special
+      ? ' <span style="font-size:10px;color:#DAA520;font-weight:900">⭐ SPECIAL</span>'
+      : '';
+    return `
+    <div style="display:flex;align-items:center;justify-content:space-between;${specialStyle}gap:10px">
       <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
         <span style="font-size:24px">${a.icon}</span>
         <div style="min-width:0">
-          <div style="font-size:13px;font-weight:800">${a.name}</div>
+          <div style="font-size:13px;font-weight:800">${a.name}${specialBadge}</div>
           <div style="font-size:11px;color:var(--text-muted)">${a.display_name} · ${Math.round(a.lease_days / 28)} season lease</div>
           <div style="font-size:11px;color:var(--text-muted)">${a.desc}</div>
         </div>
@@ -1132,7 +1219,8 @@ async function findCommercialTenant(pid, unitIdx) {
         <button class="btn btn-primary btn-sm" style="margin-top:4px;font-size:11px" onclick="acceptCommercialTenant(${pid},${unitIdx},'${a.biz_type}','${a.name.replace(/'/g,"\\'")}')"
         >Accept</button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   openModal(`
     <div class="modal-handle"></div>
     <div class="modal-title">${pxIcon('🏢',18)} Business Applicants</div>
@@ -1148,7 +1236,35 @@ async function acceptCommercialTenant(pid, unitIdx, bizType, bizName) {
   closeModal();
   toast(`${bizName} moved in!`, 'success');
   await refreshState();
-  renderProperties();
+  renderCommercial();
+}
+
+async function manageSuperintendent(pid, action) {
+  const res = await api(`/commercial/${pid}/superintendent`, 'POST', { action });
+  if (res.error) { toast(res.error, 'error'); return; }
+  await refreshState();
+  renderCommercial();
+  toast(action === 'hire' ? '👷 Superintendent hired!' : 'Superintendent dismissed.', action === 'hire' ? 'success' : 'info');
+}
+
+async function buyCommercialUpgrade(pid, upgradeKey) {
+  const upg = COMMERCIAL_UPGRADES_DATA[upgradeKey];
+  if (!upg) return;
+  const res = await api(`/commercial/${pid}/upgrade`, 'POST', { upgrade: upgradeKey });
+  if (res.error) { toast(res.error, 'error'); return; }
+  await refreshState();
+  renderCommercial();
+  toast(`${upg.icon} ${upg.name} installed!`, 'success');
+}
+
+async function commercialEmergencyRepair(pid) {
+  const ct = COMMERCIAL_TYPES_DATA[gameState.properties?.find(p => p.id === pid)?.type] || {};
+  const cost = ct.emergency_repair_cost || 15000;
+  const res = await api(`/commercial/${pid}/emergency_repair`, 'POST', {});
+  if (res.error) { toast(res.error, 'error'); return; }
+  await refreshState();
+  renderCommercial();
+  toast(`🔧 Emergency repairs done! Building restored.`, 'success');
 }
 
 async function commercialEventRespond(pid, unitIdx, evType, choice, extraData) {
@@ -1482,12 +1598,12 @@ function showPlayerHomeModal() {
       </div>
       <div style="display:flex;gap:10px;margin-top:12px">
         <div style="flex:1;text-align:center;padding:8px;background:var(--surface);border-radius:8px">
-          <div style="font-size:20px;font-weight:900;color:var(--positive)">⚡ ${current.max_energy}</div>
+          <div style="font-size:20px;font-weight:900;color:var(--positive)">⚡ ${state.max_energy || 4}</div>
           <div style="font-size:11px;color:var(--text-muted)">Max Energy</div>
         </div>
         <div style="flex:1;text-align:center;padding:8px;background:var(--surface);border-radius:8px">
-          <div style="font-size:20px;font-weight:900;color:var(--primary)">+${current.recharge}</div>
-          <div style="font-size:11px;color:var(--text-muted)">Energy/Day</div>
+          <div style="font-size:20px;font-weight:900;color:var(--primary)">+${state.recharge || 1}/day</div>
+          <div style="font-size:11px;color:var(--text-muted)">Daily Recharge</div>
         </div>
       </div>
     </div>
@@ -1498,10 +1614,7 @@ function showPlayerHomeModal() {
            const isLocked  = !unlockedKeys.includes(h.key);
            const canAfford = !isLocked && state.cash >= h.cost;
            const reqLevel  = h.unlock_level || 0;
-           const hIdx      = PLAYER_HOME_DATA.indexOf(h);
-           const prev      = PLAYER_HOME_DATA[hIdx - 1];
-           const deltaE    = prev ? h.max_energy - prev.max_energy : h.max_energy;
-           const deltaR    = prev ? h.recharge   - prev.recharge   : h.recharge;
+           const newItemCount = STORE_ITEM_DATA.filter(i => i.unlock_home === h.key).length;
            return `
            <div class="card" style="margin-bottom:10px;opacity:${isLocked ? '0.45' : (!canAfford ? '0.6' : '1')}">
              <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
@@ -1516,12 +1629,12 @@ function showPlayerHomeModal() {
              </div>
              <div style="display:flex;gap:8px;margin-bottom:10px">
                <div style="flex:1;text-align:center;padding:6px;background:var(--surface-2);border-radius:6px">
-                 <div style="font-size:15px;font-weight:800;color:var(--positive)">${deltaE > 0 ? '+' : ''}${deltaE} ⚡ max</div>
-                 <div style="font-size:10px;color:var(--text-muted)">Max Energy</div>
+                 <div style="font-size:15px;font-weight:800;color:var(--positive)">${newItemCount > 0 ? `+${newItemCount}` : '—'} items</div>
+                 <div style="font-size:10px;color:var(--text-muted)">New Furniture</div>
                </div>
                <div style="flex:1;text-align:center;padding:6px;background:var(--surface-2);border-radius:6px">
-                 <div style="font-size:15px;font-weight:800;color:var(--primary)">${deltaR > 0 ? '+' : ''}${deltaR}/day</div>
-                 <div style="font-size:10px;color:var(--text-muted)">Daily Recharge</div>
+                 <div style="font-size:15px;font-weight:800;color:var(--text-muted)">${h.cost === 0 ? 'Free' : fmt(h.cost)}</div>
+                 <div style="font-size:10px;color:var(--text-muted)">Purchase Price</div>
                </div>
              </div>
              <button class="btn btn-full ${canAfford ? 'btn-primary' : 'btn-ghost'}"
@@ -1543,23 +1656,2135 @@ async function moveIn(homeKey) {
   renderAll();
   renderPersonal();
   const home = PLAYER_HOME_DATA.find(h => h.key === homeKey);
-  toast(`🏠 Moved into ${home ? home.name : 'new home'}! Energy max & recharge increased.`);
+  toast(`🏠 Moved into ${home ? home.name : 'new home'}! New items now available in your home store.`);
 }
 
 // ── Personal Tab ──────────────────────────────────────────────────────────────
 
 const STORE_ITEM_DATA = [
-  { key: 'coffee_maker',    name: 'Coffee Maker',               icon: '☕',  cost:  499, unlock_level: 1, bonus: '+2 ⚡ max energy',                          desc: 'A decent drip machine. Never run on empty again.' },
-  { key: 'desk_fan',        name: 'Desk Fan',                   icon: '🌀',  cost:  199, unlock_level: 1, bonus: '+1 ⚡ max energy',                          desc: 'Not air conditioning. Close enough.' },
-  { key: 'house_plant',     name: 'House Plant',                icon: '🪴',  cost:   89, unlock_level: 2, bonus: '15% chance to block 1 morale loss/day',     desc: 'Studies show it helps. You\'re not asking questions.' },
-  { key: 'blackout_curtains', name: 'Blackout Curtains',        icon: '🪟',  cost:  149, unlock_level: 2, bonus: '+1 ⚡/day recharge',                        desc: 'Sleep deeper. Wake up less angry.' },
-  { key: 'new_bed',         name: 'New Bed',                    icon: '🛏️', cost: 4999, unlock_level: 3, bonus: '+1 ⚡/day recharge',                        desc: 'Memory foam. You wake up ready to hustle.' },
-  { key: 'mini_fridge',     name: 'Mini Fridge',                icon: '🧊',  cost:  349, unlock_level: 3, bonus: '+2 ⚡ max energy',                          desc: 'Snacks within arm\'s reach. Peak efficiency.' },
-  { key: 'whiteboard',      name: 'Whiteboard',                 icon: '📋',  cost:  249, unlock_level: 4, bonus: '6% off all contractor renovation costs',    desc: 'You mapped out the whole job. Bob charges less.' },
-  { key: 'filing_cabinet',  name: 'Filing Cabinet',             icon: '🗂️', cost:  449, unlock_level: 5, bonus: '15% lower repair event chance',             desc: 'Everything is documented. Problems get caught early.' },
-  { key: 'headphones',      name: 'Noise-Cancelling Headphones',icon: '🎧',  cost:  699, unlock_level: 6, bonus: 'Reduces morale loss events by 1 point',     desc: 'You stop engaging. They interpret it as professionalism.' },
-  { key: 'negotiation_book',name: 'Negotiation Book',           icon: '📖',  cost:  999, unlock_level: 7, bonus: '+4% on all property sale prices',           desc: 'You read it twice. Vendors can tell.' },
+  // room: living | bedroom | kitchen | office | garage | outdoor
+  // unlock_home: null = all homes; otherwise minimum home key required
+  { key: 'house_plant',      name: 'House Plant',                 icon: '🪴', room: 'living',   unlock_home: null,            cost:   89, unlock_level: 2, bonus: '15% chance to block 1 morale loss/day',  desc: 'Studies show it helps.' },
+  { key: 'couch',            name: 'Couch',                       icon: '🛋️',room: 'living',   unlock_home: 'small_apt',     cost:  600, unlock_level: 1, bonus: '+2 ⚡ max energy',                      desc: 'Somewhere to actually sit.' },
+  { key: 'flat_screen_tv',   name: 'Flat Screen TV',              icon: '📺', room: 'living',   unlock_home: 'small_apt',     cost: 1200, unlock_level: 1, bonus: '+2 ⚡ max energy',                      desc: 'Something to unwind to.' },
+  { key: 'home_theater',     name: 'Home Theater',                icon: '🎬', room: 'living',   unlock_home: 'luxury_villa',  cost: 8000, unlock_level: 9, bonus: '+5 ⚡ max energy',                      desc: 'The screen. The surround sound. The popcorn machine.' },
+  { key: 'new_bed',          name: 'New Bed',                     icon: '🛏️',room: 'bedroom',  unlock_home: null,            cost: 4999, unlock_level: 3, bonus: '+1 ⚡/day recharge',                    desc: 'Memory foam. You wake up ready.' },
+  { key: 'blackout_curtains',name: 'Blackout Curtains',           icon: '🪟', room: 'bedroom',  unlock_home: null,            cost:  149, unlock_level: 2, bonus: '+1 ⚡/day recharge',                    desc: 'Sleep deeper. Wake up less angry.' },
+  { key: 'hot_tub',          name: 'Hot Tub',                     icon: '🛁', room: 'bedroom',  unlock_home: 'suburban_home', cost: 8000, unlock_level: 7, bonus: '+3 ⚡/day recharge',                    desc: 'Hydrotherapy. Tax deductible? Maybe.' },
+  { key: 'coffee_maker',     name: 'Coffee Maker',                icon: '☕', room: 'kitchen',  unlock_home: null,            cost:  499, unlock_level: 1, bonus: '+2 ⚡ max energy',                      desc: 'A decent drip machine. Never run on empty again.' },
+  { key: 'mini_fridge',      name: 'Mini Fridge',                 icon: '🧊', room: 'kitchen',  unlock_home: null,            cost:  349, unlock_level: 3, bonus: '+2 ⚡ max energy',                      desc: 'Snacks within arm\'s reach.' },
+  { key: 'espresso_machine', name: 'Espresso Machine',            icon: '☕', room: 'kitchen',  unlock_home: 'condo',         cost:  899, unlock_level: 3, bonus: '+2 ⚡ max energy, +1 recharge',         desc: 'Real caffeine. Finally.' },
+  { key: 'wine_rack',        name: 'Wine Rack',                   icon: '🍷', room: 'kitchen',  unlock_home: 'condo',         cost: 1500, unlock_level: 5, bonus: '+$100/day passive income',               desc: 'The landlord aesthetic.' },
+  { key: 'desk_fan',         name: 'Desk Fan',                    icon: '🌀', room: 'office',   unlock_home: null,            cost:  199, unlock_level: 1, bonus: '+2 ⚡ max energy',                      desc: 'Not air conditioning. Close enough.' },
+  { key: 'whiteboard',       name: 'Whiteboard',                  icon: '📋', room: 'office',   unlock_home: 'small_apt',     cost:  249, unlock_level: 4, bonus: '6% off all contractor renovation costs', desc: 'You mapped out the whole job.' },
+  { key: 'filing_cabinet',   name: 'Filing Cabinet',              icon: '🗂️',room: 'office',   unlock_home: 'small_apt',     cost:  449, unlock_level: 5, bonus: '15% lower repair event chance',          desc: 'Everything is documented.' },
+  { key: 'headphones',       name: 'Noise-Cancelling Headphones', icon: '🎧', room: 'office',   unlock_home: 'small_apt',     cost:  699, unlock_level: 6, bonus: 'Reduces morale events by 1 point',       desc: 'You stop engaging.' },
+  { key: 'negotiation_book', name: 'Negotiation Book',            icon: '📖', room: 'office',   unlock_home: 'small_apt',     cost:  999, unlock_level: 7, bonus: '+4% on property sale prices',            desc: 'You read it twice. Vendors can tell.' },
+  { key: 'gaming_setup',     name: 'Gaming Setup',                icon: '🎮', room: 'office',   unlock_home: 'small_home',    cost: 2500, unlock_level: 5, bonus: '+3 ⚡ max energy',                      desc: 'For decompressing. Professionally.' },
+  { key: 'workbench_tools',  name: 'Workbench & Tools',           icon: '🔧', room: 'garage',   unlock_home: 'small_home',    cost:  800, unlock_level: 5, bonus: '8% off contractor labor costs',          desc: 'You\'ve got the tools. Bob is a little threatened.' },
+  { key: 'home_gym',         name: 'Home Gym',                    icon: '🏋️',room: 'garage',   unlock_home: 'suburban_home', cost: 5000, unlock_level: 7, bonus: '+4 ⚡ max energy',                      desc: 'No more excuses. No gym commute.' },
+  { key: 'bbq_grill',        name: 'BBQ Grill',                   icon: '🍖', room: 'outdoor',  unlock_home: 'small_home',    cost:  600, unlock_level: 5, bonus: 'Good vibes only',                        desc: 'Grilling on your own property hits different.' },
+  { key: 'patio_set',        name: 'Patio Furniture',             icon: '🪑', room: 'outdoor',  unlock_home: 'small_home',    cost: 1200, unlock_level: 5, bonus: 'Cosmetic upgrade',                       desc: 'Morning coffee outside.' },
+  { key: 'swimming_pool',    name: 'Swimming Pool',               icon: '🏊', room: 'outdoor',  unlock_home: 'luxury_villa',  cost:25000, unlock_level: 9, bonus: '+5 ⚡/day recharge',                    desc: 'Proving a point at this stage.' },
+  // ── More living room ──────────────────────────────────────────────────────
+  { key: 'bookshelf',        name: 'Bookshelf',                   icon: '📚', room: 'living',   unlock_home: 'condo',         cost:  350, unlock_level: 1, bonus: '+5% property sale price',                desc: 'Tax strategy, biographies, one novel you never finished.' },
+  { key: 'aquarium',         name: 'Aquarium',                    icon: '🐠', room: 'living',   unlock_home: 'small_apt',     cost:  650, unlock_level: 2, bonus: '20% chance to block 1 morale loss/day',  desc: 'Fish don\'t care about your problems.' },
+  { key: 'fireplace',        name: 'Fireplace',                   icon: '🪵', room: 'living',   unlock_home: 'small_home',    cost: 2000, unlock_level: 5, bonus: '+2 ⚡/day recharge',                    desc: 'Mood. Warmth. Crackling sounds.' },
+  { key: 'pool_table',       name: 'Pool Table',                  icon: '🎱', room: 'living',   unlock_home: 'suburban_home', cost: 3500, unlock_level: 7, bonus: '+4 ⚡ max energy',                      desc: 'You hustle your contractors. They respect it.' },
+  { key: 'grand_piano',      name: 'Grand Piano',                 icon: '🎹', room: 'living',   unlock_home: 'mansion',       cost:12000, unlock_level:11, bonus: '+4 ⚡ max energy',                      desc: 'You don\'t play. Gerald does.' },
+  // ── More bedroom ─────────────────────────────────────────────────────────
+  { key: 'meditation_corner',name: 'Meditation Corner',           icon: '🧘', room: 'bedroom',  unlock_home: 'condo',         cost:  900, unlock_level: 3, bonus: '+2 ⚡/day recharge',                    desc: 'Five minutes of silence. Life-changing.' },
+  { key: 'sauna',            name: 'Sauna',                       icon: '🧖', room: 'bedroom',  unlock_home: 'luxury_villa',  cost: 6000, unlock_level: 9, bonus: '+5 ⚡/day recharge',                    desc: 'You sweat out bad decisions daily.' },
+  // ── More kitchen ─────────────────────────────────────────────────────────
+  { key: 'instant_pot',      name: 'Instant Pot',                 icon: '🥘', room: 'kitchen',  unlock_home: null,            cost:  150, unlock_level: 1, bonus: '+1 ⚡ max energy',                      desc: 'Set it, forget it, eat well.' },
+  { key: 'kitchen_island',   name: 'Kitchen Island',              icon: '🍳', room: 'kitchen',  unlock_home: 'small_home',    cost: 2200, unlock_level: 5, bonus: '+3 ⚡ max energy',                      desc: 'More counter space. More life.' },
+  { key: 'smart_fridge',     name: 'Smart Fridge',                icon: '🗄️',room: 'kitchen',  unlock_home: 'suburban_home', cost: 1800, unlock_level: 7, bonus: 'Cosmetic upgrade',                       desc: 'It texts you when you\'re low on eggs.' },
+  // ── More office ──────────────────────────────────────────────────────────
+  { key: 'ergonomic_chair',  name: 'Ergonomic Chair',             icon: '💺', room: 'office',   unlock_home: 'small_apt',     cost:  600, unlock_level: 4, bonus: '+2 ⚡/day recharge',                    desc: 'Your back stops screaming.' },
+  { key: 'second_monitor',   name: 'Second Monitor',              icon: '🖥️',room: 'office',   unlock_home: 'condo',         cost:  400, unlock_level: 5, bonus: '+2 ⚡ max energy',                      desc: 'Left screen: spreadsheets. Right screen: also spreadsheets.' },
+  { key: 'printer',          name: 'Laser Printer',               icon: '🖨️',room: 'office',   unlock_home: 'condo',         cost:  250, unlock_level: 3, bonus: '5% off all property purchase prices',   desc: 'Print the listing yourself. Save on fees.' },
+  // ── More garage ──────────────────────────────────────────────────────────
+  { key: 'motorcycle',       name: 'Motorcycle',                  icon: '🏍️',room: 'garage',   unlock_home: 'suburban_home', cost: 8000, unlock_level: 7, bonus: '+3 ⚡/day recharge',                    desc: 'Wind in your face on the way to collect rent.' },
+  { key: 'sports_car',       name: 'Sports Car',                  icon: '🚗', room: 'garage',   unlock_home: 'suburban_home', cost:45000, unlock_level: 9, bonus: '+$200/day passive income',               desc: 'Landlord tax write-off, obviously.' },
+  // ── More outdoor ─────────────────────────────────────────────────────────
+  { key: 'garden',           name: 'Garden',                      icon: '🌻', room: 'outdoor',  unlock_home: 'small_home',    cost:  500, unlock_level: 3, bonus: '20% chance to block 1 morale loss/day',  desc: 'Something living that actually needs you.' },
+  { key: 'fire_pit',         name: 'Fire Pit',                    icon: '🔥', room: 'outdoor',  unlock_home: 'small_home',    cost:  700, unlock_level: 5, bonus: '+2 ⚡/day recharge',                    desc: 'Evening decompression. You\'ve earned it.' },
+  { key: 'basketball_hoop',  name: 'Basketball Hoop',             icon: '🏀', room: 'outdoor',  unlock_home: 'small_home',    cost:  400, unlock_level: 4, bonus: 'Cosmetic upgrade',                       desc: 'Shoot your frustration into a net.' },
+  // ── High-tier items ───────────────────────────────────────────────────────
+  { key: 'smart_home_system',name: 'Smart Home System',           icon: '🏠', room: 'living',   unlock_home: 'luxury_villa',  cost:12000, unlock_level: 9, bonus: '+5 ⚡ max energy',                      desc: 'Whole-home automation that optimizes your routines.' },
+  { key: 'home_bar',         name: 'Home Bar',                    icon: '🍸', room: 'living',   unlock_home: 'mansion',       cost: 8000, unlock_level:12, bonus: '+4 ⚡ max energy',                      desc: 'Top-shelf everything. No excuses needed.' },
+  { key: 'art_gallery',      name: 'Art Gallery',                 icon: '🖼️',room: 'living',   unlock_home: 'mansion',       cost:15000, unlock_level:12, bonus: '+4 ⚡ max energy',                      desc: 'Three rooms of originals. One is a forgery.' },
+  { key: 'professional_gym', name: 'Professional Gym',            icon: '💪', room: 'garage',   unlock_home: 'mansion',       cost:20000, unlock_level:12, bonus: '+4 ⚡ max energy',                      desc: 'Olympic weights. No waiting for machines.' },
+  { key: 'spa_suite',        name: 'Spa Suite',                   icon: '💆', room: 'bedroom',  unlock_home: 'mansion',       cost:25000, unlock_level:13, bonus: '+6 ⚡/day recharge',                    desc: 'Hot stone massages at 6am on a Tuesday.' },
+  { key: 'luxury_sleep_system',name: 'Luxury Sleep System',       icon: '🛌', room: 'bedroom',  unlock_home: 'mansion',       cost:10000, unlock_level:12, bonus: '+4 ⚡/day recharge',                    desc: 'Temperature-regulated, zero-gravity mattress.' },
+  { key: 'indoor_pool',      name: 'Indoor Pool',                 icon: '🌊', room: 'outdoor',  unlock_home: 'mansion',       cost:40000, unlock_level:13, bonus: '+6 ⚡/day recharge',                    desc: 'Climate-controlled. Gerald maintains it.' },
+  { key: 'grand_fireplace',  name: 'Grand Fireplace',             icon: '🕯️',room: 'living',   unlock_home: 'mansion',       cost: 5000, unlock_level:12, bonus: '+3 ⚡/day recharge',                    desc: 'Floor-to-ceiling stone. You read by firelight.' },
+  { key: 'music_studio',     name: 'Music Studio',                icon: '🎸', room: 'office',   unlock_home: 'mansion',       cost:18000, unlock_level:13, bonus: '+3 ⚡/day recharge',                    desc: 'Soundproofed. Pro-grade gear. You play once a month.' },
 ];
+
+// ── Home tier order (for unlock_home checks) ──────────────────────────────
+const HOME_TIER_ORDER = ['grandmas_basement','small_apt','condo','small_home','suburban_home','luxury_villa','mansion'];
+
+function homeTierUnlocked(unlock_home) {
+  if (!unlock_home) return true;
+  const cur = HOME_TIER_ORDER.indexOf(state.player_home || 'grandmas_basement');
+  return cur >= HOME_TIER_ORDER.indexOf(unlock_home);
+}
+
+// ── Sprite pixel-art data (top-down view, 16x16) ──────────────────────────
+const _SC = {
+  '.':null,'a':'#3B1A08','b':'#7A4020','c':'#9B5A28','d':'#C49A6C','e':'#EDE0C4',
+  'f':'#4A7DC4','F':'#2E5A98','h':'#8AAED4','k':'#4CAF50','K':'#2E7D32','l':'#A8D5A2',
+  'n':'#C44B4B','N':'#8B1A1A','i':'#FF6B35','I':'#CC3300','j':'#FFB347',
+  'q':'#4ECDC4','Q':'#2AA898','r':'#8BE8E0','R':'#1A8078',
+  '0':'#111','1':'#222','2':'#333','3':'#444','4':'#555','5':'#666','6':'#777','7':'#888','8':'#999','9':'#AAA',
+  'p':'#9B59B6','P':'#6C3483','x':'#B8860B','X':'#F5D76E','y':'#E8D4B0','Y':'#F5ECD0',
+  'o':'#888','O':'#444','g':'#333','G':'#555','m':'#CCC','w':'#EEE','v':'#2C3E8C','V':'#4A5FAE',
+  's':'#8B5A2B','S':'#5C3317','t':'#FF3300','T':'#FF6600','u':'#B0D4F5','U':'#6BA3D4',
+  'z':'#D4A4B4','Z':'#8B4A6B',
+};
+const SPRITE_DATA = {
+  // 32x32 true top-down sprites
+  new_bed:{d:[
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    'bddddddddddddddddddddddddddddeb.',
+    'bddddddddddddddddddddddddddddeb.',
+    'bdddddd.....dddddddd.....ddddeb.',
+    'bdddddd.....dddddddd.....ddddeb.',
+    'bdddddd.....dddddddd.....ddddeb.',
+    'bdddddd.....dddddddd.....ddddeb.',
+    'bdddddd.....dddddddd.....ddddeb.',
+    'bfffffffffffffffffffffffffffffeb',
+    'bfFfffffffffffffffffffffffffFeb.',
+    'bfffffffffffffffffffffffffffffeb',
+    'bfffffffffffffffffffffffffffffeb',
+    'bfFfffffffffffffffffffffffffFeb.',
+    'bfffffffffffffffffffffffffffffeb',
+    'bfffffffffffffffffffffffffffffeb',
+    'bfFfffffffffffffffffffffffffFeb.',
+    'bfffffffffffffffffffffffffffffeb',
+    'bfffffffffffffffffffffffffffffeb',
+    'bfFfffffffffffffffffffffffffFeb.',
+    'bfffffffffffffffffffffffffffffeb',
+    'bfffffffffffffffffffffffffffffeb',
+    'bfFfffffffffffffffffffffffffFeb.',
+    'bfffffffffffffffffffffffffffffeb',
+    'bfffffffffffffffffffffffffffffeb',
+    'bfffffffffffffffffffffffffffffeb',
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    '................................',
+    '................................',
+  ]},
+  blackout_curtains:{d:[
+    '44444444444444444444444444444444',
+    '41111111111111144111111111111111',
+    '41wwwwwwwwwwww1441wwwwwwwwwwww14',
+    '41wwwwwwwwwwww1441wwwwwwwwwwww14',
+    '41wwwwwwwwwwww1441wwwwwwwwwwww14',
+    '41wwwwwwwwwwww1441wwwwwwwwwwww14',
+    '41wwwwwwwwwwww1441wwwwwwwwwwww14',
+    '41wwwwwwwwwwww1441wwwwwwwwwwww14',
+    '41wwwwwwwwwwww1441wwwwwwwwwwww14',
+    '41wwwwwwwwwwww1441wwwwwwwwwwww14',
+    '41wwwwwwwwwwww1441wwwwwwwwwwww14',
+    '41wwwwwwwwwwww1441wwwwwwwwwwww14',
+    '41wwwwwwwwwwww1441wwwwwwwwwwww14',
+    '41wwwwwwwwwwww1441wwwwwwwwwwww14',
+    '41wwwwwwwwwwww1441wwwwwwwwwwww14',
+    '41111111111111144111111111111111',
+    '44444444444444444444444444444444',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  coffee_maker:{d:[
+    '................................',
+    '................................',
+    '....11111111111111..............',
+    '....1aaaaaaaaaaaa1..............',
+    '....1abbbbbbbbbba1..............',
+    '....1abbbbbbbbbba1..............',
+    '....1abbbbbbbbbba1..............',
+    '....1abbbbbbbbbba1..............',
+    '....1abbbbbbbbbba1..............',
+    '....1abbbbbbbbbba1..............',
+    '....1axxxxxxxxxxa1..............',
+    '....1aaaaaaaaaaaaa1.............',
+    '....1aaQQQQQQaaa1...............',
+    '....1aaQQQQQQaaa1...............',
+    '....1aaQQQQQQaaa1...............',
+    '....1aaQQQQQQaaa1...............',
+    '....1aaQQQQQQaaa1...............',
+    '....1aaaaaaaaaaaa1..............',
+    '....11111111111111..............',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  instant_pot:{d:[
+    '................................',
+    '................................',
+    '........888888888888............',
+    '......8mmmmmmmmmmmm8............',
+    '.....8mmmmmmmmmmmmmm8...........',
+    '....8mmmmmmmmmmmmmmmm8..........',
+    '....8mmm9999999999mmm8..........',
+    '....8mmm9wwwwwwww9mmm8..........',
+    '....8mmm9wwwwwwww9mmm8..........',
+    '....8mmm9wwwwwwww9mmm8..........',
+    '....8mmm9wwwwwwww9mmm8..........',
+    '....8mmm9wwwwwwww9mmm8..........',
+    '....8mmm9999999999mmm8..........',
+    '....8mmmmmmmmmmmmmmmm8..........',
+    '.....8mmmmmmmmmmmmmm8...........',
+    '......8mmmmmmmmmmmm8............',
+    '........888888888888............',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  desk_fan:{d:[
+    '................................',
+    '................................',
+    '.........888888888..............',
+    '.......88mmmmmmmmmmm88..........',
+    '......8mmmmmmmmmmmmmmmm8........',
+    '.....8mmmmm9999mmmmmmm8.........',
+    '.....8mmmm99mm99mmmmm8..........',
+    '.....8mmmm9mm9mmmmm9m8..........',
+    '.....8mmmm9mm9mmmmm9m8..........',
+    '.....8mmmmm99mm99mmmmm8.........',
+    '.....8mmmmm9999mmmmmmm8.........',
+    '......8mmmmmmmmmmmmmmmm8........',
+    '.......88mmmmmmmmmmm88..........',
+    '.........888888888..............',
+    '...........888mmm888............',
+    '............8mmmmm8.............',
+    '............8mmmmm8.............',
+    '............8888888.............',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  mini_fridge:{d:[
+    'mmmmmmmmmmmmmmmm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    '8888888888888888................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mmmmmmmmmmmmmmmm................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  house_plant:{d:[
+    '................................',
+    '................................',
+    '...........KKK..................',
+    '.........KKlllKK................',
+    '......KKlllkllllKK..............',
+    '.....KllllkKKkllllK.............',
+    '....KlllkKKKKKkllllK............',
+    '....KllkK.....KkllllK...........',
+    '....KlllkK...KkllllK............',
+    '....KlllllKKKlllllK.............',
+    '.....KllllllllllKK..............',
+    '......KKllllllKK................',
+    '.........KKKkKK.................',
+    '..........KKK...................',
+    '..........ccc...................',
+    '..........ccc...................',
+    '..........ccc...................',
+    '..........ccc...................',
+    '.........bbbbb..................',
+    '.........bbbbb..................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  couch:{d:[
+    'vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv',
+    'vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv',
+    'vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv',
+    'vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv',
+    'vVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVv',
+    'vVVfffffffffffVVVVfffffffffffVVV',
+    'vVVfffffffffffVVVVfffffffffffVVV',
+    'vVVfffffffffffVVVVfffffffffffVVV',
+    'vVVfffffffffffVVVVfffffffffffVVV',
+    'vVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVv',
+    'vVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVv',
+    'vVVVfffffffffffffffffffffffVVVVV',
+    'vVVVfffffffffffffffffffffffVVVVV',
+    'vVVVfffffffffffffffffffffffVVVVV',
+    'vVVVfffffffffffffffffffffffVVVVV',
+    'vVVVfffffffffffffffffffffffVVVVV',
+    'vVVVfffffffffffffffffffffffVVVVV',
+    'vVVVfffffffffffffffffffffffVVVVV',
+    'vVVVfffffffffffffffffffffffVVVVV',
+    'vVVVfffffffffffffffffffffffVVVVV',
+    'vVVVfffffffffffffffffffffffVVVVV',
+    'vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv',
+    'vv..........................vvvv',
+    'vv..........................vvvv',
+    'vv..........................vvvv',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  flat_screen_tv:{d:[
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    'b111111111111111111111111111111b',
+    'b100000000000000000000000000001b',
+    'b100000000000000000000000000001b',
+    'b100000000000000000000000000001b',
+    'b100000000000000000000000000001b',
+    'b100000000000000000000000000001b',
+    'b100000000000000000000000000001b',
+    'b100000000000000000000000000001b',
+    'b100000000000000000000000000001b',
+    'b100000000000000000000000000001b',
+    'b100000000000000000000000000001b',
+    'b100000000000000000000000000001b',
+    'b100000000000000000000000000001b',
+    'b100000000000000000000000000001b',
+    'b111111111111111111111111111111b',
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  bookshelf:{d:[
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
+    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
+    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
+    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
+    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
+    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
+    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
+    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
+    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
+    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
+    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
+    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
+    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
+    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
+    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
+    'annnkkkkvvvvxxxxnnnkkkkvvvvxxxx.',
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  aquarium:{d:[
+    '88888888888888888888888888888888',
+    '8qqqqqqqqqqqqqqqqqqqqqqqqqqqqqq8',
+    '8qqqqqqqqqqqqqqqqqqqqqqqqqqqqqq8',
+    '8qqiqqqqqqqqqqqqqqqqqqqqqqqqqq8.',
+    '8qqqqqqqqqqqqkqqqqqqqqqqqqqqqq8.',
+    '8qqqqqqqqqiqqqqqqqqqqqqqqqqqqq8.',
+    '8qqqkqqqqqqqqqqqqqqqqqqqqqqqq8..',
+    '8qqqqqqqqqqqqqqqqqqqqqqqqqqqqqq8',
+    '8Qqqqqqiqqqqqqqqqqqqqqqqqqqqq8..',
+    '8qqqqqqqqqqqqqqkqqqqqqqqqqqqqq8.',
+    '8qqqkqqqqqqqqqqqqqqqqqqqqqqqq8..',
+    '8qqqqqqqqqqiqqqqqqqqqqqqqqqqqq8.',
+    '8qqqqqqqqqqqqqqQqqqqqqqqqqqqqqq8',
+    '8qiqqqqqqqqqqqqqkqqqqqqqqqqqq8..',
+    '8qqqqqqqqqqqqqqqqqqqqqqqqqqqqqq8',
+    '88888888888888888888888888888888',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  ergonomic_chair:{d:[
+    '................................',
+    '................................',
+    '........11111111111.............',
+    '.......133333333333331..........',
+    '......133555555555331...........',
+    '......133555555555331...........',
+    '......133555555555331...........',
+    '......133555555555331...........',
+    '......133555555555331...........',
+    '......133555555555331...........',
+    '......133555555555331...........',
+    '......133555555555331...........',
+    '......111111111111111...........',
+    '.......1111111111111............',
+    '..............888...............',
+    '..............888...............',
+    '..............888...............',
+    '..........888888888.............',
+    '.........88.......88............',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  whiteboard:{d:[
+    '33333333333333333333333333333333',
+    '3wwwwwwwwwwwwwwwwwwwwwwwwwwwwww3',
+    '3wwwwwwwwwwwwwwwwwwwwwwwwwwwwww3',
+    '3wnnnnnnnwwwwwwwwwwwwwwwwwwww3..',
+    '3wnnnnnnnwwwwwwwwwwwwwwwwwwww3..',
+    '3wwwwwwwwwwwwwwwwwwwwwwwwwwwwww3',
+    '3wwwwwwwwwwkkkkkwwwwwwwwwwwww3..',
+    '3wwwwwwwwwwkkkkkwwwwwwwwwwwww3..',
+    '3wwwwwwwwwwwwwwwwwwwwwwwwwwwwww3',
+    '3wwwwwwwwwwwwwwwwwwwwwwwwwwwwww3',
+    '3wwwwwwwwwwwwwwwwwwwwwwwwwwwwww3',
+    '3wwwwwwwwwwwwwwwwwwwwwwwwwwwwww3',
+    '3wwwwwwwwwwwwwwwwwwwwwwwwwwwwww3',
+    '3wwwwwwwwwwwwwwwwwwwwwwwwwwwwww3',
+    '33333333333333333333333333333333',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  filing_cabinet:{d:[
+    'mmmmmmmmmmmm....................',
+    'm8888888888m....................',
+    'm8wwwwwwww8m....................',
+    'm8wwwwwwww8m....................',
+    'm8wwwwwwww8m....................',
+    'm8888888888m....................',
+    'mmmmmmmmmmmm....................',
+    'm8888888888m....................',
+    'm8wwwwwwww8m....................',
+    'm8wwwwwwww8m....................',
+    'm8wwwwwwww8m....................',
+    'm8888888888m....................',
+    'mmmmmmmmmmmm....................',
+    'm8888888888m....................',
+    'm8wwwwwwww8m....................',
+    'm8wwwwwwww8m....................',
+    'm8wwwwwwww8m....................',
+    'm8888888888m....................',
+    'mmmmmmmmmmmm....................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  headphones:{d:[
+    '................................',
+    '................................',
+    '................................',
+    '........11111111111.............',
+    '......1mmmmmmmmmmm1.............',
+    '.....1m.............1...........',
+    '....1m...............1..........',
+    '....1m...............1..........',
+    '....1m...............1..........',
+    '....1m...............1..........',
+    '....1m...............1..........',
+    '....111111111111111111..........',
+    '....133333333333333331..........',
+    '....133333333333333331..........',
+    '....133333333333333331..........',
+    '....133333333333333331..........',
+    '....111111111111111111..........',
+    '....1m...............1..........',
+    '....1m...............1..........',
+    '....111111111111111111..........',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  negotiation_book:{d:[
+    '................................',
+    '................................',
+    '..NNNNNNNNNNNNNNNNNNNNNNNNNNNN..',
+    '..NaaaaaaaaaaaaaaaaaaaaaaaaaN...',
+    '..NaeeeeeeeeeeeeeeeeeeeeeeeeaN..',
+    '..NaeeeeeeeeeeeeeeeeeeeeeeeeaN..',
+    '..NaeeeeeeeeeeeeeeeeeeeeeeeeaN..',
+    '..NaeeeeeeeeeeeeeeeeeeeeeeeeaN..',
+    '..NaeeeeeeeeeeeeeeeeeeeeeeeeaN..',
+    '..NaeeeeeeeeeeeeeeeeeeeeeeeeaN..',
+    '..NaeeeeeeeeeeeeeeeeeeeeeeeeaN..',
+    '..NaeeeeeeeeeeeeeeeeeeeeeeeeaN..',
+    '..NaeeeeeeeeeeeeeeeeeeeeeeeeaN..',
+    '..NaeeeeeeeeeeeeeeeeeeeeeeeeaN..',
+    '..NaeeeeeeeeeeeeeeeeeeeeeeeeaN..',
+    '..NaeeeeeeeeeeeeeeeeeeeeeeeeaN..',
+    '..NaeeeeeeeeeeeeeeeeeeeeeeeeaN..',
+    '..NaeeeeeeeeeeeeeeeeeeeeeeeeaN..',
+    '..NaaaaaaaaaaaaaaaaaaaaaaaaaaN..',
+    '..NNNNNNNNNNNNNNNNNNNNNNNNNNNN..',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  espresso_machine:{d:[
+    '................................',
+    '................................',
+    '....1111111111111111............',
+    '....1aaaaaaaaaaaaaa1............',
+    '....1ammmmmmmmmmaa1.............',
+    '....1ammmmmmmmmmaa1.............',
+    '....1ammmmmmmmmmaa1.............',
+    '....1ammmmmmmmmmaa1.............',
+    '....1ammmmmmmmmmaa1.............',
+    '....1axxxxxxxxxxaa1.............',
+    '....1axxxxxxxxxxaa1.............',
+    '....1aaaaaaaaaaaaa1.............',
+    '....1a333333333aaa1.............',
+    '....1a333333333aaa1.............',
+    '....1a333333333aaa1.............',
+    '....1a333333333aaa1.............',
+    '....1aaaaaaaaaaaaa1.............',
+    '....1111111111111111............',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  second_monitor:{d:[
+    '................................',
+    '................................',
+    '11111111111111111111111111111111',
+    '1vvvvvvvvvvvvvvvvvvvvvvvvvvvvvv1',
+    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
+    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
+    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
+    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
+    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
+    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
+    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
+    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
+    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
+    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
+    '1vvvvvvvvvvvvvvvvvvvvvvvvvvvvvv1',
+    '11111111111111111111111111111111',
+    '..............8888..............',
+    '.............8mmmm8.............',
+    '.............8mmmm8.............',
+    '...........888888888888.........',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  printer:{d:[
+    'mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm',
+    'm888888888888888888888888888888m',
+    'm8wwwwwwwwwwwwwwwwwwwwwwwwwwww8m',
+    'm8wwwwwwwwwwwwwwwwwwwwwwwwwwww8m',
+    'm8wwwwwwwwwwwwwwwwwwwwwwwwwwww8m',
+    'm8wwwwwwwwwwwwwwwwwwwwwwwwwwww8m',
+    'm888888888888888888888888888888m',
+    'm8wwwwwwwwwwwwwwwwwwwwwwwwwwww8m',
+    'm8wwwwwwwwwwwwwwwwwwwwwwwwwwww8m',
+    'm8wwwwwww333333333333wwwwwww8m..',
+    'm8wwwwwww333333333333wwwwwww8m..',
+    'm8wwwwwww333333333333wwwwwww8m..',
+    'm8wwwwwwwwwwwwwwwwwwwwwwwwwwww8m',
+    'mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  meditation_corner:{d:[
+    '................................',
+    '................................',
+    '................................',
+    '..........kKKKKKKKKkk...........',
+    '.........KKlllllllllKK..........',
+    '........KKlllllllllllKK.........',
+    '.......KKlllllllllllllKK........',
+    '......KKlllllllllllllllKK.......',
+    '......Kllllll.ppp.llllllK.......',
+    '......Kllllll.pPp.llllllK.......',
+    '......Kllllll.ppp.llllllK.......',
+    '......KllllllllllllllllllK......',
+    '.......KKlllllllllllllKK........',
+    '........KKlllllllllllKK.........',
+    '.........KKlllllllllKK..........',
+    '..........KKKKkKKKKKK...........',
+    '..............ccc...............',
+    '..............ccc...............',
+    '..............ccc...............',
+    '.............bbbbb..............',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  wine_rack:{d:[
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    'bNNNbNNNbNNNbNNNbNNNbNNNbNNNbNNN',
+    'bNNNbNNNbNNNbNNNbNNNbNNNbNNNbNNN',
+    'bNNNbNNNbNNNbNNNbNNNbNNNbNNNbNNN',
+    'bNNNbNNNbNNNbNNNbNNNbNNNbNNNbNNN',
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    'bNNNbNNNbNNNbNNNbNNNbNNNbNNNbNNN',
+    'bNNNbNNNbNNNbNNNbNNNbNNNbNNNbNNN',
+    'bNNNbNNNbNNNbNNNbNNNbNNNbNNNbNNN',
+    'bNNNbNNNbNNNbNNNbNNNbNNNbNNNbNNN',
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    'bNNNbNNNbNNNbNNNbNNNbNNNbNNNbNNN',
+    'bNNNbNNNbNNNbNNNbNNNbNNNbNNNbNNN',
+    'bNNNbNNNbNNNbNNNbNNNbNNNbNNNbNNN',
+    'bNNNbNNNbNNNbNNNbNNNbNNNbNNNbNNN',
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  gaming_setup:{d:[
+    '11111111111111111111111111111111',
+    '1vvvvvvvvvvvvvvvvvvvvvvvvvvvvvv1',
+    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
+    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
+    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
+    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
+    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
+    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
+    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
+    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
+    '1vVVVVVVVVVVVVVVVVVVVVVVVVVVVVv1',
+    '1vvvvvvvvvvvvvvvvvvvvvvvvvvvvvv1',
+    '11111111111111111111111111111111',
+    '...............88888............',
+    '..............8mmmmm8...........',
+    '..............8mmmmm8...........',
+    '..............8mmmmm8...........',
+    '..............8mmmmm8...........',
+    '..............8mmmmm8...........',
+    '........111111111111111.........',
+    '........133333333333331.........',
+    '........133333333333331.........',
+    '........133333333333331.........',
+    '........111111111111111.........',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  fireplace:{d:[
+    'nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn',
+    'nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn',
+    'nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn',
+    'nn1111111111111111111111111111nn',
+    'nn1000000000000000000000000001nn',
+    'nn10iiiiiiiiiiiiiiiiiiiiiiii01nn',
+    'nn10ijjjjjjjjjjjjjjjjjjjjjji01nn',
+    'nn10ijjjjjjjjjjjjjjjjjjjjjji01nn',
+    'nn10ijjijijijijijijijijijji01nn.',
+    'nn10ijjijijijijijijijijijji01nn.',
+    'nn10ijjijijijijijijijijijji01nn.',
+    'nn10iiiiiiiiiiiiiiiiiiiiiiii01nn',
+    'nn1000000000000000000000000001nn',
+    'nn1111111111111111111111111111nn',
+    'nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn',
+    'cccccccccccccccccccccccccccccccc',
+    'cccccccccccccccccccccccccccccccc',
+    'cccccccccccccccccccccccccccccccc',
+    'cccccccccccccccccccccccccccccccc',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  kitchen_island:{d:[
+    'cccccccccccccccccccccccccccccccc',
+    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
+    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
+    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
+    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
+    'ceeeeeeeee0..0eeeeeeeeeeeeeeeec.',
+    'ceeeeeeeee0..0eeeeeeeeeeeeeeeec.',
+    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
+    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
+    'ceeeeeeeeeeeeeeeeebbbbbeeeeeeec.',
+    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
+    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
+    'ceeeeeeeee0..0eeeeeeeeeeeeeeeec.',
+    'ceeeeeeeee0..0eeeeeeeeeeeeeeeec.',
+    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
+    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
+    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
+    'cccccccccccccccccccccccccccccccc',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  pool_table:{d:[
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    'bccccccccccccccccccccccccccccccb',
+    'bckkkkkkkkkkkkkkkkkkkkkkkkkkkkcb',
+    'bckKwKKKKKKKKKKKKKKKKKKKKKwKkcb.',
+    'bckKKKKKKKKKKKKKKKKKKKKKKKKKKkcb',
+    'bckKKKKKKKKKKKKKKKKKKKKKKKKKKkcb',
+    'bckKKKKKKwKKKwKKKKKKKKKKkcb.....',
+    'bckKKKKKKKKKKKKKKKKKKKKKKKKKKkcb',
+    'bckKKKKKKKKKKKKKKKKKKKKKKKKKKkcb',
+    'bckKKKwwKKKKKKKKKKKKKKwwKKKkcb..',
+    'bckKKKKKKKKKKKKKKKKKKKKKKKKKKkcb',
+    'bckKKKKKKKKKKKKKKKKKKKKKKKKKKkcb',
+    'bckKKKKKKwKKKwKKKKKKKKKKkcb.....',
+    'bckKKKKKKKKKKKKKKKKKKKKKKKKKKkcb',
+    'bckKKKKKKKKKKKKKKKKKKKKKKKKKKkcb',
+    'bckKwKKKKKKKKKKKKKKKKKKKKKwKkcb.',
+    'bckKKKKKKKKKKKKKKKKKKKKKKKKKKkcb',
+    'bckkkkkkkkkkkkkkkkkkkkkkkkkkkkcb',
+    'bccccccccccccccccccccccccccccccb',
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  bbq_grill:{d:[
+    '................................',
+    '................................',
+    '........333333333333............',
+    '......33444444444433............',
+    '.....34444444444444443..........',
+    '.....344555555555555543.........',
+    '.....344555555555555543.........',
+    '.....344555555555555543.........',
+    '.....344555555555555543.........',
+    '.....344555555555555543.........',
+    '.....34444444444444443..........',
+    '......33444444444433............',
+    '........333333333333............',
+    '...........888...888............',
+    '...........888...888............',
+    '...........888...888............',
+    '...........888...888............',
+    '...........888...888............',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  fire_pit:{d:[
+    '................................',
+    '................................',
+    '................................',
+    '......8888888888888888..........',
+    '.....8866666666666688...........',
+    '....8866666666666688............',
+    '....88665555555555668...........',
+    '....886655....iiiiii....5668....',
+    '....88665...ijjjjjji...668......',
+    '....88665...ijjjjjji...668......',
+    '....88665...ijjjjjji...668......',
+    '....886655....iiiiii....5668....',
+    '....88665555555555668...........',
+    '.....886655555555556688.........',
+    '.....8866666666666688...........',
+    '......8888888888888888..........',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  garden:{d:[
+    'babababababababababababababababa',
+    'akakakakakakakakakakakakakakakak',
+    'aKaKaKaKaKaKaKaKaKaKaKaKaKaKaKa.',
+    'alalalalalalalalalalalalalalalal',
+    'babababababababababababababababa',
+    'akakakakakakakakakakakakakakakak',
+    'aKaKaKaKaKaKaKaKaKaKaKaKaKaKaKa.',
+    'alalalalalalalalalalalalalalalal',
+    'babababababababababababababababa',
+    'akakakakakakakakakakakakakakakak',
+    'aKaKaKaKaKaKaKaKaKaKaKaKaKaKaKa.',
+    'alalalalalalalalalalalalalalalal',
+    'babababababababababababababababa',
+    'akakakakakakakakakakakakakakakak',
+    'aKaKaKaKaKaKaKaKaKaKaKaKaKaKaKa.',
+    'alalalalalalalalalalalalalalalal',
+    'babababababababababababababababa',
+    'akakakakakakakakakakakakakakakak',
+    'aKaKaKaKaKaKaKaKaKaKaKaKaKaKaKa.',
+    'alalalalalalalalalalalalalalalal',
+    'babababababababababababababababa',
+    'akakakakakakakakakakakakakakakak',
+    'aKaKaKaKaKaKaKaKaKaKaKaKaKaKaKa.',
+    'alalalalalalalalalalalalalalalal',
+    'babababababababababababababababa',
+    'akakakakakakakakakakakakakakakak',
+    'aKaKaKaKaKaKaKaKaKaKaKaKaKaKaKa.',
+    'alalalalalalalalalalalalalalalal',
+    'babababababababababababababababa',
+    'akakakakakakakakakakakakakakakak',
+    'aKaKaKaKaKaKaKaKaKaKaKaKaKaKaKa.',
+    'alalalalalalalalalalalalalalalal',
+  ]},
+  patio_set:{d:[
+    '................................',
+    '................................',
+    '..........cccccccccccc..........',
+    '.........ceeeeeeeeeeeec.........',
+    '.........ceeeeeeeeeeeec.........',
+    '.........ceeeeeeeeeeeec.........',
+    '..........cccccccccccc..........',
+    '................................',
+    '..ssss..............ssss........',
+    '..seees............seees........',
+    '..seees............seees........',
+    '..seees............seees........',
+    '..ssss..............ssss........',
+    '................................',
+    '................................',
+    '..ssss..............ssss........',
+    '..seees............seees........',
+    '..seees............seees........',
+    '..seees............seees........',
+    '..ssss..............ssss........',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  basketball_hoop:{d:[
+    '................................',
+    '...nnnnnnnnnnnnnnnnnnnnnnnnnn...',
+    '...nnnnnnnnnnnnnnnnnnnnnnnnnn...',
+    '...nnnnnnnnnnnnnnnnnnnnnnnnnn...',
+    '...nnnnnnnnnnnnnnnnnnnnnnnnnn...',
+    '...nnnnnnnnnnnnnnnnnnnnnnnnnn...',
+    '...nnnnnnnnnnnnnnnnnnnnnnnnnn...',
+    '..8.........................8...',
+    '..8.........................8...',
+    '..8..........www............8...',
+    '..8.........wwwww...........8...',
+    '..8.........wwwww...........8...',
+    '..8..........www............8...',
+    '..8.........................8...',
+    '..8888888888888888888888888888..',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  workbench_tools:{d:[
+    'cccccccccccccccccccccccccccccccc',
+    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
+    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
+    'ceee444444444444eeeee8888888eec.',
+    'ceee4.........4eeeee8.....8ec...',
+    'ceee4.........4eeeee8.....8ec...',
+    'ceee444444444444eeeee8888888eec.',
+    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
+    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
+    'ceeexxxxxxxxxxxxeeeeexxxxxxxeec.',
+    'ceeexxxxxxxxxxxxeeeeexxxxxxxeec.',
+    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
+    'ceee444444444444eeeee8888888eec.',
+    'ceee4.........4eeeee8.....8ec...',
+    'ceee4.........4eeeee8.....8ec...',
+    'ceee444444444444eeeee8888888eec.',
+    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
+    'ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeec',
+    'cccccccccccccccccccccccccccccccc',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  hot_tub:{d:[
+    '................................',
+    '................................',
+    '....mmmmmmmmmmmmmmmmmmmmmm......',
+    '...mmqqqqqqqqqqqqqqqqqqmm.......',
+    '..mmqqqqqqqqqqqqqqqqqqqqqqmm....',
+    '..mqqqQQQQQQQQQQQQQQQQQQQQqqqm..',
+    '..mqqqQQQQQQQQQQQQQQQQQQQQqqqm..',
+    '..mqqqQQQQQQQQQQQQQQQQQQQQqqqm..',
+    '..mqqqQQQQQQQQQQQQQQQQQQQQqqqm..',
+    '..mqqqQQQQQQQQQQQQQQQQQQQQqqqm..',
+    '..mqqqQQQQQQQQQQQQQQQQQQQQqqqm..',
+    '..mqqqQQQQQQQQQQQQQQQQQQQQqqqm..',
+    '..mqqqQQQQQQQQQQQQQQQQQQQQqqqm..',
+    '..mqqqQQQQQQQQQQQQQQQQQQQQqqqm..',
+    '..mqqqQQQQQQQQQQQQQQQQQQQQqqqm..',
+    '..mqqqQQQQQQQQQQQQQQQQQQQQqqqm..',
+    '..mqqqQQQQQQQQQQQQQQQQQQQQqqqm..',
+    '..mqqqQQQQQQQQQQQQQQQQQQQQqqqm..',
+    '..mmqqqqqqqqqqqqqqqqqqqqqqmm....',
+    '....mmmmmmmmmmmmmmmmmmmmmm......',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  home_gym:{d:[
+    '................................',
+    '................................',
+    'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+    'x333333333333333333333333333333x',
+    'x333333333333333333333333333333x',
+    'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+    '................................',
+    '11111111111111111111111111111111',
+    '13333333333333333333333333333331',
+    '13333333333333333333333333333331',
+    '13333333333333333333333333333331',
+    '13333333333333333333333333333331',
+    '11111111111111111111111111111111',
+    '................................',
+    '....1111111...........1111111...',
+    '....1333331...........1333331...',
+    '....1333331...........1333331...',
+    '....1111111...........1111111...',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  swimming_pool:{d:[
+    'mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm',
+    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
+    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
+    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
+    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
+    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
+    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
+    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
+    'mrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrm',
+    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
+    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
+    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
+    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
+    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
+    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
+    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
+    'mrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrm',
+    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
+    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
+    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
+    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
+    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
+    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
+    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
+    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
+    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
+    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
+    'mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  sauna:{d:[
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    'bbeeeeeeeeeeeeeeeeeeeeeeeeeeeebb',
+    'bb1111111111111111111111111111bb',
+    'bb1cccccccccccccccccccccccccc1bb',
+    'bb1cccccccccccccccccccccccccc1bb',
+    'bb1cccccccccccccccccccccccccc1bb',
+    'bb1cccccccccccccccccccccccccc1bb',
+    'bb1cccccccccccccccccccccccccc1bb',
+    'bb1cccccccccccccccccccccccccc1bb',
+    'bb1cccccccccccccccccccccccccc1bb',
+    'bb1cccccccccccccccccccccccccc1bb',
+    'bb1cccccccccccccccccccccccccc1bb',
+    'bb1cccccccccccccccccccccccccc1bb',
+    'bb1111111111111111111111111111bb',
+    'bbeeeeeeeeeeeeeeeeeeeeeeeeeeeebb',
+    'bbeeeeeeeeeeeeeeeeeeeeeeeeeeeebb',
+    'bb1111111111111111111111111111bb',
+    'bb1cccccccccccccccccccccccccc1bb',
+    'bb1cccccccccccccccccccccccccc1bb',
+    'bb1cccccccccccccccccccccccccc1bb',
+    'bb1cccccccccccccccccccccccccc1bb',
+    'bb1cccccccccccccccccccccccccc1bb',
+    'bb1cccccccccccccccccccccccccc1bb',
+    'bb1111111111111111111111111111bb',
+    'bbeeeeeeeeeeeeeeeeeeeeeeeeeeeebb',
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  motorcycle:{d:[
+    '................................',
+    '................................',
+    '....1111...........1111.........',
+    '...133331.........133331........',
+    '...133331.........133331........',
+    '...133331.........133331........',
+    '....1111...........1111.........',
+    '....444444444444444444444444....',
+    '....455555555555555555555554....',
+    '....45555nnnnnnnnnnnn55554......',
+    '....45555nnnnnnnnnnnn55554......',
+    '....45555nnnnnnnnnnnn55554......',
+    '....455555555555555555555554....',
+    '....444444444444444444444444....',
+    '....1111...........1111.........',
+    '...1mmmm1.........1mmmm1........',
+    '...1mmmm1.........1mmmm1........',
+    '...1mmmm1.........1mmmm1........',
+    '....1111...........1111.........',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  sports_car:{d:[
+    '................................',
+    '................................',
+    '.......1111111111111111.........',
+    '......1nnnnnnnnnnnnnnnnnn1......',
+    '.....1nnnn5555555555nnnnn1......',
+    '.....1nn55555555555555nn1.......',
+    '.....1nn55555555555555nn1.......',
+    '.....1nn55555555555555nn1.......',
+    '.....1nnnnnnnnnnnnnnnnnn1.......',
+    '.....1nnnnnnnnnnnnnnnnnn1.......',
+    '.....1nn55555555555555nn1.......',
+    '.....1nn55555555555555nn1.......',
+    '.....1nnnn5555555555nnnnn1......',
+    '......1nnnnnnnnnnnnnnnnnn1......',
+    '.......1111111111111111.........',
+    '................................',
+    '..11........................11..',
+    '..1N1......................1N1..',
+    '..1N1......................1N1..',
+    '..11........................11..',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  home_theater:{d:[
+    '11111111111111111111111111111111',
+    '10000000000000000000000000000001',
+    '10000000000000000000000000000001',
+    '11111111111111111111111111111111',
+    '................................',
+    'vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv',
+    'vVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVv',
+    'vVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVv',
+    'vVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVv',
+    'vVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVv',
+    'vVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVv',
+    'vVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVv',
+    'vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv',
+    '................................',
+    'nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn',
+    'nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn',
+    'nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn',
+    'nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  smart_home_system:{d:[
+    '................................',
+    '................................',
+    '....ffffffffffffffffffffffff....',
+    '....fVVVVVVVVVVVVVVVVVVVVVVf....',
+    '....fVVVVVVVVVVVVVVVVVVVVVVf....',
+    '....fVVVVVVVVVVVVVVVVVVVVVVf....',
+    '....fVVVVVVVVVVVVVVVVVVVVVVf....',
+    '....fVVVVVVVVVVVVVVVVVVVVVVf....',
+    '....fVVVVVVVVVVVVVVVVVVVVVVf....',
+    '....fVVVVVVVVVVVVVVVVVVVVVVf....',
+    '....fVVVVVVVVVVVVVVVVVVVVVVf....',
+    '....fVVVVVVVVVVVVVVVVVVVVVVf....',
+    '....fVVVVVVVVVVVVVVVVVVVVVVf....',
+    '....fVVVVVVVVVVVVVVVVVVVVVVf....',
+    '....ffffffffffffffffffffffff....',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  grand_piano:{d:[
+    '................................',
+    '................................',
+    '1mmmmmmmmmmmmmm1................',
+    '1mmmmmmmmmmmmmmm1...............',
+    '1mmmmmmmmmmmmmmmm1..............',
+    '1mmmmmmmmmmmmmmmmm1.............',
+    '1mmmmmmmmmmmmmmmmmm1............',
+    '1mmmmmmmmmmmmmmmmmmm1...........',
+    '1mmmmmmmmmmmmmmmmmmmm1..........',
+    '1mmmmmmmmmmmmmmmmmmmm1..........',
+    '1mmmmmmmmmmmmmmmmmmmm1..........',
+    '1mmmmmmmmmmmmmmmmmmm1...........',
+    '1mmmmmmmmmmmmmmmmmm1............',
+    '1mmmmmmmmmmmmmmmmm1.............',
+    '1mmmmmmmmmmmmmmmm1..............',
+    '1mmmmmmmmmmmmmm1................',
+    '111111111111111111111111........',
+    '1w1w1w1w1w1w1w1w1w1w1w1.........',
+    '................................',
+    '........111.....111.............',
+    '........1m1.....1m1.............',
+    '........111.....111.............',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  home_bar:{d:[
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxbb.',
+    'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxbb.',
+    'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxbb.',
+    'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxbb.',
+    'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxbb.',
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    'beeeeeeeeeeeeeeeeeeeeeeeeeeeeeeb',
+    'beeeeeeeeeeeeeeeeeeeeeeeeeeeeeeb',
+    'beeeeeeeeeeeeeeeeeeeeeeeeeeeeeeb',
+    'beeeeeeeeeeeeeeeeeeeeeeeeeeeeeeb',
+    'beeeeeeeeeeeeeeeeeeeeeeeeeeeeeeb',
+    'beeeeeeeeeeeeeeeeeeeeeeeeeeeeeeb',
+    'beeeeeeeeeeeeeeeeeeeeeeeeeeeeeeb',
+    'beeeeeeeeeeeeeeeeeeeeeeeeeeeeeeb',
+    'beeeeeeeeeeeeeeeeeeeeeeeeeeeeeeb',
+    'beeeeeeeeeeeeeeeeeeeeeeeeeeeeeeb',
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  art_gallery:{d:[
+    'gggggggggggggggggggggggggggggggg',
+    'g..............................g',
+    'g.nnnn.....kkkk....g...vvvv.....',
+    'g.nnnn.....kkkk....g...vvvv.....',
+    'g.nnnn.....kkkk....g...vvvv.....',
+    'g..............................g',
+    'g..............................g',
+    'g.nnnn.....kkkk....g...vvvv.....',
+    'g.nnnn.....kkkk....g...vvvv.....',
+    'g.nnnn.....kkkk....g...vvvv.....',
+    'g..............................g',
+    'g..............................g',
+    'g.nnnn.....kkkk....g...vvvv.....',
+    'g.nnnn.....kkkk....g...vvvv.....',
+    'g.nnnn.....kkkk....g...vvvv.....',
+    'g..............................g',
+    'gggggggggggggggggggggggggggggggg',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  professional_gym:{d:[
+    '11111111111111111111111111111111',
+    '1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx1',
+    '1x3333333333333333333333333333x1',
+    '1x3333333333333333333333333333x1',
+    '1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx1',
+    '11111111111111111111111111111111',
+    '................................',
+    'ffffffffffffffffffffffffffffffff',
+    'ffffffffffffffffffffffffffffffff',
+    'ffffffffffffffffffffffffffffffff',
+    'ffffffffffffffffffffffffffffffff',
+    '................................',
+    '11111111111111111111111111111111',
+    '1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx1',
+    '1x3333333333333333333333333333x1',
+    '1x3333333333333333333333333333x1',
+    '1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx1',
+    '11111111111111111111111111111111',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  spa_suite:{d:[
+    '................................',
+    '................................',
+    '....mmmmmmmmmmmmmmmmmmmmmm......',
+    '...mmqqqqqqqqqqqqqqqqqqmm.......',
+    '..mmqqqqqqqqqqqqqqqqqqqqqqmm....',
+    '..mqqqQQQQQQQQQQQQQQQQQQQQqqqm..',
+    '..mqqqQQQQQQQQQQQQQQQQQQQQqqqm..',
+    '..mqqQQQQQ.ppp.QQQQQqqm.........',
+    '..mqqQQQQ.pPp.QQQQqm............',
+    '..mqqQQQQ.pPp.QQQQqm............',
+    '..mqqQQQQ.pPp.QQQQqm............',
+    '..mqqQQQQQ.ppp.QQQQQqqm.........',
+    '..mqqqQQQQQQQQQQQQQQQQQQQQqqqm..',
+    '..mqqqQQQQQQQQQQQQQQQQQQQQqqqm..',
+    '..mmqqqqqqqqqqqqqqqqqqqqqqmm....',
+    '....mmmmmmmmmmmmmmmmmmmmmm......',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  luxury_sleep_system:{d:[
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    'beeeeeeeeeeeeeeeeeeeeeeeeeeeeeeb',
+    'beeeeeeeeeeeeeeeeeeeeeeeeeeeeeeb',
+    'beeeeee.....eeeeeeee.....eeeeeb.',
+    'beeeeee.....eeeeeeee.....eeeeeb.',
+    'beeeeee.....eeeeeeee.....eeeeeb.',
+    'beeeeee.....eeeeeeee.....eeeeeb.',
+    'beeeeee.....eeeeeeee.....eeeeeb.',
+    'bffffffffffffffffffffffffffffffb',
+    'bfFffffffffffffffffffffffffFfb..',
+    'bffffffffffffffffffffffffffffffb',
+    'bffffffffffffffffffffffffffffffb',
+    'bfFffffffffffffffffffffffffFfb..',
+    'bffffffffffffffffffffffffffffffb',
+    'bffffffffffffffffffffffffffffffb',
+    'bfFffffffffffffffffffffffffFfb..',
+    'bffffffffffffffffffffffffffffffb',
+    'bffffffffffffffffffffffffffffffb',
+    'bfFffffffffffffffffffffffffFfb..',
+    'bffffffffffffffffffffffffffffffb',
+    'bffffffffffffffffffffffffffffffb',
+    'bfFffffffffffffffffffffffffFfb..',
+    'bffffffffffffffffffffffffffffffb',
+    'bffffffffffffffffffffffffffffffb',
+    'bffffffffffffffffffffffffffffffb',
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    '................................',
+    '................................',
+  ]},
+  indoor_pool:{d:[
+    'mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm',
+    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
+    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
+    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
+    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
+    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
+    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
+    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
+    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
+    'mrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrm',
+    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
+    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
+    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
+    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
+    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
+    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
+    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
+    'mrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrm',
+    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
+    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
+    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
+    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
+    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
+    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
+    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
+    'mqQqQQQQQQQQQQQQQQQQQQQQQQqQqm..',
+    'mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm',
+    'mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  grand_fireplace:{d:[
+    'nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn',
+    'nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn',
+    'nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn',
+    'nn1111111111111111111111111111nn',
+    'nn1000000000000000000000000001nn',
+    'nn10iiiiiiiiiiiiiiiiiiiiiiii01nn',
+    'nn10ijjjjjjjjjjjjjjjjjjjji01nn..',
+    'nn10ijjjjjjjjjjjjjjjjjjjji01nn..',
+    'nn10ijijijijijijijijijiji01nn...',
+    'nn10ijijijijijijijijijiji01nn...',
+    'nn10ijijijijijijijijijiji01nn...',
+    'nn10iiiiiiiiiiiiiiiiiiiiiiii01nn',
+    'nn1000000000000000000000000001nn',
+    'nn1111111111111111111111111111nn',
+    'nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn',
+    'cccccccccccccccccccccccccccccccc',
+    'cccccccccccccccccccccccccccccccc',
+    'cccccccccccccccccccccccccccccccc',
+    'cccccccccccccccccccccccccccccccc',
+    'cccccccccccccccccccccccccccccccc',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  music_studio:{d:[
+    '11111111111111111111111111111111',
+    '1ffffffffffffffffffffffffffffff1',
+    '1ffffffffffffffffffffffffffffff1',
+    '1ffffffffffffffffffffffffffffff1',
+    '11111111111111111111111111111111',
+    '................................',
+    'nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn',
+    'nxnnnnnnnnnnnnnnnnnnnnnnnnnnnxn.',
+    'nxnnnnnnnnnnnnnnnnnnnnnnnnnnnxn.',
+    'nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn',
+    '................................',
+    '11111111111111111111111111111111',
+    '1ffffffffffffffffffffffffffffff1',
+    '1ffffffffffffffffffffffffffffff1',
+    '11111111111111111111111111111111',
+    '................................',
+    '33333333333333333333333333333333',
+    '3111111111111111111111111111133.',
+    '3111111111111111111111111111133.',
+    '33333333333333333333333333333333',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+  smart_fridge:{d:[
+    'mmmmmmmmmmmmmmmm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    '8888888888888888................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwffffffwwwwm................',
+    'mwwwwffffffwwwwm................',
+    'mwwwwffffffwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mwwwwwwwwwwwwwwm................',
+    'mmmmmmmmmmmmmmmm................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+  ]},
+};
+
+// ── Floor plan room layouts ───────────────────────────────────────────────
+const FLOOR_PLAN_DATA = {
+  grandmas_basement: {
+    rooms: [{ key:'all', label:'THE BASEMENT', x:8, y:8, w:384, h:244, fill:'#141428' }],
+    fallback: { living:'all', bedroom:'all', kitchen:'all', office:'all', garage:'all', outdoor:'all' }
+  },
+  small_apt: {
+    rooms: [
+      { key:'living',  label:'LIVING ROOM', x:8,   y:8, w:200, h:244, fill:'#0d1a2e' },
+      { key:'kitchen', label:'KITCHEN',     x:216, y:8, w:176, h:120, fill:'#1e1206' },
+      { key:'bedroom', label:'BEDROOM',     x:216, y:136, w:176, h:116, fill:'#14102e' },
+    ],
+    fallback: { office:'bedroom', garage:'living', outdoor:'kitchen' }
+  },
+  condo: {
+    rooms: [
+      { key:'living',  label:'LIVING ROOM', x:8,   y:8,   w:192, h:120, fill:'#0d1a2e' },
+      { key:'kitchen', label:'KITCHEN',     x:208, y:8,   w:184, h:120, fill:'#1e1206' },
+      { key:'bedroom', label:'BEDROOM',     x:8,   y:136, w:192, h:116, fill:'#14102e' },
+      { key:'office',  label:'HOME OFFICE', x:208, y:136, w:184, h:116, fill:'#0e1a0e' },
+    ],
+    fallback: { garage:'bedroom', outdoor:'kitchen' }
+  },
+  small_home: {
+    rooms: [
+      { key:'living',  label:'LIVING ROOM', x:8,   y:8,   w:176, h:152, fill:'#0d1a2e' },
+      { key:'kitchen', label:'KITCHEN',     x:192, y:8,   w:200, h:96,  fill:'#1e1206' },
+      { key:'bedroom', label:'BEDROOM',     x:192, y:112, w:200, h:132, fill:'#14102e' },
+      { key:'office',  label:'HOME OFFICE', x:8,   y:168, w:176, h:84,  fill:'#0e1a0e' },
+      { key:'outdoor', label:'BACKYARD',    x:192, y:192, w:200, h:52,  fill:'#0a1e0a' },
+    ],
+    fallback: { garage:'outdoor' }
+  },
+  suburban_home: {
+    rooms: [
+      { key:'living',  label:'LIVING ROOM', x:8,   y:8,   w:148, h:144, fill:'#0d1a2e' },
+      { key:'kitchen', label:'KITCHEN',     x:164, y:8,   w:120, h:96,  fill:'#1e1206' },
+      { key:'bedroom', label:'BEDROOM',     x:292, y:8,   w:100, h:144, fill:'#14102e' },
+      { key:'office',  label:'HOME OFFICE', x:164, y:112, w:120, h:132, fill:'#0e1a0e' },
+      { key:'garage',  label:'GARAGE',      x:8,   y:160, w:148, h:84,  fill:'#1e1a0a' },
+      { key:'outdoor', label:'BACKYARD',    x:292, y:160, w:100, h:84,  fill:'#0a1e0a' },
+    ],
+    fallback: {}
+  },
+  luxury_villa: {
+    rooms: [
+      { key:'living',  label:'GRAND LIVING',   x:8,   y:50,  w:132, h:110, fill:'#0d1a2e' },
+      { key:'kitchen', label:"CHEF'S KITCHEN",  x:148, y:50,  w:104, h:110, fill:'#1e1206' },
+      { key:'bedroom', label:'MASTER SUITE',   x:260, y:50,  w:132, h:110, fill:'#14102e' },
+      { key:'office',  label:'HOME OFFICE',    x:8,   y:168, w:132, h:84,  fill:'#0e1a0e' },
+      { key:'outdoor', label:'POOL & SPA',     x:148, y:168, w:104, h:84,  fill:'#062030' },
+      { key:'garage',  label:'GARAGE',         x:260, y:168, w:132, h:84,  fill:'#1e1a0a' },
+      { key:'_top',    label:'PRIVATE DRIVE',  x:8,   y:4,   w:384, h:38,  fill:'#1a1a28' },
+    ],
+    fallback: {}
+  },
+  mansion: {
+    rooms: [
+      { key:'_foyer',  label:'GRAND FOYER',  x:8,   y:4,   w:384, h:38,  fill:'#1a1228' },
+      { key:'living',  label:'GRAND SALON',  x:8,   y:50,  w:120, h:92,  fill:'#0d1a2e' },
+      { key:'kitchen', label:'GOURMET KITCH',x:136, y:50,  w:120, h:92,  fill:'#1e1206' },
+      { key:'bedroom', label:'MASTER WING',  x:264, y:50,  w:128, h:92,  fill:'#14102e' },
+      { key:'office',  label:'MUSIC & STUDY',x:8,   y:150, w:120, h:94,  fill:'#0e1a0e' },
+      { key:'outdoor', label:'GROUNDS',      x:136, y:150, w:120, h:94,  fill:'#0a1e0a' },
+      { key:'garage',  label:'WELLNESS & GYM',x:264,y:150, w:128, h:94,  fill:'#1a0e1a' },
+    ],
+    fallback: { _foyer:'living' }
+  },
+};
+
+function buildFloorPlanHtml() {
+  return `<canvas id="fp_canvas" width="400" height="260" style="width:100%;max-width:400px;display:block;border-radius:6px;image-rendering:pixelated;image-rendering:crisp-edges"></canvas>`;
+}
+
+function _drawFloorPlan() {
+  const homeKey    = state.player_home || 'grandmas_basement';
+  const ownedItems = state.owned_items || {};
+  const canvas     = document.getElementById('fp_canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = 400, H = 260;
+
+  ctx.fillStyle = '#060610';
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#0a0a1a';
+  ctx.fillRect(4, 4, 392, 252);
+  ctx.strokeStyle = '#4a5a6a';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(4, 4, 392, 252);
+
+  const fp = FLOOR_PLAN_DATA[homeKey];
+  if (!fp) return;
+
+  fp.rooms.forEach(room => {
+    ctx.fillStyle = room.fill;
+    ctx.fillRect(room.x, room.y, room.w, room.h);
+    ctx.strokeStyle = '#2a3a4a';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(room.x, room.y, room.w, room.h);
+    ctx.fillStyle = '#4a6a7a';
+    ctx.font = '6px "DotGothic16", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(room.label, room.x + room.w / 2, room.y + 5);
+  });
+
+  const homeIdx = HOME_TIER_ORDER.indexOf(homeKey);
+  const items = STORE_ITEM_DATA.filter(i => {
+    const reqIdx = i.unlock_home ? HOME_TIER_ORDER.indexOf(i.unlock_home) : 0;
+    return homeIdx >= reqIdx;
+  });
+
+  const fallback = fp.fallback || {};
+  const roomMap  = {};
+  fp.rooms.forEach(r => { roomMap[r.key] = r; });
+
+  const roomItems = {};
+  fp.rooms.forEach(r => { roomItems[r.key] = []; });
+
+  items.forEach(item => {
+    let rk = item.room;
+    if (!roomMap[rk]) rk = fallback[item.room] || fp.rooms[fp.rooms.length > 1 ? 1 : 0].key;
+    if (roomItems[rk]) roomItems[rk].push(item);
+  });
+
+  const SC = 1;
+  const SW = 32 * SC;
+  const cellW = SW + 6;  // 38px per cell
+  const cellH = SW + 10; // 42px per cell
+
+  // Items that hug the TOP wall of a room
+  const TOP_WALL_ITEMS = new Set(['flat_screen_tv','home_theater','bookshelf','whiteboard','aquarium','wine_rack','art_gallery','grand_fireplace','fireplace','smart_home_system','new_bed','luxury_sleep_system','couch','sauna']);
+  // Items that go in the BOTTOM part of a room (currently none — all wall items hug the top)
+  const BOTTOM_WALL_ITEMS = new Set([]);
+  // Items that go in the CENTER of a room (large floor pieces)
+  const CENTER_ITEMS = new Set(['pool_table','kitchen_island','hot_tub','swimming_pool','indoor_pool','grand_piano','home_bar','professional_gym']);
+
+  fp.rooms.forEach(room => {
+    if (room.key === '_foyer' || room.key === '_top') return;
+    const rItems = roomItems[room.key] || [];
+    if (!rItems.length) return;
+
+    // Separate items into placement buckets
+    const topWall = rItems.filter(i => TOP_WALL_ITEMS.has(i.key));
+    const bottomWall = rItems.filter(i => BOTTOM_WALL_ITEMS.has(i.key));
+    const center = rItems.filter(i => CENTER_ITEMS.has(i.key));
+    const filler = rItems.filter(i => !TOP_WALL_ITEMS.has(i.key) && !BOTTOM_WALL_ITEMS.has(i.key) && !CENTER_ITEMS.has(i.key));
+
+    const padX = 4;
+    const roomRight = room.x + room.w;
+    const roomBottom = room.y + room.h;
+    const usableW = room.w - padX * 2;
+    const cols = Math.max(1, Math.floor(usableW / cellW));
+
+    function drawItem(item, cx, cy) {
+      if (cx - SW/2 < room.x || cx + SW/2 > roomRight) return;
+      if (cy - SW/2 < room.y || cy + SW/2 + 8 > roomBottom - 2) return;
+      const owned = !!ownedItems[item.key];
+      _drawSprite(ctx, item.key, item.icon, cx, cy, SC, owned);
+      ctx.font = '5px "DotGothic16", monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillStyle = owned ? '#FFD700' : 'rgba(255,255,255,0.3)';
+      const lbl = item.name.length > 9 ? item.name.slice(0, 8) + '…' : item.name;
+      ctx.fillText(lbl, cx, cy + SW / 2 + 1);
+    }
+
+    // TOP WALL STRIP: just below room label, left-to-right
+    let topWallOverflow = [];
+    {
+      const topY = room.y + 14 + SW / 2;
+      const maxCols = Math.max(1, Math.floor(usableW / cellW));
+      topWall.forEach((item, idx) => {
+        if (idx >= maxCols) { topWallOverflow.push(item); return; }
+        const cx = room.x + padX + idx * cellW + SW / 2;
+        drawItem(item, cx, topY);
+      });
+    }
+
+    // BOTTOM WALL STRIP: near bottom of room
+    let bottomWallOverflow = [];
+    {
+      const maxCols = Math.max(1, Math.floor(usableW / cellW));
+      const rows = Math.ceil(bottomWall.length / maxCols);
+      bottomWall.forEach((item, idx) => {
+        if (idx >= maxCols * 2) { bottomWallOverflow.push(item); return; }
+        const col = idx % maxCols;
+        const row = Math.floor(idx / maxCols);
+        const cx = room.x + padX + col * cellW + SW / 2;
+        const cy = roomBottom - 10 - SW / 2 - (rows - 1 - row) * cellH;
+        drawItem(item, cx, cy);
+      });
+    }
+
+    // CENTER ITEMS: middle of room
+    {
+      const midY = room.y + room.h / 2;
+      const maxCols = Math.max(1, Math.floor(usableW / cellW));
+      center.forEach((item, idx) => {
+        const col = idx % maxCols;
+        const row = Math.floor(idx / maxCols);
+        const cx = room.x + padX + col * cellW + SW / 2;
+        const cy = midY - SW / 2 + row * cellH;
+        drawItem(item, cx, cy);
+      });
+    }
+
+    // FILLER GRID: remaining items in a compact grid
+    {
+      const allFiller = [...filler, ...topWallOverflow, ...bottomWallOverflow];
+      const topY = room.y + 14 + cellH; // below top wall zone
+      allFiller.forEach((item, idx) => {
+        const col = idx % cols;
+        const row = Math.floor(idx / cols);
+        const cx = room.x + padX + col * cellW + SW / 2;
+        const cy = topY + row * cellH + SW / 2;
+        drawItem(item, cx, cy);
+      });
+    }
+  });
+}
+
+function _drawSprite(ctx, key, icon, cx, cy, sc, owned) {
+  const sp = SPRITE_DATA[key];
+  const sx = Math.round(cx - 16 * sc);
+  const sy = Math.round(cy - 16 * sc);
+  ctx.save();
+  if (!owned) ctx.globalAlpha = 0.18;
+
+  if (sp) {
+    const p = sp.p || {};
+    const d = sp.d;
+    d.forEach((row, py) => {
+      for (let px = 0; px < 32; px++) {
+        const ch = row[px];
+        if (!ch || ch === '.') continue;
+        const col = p[ch] || _SC[ch];
+        if (!col) continue;
+        ctx.fillStyle = col;
+        ctx.fillRect(sx + px * sc, sy + py * sc, sc, sc);
+      }
+    });
+  } else {
+    ctx.fillStyle = owned ? 'rgba(255,210,60,0.15)' : 'rgba(255,255,255,0.04)';
+    ctx.fillRect(sx, sy, 32 * sc, 32 * sc);
+    ctx.font = `${10 * sc}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.globalAlpha = owned ? (ctx.globalAlpha > 0.5 ? ctx.globalAlpha : 1) : 0.18;
+    ctx.fillStyle = '#fff';
+    ctx.fillText(icon, cx, cy);
+  }
+
+  ctx.restore();
+  if (owned) {
+    ctx.strokeStyle = 'rgba(255,210,60,0.55)';
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(sx - 1, sy - 1, 32 * sc + 2, 32 * sc + 2);
+  }
+}
+
+const _ROOM_LABELS = { living:'Living Room', bedroom:'Bedroom', kitchen:'Kitchen', office:'Home Office', garage:'Garage', outdoor:'Outdoor' };
+const _ROOM_ORDER  = ['living','bedroom','kitchen','office','garage','outdoor'];
+
+function buildMyHomeContent() {
+  const homeKey     = state.player_home || 'grandmas_basement';
+  const homeIdx     = HOME_TIER_ORDER.indexOf(homeKey);
+  const ownedItems  = state.owned_items || {};
+  const squatterBlocked = starterSquatterActive();
+
+  // Floor plan canvas hidden for now — code intact, re-enable by restoring the svgHtml line in the return
+  // const svgHtml = buildFloorPlanHtml();
+
+  const byRoom = {};
+  for (const item of STORE_ITEM_DATA) {
+    const reqIdx = item.unlock_home ? HOME_TIER_ORDER.indexOf(item.unlock_home) : 0;
+    if (homeIdx < reqIdx) continue;
+    if (!byRoom[item.room]) byRoom[item.room] = [];
+    byRoom[item.room].push(item);
+  }
+
+  const storeHtml = _ROOM_ORDER.filter(r => byRoom[r]).map(roomKey => {
+    const rows = byRoom[roomKey].filter(item => !ownedItems[item.key]).map(item => {
+      const owned       = false; // owned items are hidden from store — they appear on the home card
+      const levelLocked = (state.level || 0) < (item.unlock_level || 0);
+      const canAfford   = !owned && !levelLocked && !squatterBlocked && state.cash >= item.cost;
+
+      let badge = '';
+      if (owned)        badge = `<span style="background:var(--positive);color:#fff;border-radius:3px;font-size:10px;padding:1px 6px;font-weight:700">✓</span>`;
+      else if (levelLocked) badge = `<span style="background:#555;color:#fff;border-radius:3px;font-size:10px;padding:1px 6px;font-weight:700">LVL ${item.unlock_level}</span>`;
+
+      let btn = '';
+      if (owned)             btn = `<button class="btn btn-ghost btn-sm" disabled style="font-size:11px;opacity:0.4">Owned</button>`;
+      else if (levelLocked)  btn = `<button class="btn btn-ghost btn-sm" disabled style="font-size:11px">Lvl ${item.unlock_level}</button>`;
+      else if (squatterBlocked) btn = `<button class="btn btn-ghost btn-sm" disabled style="font-size:11px">🚨 Later</button>`;
+      else if (canAfford)    btn = `<button class="btn btn-primary btn-sm" onclick="buyStoreItem('${item.key}')" style="font-size:11px">Buy ${fmt(item.cost)}</button>`;
+      else                   btn = `<button class="btn btn-ghost btn-sm" disabled style="font-size:11px">Need ${fmt(item.cost)}</button>`;
+
+      return `
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--border);${levelLocked?'opacity:0.55':''}">
+          <div style="font-size:20px;line-height:1;flex-shrink:0;image-rendering:pixelated">${item.icon}</div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
+              <span style="font-size:12px;font-weight:800;font-family:'DotGothic16',monospace">${item.name}</span>${badge}
+            </div>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:1px">${levelLocked ? `Unlocks at Level ${item.unlock_level}` : item.desc}</div>
+            ${!levelLocked ? `<div style="font-size:10px;font-weight:700;color:var(--primary);margin-top:1px">${item.bonus}</div>` : ''}
+          </div>
+          <div style="flex-shrink:0">${btn}</div>
+        </div>`;
+    }).join('');
+
+    if (!rows) return ''; // room fully furnished — skip the section header
+    return `
+      <div style="padding:6px 14px 3px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.10em;color:var(--text-muted);font-family:'DotGothic16',monospace;background:var(--surface-2)">
+        ${_ROOM_LABELS[roomKey]}
+      </div>
+      ${rows}`;
+  }).join('');
+
+  const allFurnished = !storeHtml.trim();
+  return allFurnished
+    ? `<div style="padding:24px 16px;text-align:center;color:var(--text-muted);font-size:13px">${pxIcon('🏆',28)}<div style="margin-top:8px;font-weight:700">Fully Furnished</div><div style="font-size:11px;margin-top:4px">Your home is complete. Gerald is impressed.</div></div>`
+    : storeHtml; // floor plan canvas re-enable: `<div style="padding:10px 14px 6px">${svgHtml}</div>${storeHtml}`
+}
+
+function buildOwnedItemsRow(ownedItems) {
+  const items = STORE_ITEM_DATA.filter(i => ownedItems[i.key]);
+  if (!items.length) return `
+    <div style="margin-top:12px;padding:10px 12px;background:var(--surface-2);border-radius:8px;text-align:center;font-size:11px;color:var(--text-muted)">
+      Nothing yet — open Furnishings below to get started.
+    </div>`;
+  return `
+    <div style="margin-top:12px">
+      <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:7px">What's In Your Place</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        ${items.map(item => `
+          <button onclick="showOwnedItemDetail('${item.key}')"
+            style="width:42px;height:42px;border-radius:10px;background:var(--surface-2);border:1.5px solid var(--border);font-size:21px;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;transition:transform 0.1s"
+            onpointerdown="this.style.transform='scale(0.92)'" onpointerup="this.style.transform=''" onpointerleave="this.style.transform=''">
+            ${item.icon}
+          </button>`).join('')}
+      </div>
+    </div>`;
+}
+
+function showOwnedItemDetail(key) {
+  const item = STORE_ITEM_DATA.find(i => i.key === key);
+  if (!item) return;
+  openModal(`
+    <div class="modal-handle"></div>
+    <div style="text-align:center;padding:24px 20px 8px">
+      <div style="font-size:52px;margin-bottom:10px;line-height:1">${item.icon}</div>
+      <div style="font-size:18px;font-weight:900;margin-bottom:8px">${item.name}</div>
+      <div style="font-size:13px;color:var(--text-muted);line-height:1.6;margin-bottom:${item.bonus ? '10px' : '0'}">${item.desc}</div>
+      ${item.bonus ? `<div style="display:inline-block;padding:5px 14px;background:var(--surface-2);border-radius:8px;font-size:12px;font-weight:700;color:var(--primary)">${item.bonus}</div>` : ''}
+    </div>
+    <div style="padding:16px">
+      <button class="btn btn-ghost btn-full" onclick="closeModal()">Close</button>
+    </div>`);
+}
+
+function buildMyHomeMeta() {
+  const homeKey = state.player_home || 'grandmas_basement';
+  const homeIdx = HOME_TIER_ORDER.indexOf(homeKey);
+  const owned   = STORE_ITEM_DATA.filter(i => !!(state.owned_items || {})[i.key]).length;
+  const avail   = STORE_ITEM_DATA.filter(i => {
+    const ri = i.unlock_home ? HOME_TIER_ORDER.indexOf(i.unlock_home) : 0;
+    return homeIdx >= ri;
+  }).length;
+  return `${owned}/${avail} furnished`;
+}
 
 const DIY_CLASS_DATA = [
   { key: 'flooring_class', name: 'Flooring Installation Class', icon: '🪵', energy: 10, unlock_level: 2, unlocks: ['flooring'],             desc: 'Learn to lay hardwood and tile yourself.' },
@@ -1586,7 +3811,19 @@ function diyUnlocked(upgradeKey) {
   return classKey ? !!((state.diy_classes || {})[classKey]) : true;
 }
 
-let _personalOpen = { homes: false, classes: false, store: false, newbuilds: false };
+let _personalOpen    = { my_home: false, homes: false, classes: false, store: false, newbuilds: false, assistants: false };
+let _personalMainTab = 'home';
+
+function switchPersonalTab(tab) {
+  _personalMainTab = tab;
+  ['home', 'career'].forEach(t => {
+    const el  = document.getElementById('personal-' + t);
+    const btn = document.querySelector(`.fin-tab[data-personal="${t}"]`);
+    if (el)  el.style.display = t === tab ? '' : 'none';
+    if (btn) btn.classList.toggle('active', t === tab);
+  });
+  renderPersonal();
+}
 
 function renderPersonal() {
   const el = document.getElementById('page-personal');
@@ -1609,10 +3846,6 @@ function renderPersonal() {
     const isUnlocked = unlockedKeys.includes(h.key);
     const canAfford  = !isCurrent && !isPast && isUnlocked && state.cash >= h.cost;
     const lockLevel  = h.unlock_level || 0;
-    const prev       = PLAYER_HOME_DATA[idx - 1];
-    const deltaE     = prev ? h.max_energy - prev.max_energy : 0;
-    const deltaR     = prev ? h.recharge   - prev.recharge   : 0;
-
     const opacity = isCurrent ? '1' : isPast ? '0.4' : !isUnlocked ? '0.4' : !canAfford ? '0.65' : '1';
 
     let badge = '';
@@ -1630,9 +3863,10 @@ function renderPersonal() {
       }
     }
 
+    const newItems = STORE_ITEM_DATA.filter(i => i.unlock_home === h.key).length;
     const statLine = idx === 0
-      ? `⚡${h.max_energy} max · +${h.recharge}/day recharge`
-      : `${deltaE >= 0 ? '+' : ''}${deltaE}⚡ max · ${deltaR >= 0 ? '+' : ''}${deltaR}/day recharge`;
+      ? `Unlocks ${STORE_ITEM_DATA.filter(i => !i.unlock_home).length} starter items`
+      : newItems > 0 ? `Unlocks ${newItems} new item${newItems !== 1 ? 's' : ''}` : 'Larger home';
 
     return `
     <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);opacity:${opacity}">
@@ -1694,45 +3928,6 @@ function renderPersonal() {
         <div style="font-size:10px;color:var(--text-muted);margin-top:2px;font-weight:700">
           ${!levelOk ? `Unlocks at Level ${cls.unlock_level}` : `Unlocks: ${unlockLabel}`}
         </div>
-      </div>
-      <div style="flex-shrink:0">${actionBtn}</div>
-    </div>`;
-  }).join('');
-
-  // ── Store rows ─────────────────────────────────────────────────
-  const squatterBlocked = starterSquatterActive();
-  const storeRows = STORE_ITEM_DATA.map(item => {
-    const owned        = !!ownedItems[item.key];
-    const levelLocked  = !owned && (state.level || 0) < (item.unlock_level || 0);
-    const isLocked     = !owned && !levelLocked && squatterBlocked;
-    const canAfford    = !owned && !levelLocked && !isLocked && state.cash >= item.cost;
-
-    let badge = '';
-    if (owned)            badge = `<span style="background:var(--positive);color:#fff;border-radius:5px;font-size:10px;padding:2px 7px;font-weight:700">✓ Owned</span>`;
-    else if (levelLocked) badge = `<span style="background:#555;color:#fff;border-radius:5px;font-size:10px;padding:2px 7px;font-weight:700">${pxIcon('🔒',12)} LVL ${item.unlock_level}</span>`;
-
-    let actionBtn = '';
-    if (owned) {
-      actionBtn = `<button class="btn btn-ghost btn-sm" disabled style="font-size:11px;opacity:0.5">Owned</button>`;
-    } else if (levelLocked) {
-      actionBtn = `<button class="btn btn-ghost btn-sm" disabled style="font-size:11px">Lvl ${item.unlock_level}</button>`;
-    } else if (isLocked) {
-      actionBtn = `<button class="btn btn-ghost btn-sm" disabled style="font-size:11px">🚨 Later</button>`;
-    } else if (canAfford) {
-      actionBtn = `<button class="btn btn-primary btn-sm" onclick="buyStoreItem('${item.key}')" style="font-size:11px">Buy ${fmt(item.cost)}</button>`;
-    } else {
-      actionBtn = `<button class="btn btn-ghost btn-sm" disabled style="font-size:11px">Need ${fmt(item.cost)}</button>`;
-    }
-
-    return `
-    <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);${owned || levelLocked ? 'opacity:0.6' : ''}">
-      <div style="font-size:22px;line-height:1;flex-shrink:0">${pxIcon(levelLocked ? '🔒' : item.icon)}</div>
-      <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-          <span style="font-size:13px;font-weight:800">${item.name}</span>${badge}
-        </div>
-        <div style="font-size:11px;color:var(--text-muted);margin-top:1px">${levelLocked ? `Unlocks at Level ${item.unlock_level}` : item.desc}</div>
-        ${!levelLocked ? `<div style="font-size:11px;font-weight:700;color:var(--primary);margin-top:1px">${item.bonus}</div>` : ''}
       </div>
       <div style="flex-shrink:0">${actionBtn}</div>
     </div>`;
@@ -1814,43 +4009,112 @@ function renderPersonal() {
 
   const homesUnlocked = unlockedKeys.length;
   const classesCount  = Object.keys(diyClasses).length;
-  const storeOwned    = STORE_ITEM_DATA.filter(i => ownedItems[i.key]).length;
 
-  el.innerHTML = `
-    <div style="padding:12px;max-width:480px;margin:0 auto">
+  // ── My Home tab ───────────────────────────────────────────────
+  const homeTabEl = document.getElementById('personal-home');
+  if (homeTabEl) {
+    homeTabEl.innerHTML = `
+      <div style="padding:12px;max-width:480px;margin:0 auto">
 
-      <div class="hood-section" style="margin-bottom:10px">
-        <div style="padding:14px">
-          <div style="display:flex;align-items:center;gap:14px">
-            <div style="font-size:34px;line-height:1;flex-shrink:0">${pxIcon(current.icon)}</div>
-            <div style="flex:1;min-width:0">
-              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:3px">Your Home</div>
-              <div style="font-size:16px;font-weight:900">${current.name}</div>
+        <div class="hood-section" style="margin-bottom:10px">
+          <div style="padding:14px">
+            <div style="display:flex;align-items:center;gap:14px">
+              <div style="font-size:34px;line-height:1;flex-shrink:0">${pxIcon(current.icon)}</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:3px">Your Home</div>
+                <div style="font-size:16px;font-weight:900">${current.name}</div>
+              </div>
+              <div style="text-align:right;flex-shrink:0">
+                <div style="font-size:10px;color:var(--text-muted);margin-bottom:2px">Energy</div>
+                <div style="font-size:20px;font-weight:900;color:var(--positive);line-height:1">⚡${curEnergy}<span style="font-size:11px;color:var(--text-muted)">/${maxE}</span></div>
+              </div>
             </div>
-            <div style="text-align:right;flex-shrink:0">
-              <div style="font-size:10px;color:var(--text-muted);margin-bottom:2px">Energy</div>
-              <div style="font-size:20px;font-weight:900;color:var(--positive);line-height:1">⚡${curEnergy}<span style="font-size:11px;color:var(--text-muted)">/${maxE}</span></div>
+            <div style="display:flex;gap:8px;margin-top:12px">
+              <div style="flex:1;padding:7px;background:var(--surface-2);border-radius:8px;text-align:center">
+                <div style="font-size:15px;font-weight:900;color:var(--positive)">⚡ ${maxE}</div>
+                <div style="font-size:10px;color:var(--text-muted)">Max Energy</div>
+              </div>
+              <div style="flex:1;padding:7px;background:var(--surface-2);border-radius:8px;text-align:center">
+                <div style="font-size:15px;font-weight:900;color:var(--primary)">+${recharge}/day</div>
+                <div style="font-size:10px;color:var(--text-muted)">Daily Recharge</div>
+              </div>
             </div>
-          </div>
-          <div style="display:flex;gap:8px;margin-top:12px">
-            <div style="flex:1;padding:7px;background:var(--surface-2);border-radius:8px;text-align:center">
-              <div style="font-size:15px;font-weight:900;color:var(--positive)">⚡ ${maxE}</div>
-              <div style="font-size:10px;color:var(--text-muted)">Max Energy</div>
-            </div>
-            <div style="flex:1;padding:7px;background:var(--surface-2);border-radius:8px;text-align:center">
-              <div style="font-size:15px;font-weight:900;color:var(--primary)">+${recharge}/day</div>
-              <div style="font-size:10px;color:var(--text-muted)">Daily Recharge</div>
-            </div>
+            ${buildOwnedItemsRow(ownedItems)}
           </div>
         </div>
+
+        ${personalSection('my_home', `${pxIcon('🛋️',16)} Furnishings`,   buildMyHomeContent(), buildMyHomeMeta())}
+        ${personalSection('homes',   `${pxIcon('🏠',16)} Home Upgrades`, homeRows, `${homesUnlocked}/${PLAYER_HOME_DATA.length} unlocked`)}
+
+      </div>`;
+  }
+
+  // ── Career tab ────────────────────────────────────────────────
+  const careerTabEl = document.getElementById('personal-career');
+  if (careerTabEl) {
+    careerTabEl.innerHTML = `
+      <div style="padding:12px;max-width:480px;margin:0 auto">
+        ${personalSection('classes',    `${pxIcon('📚',16)} Skill Classes`, classRows,            `${classesCount}/${DIY_CLASS_DATA.length} done`)}
+        ${personalSection('newbuilds',  `${pxIcon('🏗️',16)} New Builds`,    nbContent,            nbMeta)}
+        ${personalSection('assistants', `${pxIcon('👔',16)} Assistants`,    buildAssistantRows(), buildAssistantMeta())}
+      </div>`;
+  }
+
+  // requestAnimationFrame(_drawFloorPlan); // re-enable with floor plan canvas
+}
+
+function buildAssistantMeta() {
+  const hired = Object.keys(ASSISTANTS_DATA).filter(k => (state.assistants || {})[k]).length;
+  return `${hired}/${Object.keys(ASSISTANTS_DATA).length} hired`;
+}
+
+function buildAssistantRows() {
+  const level     = state.level || 0;
+  const assistants = state.assistants || {};
+  return Object.entries(ASSISTANTS_DATA).map(([key, asst]) => {
+    const hired      = !!assistants[key];
+    const locked     = level < asst.unlock_level;
+    const opacity    = hired ? '0.7' : locked ? '0.4' : '1';
+    let badge = '';
+    if (hired)       badge = `<span style="background:var(--positive);color:#fff;border-radius:5px;font-size:10px;padding:2px 7px;font-weight:700">✓ Hired</span>`;
+    else if (locked) badge = `<span style="background:#555;color:#fff;border-radius:5px;font-size:10px;padding:2px 7px;font-weight:700">${pxIcon('🔒',12)} LVL ${asst.unlock_level}</span>`;
+    let btn = '';
+    if (hired) {
+      btn = `<button class="btn btn-ghost btn-sm" style="font-size:11px;color:var(--negative)" onclick="fireAssistant('${key}')">Fire</button>`;
+    } else if (locked) {
+      btn = `<button class="btn btn-ghost btn-sm" disabled style="font-size:11px">Lvl ${asst.unlock_level}</button>`;
+    } else {
+      btn = `<button class="btn btn-primary btn-sm" style="font-size:11px" onclick="hireAssistant('${key}')">Hire</button>`;
+    }
+    return `
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);opacity:${opacity}">
+      <div style="font-size:22px;line-height:1;flex-shrink:0">${pxIcon(locked ? '🔒' : asst.icon)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="font-size:13px;font-weight:800">${asst.name}</span>${badge}
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px;line-height:1.4">${locked ? `Unlocks at Level ${asst.unlock_level}` : asst.desc}</div>
+        <div style="font-size:10px;font-weight:700;color:var(--negative);margin-top:3px">${fmt(asst.monthly_fee)}/mo</div>
       </div>
-
-      ${personalSection('homes',     `${pxIcon('🏡',16)} Home Upgrades`,  homeRows,  `${homesUnlocked}/${PLAYER_HOME_DATA.length} unlocked`)}
-      ${personalSection('classes',   `${pxIcon('📚',16)} Skill Classes`,   classRows, `${classesCount}/${DIY_CLASS_DATA.length} done`)}
-      ${personalSection('store',     `${pxIcon('🛒',16)} Personal Store`,  storeRows, `${storeOwned}/${STORE_ITEM_DATA.length} owned`)}
-      ${personalSection('newbuilds', `${pxIcon('🏗️',16)} New Builds`,      nbContent, nbMeta)}
-
+      <div style="flex-shrink:0">${btn}</div>
     </div>`;
+  }).join('');
+}
+
+async function hireAssistant(key) {
+  const res = await api('/hire_assistant', 'POST', { key });
+  if (res.error) { toast(res.error, 'error'); return; }
+  await refreshState();
+  renderPersonal();
+  toast(`${ASSISTANTS_DATA[key].icon} ${ASSISTANTS_DATA[key].name} hired!`, 'success');
+}
+
+async function fireAssistant(key) {
+  const res = await api('/fire_assistant', 'POST', { key });
+  if (res.error) { toast(res.error, 'error'); return; }
+  await refreshState();
+  renderPersonal();
+  toast(`${ASSISTANTS_DATA[key].name} dismissed.`, 'info');
 }
 
 function togglePersonalSection(id) {
@@ -8879,20 +11143,7 @@ function showCommercialEventModal(ev) {
   const bt = ev.biz_type ? (BUSINESS_TENANT_DATA[ev.biz_type] || {}) : {};
   const icon = ev.biz_icon || bt.icon || '🏢';
 
-  if (ev.type === 'lease_renewal') {
-    openModal(`
-      <div class="modal-handle"></div>
-      <div class="modal-title">${pxIcon('🔄',18)} Lease Renewal</div>
-      <div class="modal-subtitle">${ev.prop_label}</div>
-      <div style="font-size:14px;margin:12px 0">${icon} <strong>${ev.tenant_name}</strong>'s lease has expired.</div>
-      <div class="money-row"><span class="mr-label">Current Rent</span><span class="mr-value">${fmt(ev.current_rent)}/mo</span></div>
-      <div class="money-row" style="margin-bottom:14px"><span class="mr-label">Bump Offer (+10%)</span><span class="mr-value green">${fmt(ev.bumped_rent)}/mo</span></div>
-      <button class="btn btn-primary btn-full" onclick="commercialEventRespond(${ev.prop_id},${ev.unit_idx},'lease_renewal','accept',{})">Renew — Same Rate</button>
-      <button class="btn btn-secondary btn-full mt-8" onclick="commercialEventRespond(${ev.prop_id},${ev.unit_idx},'lease_renewal','bump',{})">Bump to ${fmt(ev.bumped_rent)}/mo</button>
-      <button class="btn btn-ghost btn-full mt-8" onclick="commercialEventRespond(${ev.prop_id},${ev.unit_idx},'lease_renewal','decline',{})">Let Them Go</button>
-      ${_pendingCommercialEvents.length > 0 ? `<div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:8px">${_pendingCommercialEvents.length} more event(s) after this</div>` : ''}
-    `);
-  } else if (ev.type === 'inspection_fail') {
+  if (ev.type === 'inspection_fail') {
     openModal(`
       <div class="modal-handle"></div>
       <div class="modal-title">${pxIcon('🚨',18)} Inspection Failed</div>
@@ -8912,6 +11163,40 @@ function showCommercialEventModal(ev) {
       <div class="money-row" style="margin-bottom:14px"><span class="mr-label">Monthly Bonus</span><span class="mr-value green">+${fmt(ev.bonus_monthly)}/mo</span></div>
       <button class="btn btn-primary btn-full" onclick="commercialEventRespond(${ev.prop_id},${ev.unit_idx},'sublet_request','approve',{bonus_monthly:${ev.bonus_monthly}})">Approve Sublet</button>
       <button class="btn btn-ghost btn-full mt-8" onclick="commercialEventRespond(${ev.prop_id},${ev.unit_idx},'sublet_request','deny',{})">Deny</button>
+      ${_pendingCommercialEvents.length > 0 ? `<div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:8px">${_pendingCommercialEvents.length} more event(s) after this</div>` : ''}
+    `);
+  } else if (ev.type === 'rent_negotiation') {
+    openModal(`
+      <div class="modal-handle"></div>
+      <div class="modal-title">${pxIcon('💬',18)} Rent Negotiation</div>
+      <div class="modal-subtitle">${ev.prop_label}</div>
+      <div style="font-size:13px;margin:12px 0;color:var(--text-muted)">${icon} <strong>${ev.tenant_name}</strong> says business has been slow and is asking for a rent reduction.</div>
+      <div class="money-row"><span class="mr-label">Current Rent</span><span class="mr-value">${fmt(ev.current_rent)}/mo</span></div>
+      <div class="money-row" style="margin-bottom:14px"><span class="mr-label">Proposed Rent (−15%)</span><span class="mr-value" style="color:var(--warning)">${fmt(ev.proposed_rent)}/mo</span></div>
+      <button class="btn btn-primary btn-full" onclick="commercialEventRespond(${ev.prop_id},${ev.unit_idx},'rent_negotiation','accept',{proposed_rent:${ev.proposed_rent}})">Accept New Rate</button>
+      <button class="btn btn-ghost btn-full mt-8" onclick="commercialEventRespond(${ev.prop_id},${ev.unit_idx},'rent_negotiation','decline',{})">Decline — They Walk</button>
+      ${_pendingCommercialEvents.length > 0 ? `<div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:8px">${_pendingCommercialEvents.length} more event(s) after this</div>` : ''}
+    `);
+  } else if (ev.type === 'early_exit') {
+    openModal(`
+      <div class="modal-handle"></div>
+      <div class="modal-title">${pxIcon('🚪',18)} Early Exit Request</div>
+      <div class="modal-subtitle">${ev.prop_label}</div>
+      <div style="font-size:13px;margin:12px 0;color:var(--text-muted)">${icon} <strong>${ev.tenant_name}</strong> wants to break their lease early. Either way, they're leaving.</div>
+      <div class="money-row" style="margin-bottom:14px"><span class="mr-label">Exit Fee</span><span class="mr-value green">+${fmt(ev.exit_fee)}</span></div>
+      <button class="btn btn-primary btn-full" onclick="commercialEventRespond(${ev.prop_id},${ev.unit_idx},'early_exit','charge_fee',{exit_fee:${ev.exit_fee}})">Charge Exit Fee — Collect ${fmt(ev.exit_fee)}</button>
+      <button class="btn btn-ghost btn-full mt-8" onclick="commercialEventRespond(${ev.prop_id},${ev.unit_idx},'early_exit','waive',{exit_fee:${ev.exit_fee}})">Waive Fee — Let Them Go</button>
+      ${_pendingCommercialEvents.length > 0 ? `<div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:8px">${_pendingCommercialEvents.length} more event(s) after this</div>` : ''}
+    `);
+  } else if (ev.type === 'equipment_damage') {
+    openModal(`
+      <div class="modal-handle"></div>
+      <div class="modal-title">${pxIcon('🔨',18)} Equipment Damage</div>
+      <div class="modal-subtitle">${ev.prop_label}</div>
+      <div style="font-size:13px;margin:12px 0;color:var(--text-muted)">${icon} <strong>${ev.tenant_name}</strong> reported damage to building equipment. Fix it now or take a condition hit.</div>
+      <div class="money-row" style="margin-bottom:14px"><span class="mr-label">Repair Cost</span><span class="mr-value" style="color:var(--negative)">${fmt(ev.repair_cost)}</span></div>
+      <button class="btn btn-primary btn-full" onclick="commercialEventRespond(${ev.prop_id},${ev.unit_idx},'equipment_damage','pay',{repair_cost:${ev.repair_cost}})">Pay ${fmt(ev.repair_cost)} — Fix It</button>
+      <button class="btn btn-ghost btn-full mt-8" onclick="commercialEventRespond(${ev.prop_id},${ev.unit_idx},'equipment_damage','ignore',{repair_cost:${ev.repair_cost}})">Ignore — Take −20 Condition</button>
       ${_pendingCommercialEvents.length > 0 ? `<div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:8px">${_pendingCommercialEvents.length} more event(s) after this</div>` : ''}
     `);
   } else {

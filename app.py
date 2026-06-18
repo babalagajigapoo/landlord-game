@@ -1238,30 +1238,75 @@ def _update_stock_prices(s, days):
     ss["prices"]  = prices
     ss["history"] = histories
 
-# Player homes — unlock levels defined in HOME_UNLOCK_LEVELS above
-# Mansion recharge (60) exceeds its base max_energy (58) intentionally — it fully recharges every day.
-# With the Coffee Maker (+2 max_energy) the cap becomes 60 and still recharges fully.
+# Player homes — all base stats are 4 max_energy / 1 recharge. All energy/recharge gains come from furniture items.
 PLAYER_HOMES = [
-    {"key": "grandmas_basement", "name": "Grandma's Basement", "icon": "🛋️", "cost":         0, "max_energy":  8, "recharge":  1, "unlock_level":  0, "desc": "Grandma's got a cot, a leaky fridge, and opinions about your life choices. Free rent — if you can survive the casserole."},
-    {"key": "small_apt",         "name": "Small Apartment",    "icon": "🏠", "cost":    80_000, "max_energy": 10, "recharge":  3, "unlock_level":  1, "desc": "Thin walls, no dishwasher, and a neighbor who practices drums at midnight. Still yours."},
-    {"key": "condo",             "name": "Condo",              "icon": "🏢", "cost":   150_000, "max_energy": 12, "recharge":  5, "unlock_level":  3, "desc": "An HOA fee and a parking sticker — welcome to adulthood."},
-    {"key": "small_home",        "name": "Small Home",         "icon": "🏡", "cost":   250_000, "max_energy": 15, "recharge":  7, "unlock_level":  5, "desc": "A real yard. A real mortgage. A real lawn to mow at 7am on a Saturday."},
-    {"key": "suburban_home",     "name": "Suburban Home",      "icon": "🏘️", "cost":   400_000, "max_energy": 18, "recharge": 11, "unlock_level":  7, "desc": "Cul-de-sac living with a two-car garage and a wave-hello relationship with the neighbors."},
-    {"key": "luxury_villa",      "name": "Luxury Villa",       "icon": "🏛️", "cost":   750_000, "max_energy": 24, "recharge": 19, "unlock_level":  9, "desc": "Heated floors, a wine cellar, and someone else mows the lawn."},
-    {"key": "mansion",           "name": "Mansion",            "icon": "🏰", "cost": 1_500_000, "max_energy": 58, "recharge": 60, "unlock_level": 12, "desc": "You have a butler named Gerald and a room you've never entered. Peak existence."},
+    {"key": "grandmas_basement", "name": "Grandma's Basement", "icon": "🛋️", "cost":         0, "max_energy": 4, "recharge": 1, "unlock_level":  0, "desc": "Grandma's got a cot, a leaky fridge, and opinions about your life choices. Free rent — if you can survive the casserole."},
+    {"key": "small_apt",         "name": "Small Apartment",    "icon": "🏠",  "cost":    80_000, "max_energy": 4, "recharge": 1, "unlock_level":  2, "desc": "Thin walls, no dishwasher, and a neighbor who practices drums at midnight. Still yours."},
+    {"key": "condo",             "name": "Condo",              "icon": "🏢",  "cost":   150_000, "max_energy": 4, "recharge": 1, "unlock_level":  4, "desc": "An HOA fee and a parking sticker — welcome to adulthood."},
+    {"key": "small_home",        "name": "Small Home",         "icon": "🏡",  "cost":   250_000, "max_energy": 4, "recharge": 1, "unlock_level":  7, "desc": "A real yard. A real mortgage. A real lawn to mow at 7am on a Saturday."},
+    {"key": "suburban_home",     "name": "Suburban Home",      "icon": "🏘️",  "cost":   400_000, "max_energy": 4, "recharge": 1, "unlock_level":  9, "desc": "Cul-de-sac living with a two-car garage and a wave-hello relationship with the neighbors."},
+    {"key": "luxury_villa",      "name": "Luxury Villa",       "icon": "🏛️",  "cost":   750_000, "max_energy": 4, "recharge": 1, "unlock_level": 11, "desc": "Heated floors, a wine cellar, and someone else mows the lawn."},
+    {"key": "mansion",           "name": "Mansion",            "icon": "🏰",  "cost": 1_500_000, "max_energy": 4, "recharge": 1, "unlock_level": 13, "desc": "You have a butler named Gerald and a room you've never entered. Peak existence."},
 ]
 
 STORE_ITEMS = {
     "coffee_maker":   {"name": "Coffee Maker",             "icon": "☕",  "cost":   499, "unlock_level": 1, "max_energy_bonus": 2, "recharge_bonus": 0, "desc": "A decent drip machine. +2 max energy."},
-    "desk_fan":       {"name": "Desk Fan",                  "icon": "🌀",  "cost":   199, "unlock_level": 1, "max_energy_bonus": 1, "recharge_bonus": 0, "desc": "Not air conditioning. Close enough. +1 max energy."},
+    "desk_fan":       {"name": "Desk Fan",                  "icon": "🌀",  "cost":   199, "unlock_level": 1, "max_energy_bonus": 2, "recharge_bonus": 0, "desc": "Not air conditioning. Close enough. +2 max energy."},
     "house_plant":    {"name": "House Plant",               "icon": "🪴",  "cost":    89, "unlock_level": 2, "max_energy_bonus": 0, "recharge_bonus": 0, "desc": "Studies show it helps. You're not asking questions. 15% chance to block 1 morale loss/day."},
     "blackout_curtains": {"name": "Blackout Curtains",      "icon": "🪟",  "cost":   149, "unlock_level": 2, "max_energy_bonus": 0, "recharge_bonus": 1, "desc": "Sleep deeper. Wake up less angry. +1 recharge/day."},
     "new_bed":        {"name": "New Bed",                   "icon": "🛏️", "cost": 4_999, "unlock_level": 3, "max_energy_bonus": 0, "recharge_bonus": 1, "desc": "Memory foam. You wake up ready. +1 recharge/day."},
     "mini_fridge":    {"name": "Mini Fridge",               "icon": "🧊",  "cost":   349, "unlock_level": 3, "max_energy_bonus": 2, "recharge_bonus": 0, "desc": "Snacks within arm's reach. Peak efficiency. +2 max energy."},
-    "whiteboard":     {"name": "Whiteboard",                "icon": "📋",  "cost":   249, "unlock_level": 4, "max_energy_bonus": 0, "recharge_bonus": 0, "desc": "You mapped out the whole job. Bob charges less. 6% off all contractor renovation costs."},
-    "filing_cabinet": {"name": "Filing Cabinet",            "icon": "🗂️", "cost":   449, "unlock_level": 5, "max_energy_bonus": 0, "recharge_bonus": 0, "desc": "Everything is documented. Problems get caught early. 15% lower repair event chance."},
-    "headphones":     {"name": "Noise-Cancelling Headphones","icon": "🎧", "cost":   699, "unlock_level": 6, "max_energy_bonus": 0, "recharge_bonus": 0, "desc": "You stop engaging. They interpret it as professionalism. -1 morale decay/day across all properties."},
-    "negotiation_book":{"name": "Negotiation Book",         "icon": "📖",  "cost":   999, "unlock_level": 7, "max_energy_bonus": 0, "recharge_bonus": 0, "desc": "You read it twice. Vendors can tell. +4% on all property sale prices."},
+    "whiteboard":     {"name": "Whiteboard",                "icon": "📋",  "cost":   249, "unlock_level": 4, "unlock_home": "small_apt", "max_energy_bonus": 0, "recharge_bonus": 0, "desc": "You mapped out the whole job. Bob charges less. 6% off all contractor renovation costs."},
+    "filing_cabinet": {"name": "Filing Cabinet",            "icon": "🗂️", "cost":   449, "unlock_level": 5, "unlock_home": "small_apt", "max_energy_bonus": 0, "recharge_bonus": 0, "desc": "Everything is documented. Problems get caught early. 15% lower repair event chance."},
+    "headphones":     {"name": "Noise-Cancelling Headphones","icon": "🎧", "cost":   699, "unlock_level": 6, "unlock_home": "small_apt", "max_energy_bonus": 0, "recharge_bonus": 0, "desc": "You stop engaging. They interpret it as professionalism. -1 morale decay/day across all properties."},
+    "negotiation_book":{"name": "Negotiation Book",         "icon": "📖",  "cost":   999, "unlock_level": 7, "unlock_home": "small_apt", "max_energy_bonus": 0, "recharge_bonus": 0, "desc": "You read it twice. Vendors can tell. +4% on all property sale prices."},
+    # ── New home furnishings ──────────────────────────────────────────────────
+    "couch":           {"name": "Couch",                    "icon": "🛋️", "cost":   600, "unlock_level": 1, "max_energy_bonus": 2, "recharge_bonus": 0, "desc": "Somewhere to actually sit. +2 max energy."},
+    "flat_screen_tv":  {"name": "Flat Screen TV",           "icon": "📺",  "cost": 1_200, "unlock_level": 1, "max_energy_bonus": 2, "recharge_bonus": 0, "desc": "Something to unwind to. +2 max energy."},
+    "espresso_machine":{"name": "Espresso Machine",         "icon": "☕",  "cost":   899, "unlock_level": 3, "max_energy_bonus": 2, "recharge_bonus": 1, "desc": "Real caffeine. Finally. +2 max energy, +1 recharge."},
+    "wine_rack":       {"name": "Wine Rack",                "icon": "🍷",  "cost": 1_500, "unlock_level": 5, "unlock_home": "condo", "max_energy_bonus": 0, "recharge_bonus": 0, "desc": "The landlord aesthetic. +$100/day passive income."},
+    "gaming_setup":    {"name": "Gaming Setup",             "icon": "🎮",  "cost": 2_500, "unlock_level": 5, "max_energy_bonus": 3, "recharge_bonus": 0, "desc": "For decompressing. Professionally. +3 max energy."},
+    "workbench_tools": {"name": "Workbench & Tools",        "icon": "🔧",  "cost":   800, "unlock_level": 5, "max_energy_bonus": 0, "recharge_bonus": 0, "desc": "You've got the tools. Bob is a little threatened. 8% off contractor labor."},
+    "bbq_grill":       {"name": "BBQ Grill",                "icon": "🍖",  "cost":   600, "unlock_level": 5, "max_energy_bonus": 0, "recharge_bonus": 0, "desc": "Grilling on your own property hits different. No gameplay effect — just good vibes."},
+    "patio_set":       {"name": "Patio Furniture",          "icon": "🪑",  "cost": 1_200, "unlock_level": 5, "max_energy_bonus": 0, "recharge_bonus": 0, "desc": "Morning coffee outside. Cosmetic upgrade."},
+    "hot_tub":         {"name": "Hot Tub",                  "icon": "🛁",  "cost": 8_000, "unlock_level": 7, "max_energy_bonus": 0, "recharge_bonus": 3, "desc": "Hydrotherapy. Tax deductible? Maybe. +3 recharge/day."},
+    "home_gym":        {"name": "Home Gym",                 "icon": "🏋️", "cost": 5_000, "unlock_level": 7, "max_energy_bonus": 4, "recharge_bonus": 0, "desc": "No more excuses. No gym commute. +4 max energy."},
+    "swimming_pool":   {"name": "Swimming Pool",            "icon": "🏊",  "cost":25_000, "unlock_level": 9, "max_energy_bonus": 0, "recharge_bonus": 5, "desc": "Proving a point at this stage. +5 recharge/day."},
+    "home_theater":    {"name": "Home Theater",             "icon": "🎬",  "cost": 8_000, "unlock_level": 9, "max_energy_bonus": 5, "recharge_bonus": 0, "desc": "The screen. The surround sound. The popcorn machine. +5 max energy."},
+    # ── Living room furnishings ───────────────────────────────────────────────
+    "bookshelf":       {"name": "Bookshelf",                "icon": "📚",  "cost":   350, "unlock_level": 1, "unlock_home": "condo", "max_energy_bonus": 0, "recharge_bonus": 0, "desc": "Tax strategy, biographies, one novel you never finished. +5% property sale price."},
+    "aquarium":        {"name": "Aquarium",                 "icon": "🐠",  "cost":   650, "unlock_level": 2, "max_energy_bonus": 0, "recharge_bonus": 0, "desc": "Fish don't care about your problems. 20% chance to block 1 morale loss/day."},
+    "fireplace":       {"name": "Fireplace",                "icon": "🪵",  "cost": 2_000, "unlock_level": 5, "max_energy_bonus": 0, "recharge_bonus": 2, "desc": "Mood. Warmth. Crackling sounds. +2 recharge/day."},
+    "pool_table":      {"name": "Pool Table",               "icon": "🎱",  "cost": 3_500, "unlock_level": 7, "max_energy_bonus": 4, "recharge_bonus": 0, "desc": "You hustle your contractors. They respect it. +4 max energy."},
+    "grand_piano":     {"name": "Grand Piano",              "icon": "🎹",  "cost":12_000, "unlock_level":11, "max_energy_bonus": 4, "recharge_bonus": 0, "desc": "You don't play. Gerald does. +4 max energy."},
+    # ── Bedroom ───────────────────────────────────────────────────────────────
+    "meditation_corner":{"name": "Meditation Corner",       "icon": "🧘",  "cost":   900, "unlock_level": 3, "max_energy_bonus": 0, "recharge_bonus": 2, "desc": "Five minutes of silence. Life-changing. +2 recharge/day."},
+    "sauna":           {"name": "Sauna",                    "icon": "🧖",  "cost": 6_000, "unlock_level": 9, "max_energy_bonus": 0, "recharge_bonus": 5, "desc": "You sweat out bad decisions daily. +5 recharge/day."},
+    # ── Kitchen ──────────────────────────────────────────────────────────────
+    "instant_pot":     {"name": "Instant Pot",              "icon": "🥘",  "cost":   150, "unlock_level": 1, "max_energy_bonus": 1, "recharge_bonus": 0, "desc": "Set it, forget it, eat well. +1 max energy."},
+    "kitchen_island":  {"name": "Kitchen Island",           "icon": "🍳",  "cost": 2_200, "unlock_level": 5, "max_energy_bonus": 3, "recharge_bonus": 0, "desc": "More counter space. More life. +3 max energy."},
+    "smart_fridge":    {"name": "Smart Fridge",             "icon": "🗄️", "cost": 1_800, "unlock_level": 7, "max_energy_bonus": 0, "recharge_bonus": 0, "desc": "It texts you when you're low on eggs. Cosmetic upgrade."},
+    # ── Home office ──────────────────────────────────────────────────────────
+    "ergonomic_chair": {"name": "Ergonomic Chair",          "icon": "💺",  "cost":   600, "unlock_level": 4, "unlock_home": "small_apt", "max_energy_bonus": 0, "recharge_bonus": 2, "desc": "Your back stops screaming. Your productivity speaks. +2 recharge/day."},
+    "second_monitor":  {"name": "Second Monitor",           "icon": "🖥️", "cost":   400, "unlock_level": 5, "unlock_home": "condo", "max_energy_bonus": 2, "recharge_bonus": 0, "desc": "Left screen: spreadsheets. Right screen: also spreadsheets. +2 max energy."},
+    "printer":         {"name": "Laser Printer",            "icon": "🖨️", "cost":   250, "unlock_level": 3, "unlock_home": "condo", "max_energy_bonus": 0, "recharge_bonus": 0, "desc": "Print the listing yourself. Save on fees. 5% off all property purchase prices."},
+    # ── Garage ───────────────────────────────────────────────────────────────
+    "motorcycle":      {"name": "Motorcycle",               "icon": "🏍️", "cost": 8_000, "unlock_level": 7, "unlock_home": "suburban_home", "max_energy_bonus": 0, "recharge_bonus": 3, "desc": "Wind in your face on the way to collect rent. +3 recharge/day."},
+    "sports_car":      {"name": "Sports Car",               "icon": "🚗",  "cost":45_000, "unlock_level": 9, "max_energy_bonus": 0, "recharge_bonus": 0, "desc": "Landlord tax write-off, obviously. +$200/day passive income."},
+    # ── Outdoor ──────────────────────────────────────────────────────────────
+    "garden":          {"name": "Garden",                   "icon": "🌻",  "cost":   500, "unlock_level": 3, "max_energy_bonus": 0, "recharge_bonus": 0, "desc": "Something living that actually needs you. 20% chance to block 1 morale loss/day."},
+    "fire_pit":        {"name": "Fire Pit",                 "icon": "🔥",  "cost":   700, "unlock_level": 5, "max_energy_bonus": 0, "recharge_bonus": 2, "desc": "Evening decompression. You've earned it. +2 recharge/day."},
+    "basketball_hoop": {"name": "Basketball Hoop",          "icon": "🏀",  "cost":   400, "unlock_level": 4, "max_energy_bonus": 0, "recharge_bonus": 0, "desc": "Shoot your frustration into a net. Cosmetic upgrade."},
+    # ── New high-tier items ───────────────────────────────────────────────────
+    "smart_home_system": {"name": "Smart Home System",  "icon": "🏠", "cost": 12_000, "unlock_level": 9,  "unlock_home": "luxury_villa", "max_energy_bonus": 5, "recharge_bonus": 0, "desc": "Whole-home automation that optimizes your routines. +5 max energy."},
+    "home_bar":          {"name": "Home Bar",           "icon": "🍸", "cost":  8_000, "unlock_level": 12, "unlock_home": "mansion", "max_energy_bonus": 4, "recharge_bonus": 0, "desc": "Top-shelf everything. No excuses needed. +4 max energy."},
+    "art_gallery":       {"name": "Art Gallery",        "icon": "🖼️", "cost": 15_000, "unlock_level": 12, "unlock_home": "mansion", "max_energy_bonus": 4, "recharge_bonus": 0, "desc": "Three rooms of originals. One is a forgery. +4 max energy."},
+    "professional_gym":  {"name": "Professional Gym",  "icon": "💪", "cost": 20_000, "unlock_level": 12, "unlock_home": "mansion", "max_energy_bonus": 4, "recharge_bonus": 0, "desc": "Olympic weights. No waiting for machines. +4 max energy."},
+    "spa_suite":         {"name": "Spa Suite",          "icon": "💆", "cost": 25_000, "unlock_level": 13, "unlock_home": "mansion", "max_energy_bonus": 0, "recharge_bonus": 6, "desc": "Hot stone massages at 6am on a Tuesday. +6 recharge/day."},
+    "luxury_sleep_system": {"name": "Luxury Sleep System","icon": "🛌","cost": 10_000, "unlock_level": 12, "unlock_home": "mansion", "max_energy_bonus": 0, "recharge_bonus": 4, "desc": "Temperature-regulated, zero-gravity mattress. +4 recharge/day."},
+    "indoor_pool":       {"name": "Indoor Pool",        "icon": "🌊", "cost": 40_000, "unlock_level": 13, "unlock_home": "mansion", "max_energy_bonus": 0, "recharge_bonus": 6, "desc": "Climate-controlled. Gerald maintains it. +6 recharge/day."},
+    "grand_fireplace":   {"name": "Grand Fireplace",    "icon": "🕯️", "cost":  5_000, "unlock_level": 12, "unlock_home": "mansion", "max_energy_bonus": 0, "recharge_bonus": 3, "desc": "Floor-to-ceiling stone. You read by firelight. +3 recharge/day."},
+    "music_studio":      {"name": "Music Studio",       "icon": "🎸", "cost": 18_000, "unlock_level": 13, "unlock_home": "mansion", "max_energy_bonus": 0, "recharge_bonus": 3, "desc": "Soundproofed. Pro-grade gear. You play once a month. +3 recharge/day."},
 }
 
 # ── Vending Machine Business ───────────────────────────────────────────────────
@@ -1907,17 +1952,47 @@ COMMERCIAL_TYPES = {
     "strip_mall": {
         "name": "Strip Mall", "icon": "🏪",
         "unit_count": 4, "price": 950_000, "overhead": 2_500, "sqft": 8_000,
+        "superintendent_monthly": 3_500, "emergency_repair_cost": 12_000,
         "desc": "Four retail-facing storefronts. High traffic, high turnover.",
     },
     "office_building": {
         "name": "Office Building", "icon": "🏢",
         "unit_count": 3, "price": 1_400_000, "overhead": 3_500, "sqft": 12_000,
+        "superintendent_monthly": 4_500, "emergency_repair_cost": 15_000,
         "desc": "Professional tenants, longer leases, quieter events.",
     },
     "mixed_use": {
         "name": "Mixed-Use Building", "icon": "🏬",
         "unit_count": 5, "price": 1_800_000, "overhead": 4_000, "sqft": 18_000,
+        "superintendent_monthly": 5_500, "emergency_repair_cost": 20_000,
         "desc": "Three commercial floors and two upper-level office suites.",
+    },
+}
+
+COMMERCIAL_UPGRADES = {
+    "security_system": {
+        "name": "Security System", "icon": "🔒", "cost": 12_000,
+        "desc": "Cuts inspection failures and sudden closures by 60%.",
+    },
+    "commercial_hvac": {
+        "name": "Commercial HVAC", "icon": "❄️", "cost": 18_000,
+        "desc": "35% less daily condition loss from tenant wear.",
+    },
+    "renovated_common": {
+        "name": "Renovated Common Areas", "icon": "✨", "cost": 25_000,
+        "desc": "All unit rents permanently +8%.",
+    },
+    "fiber_internet": {
+        "name": "Fiber Internet", "icon": "📡", "cost": 9_000,
+        "desc": "Law offices and accounting firms pay +$500/mo.",
+    },
+    "parking_expansion": {
+        "name": "Parking Expansion", "icon": "🅿️", "cost": 20_000,
+        "desc": "Reduces event rates for high-traffic tenants by 40%.",
+    },
+    "exterior_facelift": {
+        "name": "Exterior Facelift", "icon": "🎨", "cost": 30_000,
+        "desc": "+40 condition immediately. All units +$300/mo.",
     },
 }
 
@@ -1957,6 +2032,97 @@ BUSINESS_TENANT_TYPES = {
         "names": ["Iron District", "Peak Fitness", "Grind Athletics",
                   "FitCore Gym", "Steel & Sweat", "Apex Performance"],
     },
+    "coffee_shop": {
+        "name": "Coffee Shop", "icon": "☕",
+        "monthly_rent": 4_200, "lease_days": 84, "event_chance": 0.08,
+        "desc": "Popular morning anchor. Steady foot traffic, low drama.",
+        "names": ["Brew & Co.", "Morning Ritual", "The Daily Grind", "Roasted Roots",
+                  "Copper Cup Cafe", "Sunrise Brew", "Vault Coffee", "Mellow Grounds"],
+    },
+    "barber_shop": {
+        "name": "Barber Shop", "icon": "🪒",
+        "monthly_rent": 3_500, "lease_days": 84, "event_chance": 0.07,
+        "desc": "Low rent, low drama. Community staple.",
+        "names": ["The Sharp Cut", "Clipper's Den", "Classic Cuts", "Fade Factory",
+                  "Razor's Edge", "The Trim Shop", "Main St. Barber", "Old School Cuts"],
+    },
+    "nail_salon": {
+        "name": "Nail Salon", "icon": "💅",
+        "monthly_rent": 3_800, "lease_days": 84, "event_chance": 0.07,
+        "desc": "Steady clientele. Reliable rent, minimal issues.",
+        "names": ["Polished Nails", "Pink Tips Studio", "Luxe Nails", "Crystal Nails",
+                  "The Nail Bar", "Pure Polish", "Gloss Studio", "Flawless Nails"],
+    },
+    "pawn_shop": {
+        "name": "Pawn Shop", "icon": "🏷️",
+        "monthly_rent": 4_800, "lease_days": 56, "event_chance": 0.14,
+        "desc": "High-traffic, high-risk. Short leases, frequent events.",
+        "names": ["Gold & Silver Exchange", "Quick Cash Co.", "ValueTown Pawn",
+                  "City Pawn & Trade", "Relics & Goods", "The Trading Post"],
+    },
+    "tattoo_studio": {
+        "name": "Tattoo Studio", "icon": "🎨",
+        "monthly_rent": 5_200, "lease_days": 56, "event_chance": 0.16,
+        "desc": "Creative energy. Shorter leases, busier than expected.",
+        "names": ["Ink District", "Black & Grey Studio", "Sacred Skin Tattoo",
+                  "The Parlor", "Iron Needle Ink", "Canvas & Needle"],
+    },
+    "auto_parts": {
+        "name": "Auto Parts Store", "icon": "🔧",
+        "monthly_rent": 6_800, "lease_days": 84, "event_chance": 0.10,
+        "desc": "Industrial foot traffic. Decent rent, moderate wear.",
+        "names": ["FastLane Parts", "Gear Up Auto", "City Auto Supply",
+                  "ProDrive Parts", "The Parts Depot", "GridLock Auto"],
+    },
+    "daycare": {
+        "name": "Daycare Center", "icon": "🧒",
+        "monthly_rent": 6_200, "lease_days": 168, "event_chance": 0.10,
+        "desc": "Long leases, community anchor. Inspections are standard.",
+        "names": ["Bright Futures Daycare", "Little Sprouts", "Sunshine Kids Center",
+                  "Tiny Steps Academy", "Rainbow Nest", "Growing Minds"],
+    },
+    "accounting_firm": {
+        "name": "Accounting Firm", "icon": "📊",
+        "monthly_rent": 8_000, "lease_days": 168, "event_chance": 0.03,
+        "desc": "Professional and quiet. Long-term, low hassle.",
+        "names": ["Ledger & Co.", "Summit Accounting", "Clear Books LLC",
+                  "Apex Financial Group", "Harmon CPA", "Prestige Accounting"],
+    },
+    "pharmacy": {
+        "name": "Pharmacy", "icon": "💊",
+        "monthly_rent": 10_000, "lease_days": 112, "event_chance": 0.05,
+        "desc": "High-demand essential business. Solid rent, very low drama.",
+        "names": ["CityMed Pharmacy", "QuickRx", "Wellness Depot",
+                  "TruCare Rx", "Neighborhood Pharmacy", "MedFast"],
+    },
+    "tech_startup": {
+        "name": "Tech Startup", "icon": "💻",
+        "monthly_rent": 9_500, "lease_days": 56, "event_chance": 0.18,
+        "desc": "High rent but they pivot fast. Short leases, frequent events.",
+        "names": ["Launchpad Labs", "Node & Co.", "Axle Tech",
+                  "Pivot House", "ByteStarter", "Circuit Ventures"],
+    },
+    "medical_clinic": {
+        "name": "Medical Clinic", "icon": "🏥",
+        "monthly_rent": 12_500, "lease_days": 224, "event_chance": 0.04,
+        "desc": "Top-tier rent, longest leases. Nearly zero trouble.",
+        "names": ["CityHealth Clinic", "Meridian Medical", "Pinnacle Care",
+                  "Lakeside Health", "ProMed Clinic", "Summit Healthcare"],
+    },
+    "dental_office": {
+        "name": "Dental Office", "icon": "🦷",
+        "monthly_rent": 11_000, "lease_days": 224, "event_chance": 0.02,
+        "desc": "Ultra-reliable. Great rent, iron-clad leases.",
+        "names": ["Bright Smiles Dental", "Apex Dental Group", "ClearBite Dentistry",
+                  "Prestige Dental", "Summit Smiles", "ProDent Clinic"],
+    },
+    "flooring_express": {
+        "name": "Flooring Express", "icon": "🏪",
+        "monthly_rent": 20_000, "lease_days": 224, "event_chance": 0.0,
+        "special": True,
+        "desc": "⭐ SPECIAL — Pays double. Minimum 2-year lease. Never any issues.",
+        "names": ["Flooring Express"],
+    },
 }
 
 def _gen_commercial_market(start_id):
@@ -1981,6 +2147,7 @@ def _gen_commercial_market(start_id):
             "sqft":             ctype["sqft"],
             "units":            units,
             "upgrades":         {},
+            "superintendent":   False,
             "pending_reno":     None,
             "purchase_day":     None,
         })
@@ -2069,6 +2236,24 @@ CONTRACTORS = {
     "budget":   {"name": "Budget Bob",     "icon": "🔨", "desc": "Cheap but inconsistent — may cut corners", "cost_mult": 0.70, "q_min": 0,  "q_max": 59, "tier_range": "F – B"},
     "standard": {"name": "Standard Steve", "icon": "🛠️", "desc": "Reliable work at fair prices",              "cost_mult": 1.00, "q_min": 30, "q_max": 74, "tier_range": "C – A"},
     "premium":  {"name": "Premier Pete",   "icon": "⭐", "desc": "Top-tier quality, fully guaranteed",         "cost_mult": 1.50, "q_min": 45, "q_max": 100, "tier_range": "B – S+"},
+}
+
+ASSISTANTS = {
+    "repair": {
+        "name": "Repair Assistant", "icon": "🔧",
+        "unlock_level": 6, "monthly_fee": 1_500,
+        "desc": "Automatically handles all repair events. Always picks the best contractor your budget allows.",
+    },
+    "tenant": {
+        "name": "Tenant Assistant", "icon": "🤝",
+        "unlock_level": 9, "monthly_fee": 3_000,
+        "desc": "Handles ~50% of tenant requests automatically, choosing the best outcome for morale and condition.",
+    },
+    "estate": {
+        "name": "Estate Manager", "icon": "🏛️",
+        "unlock_level": 13, "monthly_fee": 6_500,
+        "desc": "Full autopilot for all residential events — every repair, every tenant request, every renewal.",
+    },
 }
 
 # ── Special contractors ────────────────────────────────────────────────────────
@@ -2404,14 +2589,9 @@ def get_player_home(s):
     return next((h for h in PLAYER_HOMES if h["key"] == key), PLAYER_HOMES[0])
 
 def _get_home_stats(s):
-    """Return (max_energy, recharge) with store item bonuses applied.
-    Takes the best stats from the current home and every home below it so
-    skipping intermediate homes never silently reduces energy."""
-    current     = get_player_home(s)
-    current_idx = next(i for i, h in enumerate(PLAYER_HOMES) if h["key"] == current["key"])
-    homes_owned = PLAYER_HOMES[:current_idx + 1]
-    max_e = max(h["max_energy"] for h in homes_owned)
-    rch   = max(h["recharge"]   for h in homes_owned)
+    """Return (max_energy, recharge). Base is 4/1; all bonuses come from owned items."""
+    max_e = 4
+    rch   = 1
     items = s.get("owned_items", {})
     for key, item in STORE_ITEMS.items():
         if items.get(key):
@@ -2584,7 +2764,7 @@ def new_game():
         "properties": [starter], "market": [], "commercial_market": [], "log": [],
         "applicants_cache": {},
         "last_bank_day": 1,
-        "energy": PLAYER_HOMES[0]["max_energy"],
+        "energy": 4,
         "player_home": "grandmas_basement",
         "owned_items": {},
         "diy_classes": {},
@@ -2595,6 +2775,7 @@ def new_game():
         "bank": {"savings": 0, "loans": [], "next_loan_id": 1},
         "level": 0, "xp": 0,
         "stocks": _init_stock_state(),
+        "assistants": {},
     }
     state["log"].append({"day": 1, "type": "warning",
         "text": "You inherited a run-down Bungalow in Midtown — but there's a squatter inside demanding $4,367 to leave. Bribe them out, or sell the property as-is and pocket $80,000 to start fresh."})
@@ -2658,6 +2839,10 @@ def _migrate_state(s):
     s.setdefault("pole_studio", None)
     s.setdefault("car_wash", None)
     s.setdefault("commercial_market", [])
+    s.setdefault("assistants", {})
+    for prop in s.get("properties", []):
+        if prop.get("commercial"):
+            prop.setdefault("superintendent", False)
     s.setdefault("tax_year_flip_income", 0)
     s.setdefault("tax_year_rent_income", 0)
     s.setdefault("tax_extension_filed", False)
@@ -2793,9 +2978,12 @@ def api_buy():
     prop = next((p for p in s["market"] if p["id"] == data["listing_id"]), None)
     if not prop:
         return jsonify({"error": "Listing not found"}), 404
-    if prop["purchase_price"] > s["cash"]:
+    buy_cost = prop["purchase_price"]
+    if s.get("owned_items", {}).get("printer"):
+        buy_cost = int(buy_cost * 0.95)
+    if buy_cost > s["cash"]:
         return jsonify({"error": "Not enough cash"}), 400
-    s["cash"] -= prop["purchase_price"]
+    s["cash"] -= buy_cost
     prop["vacant_since"] = s["day"]
     prop["purchase_day"] = s["day"]
     # Roll special contractors immediately so they're available before the next day advance
@@ -2888,6 +3076,8 @@ def api_renovate():
         cost      = _reno_cost(prop, upg["base_cost"], cont["cost_mult"])
         if s.get("owned_items", {}).get("whiteboard"):
             cost = int(cost * 0.94)
+        if s.get("owned_items", {}).get("workbench_tools"):
+            cost = int(cost * 0.92)
         quality   = random.randint(cont["q_min"], cont["q_max"])
         cont_name = cont["name"]
     is_vacant    = not prop.get("tenant")
@@ -3128,6 +3318,8 @@ def api_sell():
         sale = int(calc_market_value(prop) * random.uniform(0.95, 1.05))
     if s.get("owned_items", {}).get("negotiation_book"):
         sale = int(sale * 1.04)
+    if s.get("owned_items", {}).get("bookshelf"):
+        sale = int(sale * 1.05)
     profit = sale - prop["purchase_price"]
     s["cash"] += sale
     if profit > 0:
@@ -3305,6 +3497,11 @@ def api_advance():
     for d in range(days):
         current_day       = s["day"] + d + 1
         early_exit_happened = False   # only one tenant leaves early per day
+
+        # Assistant daily fee deductions
+        for asst_key, asst in ASSISTANTS.items():
+            if s.get("assistants", {}).get(asst_key):
+                s["cash"] = max(0, s["cash"] - int(asst["monthly_fee"] / 28))
 
         for prop in s["properties"]:
             if not prop.get("tenant"):
@@ -3556,6 +3753,12 @@ def api_advance():
                         # House plant: 15% chance to block 1 point of morale loss
                         if delta < 0 and owned_items.get("house_plant") and random.random() < 0.15:
                             delta = min(0, delta + 1)
+                        # Aquarium: additional 20% morale block
+                        if delta < 0 and owned_items.get("aquarium") and random.random() < 0.20:
+                            delta = min(0, delta + 1)
+                        # Garden: 20% morale block (independent roll)
+                        if delta < 0 and owned_items.get("garden") and random.random() < 0.20:
+                            delta = min(0, delta + 1)
                         # Headphones: negative morale events reduced by 1 point
                         if delta < 0 and owned_items.get("headphones"):
                             delta = min(0, delta + 1)
@@ -3623,9 +3826,6 @@ def api_advance():
                 btype = BUSINESS_TENANT_TYPES.get(btype_key)
                 if not btype:
                     continue
-                if unit.get("renewal_pending"):
-                    continue  # waiting on player response
-
                 # Daily rent
                 daily_rent = int(unit["monthly_rent"] / 28)
                 s["cash"] += daily_rent
@@ -3635,26 +3835,42 @@ def api_advance():
                 unit["lease_days_remaining"] = max(0, unit.get("lease_days_remaining", 0) - 1)
 
                 if unit["lease_days_remaining"] <= 0:
-                    unit["renewal_pending"] = True
-                    new_commercial_events.append({
-                        "prop_id":      prop["id"],
-                        "unit_idx":     unit["idx"],
-                        "type":         "lease_renewal",
-                        "biz_type":     btype_key,
-                        "biz_icon":     btype["icon"],
-                        "tenant_name":  unit["tenant_name"],
-                        "prop_label":   prop_label,
-                        "current_rent": unit["monthly_rent"],
-                        "bumped_rent":  int(unit["monthly_rent"] * 1.10),
-                    })
+                    # Flooring Express always auto-renews; all others have 80% chance
+                    if btype_key == "flooring_express" or random.random() < 0.80:
+                        unit["lease_days_remaining"] = btype["lease_days"]
+                        unit["renewal_pending"]      = False
+                        events.append({"prop": prop_label, "type": "info", "category": "commercial",
+                            "text": f"✅ {unit['tenant_name']} renewed their lease."})
+                        s["log"].insert(0, {"day": current_day, "type": "info",
+                            "text": f"{unit['tenant_name']} auto-renewed at {prop_label}"})
+                    else:
+                        name = unit["tenant_name"]
+                        unit["business_type"]       = None
+                        unit["tenant_name"]         = None
+                        unit["lease_days_remaining"] = 0
+                        unit["monthly_rent"]        = 0
+                        unit["renewal_pending"]     = False
+                        events.append({"prop": prop_label, "type": "warning", "category": "commercial",
+                            "text": f"🚪 {name}'s lease expired — they moved on."})
+                        s["log"].insert(0, {"day": current_day, "type": "warning",
+                            "text": f"{name} vacated after lease expired at {prop_label}"})
                     continue
 
-                # Random event roll
-                if random.random() < btype["event_chance"] / 28:
+                # Random event roll (upgrades can reduce event chance)
+                evt_chance = btype["event_chance"] / 28
+                upgrades   = prop.get("upgrades", {})
+                if upgrades.get("security_system"):
+                    evt_chance *= 0.40
+                if upgrades.get("parking_expansion") and btype_key in ("restaurant", "gym", "pawn_shop", "tattoo_studio", "auto_parts"):
+                    evt_chance *= 0.60
+                if random.random() < evt_chance:
                     ev_type = random.choices(
-                        ["inspection_fail", "boom_season", "business_closed", "sublet_request"],
-                        weights=[3, 3, 2, 2]
+                        ["inspection_fail", "boom_season", "business_closed", "sublet_request",
+                         "utility_spike", "vandalism", "community_award",
+                         "rent_negotiation", "early_exit", "equipment_damage"],
+                        weights=[3, 3, 2, 2,  3, 2, 2,  2, 1, 2]
                     )[0]
+                    # ── Auto-resolved events ──────────────────────────────────
                     if ev_type == "boom_season":
                         bonus = random.randint(2_000, 5_000)
                         s["cash"] += bonus
@@ -3672,6 +3888,28 @@ def api_advance():
                             "text": f"🚪 {name} closed overnight — unit now vacant."})
                         s["log"].insert(0, {"day": current_day, "type": "warning",
                             "text": f"{name} closed at {prop_label} — unit vacant"})
+                    elif ev_type == "utility_spike":
+                        cost = random.randint(1_500, 4_000)
+                        s["cash"] = max(0, s["cash"] - cost)
+                        events.append({"prop": prop_label, "type": "warning", "category": "commercial",
+                            "text": f"⚡ Utility spike at {unit['tenant_name']} — emergency cost ${cost:,}."})
+                        s["log"].insert(0, {"day": current_day, "type": "warning",
+                            "text": f"Utility spike at {prop_label} — ${cost:,} charged"})
+                    elif ev_type == "vandalism":
+                        dmg = random.randint(10, 25)
+                        prop["condition"] = max(0, prop.get("condition", 0) - dmg)
+                        events.append({"prop": prop_label, "type": "warning", "category": "commercial",
+                            "text": f"🪟 Vandalism overnight — building condition −{dmg}."})
+                        s["log"].insert(0, {"day": current_day, "type": "warning",
+                            "text": f"Vandalism at {prop_label} — condition -{dmg}"})
+                    elif ev_type == "community_award":
+                        bonus = random.randint(1_500, 3_500)
+                        s["cash"] += bonus
+                        events.append({"prop": prop_label, "type": "positive", "category": "commercial",
+                            "text": f"🏆 {unit['tenant_name']} won a community award — you got ${bonus:,} in foot traffic!"})
+                        s["log"].insert(0, {"day": current_day, "type": "positive",
+                            "text": f"{unit['tenant_name']} community award — +${bonus:,} at {prop_label}"})
+                    # ── Player-choice modal events ────────────────────────────
                     elif ev_type == "inspection_fail":
                         cost = random.randint(3_000, 8_000)
                         new_commercial_events.append({
@@ -3696,11 +3934,61 @@ def api_advance():
                             "prop_label":   prop_label,
                             "bonus_monthly": bonus_mo,
                         })
+                    elif ev_type == "rent_negotiation":
+                        proposed = int(unit["monthly_rent"] * 0.85)
+                        new_commercial_events.append({
+                            "prop_id":       prop["id"],
+                            "unit_idx":      unit["idx"],
+                            "type":          "rent_negotiation",
+                            "biz_type":      btype_key,
+                            "biz_icon":      btype["icon"],
+                            "tenant_name":   unit["tenant_name"],
+                            "prop_label":    prop_label,
+                            "current_rent":  unit["monthly_rent"],
+                            "proposed_rent": proposed,
+                        })
+                    elif ev_type == "early_exit":
+                        exit_fee = random.randint(4_000, 8_000)
+                        new_commercial_events.append({
+                            "prop_id":     prop["id"],
+                            "unit_idx":    unit["idx"],
+                            "type":        "early_exit",
+                            "biz_type":    btype_key,
+                            "biz_icon":    btype["icon"],
+                            "tenant_name": unit["tenant_name"],
+                            "prop_label":  prop_label,
+                            "exit_fee":    exit_fee,
+                        })
+                    elif ev_type == "equipment_damage":
+                        repair_cost = random.randint(2_500, 6_000)
+                        new_commercial_events.append({
+                            "prop_id":     prop["id"],
+                            "unit_idx":    unit["idx"],
+                            "type":        "equipment_damage",
+                            "biz_type":    btype_key,
+                            "biz_icon":    btype["icon"],
+                            "tenant_name": unit["tenant_name"],
+                            "prop_label":  prop_label,
+                            "repair_cost": repair_cost,
+                        })
 
             # Condition degradation (per occupied unit type)
-            restaurant_ct = sum(1 for u in prop["units"] if u.get("business_type") == "restaurant")
-            gym_ct        = sum(1 for u in prop["units"] if u.get("business_type") == "gym")
-            cond_loss     = 0.05 + 0.10 * restaurant_ct + 0.08 * gym_ct
+            upgrades_      = prop.get("upgrades", {})
+            restaurant_ct  = sum(1 for u in prop["units"] if u.get("business_type") == "restaurant")
+            gym_ct         = sum(1 for u in prop["units"] if u.get("business_type") == "gym")
+            heavy_wear_ct  = sum(1 for u in prop["units"] if u.get("business_type") in ("tattoo_studio", "auto_parts", "pawn_shop", "tech_startup"))
+            cond_loss      = 0.05 + 0.10 * restaurant_ct + 0.08 * gym_ct + 0.06 * heavy_wear_ct
+            if upgrades_.get("commercial_hvac"):
+                cond_loss *= 0.65  # HVAC reduces wear by 35%
+
+            # Superintendent: daily fee deducted, 50% less wear, slow auto-heal below 80
+            if prop.get("superintendent"):
+                sup_monthly = ctype.get("superintendent_monthly", 0)
+                s["cash"]   = max(0, s["cash"] - int(sup_monthly / 28))
+                cond_loss  *= 0.50
+                if prop.get("condition", 100) < 80:
+                    prop["condition"] = min(80, prop.get("condition", 0) + 0.30)
+
             prop["condition"] = max(0, prop.get("condition", 100) - cond_loss)
 
         # Scheduled renovations — convert to pending when start_day arrives
@@ -4031,6 +4319,12 @@ def api_advance():
                 vm["status"] = "running"
     s["vending_machines"]  = vms
     s["costpro_inventory"] = inv
+
+    # ── Personal item passive income ─────────────────────────────────────────
+    if s.get("owned_items", {}).get("wine_rack"):
+        s["cash"] += 100 * days
+    if s.get("owned_items", {}).get("sports_car"):
+        s["cash"] += 200 * days
 
     # ── Laundromat income + events ─────────────────────────────────────────────
     lm = s.get("laundromat")
@@ -4520,6 +4814,66 @@ def api_advance():
                            "text": f"Build complete! Your {NEW_BUILD_SIZES[build['size']]['name']} at {prop['address']} is ready.",
                            "type": "positive", "category": "build"})
     s["active_builds"] = [b for b in active_builds if b["id"] not in completed_ids]
+
+    # ── Assistant auto-resolution ─────────────────────────────────────────────
+    hired = s.get("assistants", {})
+
+    if hired.get("repair") or hired.get("estate"):
+        auto_handled = []
+        for repair in new_repairs:
+            prop = next((p for p in s["properties"] if p["id"] == repair["prop_id"]), None)
+            if not prop:
+                auto_handled.append(repair)
+                continue
+            rt = repair["repair_type"]
+            chosen_method = None
+            for method_key in ["premium", "standard", "budget"]:
+                cost = int(rt["base_cost"] * CONTRACTORS[method_key]["cost_mult"])
+                if s["cash"] >= cost:
+                    chosen_method = method_key
+                    break
+            if chosen_method:
+                cont      = CONTRACTORS[chosen_method]
+                cost      = int(rt["base_cost"] * cont["cost_mult"])
+                quality   = random.randint(cont["q_min"], cont["q_max"])
+                cond_gain = int(rt["cond_fix"] * (quality / 100))
+                s["cash"] -= cost
+                prop["condition"] = min(MAX_CONDITION, prop["condition"] + cond_gain)
+                if prop.get("tenant"):
+                    prop["tenant"]["morale"] = min(100, prop["tenant"].get("morale", 50) + 5)
+                s["log"].insert(0, {"day": s["day"] + days, "type": "renovate",
+                    "text": f"🔧 Assistant fixed {rt['name']} at {prop['type']} in {prop['neighborhood']} ({cont['name']}, quality {quality}/100, cost ${cost:,})"})
+                events.append({"prop": f"{prop['type']} — {prop['neighborhood']}", "type": "info",
+                    "text": f"🔧 Assistant: {rt['name']} fixed by {cont['name']} (quality {quality}/100, cost ${cost:,})"})
+                auto_handled.append(repair)
+        new_repairs = [r for r in new_repairs if r not in auto_handled]
+
+    if hired.get("tenant") or hired.get("estate"):
+        handle_all       = bool(hired.get("estate"))
+        auto_handled_m   = []
+        for ev in new_morale_events:
+            if not handle_all and random.random() >= 0.50:
+                continue
+            cond_gain_ev   = ev.get("cond_gain", 0)
+            damage_chance  = ev.get("damage_chance", 0)
+            choice = "agree" if (cond_gain_ev > 0 or damage_chance < 0.40) else "decline"
+            prop = next((p for p in s["properties"] if p["id"] == ev["prop_id"]), None)
+            if prop and prop.get("tenant"):
+                t = prop["tenant"]
+                if choice == "agree":
+                    t["morale"] = min(100, t.get("morale", 50) + ev.get("morale_gain", 0))
+                    if damage_chance > 0 and random.random() < damage_chance:
+                        prop["condition"] = max(0, prop.get("condition", 0) - ev.get("damage_pts", 0))
+                    if cond_gain_ev > 0:
+                        prop["condition"] = min(MAX_CONDITION, prop.get("condition", 0) + cond_gain_ev)
+                else:
+                    t["morale"] = max(0, t.get("morale", 50) - 5)
+                s["log"].insert(0, {"day": s["day"] + days, "type": "info",
+                    "text": f"🤝 Assistant {choice}d '{ev['name']}' at {prop['type']} in {prop['neighborhood']}"})
+                events.append({"prop": f"{prop['type']} — {prop['neighborhood']}", "type": "info",
+                    "text": f"🤝 Assistant handled '{ev['name']}' — {choice}d"})
+                auto_handled_m.append(ev)
+        new_morale_events = [e for e in new_morale_events if e not in auto_handled_m]
 
     _update_stock_prices(s, days)
     _roll_special_contractors(s)
@@ -6131,9 +6485,11 @@ def api_commercial_get_applicants(pid):
         return jsonify({"error": "Unit not found"}), 404
     if unit.get("business_type"):
         return jsonify({"error": "Unit already occupied"}), 400
-    # Generate 3 random business applicants
-    biz_types = list(BUSINESS_TENANT_TYPES.keys())
-    chosen    = random.sample(biz_types, min(3, len(biz_types)))
+    # Generate 3 random business applicants (rare chance for Flooring Express)
+    regular_types = [k for k, v in BUSINESS_TENANT_TYPES.items() if not v.get("special")]
+    chosen        = random.sample(regular_types, min(3, len(regular_types)))
+    if random.random() < 0.125:  # 1-in-8 chance to replace one slot with Flooring Express
+        chosen[random.randint(0, len(chosen) - 1)] = "flooring_express"
     applicants = []
     for bt in chosen:
         btype = BUSINESS_TENANT_TYPES[bt]
@@ -6145,6 +6501,7 @@ def api_commercial_get_applicants(pid):
             "monthly_rent": btype["monthly_rent"],
             "lease_days":   btype["lease_days"],
             "desc":         btype["desc"],
+            "special":      btype.get("special", False),
         })
     unit["applicants"] = applicants
     save(s)
@@ -6166,12 +6523,21 @@ def api_commercial_accept_tenant(pid):
     btype = BUSINESS_TENANT_TYPES.get(biz_type)
     if not btype:
         return jsonify({"error": "Invalid business type"}), 400
-    unit["business_type"]      = biz_type
-    unit["tenant_name"]        = biz_name or random.choice(btype["names"])
-    unit["monthly_rent"]       = btype["monthly_rent"]
+    unit["business_type"]        = biz_type
+    unit["tenant_name"]          = biz_name or random.choice(btype["names"])
     unit["lease_days_remaining"] = btype["lease_days"]
-    unit["renewal_pending"]    = False
-    unit["applicants"]         = []
+    unit["renewal_pending"]      = False
+    unit["applicants"]           = []
+    # Apply active upgrade rent bonuses to incoming tenant
+    base_rent = btype["monthly_rent"]
+    upgrades  = prop.get("upgrades", {})
+    if upgrades.get("renovated_common"):
+        base_rent = int(base_rent * 1.08)
+    if upgrades.get("exterior_facelift"):
+        base_rent += 300
+    if upgrades.get("fiber_internet") and biz_type in ("law_office", "accounting_firm"):
+        base_rent += 500
+    unit["monthly_rent"] = base_rent
     ctype = COMMERCIAL_TYPES[prop["type"]]
     s["log"].insert(0, {"day": s["day"], "type": "positive",
         "text": f"{unit['tenant_name']} ({btype['name']}) moved into {ctype['name']} on {prop['address']}"})
@@ -6246,8 +6612,161 @@ def api_commercial_event_respond():
             s["log"].insert(0, {"day": s["day"], "type": "info",
                 "text": f"Denied sublet request at {prop_label}"})
 
+    elif ev_type == "rent_negotiation":
+        proposed = data.get("proposed_rent", unit.get("monthly_rent", 0))
+        if choice == "accept":
+            unit["monthly_rent"] = proposed
+            s["log"].insert(0, {"day": s["day"], "type": "info",
+                "text": f"Accepted rent reduction for {unit['tenant_name']} at {prop_label} — now ${proposed:,}/mo"})
+        else:
+            name = unit["tenant_name"]
+            unit["business_type"]        = None
+            unit["tenant_name"]          = None
+            unit["lease_days_remaining"] = 0
+            unit["monthly_rent"]         = 0
+            unit["renewal_pending"]      = False
+            s["log"].insert(0, {"day": s["day"], "type": "warning",
+                "text": f"{name} walked out after rent negotiation declined at {prop_label}"})
+
+    elif ev_type == "early_exit":
+        exit_fee = data.get("exit_fee", 0)
+        name = unit["tenant_name"]
+        if choice == "charge_fee":
+            s["cash"] += exit_fee
+            s["log"].insert(0, {"day": s["day"], "type": "info",
+                "text": f"{name} paid ${exit_fee:,} exit fee and vacated {prop_label}"})
+        else:
+            s["log"].insert(0, {"day": s["day"], "type": "info",
+                "text": f"{name} vacated {prop_label} — exit fee waived"})
+        unit["business_type"]        = None
+        unit["tenant_name"]          = None
+        unit["lease_days_remaining"] = 0
+        unit["monthly_rent"]         = 0
+        unit["renewal_pending"]      = False
+
+    elif ev_type == "equipment_damage":
+        repair_cost = data.get("repair_cost", 0)
+        if choice == "pay":
+            if s["cash"] < repair_cost:
+                return jsonify({"error": f"Need ${repair_cost:,}"}), 400
+            s["cash"] -= repair_cost
+            s["log"].insert(0, {"day": s["day"], "type": "info",
+                "text": f"Repaired equipment damage at {prop_label} — ${repair_cost:,}"})
+        else:
+            prop["condition"] = max(0, prop.get("condition", 0) - 20)
+            s["log"].insert(0, {"day": s["day"], "type": "warning",
+                "text": f"Ignored equipment damage at {prop_label} — condition -20"})
+
     save(s)
     return jsonify({"success": True, "cash": s["cash"]})
+
+@app.route('/api/commercial/<int:pid>/superintendent', methods=['POST'])
+def api_commercial_superintendent(pid):
+    s      = load()
+    data   = request.get_json(silent=True) or {}
+    action = data.get("action", "hire")
+    prop   = next((p for p in s["properties"] if p["id"] == pid and p.get("commercial")), None)
+    if not prop:
+        return jsonify({"error": "Property not found"}), 404
+    ctype = COMMERCIAL_TYPES.get(prop["type"], {})
+    if action == "hire":
+        if prop.get("superintendent"):
+            return jsonify({"error": "Superintendent already hired"}), 400
+        prop["superintendent"] = True
+        s["log"].insert(0, {"day": s["day"], "type": "positive",
+            "text": f"Building superintendent hired for {ctype['name']} on {prop['address']}"})
+    else:
+        prop["superintendent"] = False
+        s["log"].insert(0, {"day": s["day"], "type": "info",
+            "text": f"Building superintendent dismissed from {ctype['name']} on {prop['address']}"})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/commercial/<int:pid>/upgrade', methods=['POST'])
+def api_commercial_upgrade(pid):
+    s           = load()
+    data        = request.get_json(silent=True) or {}
+    upgrade_key = data.get("upgrade")
+    prop = next((p for p in s["properties"] if p["id"] == pid and p.get("commercial")), None)
+    if not prop:
+        return jsonify({"error": "Property not found"}), 404
+    upg = COMMERCIAL_UPGRADES.get(upgrade_key)
+    if not upg:
+        return jsonify({"error": "Unknown upgrade"}), 400
+    if prop.get("upgrades", {}).get(upgrade_key):
+        return jsonify({"error": "Already installed"}), 400
+    if s["cash"] < upg["cost"]:
+        return jsonify({"error": "Not enough cash"}), 400
+    s["cash"] -= upg["cost"]
+    prop.setdefault("upgrades", {})[upgrade_key] = True
+    ctype = COMMERCIAL_TYPES.get(prop["type"], {})
+    # One-time effects at install time
+    if upgrade_key == "exterior_facelift":
+        prop["condition"] = min(prop.get("condition", 0) + 40, 250)
+        for u in prop.get("units", []):
+            if u.get("business_type"):
+                u["monthly_rent"] = u.get("monthly_rent", 0) + 300
+    elif upgrade_key == "renovated_common":
+        for u in prop.get("units", []):
+            if u.get("business_type"):
+                u["monthly_rent"] = int(u.get("monthly_rent", 0) * 1.08)
+    elif upgrade_key == "fiber_internet":
+        for u in prop.get("units", []):
+            if u.get("business_type") in ("law_office", "accounting_firm"):
+                u["monthly_rent"] = u.get("monthly_rent", 0) + 500
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"{upg['name']} installed at {ctype.get('name','building')} on {prop['address']}"})
+    save(s)
+    return jsonify({"success": True, "condition": prop["condition"]})
+
+@app.route('/api/commercial/<int:pid>/emergency_repair', methods=['POST'])
+def api_commercial_emergency_repair(pid):
+    s    = load()
+    prop = next((p for p in s["properties"] if p["id"] == pid and p.get("commercial")), None)
+    if not prop:
+        return jsonify({"error": "Property not found"}), 404
+    ctype = COMMERCIAL_TYPES.get(prop["type"], {})
+    cost  = ctype.get("emergency_repair_cost", 15_000)
+    if s["cash"] < cost:
+        return jsonify({"error": "Not enough cash"}), 400
+    s["cash"]          -= cost
+    prop["condition"]   = max(prop.get("condition", 0), 120)  # restore to low-B tier
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"Emergency repair completed at {ctype.get('name','building')} on {prop['address']} — condition restored"})
+    save(s)
+    return jsonify({"success": True, "condition": prop["condition"]})
+
+@app.route('/api/hire_assistant', methods=['POST'])
+def api_hire_assistant():
+    s    = load()
+    data = request.get_json(silent=True) or {}
+    key  = data.get("key")
+    asst = ASSISTANTS.get(key)
+    if not asst:
+        return jsonify({"error": "Unknown assistant"}), 400
+    if (s.get("level", 0) < asst["unlock_level"]):
+        return jsonify({"error": f"Unlocks at Level {asst['unlock_level']}"}), 400
+    if s.get("assistants", {}).get(key):
+        return jsonify({"error": "Already hired"}), 400
+    s.setdefault("assistants", {})[key] = True
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"{asst['name']} hired — ${asst['monthly_fee']:,}/mo"})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/fire_assistant', methods=['POST'])
+def api_fire_assistant():
+    s    = load()
+    data = request.get_json(silent=True) or {}
+    key  = data.get("key")
+    asst = ASSISTANTS.get(key)
+    if not asst:
+        return jsonify({"error": "Unknown assistant"}), 400
+    s.setdefault("assistants", {})[key] = False
+    s["log"].insert(0, {"day": s["day"], "type": "info",
+        "text": f"{asst['name']} dismissed"})
+    save(s)
+    return jsonify({"success": True})
 
 @app.route('/api/reset', methods=['POST'])
 def api_reset():
