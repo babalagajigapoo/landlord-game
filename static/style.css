@@ -90,8 +90,7 @@ header {
 .xp-bar-track     { height: 6px; background: rgba(255,255,255,0.15); border-radius: 10px; overflow: hidden; }
 .xp-bar-fill      { height: 100%; background: linear-gradient(90deg, #FFD54F, #FFAB40); border-radius: 10px; transition: width 0.6s ease; }
 
-main { flex: 1; overflow-y: auto; padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) / 2 + 8px); }
-main:has(#page-dashboard.active) { overflow-y: hidden; }
+main { flex: 1; overflow: hidden; }
 
 /* ── Bottom Nav ──────────────────────────────────────────────── */
 .bottom-nav {
@@ -149,7 +148,8 @@ main:has(#page-dashboard.active) { overflow-y: hidden; }
 
 /* ── Pages ───────────────────────────────────────────────────── */
 .page { display: none; padding: 12px; animation: fadeIn 0.15s ease; }
-.page.active { display: block; }
+.page.active { display: block; height: 100%; overflow-y: auto; box-sizing: border-box; padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) / 2 + 8px); }
+#page-dashboard.active { overflow-y: hidden; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes taxShake { 0%,100% { transform: rotate(-3deg) scale(1.05); } 50% { transform: rotate(3deg) scale(1.1); } }
 
