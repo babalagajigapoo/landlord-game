@@ -401,6 +401,7 @@ function updateHeader() {
   if (_prevCash !== null && _prevCash !== newCash) {
     animateCashChange(newCash - _prevCash);
     animateCounter(cashEl, _prevCash, newCash);
+    if (newCash > _prevCash) sfx.cash();
   } else {
     cashEl.textContent = fmt(newCash);
   }
@@ -489,6 +490,7 @@ const LEVEL_UNLOCKS = {
 };
 
 function showLevelUpModal(newLevel) {
+  sfx.levelUp();
   const data    = LEVEL_UNLOCKS[newLevel] || { joke: "Something unlocked. Probably important.", unlocks: [] };
   const listHtml = data.unlocks.map(u => `
     <div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
@@ -509,6 +511,7 @@ function showLevelUpModal(newLevel) {
 
 function showLevelRoadmapModal() {
   if (!state) return;
+  sfx.infoOpen();
   const currentLvl = state.level ?? 0;
 
   const rows = Object.entries(LEVEL_UNLOCKS).map(([lvlStr, data]) => {
@@ -564,7 +567,7 @@ function showLevelRoadmapModal() {
 // ── Navigation ────────────────────────────────────────────────────────────────
 function setupNav() {
   document.querySelectorAll('.nav-btn').forEach(btn => {
-    btn.addEventListener('click', () => navTo(btn.dataset.page));
+    btn.addEventListener('click', () => { sfx.tap(); navTo(btn.dataset.page); });
   });
   slideNavIndicator('dashboard');
 }
@@ -602,6 +605,7 @@ function navTo(page) {
 // ── Render All ────────────────────────────────────────────────────────────────
 function renderAll() {
   setupMusicAutoStart();
+  setupSfxAutoStart();
   renderDashboard();
   renderMarket();
   if (_currentMarketTab === 'commercial') renderCommercialMarket();
@@ -723,6 +727,7 @@ function renderMarket() {
 }
 
 function switchMarketTab(tab) {
+  sfx.tab();
   _currentMarketTab = tab;
   ['residential', 'commercial'].forEach(t => {
     const el  = document.getElementById('mkt-' + t);
@@ -759,6 +764,7 @@ function renderCommercialMarket() {
 function toggleMarketHood(hood) {
   // undefined = open by default; toggling for the first time closes it
   marketHoodOpen[hood] = marketHoodOpen[hood] === false ? true : false;
+  sfx.accordion();
   renderMarket();
 }
 
@@ -803,12 +809,14 @@ async function buyProperty(id) {
   const listing = marketListings.find(p => p.id === id);
   if (!listing) return;
   if (listing.purchase_price > state.cash) { toast('Not enough cash!', 'error'); return; }
+  sfx.buyOpen();
   showConfirmModal(
     `Buy ${listing.bedrooms}bd ${listing.type}?`,
     `${listing.neighborhood} · ${fmt(listing.purchase_price)}`,
     async () => {
       const res = await api('/buy', 'POST', { listing_id: id });
       if (res.error) { toast(res.error, 'error'); return; }
+      sfx.buy();
       closeModal();
       toast(`Purchased ${listing.type} in ${listing.neighborhood}!`, 'success');
       // Remove the bought listing locally — market only refills on day advance
@@ -1142,10 +1150,12 @@ async function commercialEventRespond(pid, unitIdx, evType, choice, extraData) {
 
 function toggleHoodSection(hood) {
   _propHoodOpen[hood] = _propHoodOpen[hood] === false ? true : false;
+  sfx.accordion();
   renderProperties();
 }
 
 function switchHoodTab(hood, tab) {
+  sfx.tab();
   _propHoodTab[hood] = tab;
   renderProperties();
 }
@@ -1153,6 +1163,7 @@ function switchHoodTab(hood, tab) {
 let _currentPropTab = 'portfolio';
 
 function switchPropTab(tab) {
+  sfx.tab();
   _currentPropTab = tab;
   ['portfolio', 'commercial', 'newbuilds'].forEach(t => {
     const el  = document.getElementById('prop-' + t);
@@ -1376,6 +1387,7 @@ async function submitStartBuild() {
   const upgrades = Array.from(document.querySelectorAll('input[name="nb-upgrade"]:checked')).map(i => i.value);
   const res = await api('/new_builds/start', 'POST', { size: sizeEl.value, crew: crewEl.value, premium_upgrades: upgrades });
   if (res.error) { toast(res.error, 'error'); return; }
+  sfx.construct();
   closeModal();
   await refreshState();
   renderNewBuilds();
@@ -1514,6 +1526,7 @@ function showPlayerHomeModal() {
 async function moveIn(homeKey) {
   const res = await api('/move_in', 'POST', { home_key: homeKey });
   if (res.error) { toast(res.error, 'error'); return; }
+  sfx.moveIn();
   closeModal();
   await refreshState();
   renderAll();
@@ -1597,6 +1610,295 @@ function homeTierUnlocked(unlock_home) {
 // ── Sprite pixel-art data (top-down view, 16x16) ──────────────────────────
 const _ROOM_LABELS = { living:'Living Room', bedroom:'Bedroom', kitchen:'Kitchen', office:'Home Office', garage:'Garage', outdoor:'Outdoor' };
 const _ROOM_ORDER  = ['living','bedroom','kitchen','office','garage','outdoor'];
+
+// ── Floor plan system ─────────────────────────────────────────────────────
+// Top-down furniture sprites, drawn centered at local (0,0). w/h = footprint
+// used for placement. One shared scale across all homes (consistent sizing).
+const FP_FLOOR = { living:'#B89469', kitchen:'#9FB3B8', bedroom:'#B59A78', office:'#9E8E72', garage:'#8E969E', outdoor:'#7FB05F', bath:'#AEC4CC' };
+
+const FP_SPRITES = {
+  // ── Living ──
+  house_plant:   { w:28, h:30, art:`<rect x="-8" y="2" width="16" height="13" rx="3" fill="#C66B3D" stroke="#8A4527" stroke-width="1.5"/><circle cx="-5" cy="-5" r="8" fill="#4CAF50"/><circle cx="5" cy="-8" r="8" fill="#66BB6A"/><circle cx="6" cy="0" r="6" fill="#4CAF50"/>` },
+  couch:         { w:46, h:18, art:`<rect x="-21" y="-8" width="42" height="8" rx="4" fill="#5FC4BA" stroke="#2E8B83" stroke-width="1.5"/><rect x="-21" y="-5" width="42" height="13" rx="4" fill="#4DB6AC" stroke="#2E8B83" stroke-width="1.5"/><rect x="-24" y="-4" width="6" height="12" rx="2" fill="#3FA89E"/><rect x="18" y="-4" width="6" height="12" rx="2" fill="#3FA89E"/>` },
+  flat_screen_tv:{ w:40, h:14, art:`<rect x="-20" y="-7" width="40" height="6" rx="2" fill="#2B2B33" stroke="#111" stroke-width="1.5"/><rect x="-12" y="-1" width="24" height="5" rx="2" fill="#A9744F"/>` },
+  home_theater:  { w:46, h:26, art:`<rect x="-22" y="-12" width="44" height="6" rx="2" fill="#2B2B33"/><rect x="-18" y="0" width="10" height="10" rx="3" fill="#5C6BC0"/><rect x="-4" y="0" width="10" height="10" rx="3" fill="#5C6BC0"/><rect x="10" y="0" width="10" height="10" rx="3" fill="#5C6BC0"/>` },
+  bookshelf:     { w:34, h:20, art:`<rect x="-17" y="-10" width="34" height="20" rx="2" fill="#A9744F" stroke="#7A4F2F" stroke-width="1.5"/><rect x="-13" y="-7" width="4" height="14" fill="#E0533F"/><rect x="-8" y="-7" width="4" height="14" fill="#4D8FE0"/><rect x="-3" y="-7" width="4" height="14" fill="#5FB85F"/><rect x="2" y="-7" width="4" height="14" fill="#F2C744"/><rect x="7" y="-7" width="4" height="14" fill="#E0533F"/>` },
+  aquarium:      { w:36, h:22, art:`<rect x="-18" y="-11" width="36" height="22" rx="4" fill="#5AB6E0" stroke="#2E7FA8" stroke-width="1.5"/><rect x="-15" y="-8" width="30" height="16" rx="3" fill="#8AD4F0"/><path d="M-8 0 l7 -4 l0 8 z" fill="#F2A65A"/><path d="M5 3 l6 -3 l0 6 z" fill="#E0533F"/>` },
+  fireplace:     { w:34, h:20, art:`<rect x="-17" y="-4" width="34" height="14" rx="3" fill="#8A8A92" stroke="#5A5A62" stroke-width="1.5"/><rect x="-17" y="-10" width="34" height="8" rx="2" fill="#A9744F" stroke="#7A4F2F" stroke-width="1.5"/><path d="M-7 9 q-3 -10 3 -11 q-1 7 4 8 q4 -3 2 -8 q5 5 0 11 z" fill="#FF9A3D"/>` },
+  pool_table:    { w:42, h:26, art:`<rect x="-21" y="-13" width="42" height="26" rx="4" fill="#2E8B57" stroke="#1E5E3A" stroke-width="2"/><rect x="-17" y="-9" width="34" height="18" rx="2" fill="#3CA86A"/><circle cx="-17" cy="-11" r="2.5" fill="#143A24"/><circle cx="17" cy="-11" r="2.5" fill="#143A24"/><circle cx="-17" cy="11" r="2.5" fill="#143A24"/><circle cx="17" cy="11" r="2.5" fill="#143A24"/><circle cx="-4" cy="0" r="2.5" fill="#fff"/><circle cx="4" cy="-2" r="2.5" fill="#F2C744"/>` },
+  grand_piano:   { w:38, h:30, art:`<path d="M-16 -14 h12 q18 0 18 15 q0 11 -14 11 h-16 z" fill="#2B2B33" stroke="#111" stroke-width="1.5"/><rect x="-16" y="-14" width="8" height="26" rx="1" fill="#F4F0E6"/><line x1="-14" y1="-14" x2="-14" y2="12" stroke="#111"/><line x1="-11" y1="-14" x2="-11" y2="12" stroke="#111"/>` },
+  smart_home_system:{ w:24, h:24, art:`<rect x="-11" y="-11" width="22" height="22" rx="6" fill="#ECEFF1" stroke="#90A4AE" stroke-width="1.5"/><circle cx="0" cy="0" r="7" fill="#CFE8F5" stroke="#7FB5D8" stroke-width="1.5"/><circle cx="0" cy="0" r="3" fill="#4D8FE0"/>` },
+  home_bar:      { w:40, h:22, art:`<rect x="-20" y="-6" width="40" height="14" rx="3" fill="#7A4F2F" stroke="#4A2F1A" stroke-width="1.5"/><rect x="-20" y="-9" width="40" height="5" rx="2" fill="#9A6A3F"/><circle cx="-12" cy="11" r="4" fill="#C98A4E"/><circle cx="12" cy="11" r="4" fill="#C98A4E"/><rect x="10" y="-7" width="3" height="6" fill="#5FB85F"/>` },
+  art_gallery:   { w:40, h:16, art:`<rect x="-20" y="-7" width="40" height="6" rx="1" fill="#8A6A4A"/><rect x="-18" y="-1" width="11" height="13" rx="1" fill="#F2C744" stroke="#7A4F2F" stroke-width="1.5"/><rect x="-5" y="-1" width="11" height="13" rx="1" fill="#5FB85F" stroke="#7A4F2F" stroke-width="1.5"/><rect x="8" y="-1" width="11" height="13" rx="1" fill="#E08AB0" stroke="#7A4F2F" stroke-width="1.5"/>` },
+  grand_fireplace:{ w:40, h:22, art:`<rect x="-20" y="-3" width="40" height="14" rx="3" fill="#7A6A5A" stroke="#4A3F33" stroke-width="1.5"/><rect x="-20" y="-10" width="40" height="9" rx="2" fill="#9A8A7A" stroke="#4A3F33" stroke-width="1.5"/><path d="M-8 10 q-4 -12 3 -13 q-2 8 5 9 q5 -3 3 -9 q6 6 0 13 z" fill="#FF9A3D"/>` },
+  // ── Kitchen ──
+  coffee_maker:  { w:18, h:22, art:`<rect x="-9" y="-10" width="18" height="22" rx="3" fill="#2B2B33" stroke="#111" stroke-width="1.5"/><rect x="-6" y="-7" width="12" height="6" rx="1" fill="#5A5A66"/><circle cx="0" cy="6" r="4" fill="#6B3F2A"/>` },
+  mini_fridge:   { w:22, h:26, art:`<rect x="-11" y="-13" width="22" height="26" rx="4" fill="#ECEFF1" stroke="#90A4AE" stroke-width="1.5"/><line x1="-11" y1="0" x2="11" y2="0" stroke="#90A4AE"/><rect x="5" y="-9" width="2.5" height="7" rx="1" fill="#B0BEC5"/>` },
+  espresso_machine:{ w:26, h:22, art:`<rect x="-13" y="-10" width="26" height="20" rx="3" fill="#D7DBE0" stroke="#9AA3AB" stroke-width="1.5"/><rect x="-10" y="-7" width="9" height="14" rx="2" fill="#4A4A52"/><circle cx="-6" cy="9" r="2.5" fill="#F2C744"/>` },
+  wine_rack:     { w:28, h:26, art:`<rect x="-14" y="-13" width="28" height="26" rx="3" fill="#9A6A3F" stroke="#5A3A1F" stroke-width="1.5"/><line x1="-14" y1="0" x2="14" y2="0" stroke="#5A3A1F"/><line x1="0" y1="-13" x2="0" y2="13" stroke="#5A3A1F"/><circle cx="-7" cy="-6" r="2.5" fill="#7B2D3A"/><circle cx="7" cy="-6" r="2.5" fill="#3A6B3A"/><circle cx="-7" cy="6" r="2.5" fill="#7B2D3A"/><circle cx="7" cy="6" r="2.5" fill="#C9A227"/>` },
+  instant_pot:   { w:24, h:24, art:`<circle cx="0" cy="2" r="11" fill="#C0392B" stroke="#7E2218" stroke-width="1.5"/><circle cx="0" cy="2" r="7" fill="#D85A4A"/><rect x="-12" y="-10" width="24" height="6" rx="3" fill="#B0BEC5" stroke="#7D868E" stroke-width="1"/>` },
+  kitchen_island:{ w:34, h:20, art:`<rect x="-17" y="-10" width="34" height="20" rx="3" fill="#CFD4DA" stroke="#9AA3AB" stroke-width="1.5"/><rect x="-17" y="-12" width="34" height="6" rx="2" fill="#C98A4E"/><rect x="-4" y="-6" width="9" height="6" rx="1" fill="#8A8A92"/>` },
+  smart_fridge:  { w:24, h:28, art:`<rect x="-12" y="-14" width="24" height="28" rx="4" fill="#ECEFF1" stroke="#90A4AE" stroke-width="1.5"/><rect x="-7" y="-9" width="14" height="11" rx="2" fill="#2B6CB0"/><line x1="-12" y1="2" x2="12" y2="2" stroke="#90A4AE"/>` },
+  // ── Bedroom ──
+  new_bed:       { w:34, h:36, art:`<rect x="-17" y="-18" width="34" height="36" rx="5" fill="#FBF3E6" stroke="#CBB89A" stroke-width="1.5"/><rect x="-16" y="-2" width="32" height="18" rx="4" fill="#7E9CE0"/><rect x="-13" y="-14" width="11" height="9" rx="2" fill="#fff"/><rect x="2" y="-14" width="11" height="9" rx="2" fill="#fff"/>` },
+  blackout_curtains:{ w:26, h:16, art:`<rect x="-13" y="-8" width="26" height="14" rx="2" fill="#CFE8F5" stroke="#7FB5D8" stroke-width="1.5"/><rect x="-13" y="-8" width="6" height="14" rx="2" fill="#2B6CB0"/><rect x="7" y="-8" width="6" height="14" rx="2" fill="#2B6CB0"/>` },
+  hot_tub:       { w:30, h:28, art:`<circle cx="0" cy="0" r="14" fill="#3FA0A8" stroke="#256066" stroke-width="2"/><circle cx="0" cy="0" r="9" fill="#6FD0D6"/><circle cx="-4" cy="-2" r="2" fill="#fff"/><circle cx="4" cy="2" r="2" fill="#fff"/>` },
+  meditation_corner:{ w:24, h:16, art:`<rect x="-12" y="-6" width="24" height="12" rx="5" fill="#F4EAD8" stroke="#CBB89A" stroke-width="1.5"/><circle cx="9" cy="-4" r="2.5" fill="#A9C8C0"/>` },
+  sauna:         { w:30, h:26, art:`<rect x="-15" y="-13" width="30" height="26" rx="3" fill="#B5763A" stroke="#7A4F2F" stroke-width="1.5"/><line x1="-15" y1="-4" x2="15" y2="-4" stroke="#7A4F2F"/><line x1="-15" y1="4" x2="15" y2="4" stroke="#7A4F2F"/><circle cx="0" cy="0" r="3" fill="#E0533F"/>` },
+  spa_suite:     { w:34, h:20, art:`<rect x="-17" y="-9" width="34" height="18" rx="5" fill="#F4EAD8" stroke="#CBB89A" stroke-width="1.5"/><rect x="-17" y="-9" width="9" height="18" rx="5" fill="#E8DCC4"/><circle cx="11" cy="-3" r="2.5" fill="#A9C8C0"/><circle cx="11" cy="4" r="2.5" fill="#A9C8C0"/>` },
+  luxury_sleep_system:{ w:36, h:34, art:`<rect x="-18" y="-17" width="36" height="34" rx="6" fill="#2B2B33" stroke="#111" stroke-width="1.5"/><rect x="-16" y="-2" width="32" height="17" rx="5" fill="#5C6BC0"/><rect x="-16" y="-13" width="32" height="5" rx="2" fill="#7FE0FF"/><rect x="-13" y="-11" width="12" height="8" rx="2" fill="#fff"/><rect x="2" y="-11" width="12" height="8" rx="2" fill="#fff"/>` },
+  // ── Office ──
+  desk_fan:      { w:20, h:20, art:`<circle cx="0" cy="0" r="9" fill="#5AB6E0" stroke="#2E7FA8" stroke-width="1.5"/><line x1="0" y1="0" x2="-6" y2="-4" stroke="#fff" stroke-width="2"/><line x1="0" y1="0" x2="6" y2="-4" stroke="#fff" stroke-width="2"/><line x1="0" y1="0" x2="0" y2="6" stroke="#fff" stroke-width="2"/><circle cx="0" cy="0" r="2.5" fill="#2B2B33"/>` },
+  whiteboard:    { w:34, h:18, art:`<rect x="-17" y="-9" width="34" height="14" rx="2" fill="#F4F0E6" stroke="#9AA3AB" stroke-width="1.5"/><line x1="-12" y1="-4" x2="8" y2="-4" stroke="#E0533F" stroke-width="1.5"/><line x1="-12" y1="0" x2="11" y2="0" stroke="#4D8FE0" stroke-width="1.5"/><line x1="-12" y1="4" x2="2" y2="4" stroke="#5FB85F" stroke-width="1.5"/>` },
+  filing_cabinet:{ w:22, h:24, art:`<rect x="-11" y="-12" width="22" height="24" rx="2" fill="#8A8A92" stroke="#5A5A62" stroke-width="1.5"/><rect x="-8" y="-9" width="16" height="6" rx="1" fill="#B8BEC4"/><rect x="-8" y="-1" width="16" height="6" rx="1" fill="#B8BEC4"/><rect x="-8" y="7" width="16" height="4" rx="1" fill="#B8BEC4"/>` },
+  headphones:    { w:26, h:24, art:`<path d="M-11 -8 a11 11 0 0 1 22 0" fill="none" stroke="#2B2B33" stroke-width="2.5"/><rect x="-15" y="-6" width="8" height="14" rx="3" fill="#3A3A42"/><rect x="7" y="-6" width="8" height="14" rx="3" fill="#3A3A42"/>` },
+  negotiation_book:{ w:20, h:22, art:`<rect x="-10" y="-11" width="20" height="22" rx="2" fill="#A9744F" stroke="#5A3A1F" stroke-width="1.5"/><rect x="-10" y="-11" width="5" height="22" rx="1" fill="#7A4F2F"/><rect x="-3" y="-7" width="11" height="14" rx="1" fill="#F4F0E6"/><rect x="6" y="-11" width="3" height="8" fill="#E0533F"/>` },
+  gaming_setup:  { w:34, h:22, art:`<rect x="-17" y="-3" width="34" height="13" rx="3" fill="#C98A4E" stroke="#8A5A28" stroke-width="1.5"/><rect x="-14" y="-11" width="22" height="8" rx="1" fill="#2B2B33"/><rect x="11" y="-2" width="9" height="8" rx="2" fill="#5C6BC0"/>` },
+  ergonomic_chair:{ w:26, h:26, art:`<ellipse cx="0" cy="2" rx="11" ry="9" fill="#5C6BC0" stroke="#3F4AA0" stroke-width="1.5"/><rect x="-9" y="-12" width="18" height="8" rx="4" fill="#6E7BD0" stroke="#3F4AA0" stroke-width="1.5"/>` },
+  second_monitor:{ w:30, h:18, art:`<rect x="-15" y="-8" width="13" height="11" rx="1" fill="#2B2B33" stroke="#111" stroke-width="1"/><rect x="2" y="-8" width="13" height="11" rx="1" fill="#2B2B33" stroke="#111" stroke-width="1"/><rect x="-12" y="-6" width="9" height="7" fill="#5C6BC0"/><rect x="5" y="-6" width="9" height="7" fill="#5C6BC0"/>` },
+  printer:       { w:26, h:18, art:`<rect x="-13" y="-6" width="26" height="13" rx="2" fill="#D7DBE0" stroke="#9AA3AB" stroke-width="1.5"/><rect x="-13" y="-9" width="26" height="5" rx="2" fill="#B8BEC4"/><rect x="-7" y="5" width="14" height="6" rx="1" fill="#fff" stroke="#9AA3AB" stroke-width="1"/>` },
+  music_studio:  { w:34, h:18, art:`<rect x="-17" y="-3" width="26" height="8" rx="1" fill="#2B2B33"/><rect x="-15" y="-1" width="2.5" height="5" fill="#fff"/><rect x="-11" y="-1" width="2.5" height="5" fill="#fff"/><rect x="-7" y="-1" width="2.5" height="5" fill="#fff"/><rect x="-3" y="-1" width="2.5" height="5" fill="#fff"/><rect x="1" y="-1" width="2.5" height="5" fill="#fff"/><rect x="11" y="-7" width="7" height="7" rx="1" fill="#5A5A62"/>` },
+  // ── Garage ──
+  workbench_tools:{ w:34, h:22, art:`<rect x="-17" y="-4" width="34" height="13" rx="2" fill="#A9744F" stroke="#5A3A1F" stroke-width="1.5"/><rect x="-17" y="-11" width="34" height="6" rx="1" fill="#8A8A92"/><line x1="-11" y1="-10" x2="-11" y2="-6" stroke="#3A3A42" stroke-width="1.5"/><rect x="-3" y="-10" width="5" height="4" fill="#E0533F"/>` },
+  home_gym:      { w:30, h:22, art:`<rect x="-15" y="-7" width="30" height="16" rx="3" fill="#3A3A42" stroke="#111" stroke-width="1.5"/><line x1="-15" y1="-11" x2="15" y2="-11" stroke="#8A8A92" stroke-width="2"/><circle cx="-14" cy="-11" r="3" fill="#2B2B33"/><circle cx="14" cy="-11" r="3" fill="#2B2B33"/>` },
+  motorcycle:    { w:20, h:36, art:`<rect x="-5" y="-16" width="10" height="32" rx="5" fill="#C0392B" stroke="#7E2218" stroke-width="1.5"/><circle cx="0" cy="-15" r="6" fill="#2B2B33" stroke="#111" stroke-width="1.5"/><circle cx="0" cy="15" r="7" fill="#2B2B33" stroke="#111" stroke-width="1.5"/><line x1="-8" y1="-10" x2="8" y2="-10" stroke="#4A4A52" stroke-width="2"/>` },
+  sports_car:    { w:30, h:40, art:`<rect x="-13" y="-18" width="26" height="36" rx="9" fill="#E0533F" stroke="#992F22" stroke-width="1.5"/><rect x="-10" y="-6" width="20" height="13" rx="3" fill="#8AD4F0" stroke="#2E7FA8" stroke-width="1"/><rect x="-10" y="-15" width="20" height="7" rx="2" fill="#F4A8A0"/><rect x="-17" y="-13" width="5" height="10" rx="2" fill="#2B2B33"/><rect x="12" y="-13" width="5" height="10" rx="2" fill="#2B2B33"/><rect x="-17" y="5" width="5" height="10" rx="2" fill="#2B2B33"/><rect x="12" y="5" width="5" height="10" rx="2" fill="#2B2B33"/>` },
+  professional_gym:{ w:30, h:26, art:`<rect x="-7" y="-13" width="14" height="26" rx="3" fill="#3A3A42" stroke="#111" stroke-width="1.5"/><line x1="-14" y1="0" x2="14" y2="0" stroke="#8A8A92" stroke-width="2"/><circle cx="-13" cy="0" r="4" fill="#2B2B33"/><circle cx="13" cy="0" r="4" fill="#2B2B33"/>` },
+  // ── Outdoor ──
+  bbq_grill:     { w:26, h:22, art:`<rect x="-13" y="-7" width="26" height="15" rx="3" fill="#3A3A42" stroke="#111" stroke-width="1.5"/><rect x="-13" y="-10" width="26" height="5" rx="2" fill="#5A5A62"/><circle cx="-6" cy="-1" r="3" fill="#FF9A3D"/><circle cx="1" cy="-1" r="3" fill="#FF9A3D"/><circle cx="8" cy="-1" r="3" fill="#FF9A3D"/>` },
+  patio_set:     { w:34, h:32, art:`<circle cx="0" cy="0" r="9" fill="#C98A4E" stroke="#8A5A28" stroke-width="1.5"/><circle cx="-13" cy="0" r="5" fill="#B5763A" stroke="#7A4F2F" stroke-width="1"/><circle cx="13" cy="0" r="5" fill="#B5763A" stroke="#7A4F2F" stroke-width="1"/><circle cx="0" cy="-13" r="5" fill="#B5763A" stroke="#7A4F2F" stroke-width="1"/>` },
+  swimming_pool: { w:50, h:30, art:`<ellipse cx="0" cy="0" rx="24" ry="14" fill="#5AB6E0" stroke="#2E7FA8" stroke-width="2"/><ellipse cx="0" cy="0" rx="18" ry="9" fill="#8AD4F0"/>` },
+  garden:        { w:34, h:24, art:`<rect x="-17" y="-10" width="34" height="20" rx="3" fill="#8A5A2F" stroke="#5A3A1F" stroke-width="1.5"/><circle cx="-10" cy="-4" r="2.5" fill="#E0533F"/><circle cx="0" cy="-4" r="2.5" fill="#F2C744"/><circle cx="10" cy="-4" r="2.5" fill="#E08AB0"/><circle cx="-5" cy="4" r="2.5" fill="#5FB85F"/><circle cx="6" cy="4" r="2.5" fill="#E0533F"/>` },
+  fire_pit:      { w:28, h:28, art:`<circle cx="0" cy="0" r="13" fill="#9AA3AB" stroke="#5A5A62" stroke-width="2"/><circle cx="0" cy="0" r="8" fill="#5A4A3A"/><path d="M-6 2 q-3 -11 4 -12 q-2 8 4 8 q4 -3 3 -9 q6 6 0 13 z" fill="#FF9A3D"/>` },
+  basketball_hoop:{ w:26, h:22, art:`<rect x="-11" y="-11" width="22" height="6" rx="1" fill="#F4F0E6" stroke="#9AA3AB" stroke-width="1.5"/><rect x="-5" y="-5" width="10" height="7" rx="1" fill="none" stroke="#E0533F" stroke-width="2"/><circle cx="0" cy="8" r="6" fill="#E8862E" stroke="#A85A18" stroke-width="1.5"/>` },
+  indoor_pool:   { w:50, h:30, art:`<rect x="-25" y="-14" width="50" height="28" rx="3" fill="#DCE6E8" stroke="#9AA3AB" stroke-width="1.5"/><rect x="-20" y="-9" width="40" height="18" rx="2" fill="#5AB6E0"/><line x1="-20" y1="-2" x2="20" y2="-2" stroke="#fff" stroke-width="1.5" stroke-dasharray="4 3"/><line x1="-20" y1="4" x2="20" y2="4" stroke="#fff" stroke-width="1.5" stroke-dasharray="4 3"/>` },
+  // ── Cosmetic decor (fixtures, not buyable — always present in the room) ──
+  decor_toilet:        { w:16, h:22, art:`<rect x="-7" y="-11" width="14" height="7" rx="2" fill="#EDEFF2" stroke="#9AA6AE" stroke-width="1.2"/><ellipse cx="0" cy="3" rx="7" ry="8" fill="#F4F6F8" stroke="#9AA6AE" stroke-width="1.2"/><ellipse cx="0" cy="3" rx="4" ry="5" fill="#D9E2E8"/>` },
+  decor_pedestal_sink: { w:16, h:16, art:`<rect x="-3" y="0" width="6" height="7" fill="#D7DEE3"/><ellipse cx="0" cy="-1" rx="8" ry="6" fill="#F4F6F8" stroke="#9AA6AE" stroke-width="1.2"/><ellipse cx="0" cy="-1" rx="4.5" ry="3" fill="#D9E2E8"/><circle cx="0" cy="-4" r="1.2" fill="#9AA6AE"/>` },
+  decor_bathtub:       { w:34, h:18, art:`<rect x="-17" y="-9" width="34" height="18" rx="8" fill="#F4F6F8" stroke="#9AA6AE" stroke-width="1.4"/><rect x="-13" y="-6" width="26" height="12" rx="6" fill="#DCEAF1"/><circle cx="-10" cy="0" r="1.3" fill="#9AA6AE"/>` },
+  decor_shower:        { w:20, h:20, art:`<rect x="-10" y="-10" width="20" height="20" rx="3" fill="#E4EBF0" stroke="#9AA6AE" stroke-width="1.2"/><circle cx="0" cy="0" r="2.5" fill="#9AA6AE"/><circle cx="6" cy="-6" r="2" fill="#CBD6DD"/>` },
+  decor_kitchen_sink:  { w:26, h:14, art:`<rect x="-13" y="-7" width="26" height="14" rx="2" fill="#CFD4DA" stroke="#9AA3AB" stroke-width="1.2"/><rect x="-10" y="-4" width="8" height="8" rx="1.5" fill="#AEB8C0"/><rect x="2" y="-4" width="8" height="8" rx="1.5" fill="#AEB8C0"/><circle cx="0" cy="-5" r="1.2" fill="#7D868E"/>` },
+  decor_counter:       { w:40, h:12, art:`<rect x="-20" y="-6" width="40" height="12" rx="2" fill="#CFD4DA" stroke="#9AA3AB" stroke-width="1.2"/><rect x="-20" y="-6" width="40" height="4" rx="2" fill="#C98A4E"/>` },
+  decor_counter_corner:{ w:24, h:24, art:`<path d="M-12 -12 h24 v10 h-14 v14 h-10 z" fill="#CFD4DA" stroke="#9AA3AB" stroke-width="1.2"/><path d="M-12 -12 h24 v4 h-20 v20 h-4 z" fill="#C98A4E"/>` },
+  decor_stove:         { w:20, h:20, art:`<rect x="-10" y="-10" width="20" height="20" rx="2" fill="#3A3A42" stroke="#111" stroke-width="1.2"/><circle cx="-5" cy="-5" r="3" fill="#5A5A66"/><circle cx="5" cy="-5" r="3" fill="#5A5A66"/><circle cx="-5" cy="5" r="3" fill="#5A5A66"/><circle cx="5" cy="5" r="3" fill="#5A5A66"/>` },
+  decor_dining_table:  { w:40, h:30, art:`<rect x="-13" y="-13" width="26" height="26" rx="4" fill="#C98A4E" stroke="#8A5A28" stroke-width="1.4"/><rect x="-18" y="-5" width="4" height="10" rx="1" fill="#A9744F"/><rect x="14" y="-5" width="4" height="10" rx="1" fill="#A9744F"/><rect x="-5" y="-18" width="10" height="4" rx="1" fill="#A9744F"/><rect x="-5" y="14" width="10" height="4" rx="1" fill="#A9744F"/>` },
+  decor_dining_chair:  { w:12, h:12, art:`<rect x="-5" y="-5" width="10" height="10" rx="2" fill="#B5763A" stroke="#7A4F2F" stroke-width="1.2"/><rect x="-5" y="-6" width="10" height="3" rx="1" fill="#9A6432"/>` },
+  decor_armchair:      { w:18, h:18, art:`<rect x="-9" y="-6" width="18" height="14" rx="4" fill="#A9C0E0" stroke="#5E7BA8" stroke-width="1.3"/><rect x="-9" y="-8" width="18" height="6" rx="3" fill="#8FAAD6"/><rect x="-11" y="-4" width="4" height="10" rx="2" fill="#8FAAD6"/><rect x="7" y="-4" width="4" height="10" rx="2" fill="#8FAAD6"/>` },
+  decor_side_table:    { w:14, h:14, art:`<circle cx="0" cy="0" r="7" fill="#C98A4E" stroke="#8A5A28" stroke-width="1.3"/><circle cx="0" cy="0" r="3" fill="#B5763A"/>` },
+  decor_nightstand:    { w:12, h:12, art:`<rect x="-6" y="-6" width="12" height="12" rx="2" fill="#A9744F" stroke="#7A4F2F" stroke-width="1.2"/><circle cx="0" cy="0" r="1.4" fill="#5A3A1F"/>` },
+  decor_dresser:       { w:30, h:14, art:`<rect x="-15" y="-7" width="30" height="14" rx="2" fill="#A9744F" stroke="#7A4F2F" stroke-width="1.3"/><line x1="0" y1="-7" x2="0" y2="7" stroke="#7A4F2F"/><circle cx="-7" cy="0" r="1.3" fill="#5A3A1F"/><circle cx="7" cy="0" r="1.3" fill="#5A3A1F"/>` },
+  decor_floor_lamp:    { w:12, h:12, art:`<circle cx="0" cy="0" r="6" fill="#F7E7A6" stroke="#D9B85A" stroke-width="1.2"/><circle cx="0" cy="0" r="2.5" fill="#FFF6D6"/>` },
+  decor_table_lamp:    { w:10, h:10, art:`<circle cx="0" cy="0" r="5" fill="#F7E7A6" stroke="#D9B85A" stroke-width="1"/><circle cx="0" cy="0" r="2" fill="#FFF6D6"/>` },
+  decor_rug:           { w:52, h:36, art:`<rect x="-26" y="-18" width="52" height="36" rx="4" fill="#D98C8C" stroke="#A85E5E" stroke-width="1.5"/><rect x="-21" y="-13" width="42" height="26" rx="3" fill="none" stroke="#EFC9C9" stroke-width="1.5"/><rect x="-15" y="-8" width="30" height="16" rx="2" fill="#C97676"/>` },
+  decor_rug_round:     { w:34, h:34, art:`<circle cx="0" cy="0" r="16" fill="#8FB0C9" stroke="#5E7E96" stroke-width="1.5"/><circle cx="0" cy="0" r="11" fill="none" stroke="#C5DCEA" stroke-width="1.5"/><circle cx="0" cy="0" r="6" fill="#7299B5"/>` },
+  decor_doorway:       { w:20, h:18, art:`<path d="M-9 -8 A16 16 0 0 1 7 8" fill="none" stroke="#9AA3AB" stroke-width="1" stroke-dasharray="2 2"/><rect x="-10" y="-9" width="3" height="17" rx="1" fill="#A9744F"/>` },
+  decor_window:        { w:22, h:6,  art:`<rect x="-11" y="-3" width="22" height="6" rx="1" fill="#CFE8F5" stroke="#7FB5D8" stroke-width="1.2"/><line x1="0" y1="-3" x2="0" y2="3" stroke="#7FB5D8"/>` },
+  decor_ceiling_fan:   { w:20, h:20, art:`<ellipse cx="0" cy="-7" rx="3" ry="7" fill="#C7B299" stroke="#9A8568" stroke-width="0.8"/><ellipse cx="0" cy="7" rx="3" ry="7" fill="#C7B299" stroke="#9A8568" stroke-width="0.8"/><ellipse cx="-7" cy="0" rx="7" ry="3" fill="#C7B299" stroke="#9A8568" stroke-width="0.8"/><ellipse cx="7" cy="0" rx="7" ry="3" fill="#C7B299" stroke="#9A8568" stroke-width="0.8"/><circle cx="0" cy="0" r="3" fill="#8A8A92"/>` },
+  decor_stairs:        { w:20, h:30, art:`<rect x="-10" y="-15" width="20" height="30" rx="1" fill="#C7B299" stroke="#9A8568" stroke-width="1"/><line x1="-10" y1="-9" x2="10" y2="-9" stroke="#9A8568"/><line x1="-10" y1="-3" x2="10" y2="-3" stroke="#9A8568"/><line x1="-10" y1="3" x2="10" y2="3" stroke="#9A8568"/><line x1="-10" y1="9" x2="10" y2="9" stroke="#9A8568"/>` },
+  decor_bar_stool:     { w:10, h:10, art:`<circle cx="0" cy="0" r="5" fill="#5A5A66" stroke="#3A3A42" stroke-width="1"/><circle cx="0" cy="0" r="2" fill="#7A7A86"/>` },
+  decor_plant_small:   { w:14, h:16, art:`<rect x="-4" y="2" width="8" height="6" rx="1.5" fill="#C66B3D" stroke="#8A4527" stroke-width="1"/><circle cx="-2" cy="-3" r="4" fill="#5FB85F"/><circle cx="3" cy="-4" r="4" fill="#4CAF50"/>` },
+};
+
+// Each home has a genuinely different floor-plan silhouette (not just scaled).
+// Empty gaps in the bounding box read as "outside the house" — giving L-shapes,
+// wings, courtyards, etc. Rooms a home lacks route their items to the living room.
+const FP_CAT = {
+  flat_screen_tv:'tv', home_theater:'tv', fireplace:'tv', grand_fireplace:'tv',
+  art_gallery:'wallart', blackout_curtains:'wallart', whiteboard:'wallart', smart_home_system:'wallart',
+  couch:'seat',
+  new_bed:'bed', luxury_sleep_system:'bed',
+  pool_table:'center', grand_piano:'center', kitchen_island:'center', swimming_pool:'center',
+  indoor_pool:'center', fire_pit:'center', patio_set:'center', hot_tub:'center',
+  coffee_maker:'counter', mini_fridge:'counter', espresso_machine:'counter', instant_pot:'counter',
+  smart_fridge:'counter', wine_rack:'counter',
+  gaming_setup:'desk', music_studio:'desk', second_monitor:'desk', printer:'desk',
+  ergonomic_chair:'deskchair',
+  sports_car:'park', motorcycle:'park',
+  bookshelf:'wall', aquarium:'wall', home_bar:'wall', filing_cabinet:'wall', home_gym:'wall',
+  professional_gym:'wall', workbench_tools:'wall', bbq_grill:'wall', garden:'wall',
+  basketball_hoop:'wall', sauna:'wall', spa_suite:'wall', headphones:'wall', negotiation_book:'wall',
+  house_plant:'corner', desk_fan:'corner', meditation_corner:'corner',
+};
+
+const HOME_LAYOUTS = {
+  // Studio + bedroom nook (L-shape).
+  grandmas_basement: { w:110, h:80, rooms:[
+    { key:'living',  x:3,  y:3,  w:60, h:74, label:'Living' },
+    { key:'bedroom', x:66, y:40, w:40, h:34, label:'Bed' },
+  ]},
+  // Railroad apartment: three rooms in a long, narrow horizontal run.
+  small_apt: { w:116, h:72, rooms:[
+    { key:'living',  x:3,  y:3,  w:66, h:66, label:'Living' },
+    { key:'kitchen', x:73, y:3,  w:40, h:30, label:'Kitchen' },
+    { key:'bedroom', x:73, y:39, w:40, h:30, label:'Bed' },
+  ]},
+  // Open concept: full-width great room on top, kitchen + bedroom beneath.
+  condo: { w:136, h:127, rooms:[
+    { key:'living',  x:3,  y:3,  w:130, h:64, label:'Living' },
+    { key:'kitchen', x:3,  y:70, w:62,  h:54, label:'Kitchen' },
+    { key:'bedroom', x:69, y:70, w:64,  h:54, label:'Bed' },
+  ]},
+  // Pinwheel: four rooms rotating around the center, none in a clean grid.
+  small_home: { w:159, h:133, rooms:[
+    { key:'living',  x:3,   y:3,  w:80,  h:70, label:'Living' },
+    { key:'kitchen', x:86,  y:3,  w:70,  h:38, label:'Kitchen' },
+    { key:'office',  x:110, y:47, w:46,  h:78, label:'Office' },
+    { key:'bedroom', x:3,   y:76, w:101, h:54, label:'Bed' },
+  ]},
+  // Ranch with an attached garage wing (notch beneath it) and a full-width yard.
+  suburban_home: { w:222, h:171, rooms:[
+    { key:'living',  x:3,   y:3,   w:86,  h:64, label:'Living' },
+    { key:'kitchen', x:95,  y:3,   w:64,  h:38, label:'Kitchen' },
+    { key:'garage',  x:165, y:3,   w:54,  h:64, label:'Garage' },
+    { key:'bedroom', x:3,   y:70,  w:70,  h:52, label:'Bed' },
+    { key:'office',  x:79,  y:70,  w:80,  h:52, label:'Office' },
+    { key:'outdoor', x:3,   y:128, w:216, h:40, label:'Patio' },
+  ]},
+  // U-shaped villa: two tall wings flanking a central courtyard pool + garage.
+  luxury_villa: { w:227, h:174, rooms:[
+    { key:'living',  x:3,   y:3,   w:110, h:60,  label:'Living' },
+    { key:'kitchen', x:120, y:3,   w:104, h:60,  label:'Kitchen' },
+    { key:'bedroom', x:3,   y:67,  w:58,  h:104, label:'Bed' },
+    { key:'office',  x:166, y:67,  w:58,  h:104, label:'Office' },
+    { key:'outdoor', x:67,  y:67,  w:92,  h:62,  label:'Courtyard' },
+    { key:'garage',  x:67,  y:135, w:92,  h:36,  label:'Garage' },
+  ]},
+  // Grand symmetric estate: three-wing top, two large rooms, sweeping grounds.
+  mansion: { w:256, h:186, rooms:[
+    { key:'kitchen', x:3,   y:3,   w:76,  h:64, label:'Kitchen' },
+    { key:'living',  x:85,  y:3,   w:86,  h:64, label:'Great Room' },
+    { key:'office',  x:177, y:3,   w:76,  h:64, label:'Office' },
+    { key:'bedroom', x:3,   y:70,  w:118, h:48, label:'Master' },
+    { key:'garage',  x:127, y:70,  w:126, h:48, label:'Garage' },
+    { key:'outdoor', x:3,   y:124, w:250, h:58, label:'Grounds' },
+  ]},
+};
+
+// One tappable sprite, centered at (cx,cy), optionally rotated.
+function _fpNode(key, cx, cy, rot) {
+  const sp = FP_SPRITES[key];
+  const t = `translate(${cx.toFixed(1)},${cy.toFixed(1)})` + (rot ? ` rotate(${rot})` : '');
+  return `<g transform="${t}" onclick="showOwnedItemDetail('${key}')" style="cursor:pointer">${sp.art}</g>`;
+}
+// Lay a group of items as one or more centered, wrapping rows starting at top
+// edge `y`. Rows never overlap (cursor advances by width; wraps at room edge;
+// next row drops below the tallest item). Returns { svg, y } where y is the
+// bottom edge after the group, so bands can stack without ever colliding.
+function _fpBand(keys, r, y, rot) {
+  if (!keys.length) return { svg: '', y };
+  const gap = 4, padX = 4, maxW = r.w - 2 * padX;
+  const rows = []; let cur = [], curW = -gap;
+  for (const k of keys) {
+    const w = FP_SPRITES[k].w;
+    if (cur.length && curW + gap + w > maxW) { rows.push(cur); cur = []; curW = -gap; }
+    cur.push(k); curW += gap + w;
+  }
+  if (cur.length) rows.push(cur);
+  let out = '', cy = y;
+  for (const row of rows) {
+    let rowH = 0, tot = -gap;
+    for (const k of row) { rowH = Math.max(rowH, FP_SPRITES[k].h); tot += FP_SPRITES[k].w + gap; }
+    let x = Math.max(r.x + padX, r.x + r.w / 2 - tot / 2);
+    const midY = cy + rowH / 2;
+    for (const k of row) { const sp = FP_SPRITES[k]; out += _fpNode(k, x + sp.w / 2, midY, rot || 0); x += sp.w + gap; }
+    cy += rowH + gap;
+  }
+  return { svg: out, y: cy };
+}
+
+// Arrange a room's owned items naturally by what they are and which room, as
+// stacked bands (top → bottom): feature against the wall, seating in front of
+// it, big centerpieces, then storage/decor. Bands never overlap each other.
+function placeRoomNatural(r, itemObjs) {
+  if (!itemObjs.length) return '';
+  const bucket = {};
+  for (const o of itemObjs) {
+    if (!FP_SPRITES[o.key]) continue;
+    const c = FP_CAT[o.key] || 'wall';
+    (bucket[c] = bucket[c] || []).push(o.key);
+  }
+  const take = n => { const a = bucket[n] || []; delete bucket[n]; return a; };
+  const corner = take('corner');
+  let feature = [], seat = [], center = [];
+  switch (r.key) {
+    case 'living':   feature = take('tv').concat(take('wallart')); seat = take('seat'); center = take('center'); break;
+    case 'bedroom':  feature = take('bed').concat(take('wallart')); center = take('center'); break;
+    case 'kitchen':  feature = take('counter'); center = take('center'); break;
+    case 'office':   feature = take('desk'); seat = take('deskchair'); center = take('center'); break;
+    case 'garage':   feature = take('wall'); center = take('park'); break;
+    case 'outdoor':  center = take('center'); break;
+  }
+  let side = [];
+  Object.keys(bucket).forEach(c => { side = side.concat(bucket[c]); });
+
+  // Stack the bands top→bottom. Seating sits right under the feature wall
+  // (couch in front of the TV) and faces it (rotated 180).
+  let out = '', y = r.y + 4, res;
+  res = _fpBand(feature, r, y, 0);   out += res.svg; y = res.y;
+  res = _fpBand(seat, r, y, 180);    out += res.svg; y = res.y;
+  res = _fpBand(center, r, y, 0);    out += res.svg; y = res.y;
+  res = _fpBand(side, r, y, 0);      out += res.svg; y = res.y;
+  res = _fpBand(corner, r, y, 0);    out += res.svg; y = res.y;
+
+  // Auto-fit: if the stacked furniture would spill past the room, scale it all
+  // down about the room's top-center so it always fits — never overflows.
+  const contentH = y - r.y, avail = r.h - 5;
+  if (contentH > avail) {
+    const s = (avail / contentH).toFixed(3), cx = (r.x + r.w / 2).toFixed(1);
+    out = `<g transform="translate(${cx},${r.y}) scale(${s}) translate(${-cx},${-r.y})">${out}</g>`;
+  }
+  return out;
+}
+
+// Baked floor-plan layouts authored in the editor. Per home: room shapes and
+// explicit furniture placement (center x,y in viewBox units, scale, rotation).
+// cosmetic:true pieces always render; buyable pieces render only when owned.
+// Source of truth backed up at landlord_web/floor_plan_layout.json.
+const FP_LAYOUT = JSON.parse('{"grandmas_basement":{"rooms":[{"key":"living","label":"Living","x":4,"y":4,"w":150,"h":96}],"furniture":[{"key":"house_plant","cosmetic":false,"x":117,"y":90,"scale":0.5,"rot":0},{"key":"mini_fridge","cosmetic":false,"x":144,"y":15,"scale":0.75,"rot":0},{"key":"new_bed","cosmetic":false,"x":22,"y":23,"scale":1,"rot":0},{"key":"blackout_curtains","cosmetic":false,"x":77,"y":99,"scale":1,"rot":0},{"key":"decor_stairs","cosmetic":true,"x":141,"y":82,"scale":1.2,"rot":180},{"key":"decor_doorway","cosmetic":true,"x":142,"y":92,"scale":1,"rot":270},{"key":"decor_floor_lamp","cosmetic":true,"x":19,"y":89,"scale":1,"rot":0},{"key":"decor_rug","cosmetic":true,"x":82,"y":58,"scale":1,"rot":15},{"key":"decor_nightstand","cosmetic":true,"x":120,"y":13,"scale":1.15,"rot":0},{"key":"instant_pot","cosmetic":false,"x":120,"y":12,"scale":0.5,"rot":0},{"key":"decor_bar_stool","cosmetic":true,"x":13,"y":59,"scale":1,"rot":0},{"key":"desk_fan","cosmetic":false,"x":55,"y":12,"scale":0.55,"rot":0},{"key":"decor_nightstand","cosmetic":true,"x":105,"y":13,"scale":1.1,"rot":0},{"key":"coffee_maker","cosmetic":false,"x":105,"y":12,"scale":0.6,"rot":0}]},"small_apt":{"rooms":[{"key":"living","label":"Living","x":4,"y":4,"w":174,"h":112},{"key":"kitchen","label":"Kitchen","x":103,"y":4,"w":75,"h":53},{"key":"bedroom","label":"Bedroom","x":4,"y":108,"w":104,"h":78},{"key":"bath","label":"Bath","x":110,"y":118,"w":58,"h":58}],"furniture":[{"key":"decor_rug","cosmetic":true,"x":130,"y":140,"scale":0.5,"rot":105},{"key":"decor_rug_round","cosmetic":true,"x":40,"y":40,"scale":1.8,"rot":0},{"key":"house_plant","cosmetic":false,"x":93,"y":53,"scale":0.6,"rot":0},{"key":"couch","cosmetic":false,"x":50,"y":29,"scale":1,"rot":90},{"key":"flat_screen_tv","cosmetic":false,"x":8,"y":28,"scale":1,"rot":90},{"key":"aquarium","cosmetic":false,"x":14,"y":91,"scale":0.8,"rot":90},{"key":"mini_fridge","cosmetic":false,"x":166,"y":17,"scale":0.95,"rot":0},{"key":"new_bed","cosmetic":false,"x":24,"y":151,"scale":1,"rot":270},{"key":"blackout_curtains","cosmetic":false,"x":84,"y":8,"scale":1,"rot":0},{"key":"whiteboard","cosmetic":false,"x":100,"y":147,"scale":1,"rot":90},{"key":"filing_cabinet","cosmetic":false,"x":97,"y":176,"scale":0.8,"rot":90},{"key":"ergonomic_chair","cosmetic":false,"x":41,"y":69,"scale":0.75,"rot":135},{"key":"decor_doorway","cosmetic":true,"x":170,"y":87,"scale":1,"rot":180},{"key":"decor_doorway","cosmetic":true,"x":122,"y":126,"scale":1,"rot":90},{"key":"decor_counter","cosmetic":true,"x":128,"y":55,"scale":1.25,"rot":180},{"key":"headphones","cosmetic":false,"x":110,"y":56,"scale":0.4,"rot":15},{"key":"decor_nightstand","cosmetic":true,"x":13,"y":125,"scale":1,"rot":0},{"key":"decor_nightstand","cosmetic":true,"x":14,"y":178,"scale":1,"rot":0},{"key":"decor_table_lamp","cosmetic":true,"x":14,"y":178,"scale":0.85,"rot":0},{"key":"decor_counter","cosmetic":true,"x":152,"y":55,"scale":1.25,"rot":180},{"key":"decor_kitchen_sink","cosmetic":true,"x":130,"y":55,"scale":1,"rot":180},{"key":"decor_counter","cosmetic":true,"x":129,"y":13,"scale":1.25,"rot":0},{"key":"decor_stove","cosmetic":true,"x":144,"y":13,"scale":0.75,"rot":0},{"key":"coffee_maker","cosmetic":false,"x":111,"y":12,"scale":0.5,"rot":0},{"key":"instant_pot","cosmetic":false,"x":126,"y":13,"scale":0.5,"rot":0},{"key":"decor_toilet","cosmetic":true,"x":156,"y":130,"scale":1,"rot":90},{"key":"decor_pedestal_sink","cosmetic":true,"x":159,"y":150,"scale":1,"rot":270},{"key":"decor_bathtub","cosmetic":true,"x":129,"y":166,"scale":1,"rot":0},{"key":"negotiation_book","cosmetic":false,"x":157,"y":55,"scale":0.4,"rot":15},{"key":"decor_floor_lamp","cosmetic":true,"x":56,"y":60,"scale":1,"rot":0},{"key":"desk_fan","cosmetic":false,"x":12,"y":124,"scale":0.45,"rot":0}]},"condo":{"rooms":[{"key":"living","label":"Living","x":4,"y":6,"w":150,"h":96},{"key":"kitchen","label":"Kitchen","x":150,"y":6,"w":68,"h":96},{"key":"bedroom","label":"Bedroom","x":115,"y":104,"w":104,"h":78},{"key":"office","label":"Office","x":4,"y":104,"w":48,"h":87},{"key":"bath","label":"Bath","x":54,"y":104,"w":58,"h":58}],"furniture":[{"key":"decor_rug_round","cosmetic":true,"x":157,"y":139,"scale":1.6,"rot":0},{"key":"decor_rug","cosmetic":true,"x":49,"y":48,"scale":1,"rot":0},{"key":"decor_counter","cosmetic":true,"x":178,"y":16,"scale":1.35,"rot":0},{"key":"house_plant","cosmetic":false,"x":104,"y":15,"scale":0.5,"rot":0},{"key":"couch","cosmetic":false,"x":49,"y":53,"scale":1,"rot":180},{"key":"flat_screen_tv","cosmetic":false,"x":50,"y":9,"scale":1,"rot":180},{"key":"bookshelf","cosmetic":false,"x":11,"y":35,"scale":0.65,"rot":90},{"key":"aquarium","cosmetic":false,"x":51,"y":94,"scale":0.7,"rot":0},{"key":"mini_fridge","cosmetic":false,"x":206,"y":20,"scale":1,"rot":0},{"key":"instant_pot","cosmetic":false,"x":159,"y":15,"scale":0.5,"rot":0},{"key":"new_bed","cosmetic":false,"x":165,"y":163,"scale":1,"rot":180},{"key":"blackout_curtains","cosmetic":false,"x":215,"y":139,"scale":1,"rot":90},{"key":"meditation_corner","cosmetic":false,"x":108,"y":95,"scale":1,"rot":0},{"key":"whiteboard","cosmetic":false,"x":12,"y":160,"scale":1,"rot":270},{"key":"filing_cabinet","cosmetic":false,"x":42,"y":182,"scale":0.75,"rot":90},{"key":"ergonomic_chair","cosmetic":false,"x":34,"y":133,"scale":0.9,"rot":255},{"key":"decor_doorway","cosmetic":true,"x":122,"y":151,"scale":1,"rot":0},{"key":"decor_doorway","cosmetic":true,"x":132,"y":112,"scale":1,"rot":90},{"key":"decor_doorway","cosmetic":true,"x":126,"y":14,"scale":1,"rot":90},{"key":"decor_doorway","cosmetic":true,"x":83,"y":112,"scale":1,"rot":90},{"key":"decor_doorway","cosmetic":true,"x":15,"y":112,"scale":1,"rot":90},{"key":"decor_counter","cosmetic":true,"x":44,"y":134,"scale":1.25,"rot":90},{"key":"second_monitor","cosmetic":false,"x":43,"y":127,"scale":1,"rot":90},{"key":"printer","cosmetic":false,"x":43,"y":160,"scale":0.75,"rot":90},{"key":"decor_counter","cosmetic":true,"x":190,"y":93,"scale":1.35,"rot":180},{"key":"decor_counter_corner","cosmetic":true,"x":167,"y":82,"scale":1.55,"rot":270},{"key":"decor_kitchen_sink","cosmetic":true,"x":185,"y":93,"scale":1,"rot":180},{"key":"decor_stove","cosmetic":true,"x":176,"y":16,"scale":0.75,"rot":0},{"key":"wine_rack","cosmetic":false,"x":207,"y":93,"scale":0.55,"rot":0},{"key":"coffee_maker","cosmetic":false,"x":20,"y":183,"scale":0.5,"rot":240},{"key":"espresso_machine","cosmetic":false,"x":156,"y":73,"scale":0.6,"rot":270},{"key":"decor_dining_table","cosmetic":true,"x":110,"y":52,"scale":1,"rot":30},{"key":"negotiation_book","cosmetic":false,"x":116,"y":51,"scale":0.45,"rot":345},{"key":"headphones","cosmetic":false,"x":157,"y":94,"scale":0.4,"rot":15},{"key":"decor_nightstand","cosmetic":true,"x":190,"y":173,"scale":1,"rot":0},{"key":"decor_nightstand","cosmetic":true,"x":138,"y":173,"scale":1,"rot":0},{"key":"decor_dresser","cosmetic":true,"x":165,"y":112,"scale":1,"rot":0},{"key":"decor_armchair","cosmetic":true,"x":201,"y":114,"scale":1,"rot":30},{"key":"decor_table_lamp","cosmetic":true,"x":138,"y":173,"scale":1,"rot":0},{"key":"desk_fan","cosmetic":false,"x":191,"y":174,"scale":0.5,"rot":0},{"key":"decor_rug","cosmetic":true,"x":186,"y":60,"scale":0.7,"rot":90},{"key":"decor_toilet","cosmetic":true,"x":63,"y":155,"scale":0.75,"rot":270},{"key":"decor_counter","cosmetic":true,"x":61,"y":126,"scale":1.05,"rot":270},{"key":"decor_pedestal_sink","cosmetic":true,"x":61,"y":119,"scale":1,"rot":90},{"key":"decor_bathtub","cosmetic":true,"x":101,"y":122,"scale":1,"rot":90}]},"small_home":{"rooms":[{"key":"living","label":"Living","x":2,"y":77,"w":187,"h":100},{"key":"kitchen","label":"Kitchen","x":92,"y":2,"w":97,"h":75},{"key":"bedroom","label":"Bedroom","x":64,"y":179,"w":125,"h":75},{"key":"office","label":"Office","x":2,"y":2,"w":87,"h":73},{"key":"garage","label":"Garage","x":192,"y":3,"w":123,"h":99},{"key":"outdoor","label":"Patio","x":191,"y":104,"w":81,"h":150},{"key":"bath","label":"Bath","x":2,"y":179,"w":60,"h":75}],"furniture":[{"key":"decor_rug","cosmetic":true,"x":129,"y":41,"scale":0.6,"rot":300},{"key":"decor_rug_round","cosmetic":true,"x":43,"y":45,"scale":1.2,"rot":15},{"key":"decor_rug","cosmetic":true,"x":118,"y":217,"scale":1,"rot":345},{"key":"decor_rug","cosmetic":true,"x":29,"y":118,"scale":0.9,"rot":0},{"key":"ergonomic_chair","cosmetic":false,"x":29,"y":34,"scale":0.8,"rot":45},{"key":"decor_counter","cosmetic":true,"x":101,"y":50,"scale":1.35,"rot":270},{"key":"house_plant","cosmetic":false,"x":12,"y":165,"scale":0.6,"rot":0},{"key":"couch","cosmetic":false,"x":28,"y":124,"scale":1,"rot":180},{"key":"flat_screen_tv","cosmetic":false,"x":29,"y":81,"scale":1,"rot":180},{"key":"bookshelf","cosmetic":false,"x":179,"y":107,"scale":0.85,"rot":270},{"key":"aquarium","cosmetic":false,"x":63,"y":170,"scale":0.6,"rot":0},{"key":"espresso_machine","cosmetic":false,"x":100,"y":64,"scale":0.65,"rot":270},{"key":"kitchen_island","cosmetic":false,"x":150,"y":64,"scale":1,"rot":180},{"key":"new_bed","cosmetic":false,"x":114,"y":235,"scale":1,"rot":180},{"key":"blackout_curtains","cosmetic":false,"x":165,"y":253,"scale":1,"rot":0},{"key":"meditation_corner","cosmetic":false,"x":280,"y":83,"scale":1,"rot":345},{"key":"whiteboard","cosmetic":false,"x":81,"y":40,"scale":1,"rot":90},{"key":"filing_cabinet","cosmetic":false,"x":11,"y":67,"scale":0.7,"rot":270},{"key":"negotiation_book","cosmetic":false,"x":139,"y":64,"scale":0.4,"rot":15},{"key":"bbq_grill","cosmetic":false,"x":253,"y":116,"scale":1,"rot":0},{"key":"patio_set","cosmetic":false,"x":210,"y":193,"scale":1,"rot":75},{"key":"garden","cosmetic":false,"x":244,"y":237,"scale":1.35,"rot":0},{"key":"fire_pit","cosmetic":false,"x":256,"y":170,"scale":0.65,"rot":0},{"key":"basketball_hoop","cosmetic":false,"x":214,"y":115,"scale":1,"rot":0},{"key":"decor_doorway","cosmetic":true,"x":67,"y":67,"scale":1,"rot":270},{"key":"decor_doorway","cosmetic":true,"x":34,"y":187,"scale":1,"rot":90},{"key":"decor_doorway","cosmetic":true,"x":72,"y":199,"scale":1,"rot":0},{"key":"decor_doorway","cosmetic":true,"x":87,"y":187,"scale":1,"rot":90},{"key":"decor_doorway","cosmetic":true,"x":199,"y":78,"scale":1,"rot":0},{"key":"decor_doorway","cosmetic":true,"x":181,"y":139,"scale":1,"rot":180},{"key":"decor_bathtub","cosmetic":true,"x":52,"y":236,"scale":1,"rot":270},{"key":"decor_toilet","cosmetic":true,"x":14,"y":246,"scale":1,"rot":270},{"key":"decor_counter","cosmetic":true,"x":11,"y":207,"scale":1.35,"rot":270},{"key":"decor_pedestal_sink","cosmetic":true,"x":11,"y":192,"scale":1,"rot":90},{"key":"decor_pedestal_sink","cosmetic":true,"x":11,"y":220,"scale":1,"rot":90},{"key":"fireplace","cosmetic":false,"x":131,"y":167,"scale":1,"rot":180},{"key":"decor_nightstand","cosmetic":true,"x":141,"y":245,"scale":1,"rot":0},{"key":"decor_nightstand","cosmetic":true,"x":87,"y":245,"scale":1,"rot":0},{"key":"decor_counter_corner","cosmetic":true,"x":112,"y":23,"scale":1.55,"rot":0},{"key":"decor_counter","cosmetic":true,"x":148,"y":12,"scale":1.35,"rot":0},{"key":"mini_fridge","cosmetic":false,"x":176,"y":16,"scale":1,"rot":0},{"key":"decor_stove","cosmetic":true,"x":101,"y":40,"scale":0.85,"rot":0},{"key":"decor_kitchen_sink","cosmetic":true,"x":122,"y":12,"scale":1,"rot":0},{"key":"decor_dining_table","cosmetic":true,"x":125,"y":109,"scale":1,"rot":15},{"key":"decor_armchair","cosmetic":true,"x":175,"y":191,"scale":1,"rot":45},{"key":"wine_rack","cosmetic":false,"x":155,"y":12,"scale":0.5,"rot":0},{"key":"decor_window","cosmetic":true,"x":316,"y":21,"scale":1,"rot":270},{"key":"decor_window","cosmetic":true,"x":316,"y":87,"scale":1,"rot":90},{"key":"decor_window","cosmetic":true,"x":316,"y":65,"scale":1,"rot":90},{"key":"decor_window","cosmetic":true,"x":316,"y":43,"scale":1,"rot":90},{"key":"decor_side_table","cosmetic":true,"x":63,"y":121,"scale":1,"rot":0},{"key":"decor_dresser","cosmetic":true,"x":122,"y":187,"scale":1,"rot":0},{"key":"decor_table_lamp","cosmetic":true,"x":87,"y":245,"scale":1,"rot":0},{"key":"decor_floor_lamp","cosmetic":true,"x":72,"y":12,"scale":1,"rot":0},{"key":"decor_counter_corner","cosmetic":true,"x":17,"y":18,"scale":1.2,"rot":0},{"key":"gaming_setup","cosmetic":false,"x":12,"y":39,"scale":1,"rot":90},{"key":"second_monitor","cosmetic":false,"x":7,"y":37,"scale":1,"rot":270},{"key":"decor_counter","cosmetic":true,"x":42,"y":10,"scale":1,"rot":0},{"key":"printer","cosmetic":false,"x":23,"y":10,"scale":0.7,"rot":0},{"key":"headphones","cosmetic":false,"x":50,"y":13,"scale":0.4,"rot":15},{"key":"desk_fan","cosmetic":false,"x":130,"y":187,"scale":0.6,"rot":0},{"key":"decor_counter","cosmetic":true,"x":226,"y":14,"scale":1.6,"rot":0},{"key":"decor_counter","cosmetic":true,"x":264,"y":14,"scale":1.6,"rot":0},{"key":"workbench_tools","cosmetic":false,"x":235,"y":15,"scale":1,"rot":0},{"key":"coffee_maker","cosmetic":false,"x":278,"y":14,"scale":0.6,"rot":15},{"key":"instant_pot","cosmetic":false,"x":101,"y":13,"scale":0.45,"rot":315}]},"suburban_home":{"rooms":[{"key":"living","label":"Living","x":4,"y":4,"w":150,"h":96},{"key":"kitchen","label":"Kitchen","x":162,"y":4,"w":100,"h":66},{"key":"bedroom","label":"Bedroom","x":4,"y":108,"w":104,"h":78},{"key":"office","label":"Office","x":116,"y":108,"w":120,"h":76},{"key":"garage","label":"Garage","x":4,"y":194,"w":104,"h":86},{"key":"outdoor","label":"Patio","x":116,"y":194,"w":150,"h":78},{"key":"bath","label":"Bath","x":274,"y":194,"w":58,"h":58}],"furniture":[{"key":"house_plant","cosmetic":false,"x":22,"y":23,"scale":1,"rot":0},{"key":"couch","cosmetic":false,"x":63,"y":17,"scale":1,"rot":0},{"key":"flat_screen_tv","cosmetic":false,"x":110,"y":15,"scale":1,"rot":0},{"key":"bookshelf","cosmetic":false,"x":25,"y":52,"scale":1,"rot":0},{"key":"aquarium","cosmetic":false,"x":64,"y":53,"scale":1,"rot":0},{"key":"fireplace","cosmetic":false,"x":103,"y":52,"scale":1,"rot":0},{"key":"pool_table","cosmetic":false,"x":29,"y":81,"scale":1,"rot":0},{"key":"coffee_maker","cosmetic":false,"x":175,"y":19,"scale":1,"rot":0},{"key":"mini_fridge","cosmetic":false,"x":199,"y":21,"scale":1,"rot":0},{"key":"espresso_machine","cosmetic":false,"x":227,"y":19,"scale":1,"rot":0},{"key":"wine_rack","cosmetic":false,"x":180,"y":51,"scale":1,"rot":0},{"key":"instant_pot","cosmetic":false,"x":210,"y":50,"scale":1,"rot":0},{"key":"kitchen_island","cosmetic":false,"x":183,"y":78,"scale":1,"rot":0},{"key":"smart_fridge","cosmetic":false,"x":216,"y":82,"scale":1,"rot":0},{"key":"new_bed","cosmetic":false,"x":25,"y":130,"scale":1,"rot":0},{"key":"blackout_curtains","cosmetic":false,"x":59,"y":120,"scale":1,"rot":0},{"key":"hot_tub","cosmetic":false,"x":23,"y":166,"scale":1,"rot":0},{"key":"meditation_corner","cosmetic":false,"x":54,"y":160,"scale":1,"rot":0},{"key":"desk_fan","cosmetic":false,"x":130,"y":122,"scale":1,"rot":0},{"key":"whiteboard","cosmetic":false,"x":161,"y":121,"scale":1,"rot":0},{"key":"filing_cabinet","cosmetic":false,"x":193,"y":124,"scale":1,"rot":0},{"key":"headphones","cosmetic":false,"x":133,"y":152,"scale":1,"rot":0},{"key":"negotiation_book","cosmetic":false,"x":160,"y":151,"scale":1,"rot":0},{"key":"gaming_setup","cosmetic":false,"x":191,"y":151,"scale":1,"rot":0},{"key":"ergonomic_chair","cosmetic":false,"x":133,"y":181,"scale":1,"rot":0},{"key":"second_monitor","cosmetic":false,"x":165,"y":177,"scale":1,"rot":0},{"key":"printer","cosmetic":false,"x":197,"y":177,"scale":1,"rot":0},{"key":"workbench_tools","cosmetic":false,"x":25,"y":209,"scale":1,"rot":0},{"key":"home_gym","cosmetic":false,"x":61,"y":209,"scale":1,"rot":0},{"key":"motorcycle","cosmetic":false,"x":90,"y":216,"scale":1,"rot":0},{"key":"sports_car","cosmetic":false,"x":23,"y":258,"scale":1,"rot":0},{"key":"bbq_grill","cosmetic":false,"x":133,"y":209,"scale":1,"rot":0},{"key":"patio_set","cosmetic":false,"x":167,"y":214,"scale":1,"rot":0},{"key":"garden","cosmetic":false,"x":205,"y":210,"scale":1,"rot":0},{"key":"fire_pit","cosmetic":false,"x":240,"y":212,"scale":1,"rot":0},{"key":"basketball_hoop","cosmetic":false,"x":133,"y":245,"scale":1,"rot":0}]},"luxury_villa":{"rooms":[{"key":"living","label":"Living","x":4,"y":4,"w":150,"h":96},{"key":"kitchen","label":"Kitchen","x":162,"y":4,"w":100,"h":66},{"key":"bedroom","label":"Bedroom","x":4,"y":108,"w":104,"h":78},{"key":"office","label":"Office","x":116,"y":108,"w":120,"h":76},{"key":"garage","label":"Garage","x":4,"y":194,"w":104,"h":86},{"key":"outdoor","label":"Patio","x":116,"y":194,"w":150,"h":78},{"key":"bath","label":"Bath","x":274,"y":194,"w":58,"h":58}],"furniture":[{"key":"house_plant","cosmetic":false,"x":22,"y":23,"scale":1,"rot":0},{"key":"couch","cosmetic":false,"x":63,"y":17,"scale":1,"rot":0},{"key":"flat_screen_tv","cosmetic":false,"x":110,"y":15,"scale":1,"rot":0},{"key":"home_theater","cosmetic":false,"x":31,"y":55,"scale":1,"rot":0},{"key":"bookshelf","cosmetic":false,"x":75,"y":52,"scale":1,"rot":0},{"key":"aquarium","cosmetic":false,"x":114,"y":53,"scale":1,"rot":0},{"key":"fireplace","cosmetic":false,"x":25,"y":82,"scale":1,"rot":0},{"key":"pool_table","cosmetic":false,"x":67,"y":85,"scale":1,"rot":0},{"key":"smart_home_system","cosmetic":false,"x":104,"y":84,"scale":1,"rot":0},{"key":"coffee_maker","cosmetic":false,"x":175,"y":19,"scale":1,"rot":0},{"key":"mini_fridge","cosmetic":false,"x":199,"y":21,"scale":1,"rot":0},{"key":"espresso_machine","cosmetic":false,"x":227,"y":19,"scale":1,"rot":0},{"key":"wine_rack","cosmetic":false,"x":180,"y":51,"scale":1,"rot":0},{"key":"instant_pot","cosmetic":false,"x":210,"y":50,"scale":1,"rot":0},{"key":"kitchen_island","cosmetic":false,"x":183,"y":78,"scale":1,"rot":0},{"key":"smart_fridge","cosmetic":false,"x":216,"y":82,"scale":1,"rot":0},{"key":"new_bed","cosmetic":false,"x":25,"y":130,"scale":1,"rot":0},{"key":"blackout_curtains","cosmetic":false,"x":59,"y":120,"scale":1,"rot":0},{"key":"hot_tub","cosmetic":false,"x":23,"y":166,"scale":1,"rot":0},{"key":"meditation_corner","cosmetic":false,"x":54,"y":160,"scale":1,"rot":0},{"key":"sauna","cosmetic":false,"x":85,"y":165,"scale":1,"rot":0},{"key":"desk_fan","cosmetic":false,"x":130,"y":122,"scale":1,"rot":0},{"key":"whiteboard","cosmetic":false,"x":161,"y":121,"scale":1,"rot":0},{"key":"filing_cabinet","cosmetic":false,"x":193,"y":124,"scale":1,"rot":0},{"key":"headphones","cosmetic":false,"x":133,"y":152,"scale":1,"rot":0},{"key":"negotiation_book","cosmetic":false,"x":160,"y":151,"scale":1,"rot":0},{"key":"gaming_setup","cosmetic":false,"x":191,"y":151,"scale":1,"rot":0},{"key":"ergonomic_chair","cosmetic":false,"x":133,"y":181,"scale":1,"rot":0},{"key":"second_monitor","cosmetic":false,"x":165,"y":177,"scale":1,"rot":0},{"key":"printer","cosmetic":false,"x":197,"y":177,"scale":1,"rot":0},{"key":"workbench_tools","cosmetic":false,"x":25,"y":209,"scale":1,"rot":0},{"key":"home_gym","cosmetic":false,"x":61,"y":209,"scale":1,"rot":0},{"key":"motorcycle","cosmetic":false,"x":90,"y":216,"scale":1,"rot":0},{"key":"sports_car","cosmetic":false,"x":23,"y":258,"scale":1,"rot":0},{"key":"bbq_grill","cosmetic":false,"x":133,"y":209,"scale":1,"rot":0},{"key":"patio_set","cosmetic":false,"x":167,"y":214,"scale":1,"rot":0},{"key":"swimming_pool","cosmetic":false,"x":213,"y":213,"scale":1,"rot":0},{"key":"garden","cosmetic":false,"x":137,"y":246,"scale":1,"rot":0},{"key":"fire_pit","cosmetic":false,"x":172,"y":248,"scale":1,"rot":0},{"key":"basketball_hoop","cosmetic":false,"x":203,"y":245,"scale":1,"rot":0}]},"mansion":{"rooms":[{"key":"living","label":"Living","x":4,"y":4,"w":150,"h":96},{"key":"kitchen","label":"Kitchen","x":162,"y":4,"w":100,"h":66},{"key":"bedroom","label":"Bedroom","x":4,"y":108,"w":104,"h":78},{"key":"office","label":"Office","x":116,"y":108,"w":120,"h":76},{"key":"garage","label":"Garage","x":4,"y":194,"w":104,"h":86},{"key":"outdoor","label":"Patio","x":116,"y":194,"w":150,"h":78},{"key":"bath","label":"Bath","x":274,"y":194,"w":58,"h":58}],"furniture":[{"key":"house_plant","cosmetic":false,"x":22,"y":23,"scale":1,"rot":0},{"key":"couch","cosmetic":false,"x":63,"y":17,"scale":1,"rot":0},{"key":"flat_screen_tv","cosmetic":false,"x":110,"y":15,"scale":1,"rot":0},{"key":"home_theater","cosmetic":false,"x":31,"y":55,"scale":1,"rot":0},{"key":"bookshelf","cosmetic":false,"x":75,"y":52,"scale":1,"rot":0},{"key":"aquarium","cosmetic":false,"x":114,"y":53,"scale":1,"rot":0},{"key":"fireplace","cosmetic":false,"x":25,"y":82,"scale":1,"rot":0},{"key":"pool_table","cosmetic":false,"x":67,"y":85,"scale":1,"rot":0},{"key":"grand_piano","cosmetic":false,"x":111,"y":87,"scale":1,"rot":0},{"key":"smart_home_system","cosmetic":false,"x":20,"y":118,"scale":1,"rot":0},{"key":"home_bar","cosmetic":false,"x":56,"y":117,"scale":1,"rot":0},{"key":"art_gallery","cosmetic":false,"x":100,"y":114,"scale":1,"rot":0},{"key":"grand_fireplace","cosmetic":false,"x":28,"y":145,"scale":1,"rot":0},{"key":"coffee_maker","cosmetic":false,"x":175,"y":19,"scale":1,"rot":0},{"key":"mini_fridge","cosmetic":false,"x":199,"y":21,"scale":1,"rot":0},{"key":"espresso_machine","cosmetic":false,"x":227,"y":19,"scale":1,"rot":0},{"key":"wine_rack","cosmetic":false,"x":180,"y":51,"scale":1,"rot":0},{"key":"instant_pot","cosmetic":false,"x":210,"y":50,"scale":1,"rot":0},{"key":"kitchen_island","cosmetic":false,"x":183,"y":78,"scale":1,"rot":0},{"key":"smart_fridge","cosmetic":false,"x":216,"y":82,"scale":1,"rot":0},{"key":"new_bed","cosmetic":false,"x":25,"y":130,"scale":1,"rot":0},{"key":"blackout_curtains","cosmetic":false,"x":59,"y":120,"scale":1,"rot":0},{"key":"hot_tub","cosmetic":false,"x":23,"y":166,"scale":1,"rot":0},{"key":"meditation_corner","cosmetic":false,"x":54,"y":160,"scale":1,"rot":0},{"key":"sauna","cosmetic":false,"x":85,"y":165,"scale":1,"rot":0},{"key":"spa_suite","cosmetic":false,"x":25,"y":194,"scale":1,"rot":0},{"key":"luxury_sleep_system","cosmetic":false,"x":64,"y":201,"scale":1,"rot":0},{"key":"desk_fan","cosmetic":false,"x":130,"y":122,"scale":1,"rot":0},{"key":"whiteboard","cosmetic":false,"x":161,"y":121,"scale":1,"rot":0},{"key":"filing_cabinet","cosmetic":false,"x":193,"y":124,"scale":1,"rot":0},{"key":"headphones","cosmetic":false,"x":133,"y":152,"scale":1,"rot":0},{"key":"negotiation_book","cosmetic":false,"x":160,"y":151,"scale":1,"rot":0},{"key":"gaming_setup","cosmetic":false,"x":191,"y":151,"scale":1,"rot":0},{"key":"ergonomic_chair","cosmetic":false,"x":133,"y":181,"scale":1,"rot":0},{"key":"second_monitor","cosmetic":false,"x":165,"y":177,"scale":1,"rot":0},{"key":"printer","cosmetic":false,"x":197,"y":177,"scale":1,"rot":0},{"key":"music_studio","cosmetic":false,"x":137,"y":207,"scale":1,"rot":0},{"key":"workbench_tools","cosmetic":false,"x":25,"y":209,"scale":1,"rot":0},{"key":"home_gym","cosmetic":false,"x":61,"y":209,"scale":1,"rot":0},{"key":"motorcycle","cosmetic":false,"x":90,"y":216,"scale":1,"rot":0},{"key":"sports_car","cosmetic":false,"x":23,"y":258,"scale":1,"rot":0},{"key":"professional_gym","cosmetic":false,"x":57,"y":251,"scale":1,"rot":0},{"key":"bbq_grill","cosmetic":false,"x":133,"y":209,"scale":1,"rot":0},{"key":"patio_set","cosmetic":false,"x":167,"y":214,"scale":1,"rot":0},{"key":"swimming_pool","cosmetic":false,"x":213,"y":213,"scale":1,"rot":0},{"key":"garden","cosmetic":false,"x":137,"y":246,"scale":1,"rot":0},{"key":"fire_pit","cosmetic":false,"x":172,"y":248,"scale":1,"rot":0},{"key":"basketball_hoop","cosmetic":false,"x":203,"y":245,"scale":1,"rot":0},{"key":"indoor_pool","cosmetic":false,"x":145,"y":281,"scale":1,"rot":0}]}}');
+
+function buildFloorPlanHtml() {
+  const homeKey = state.player_home || 'grandmas_basement';
+  const L = FP_LAYOUT[homeKey] || FP_LAYOUT.grandmas_basement;
+  const owned = state.owned_items || {};
+
+  // viewBox bounds = furthest room edge / sprite extent (+ small margin)
+  let W = 0, Hh = 0;
+  for (const r of L.rooms) { if (r.x + r.w > W) W = r.x + r.w; if (r.y + r.h > Hh) Hh = r.y + r.h; }
+  for (const f of L.furniture) { const sp = FP_SPRITES[f.key]; if (!sp) continue; if (f.x + sp.w / 2 > W) W = f.x + sp.w / 2; if (f.y + sp.h / 2 > Hh) Hh = f.y + sp.h / 2; }
+  W += 4; Hh += 4;
+
+  let frames = '', floors = '', labels = '', furn = '';
+  for (const r of L.rooms) {
+    frames += `<rect x="${r.x - 2}" y="${r.y - 2}" width="${r.w + 4}" height="${r.h + 4}" rx="5" fill="#4A3A2C"/>`;
+    floors += `<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" fill="${FP_FLOOR[r.key] || '#B89469'}"/>`;
+    labels += `<text x="${r.x + 4}" y="${r.y + 9}" font-size="6.5" fill="#241B12" opacity="0.5" style="font-family:system-ui,sans-serif;font-weight:600">${r.label || r.key}</text>`;
+  }
+  for (const f of L.furniture) {
+    const sp = FP_SPRITES[f.key];
+    if (!sp) continue;
+    if (!f.cosmetic && !owned[f.key]) continue; // buyable item only shows once owned
+    const t = `translate(${f.x},${f.y}) scale(${f.scale}) rotate(${f.rot || 0})`;
+    furn += f.cosmetic
+      ? `<g transform="${t}">${sp.art}</g>`
+      : `<g transform="${t}" onclick="showOwnedItemDetail('${f.key}')" style="cursor:pointer">${sp.art}</g>`;
+  }
+  const K = 1.9, wpx = Math.round(W * K);
+  return `<svg viewBox="0 0 ${W} ${Hh}" style="width:${wpx}px;max-width:100%;height:auto;display:block;margin:0 auto" xmlns="http://www.w3.org/2000/svg">`
+       + `${frames}${floors}${furn}${labels}</svg>`;
+}
+
+function buildFloorPlanCard() {
+  const ownedCount = STORE_ITEM_DATA.filter(i => (state.owned_items || {})[i.key]).length;
+  const hint = ownedCount === 0
+    ? `Buy furniture below and it appears here — tap any piece for details.`
+    : `Tap any piece for details.`;
+  return `
+    <div class="hood-section" style="margin-bottom:10px;padding:14px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:8px">Floor Plan</div>
+      <div style="background:var(--surface-2);border-radius:10px;padding:12px 10px">${buildFloorPlanHtml()}</div>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:8px;text-align:center">${hint}</div>
+    </div>`;
+}
 
 function buildMyHomeContent() {
   const homeKey     = state.player_home || 'grandmas_basement';
@@ -1736,6 +2038,7 @@ let _personalOpen    = { my_home: false, homes: false, classes: false, store: fa
 let _personalMainTab = 'home';
 
 function switchPersonalTab(tab) {
+  sfx.tab();
   _personalMainTab = tab;
   ['home', 'career'].forEach(t => {
     const el  = document.getElementById('personal-' + t);
@@ -1964,6 +2267,8 @@ function renderPersonal() {
           </div>
         </div>
 
+        ${buildFloorPlanCard()}
+
         ${personalSection('my_home', `${pxIcon('🛋️',16)} Furnishings`,   buildMyHomeContent(), buildMyHomeMeta())}
         ${personalSection('homes',   `${pxIcon('🏠',16)} Home Upgrades`, homeRows, `${homesUnlocked}/${PLAYER_HOME_DATA.length} unlocked`)}
 
@@ -2025,6 +2330,7 @@ function buildAssistantRows() {
 async function hireAssistant(key) {
   const res = await api('/hire_assistant', 'POST', { key });
   if (res.error) { toast(res.error, 'error'); return; }
+  sfx.hire();
   await refreshState();
   renderPersonal();
   toast(`${ASSISTANTS_DATA[key].icon} ${ASSISTANTS_DATA[key].name} hired!`, 'success');
@@ -2039,6 +2345,7 @@ async function fireAssistant(key) {
 }
 
 function togglePersonalSection(id) {
+  sfx.accordion();
   _personalOpen[id] = !_personalOpen[id];
   renderPersonal();
 }
@@ -2046,6 +2353,7 @@ function togglePersonalSection(id) {
 async function buyStoreItem(itemKey) {
   const res = await api('/store/buy_item', 'POST', { item_key: itemKey });
   if (res.error) { toast(res.error, 'warning'); return; }
+  sfx.purchase();
   await refreshState();
   renderPersonal();
   toast(`${res.item} purchased!`);
@@ -2054,6 +2362,7 @@ async function buyStoreItem(itemKey) {
 async function buyDiyClass(classKey) {
   const res = await api('/education/buy_class', 'POST', { class_key: classKey });
   if (res.error) { toast(res.error, 'warning'); return; }
+  sfx.purchase();
   await refreshState();
   renderPersonal();
   toast(`${res.class_name} completed! New DIY skills unlocked.`);
@@ -2062,6 +2371,7 @@ async function buyDiyClass(classKey) {
 async function buyBuildingPermit() {
   const res = await api('/new_builds/buy_permit', 'POST');
   if (res.error) { toast(res.error, 'warning'); return; }
+  sfx.purchase();
   await refreshState();
   renderPersonal();
   toast('Building permit purchased! Head to My Properties → New Builds to start.', 'success');
@@ -2070,6 +2380,7 @@ async function buyBuildingPermit() {
 async function buyBuildCrew(crewKey) {
   const res = await api('/new_builds/buy_crew', 'POST', { crew: crewKey });
   if (res.error) { toast(res.error, 'warning'); return; }
+  sfx.hire();
   await refreshState();
   renderPersonal();
   toast(`${BUILD_CREWS_DATA[crewKey].name} hired!`, 'success');
@@ -2155,6 +2466,7 @@ function portfolioCardHtml(p) {
 async function showPropertyDetail(id) {
   const prop = state.properties.find(p => p.id === id);
   if (!prop) return;
+  sfx.propOpen();
   _propDetailId   = id;
   _inPropSubModal = false;
 
@@ -2552,6 +2864,7 @@ function buildPremiumSection(pid, premData, cash, hasSquatter = false, hasTenant
 async function installPremiumUpgrade(pid, key) {
   const res = await api(`/property/${pid}/premium_upgrades`, 'POST', { upgrade_key: key });
   if (res.error) { toast(res.error, 'error'); return; }
+  sfx.specialReno();
   const d = res.duration;
   openModal(`
     <div class="modal-handle"></div>
@@ -2716,6 +3029,7 @@ async function confirmSchedulePremium(propId, upgradeKey, startDay) {
     upgrade_key: upgradeKey, start_day: startDay,
   });
   if (res.error) { toast(res.error, 'error'); return; }
+  sfx.specialReno();
   _inPropSubModal = true;
   const daysOut = startDay - state.day;
   openModal(`
@@ -2761,6 +3075,7 @@ function evictTenant(id) {
     async () => {
       const res = await api('/evict', 'POST', { prop_id: id });
       if (res.error) { toast(res.error, 'error'); return; }
+      sfx.evict();
       toast('Tenant evicted.', 'warning');
       closeModal();
       await refreshState();
@@ -2776,6 +3091,7 @@ async function showTenantsModal(id) {
     return;
   }
   _inPropSubModal = true;
+  sfx.findTenant();
   const prop = state.properties.find(p => p.id === id);
   openModal(`<div class="modal-handle"></div><div class="modal-title">Find a Tenant</div><p class="text-muted">Loading applicants…</p>`);
 
@@ -2962,6 +3278,7 @@ function selectRentTier(propId, applicantIdx, tierIdx) {
 }
 
 async function confirmRentSetting(propId, applicantIdx) {
+  sfx.signLease();
   const tier = RENT_TIERS[_selectedTier];
   const rent = Math.round(_fairRent * tier.mult);
   const res  = await api('/rent', 'POST', { prop_id: propId, applicant_idx: applicantIdx, rent_amount: rent });
@@ -3056,6 +3373,7 @@ function launchMgByType(mgType, upgradeKey) {
 }
 
 async function showContractorModal(propId, upgradeKey) {
+  sfx.propOpen();
   pendingUpgrade  = { propId, upgradeKey };
   _inPropSubModal = true;
   const upgData   = await api(`/property/${propId}/upgrades`);
@@ -3148,11 +3466,13 @@ async function showContractorModal(propId, upgradeKey) {
 
 function startDIY(upgradeKey) {
   if (!pendingUpgrade) return;
+  sfx.construct();
   _mg = { isRepair: false };
   launchMgByType(selectMgType(upgradeKey), upgradeKey);
 }
 
 async function finishDIY(upgradeKey, score) {
+  sfx.complete();
   if (_mg.isRepair) { await finishRepairDIY(score); return; }
   if (_mg.isJob)    { await finishJob(score); return; }
   const { propId } = pendingUpgrade;
@@ -3190,6 +3510,7 @@ async function hireContractor(contractorKey) {
   const { propId, upgradeKey } = pendingUpgrade;
   const res = await api('/renovate', 'POST', { prop_id: propId, upgrade_key: upgradeKey, contractor_key: contractorKey });
   if (res.error) { toast(res.error, 'error'); return; }
+  if (contractorKey === 'special') sfx.specialReno(); else sfx.construct();
   pendingUpgrade  = null;
   _inPropSubModal = true;
   const d = res.duration;
@@ -3348,6 +3669,7 @@ const SNACK_META = {
 let _bizOpen = { vending: true };
 
 function toggleBiz(id) {
+  sfx.accordion();
   const wasOpen = !!_bizOpen[id];
   Object.keys(_bizOpen).forEach(k => _bizOpen[k] = false);
   _bizOpen[id] = !wasOpen;
@@ -3766,6 +4088,7 @@ function renderLaundromContent() {
 async function buyLaundromat() {
   const res = await api('/laundromat/buy', 'POST', {});
   if (res.error) { toast(res.error, 'error'); return; }
+  sfx.purchase();
   await refreshState();
   renderBusiness();
   toast('Dirty Money Laundromat purchased! Buy soap from CostPro to get started.', 'success');
@@ -3798,6 +4121,7 @@ async function doLaundroClean() {
   closeModal();
   const res = await api('/laundromat/clean', 'POST', {});
   if (res.error) { toast(res.error, 'error'); return; }
+  sfx.clean();
   await refreshState();
   renderBusiness();
   toast('Laundromat scrubbed clean! +30% cleanliness.', 'success');
@@ -3888,6 +4212,7 @@ async function doLaundroUpgrade(machineId, upgradeKey) {
 async function toggleLaundroInsurance() {
   const res = await api('/laundromat/insurance', 'POST', {});
   if (res.error) { toast(res.error, 'error'); return; }
+  sfx.toggle();
   await refreshState();
   renderBusiness();
   const on = state.laundromat?.insurance;
@@ -3897,6 +4222,7 @@ async function toggleLaundroInsurance() {
 async function toggleLaundroStaff(role) {
   const res = await api('/laundromat/hire_staff', 'POST', { role });
   if (res.error) { toast(res.error, 'error'); return; }
+  sfx.hire();
   await refreshState();
   renderBusiness();
   const hired = state.laundromat?.staff?.[role];
@@ -3907,6 +4233,7 @@ async function toggleLaundroStaff(role) {
 async function buyLaundroMachine() {
   const res = await api('/laundromat/buy_machine', 'POST', {});
   if (res.error) { toast(res.error, 'error'); return; }
+  sfx.purchase();
   await refreshState();
   renderBusiness();
   const count = state.laundromat?.machines?.length || 0;
@@ -3986,6 +4313,7 @@ async function buyVendingMachine(snackTier) {
   closeModal();
   const res = await api('/vending/buy', 'POST', { snack_tier: snackTier });
   if (res.error) { toast(res.error, 'error'); return; }
+  sfx.purchase();
   await refreshState();
   renderBusiness();
   toast('Vending machine purchased!', 'success');
@@ -3995,6 +4323,7 @@ async function restockMachine(vmId, snackTier) {
   closeModal();
   const res = await api('/vending/restock', 'POST', { vm_id: vmId, snack_tier: snackTier });
   if (res.error) { toast(res.error, 'error'); return; }
+  sfx.restock();
   await refreshState();
   renderBusiness();
   toast('Machine restocked!', 'success');
@@ -4003,6 +4332,7 @@ async function restockMachine(vmId, snackTier) {
 async function toggleVinny() {
   const res = await api('/vending/toggle_vinny', 'POST', {});
   if (res.error) { toast(res.error, 'error'); return; }
+  sfx.toggle();
   await refreshState();
   renderBusiness();
   toast(state.vinny_hired ? 'Cousin Vinny is on the job!' : 'Vinny has been let go.', 'info');
@@ -4405,6 +4735,7 @@ function _psFillDemandText() {
 async function psBuy() {
   const r = await api('/pole_studio/buy', 'POST');
   if (r.error) { toast(r.error, 'error'); return; }
+  sfx.purchase();
   await refreshState();
   renderBusiness();
   toast('Brass Pole Fitness Studio acquired! 🎪', 'success');
@@ -4413,6 +4744,7 @@ async function psBuy() {
 async function psBuyPole() {
   const r = await api('/pole_studio/buy_pole', 'POST');
   if (r.error) { toast(r.error, 'error'); return; }
+  sfx.construct();
   await refreshState();
   renderBusiness();
   toast('New pole installed!', 'success');
@@ -4421,6 +4753,7 @@ async function psBuyPole() {
 async function psHireDancer(dk) {
   const r = await api('/pole_studio/hire_dancer', 'POST', { dancer: dk });
   if (r.error) { toast(r.error, 'error'); return; }
+  sfx.hire();
   await refreshState();
   renderBusiness();
   toast(`${PS_DANCERS[dk].name} ${PS_DANCERS[dk].icon} joins the studio!`, 'success');
@@ -4453,6 +4786,7 @@ async function _psFireDancerConfirmed(dk) {
 async function psClean() {
   const r = await api('/pole_studio/clean', 'POST');
   if (r.error) { toast(r.error, 'error'); return; }
+  sfx.clean();
   await refreshState();
   renderBusiness();
   toast('Studio deep cleaned! ✨', 'success');
@@ -4536,6 +4870,7 @@ async function psRepairPole(poleIdx) {
 async function psHireStaff(role) {
   const r = await api('/pole_studio/hire_staff', 'POST', { role });
   if (r.error) { toast(r.error, 'error'); return; }
+  sfx.hire();
   await refreshState();
   renderBusiness();
   toast(`${PS_STAFF[role].name} hired!`, 'success');
@@ -4825,9 +5160,9 @@ function cwBayUpgradeMenu(bayIdx) {
     </div>`);
 }
 
-async function cwBuy()                       { const r = await api('/car_wash/buy','POST'); if(r.error){toast(r.error,'error');return;} await refreshState(); renderBusiness(); toast('Slippery When Washed is open!','success'); }
-async function cwBuildBay()                  { const r = await api('/car_wash/build_bay','POST'); if(r.error){toast(r.error,'error');return;} await refreshState(); renderBusiness(); toast('New bay built!','success'); }
-async function cwHireStaff(role)             { const r = await api('/car_wash/hire_staff','POST',{role}); if(r.error){toast(r.error,'error');return;} await refreshState(); renderBusiness(); toast(`${CW_STAFF[role].name} hired.`,'success'); }
+async function cwBuy()                       { const r = await api('/car_wash/buy','POST'); if(r.error){toast(r.error,'error');return;} sfx.purchase(); await refreshState(); renderBusiness(); toast('Slippery When Washed is open!','success'); }
+async function cwBuildBay()                  { const r = await api('/car_wash/build_bay','POST'); if(r.error){toast(r.error,'error');return;} sfx.construct(); await refreshState(); renderBusiness(); toast('New bay built!','success'); }
+async function cwHireStaff(role)             { const r = await api('/car_wash/hire_staff','POST',{role}); if(r.error){toast(r.error,'error');return;} sfx.hire(); await refreshState(); renderBusiness(); toast(`${CW_STAFF[role].name} hired.`,'success'); }
 function cwFireStaff(role) {
   const meta = CW_STAFF[role];
   openModal(`
@@ -4842,13 +5177,13 @@ function cwFireStaff(role) {
     </div>`);
 }
 async function cwFireStaffConfirmed(role) { closeModal(); const r = await api('/car_wash/fire_staff','POST',{role}); if(r.error){toast(r.error,'error');return;} await refreshState(); renderBusiness(); toast(`${CW_STAFF[role].name} let go.`,'info'); }
-async function cwUpgradeBay(bayIdx,upgrade)  { const r = await api('/car_wash/upgrade_bay','POST',{bay_idx:bayIdx,upgrade}); if(r.error){toast(r.error,'error');return;} await refreshState(); renderBusiness(); toast(`${CW_BAY_UPGRADES[upgrade].name} installed.`,'success'); }
-async function cwGlobalUpgrade(upgrade)      { const r = await api('/car_wash/global_upgrade','POST',{upgrade}); if(r.error){toast(r.error,'error');return;} await refreshState(); renderBusiness(); toast(`${CW_GLOBAL_UPGRADES[upgrade].name} installed.`,'success'); }
+async function cwUpgradeBay(bayIdx,upgrade)  { const r = await api('/car_wash/upgrade_bay','POST',{bay_idx:bayIdx,upgrade}); if(r.error){toast(r.error,'error');return;} sfx.construct(); await refreshState(); renderBusiness(); toast(`${CW_BAY_UPGRADES[upgrade].name} installed.`,'success'); }
+async function cwGlobalUpgrade(upgrade)      { const r = await api('/car_wash/global_upgrade','POST',{upgrade}); if(r.error){toast(r.error,'error');return;} sfx.construct(); await refreshState(); renderBusiness(); toast(`${CW_GLOBAL_UPGRADES[upgrade].name} installed.`,'success'); }
 async function cwRepairBay(bayIdx)           { const r = await api('/car_wash/repair_bay','POST',{bay_idx:bayIdx}); if(r.error){toast(r.error,'error');return;} await refreshState(); renderBusiness(); toast('Bay repaired.','success'); }
 async function cwRepressurize()              { const r = await api('/car_wash/repressurize','POST'); if(r.error){toast(r.error,'error');return;} await refreshState(); renderBusiness(); toast('Water pressure restored.','success'); }
 async function cwPepTalk()                   { const r = await api('/car_wash/pep_talk','POST'); if(r.error){toast(r.error,'error');return;} await refreshState(); renderBusiness(); toast('Pep talk delivered. Terry commented on water temperature.','success'); }
 async function cwTeamLunch()                 { const r = await api('/car_wash/team_lunch','POST'); if(r.error){toast(r.error,'error');return;} await refreshState(); renderBusiness(); toast('Team lunch done.','success'); }
-async function cwToggleInsurance()           { const r = await api('/car_wash/insurance','POST'); if(r.error){toast(r.error,'error');return;} await refreshState(); renderBusiness(); toast(r.insurance?'Insurance activated.':'Insurance cancelled.','info'); }
+async function cwToggleInsurance()           { const r = await api('/car_wash/insurance','POST'); if(r.error){toast(r.error,'error');return;} sfx.toggle(); await refreshState(); renderBusiness(); toast(r.insurance?'Insurance activated.':'Insurance cancelled.','info'); }
 
 // ── CostPro Wholesale Store ───────────────────────────────────────────────────
 const COSTPRO_SNACKS = [
@@ -5052,6 +5387,7 @@ function renderStore() {
 async function buySnacks(itemKey, qty) {
   const res = await api('/costpro/buy', 'POST', { item_key: itemKey, qty });
   if (res.error) { toast(res.error, 'error'); return; }
+  sfx.purchase();
   await refreshState();
   renderStore();
   renderBusiness();
@@ -5305,9 +5641,9 @@ const PAINT_COLORS = [
 ];
 
 const PG_COLS     = 8;
-const PG_ROWS     = 10;
-const PG_TOTAL    = PG_COLS * PG_ROWS;  // 80 tiles
-const PG_DURATION = 2.5;                // seconds
+const PG_ROWS     = 20;
+const PG_TOTAL    = PG_COLS * PG_ROWS;  // 160 tiles
+const PG_DURATION = 5;                  // seconds
 
 function launchPaintGame(upgradeKey) {
   closeModal();  // dismiss any open modal before going fullscreen
@@ -8746,6 +9082,7 @@ async function advanceDays(days) {
     toast("There's still a squatter in your house. That's not going away on its own.", 'warning');
     return;
   }
+  sfx.advTime();
   const res = await api('/advance', 'POST', { days });
   const s   = getSeasonInfo(res.day);
   const rentPaid     = res.events.filter(e => e.category === 'rent' && e.type === 'positive');
@@ -9188,6 +9525,7 @@ function showNextRepair() {
 }
 
 function showRepairModal(repair) {
+  sfx.repair();
   const rt = repair.repair_type;
   openModal(`
     <div class="modal-handle"></div>
@@ -9283,6 +9621,7 @@ async function ignoreRepair() {
 // ── Bank ──────────────────────────────────────────────────────────────────────
 // ── Finances Tab ──────────────────────────────────────────────────────────────
 function switchFinTab(tab) {
+  sfx.tab();
   currentFinTab = tab;
   ['bank', 'stocks', 'taxes'].forEach(t => {
     const el  = document.getElementById('fin-' + t);
@@ -9513,6 +9852,7 @@ async function confirmLoan(productKey) {
   if (!amount) return;
   const res = await api('/bank/loan/take', 'POST', { product_key: productKey, amount: parseInt(amount) });
   if (res.error) { toast(res.error, 'error'); return; }
+  sfx.loan();
   toast(`Loan approved! ${fmt(res.loan.weekly_payment)}/wk`, 'success');
   closeModal();
   await refreshState();
@@ -9538,6 +9878,7 @@ async function makeExtraPayment(loanId) {
   if (!amount) return;
   const res = await api('/bank/loan/pay', 'POST', { loan_id: loanId, amount: parseFloat(amount) });
   if (res.error) { toast(res.error, 'error'); return; }
+  sfx.loanPay();
   toast(res.remaining <= 0 ? 'Loan fully paid off! 🎉' : `Payment made. ${fmt(res.remaining)} left.`, 'success');
   closeModal();
   await refreshState();
@@ -9563,6 +9904,7 @@ async function doDeposit() {
   if (!amount) return;
   const res = await api('/bank/savings/deposit', 'POST', { amount: parseInt(amount) });
   if (res.error) { toast(res.error, 'error'); return; }
+  sfx.deposit();
   toast(`Deposited ${fmt(parseInt(amount))} — ${res.tier.apr}% APR`, 'success');
   closeModal();
   await refreshState();
@@ -9589,6 +9931,7 @@ async function doWithdraw() {
   if (!amount) return;
   const res = await api('/bank/savings/withdraw', 'POST', { amount: parseInt(amount) });
   if (res.error) { toast(res.error, 'error'); return; }
+  sfx.withdraw();
   toast(`Withdrew ${fmt(parseInt(amount))}`, 'success');
   closeModal();
   await refreshState();
@@ -9732,6 +10075,7 @@ function setupMusicAutoStart() {
     _clearMusicAutoStart();
     if (!_musicReady) initMusicSynths();
     Tone.start().then(function() {
+      _sfxReady = true;
       if (!_musicStarted) {
         _musicStarted = true;
         Tone.getTransport().start();
@@ -9750,6 +10094,7 @@ function toggleMusicEnabled(on) {
     _clearMusicAutoStart();
     if (!_musicReady) initMusicSynths();
     Tone.start().then(function() {
+      _sfxReady = true;
       if (!_musicStarted) {
         _musicStarted = true;
         Tone.getTransport().start();
@@ -9766,6 +10111,386 @@ function setMusicManualLevel(val) {
   if (val === '') localStorage.removeItem('musicManualLevel');
   else            localStorage.setItem('musicManualLevel', val);
   syncMusicToLevel(musicTargetLevel());
+}
+
+// ── Sound Effects ─────────────────────────────────────────────────────────────
+let _sfxEnabled = localStorage.getItem('sfxEnabled') !== '0';
+let _sfxReady   = false;
+
+const sfx = {
+  _ok: function() { return _sfxEnabled && _sfxReady && typeof Tone !== 'undefined'; },
+
+  cash: function() {
+    if (!sfx._ok()) return;
+    const b = new Tone.Synth({ oscillator:{type:'triangle'}, envelope:{attack:0.001,decay:0.18,sustain:0,release:0.1} }).toDestination();
+    b.volume.value = -10;
+    b.triggerAttackRelease('G5','32n');
+    b.triggerAttackRelease('B5','32n','+0.08');
+    b.triggerAttackRelease('E6','16n','+0.16');
+    setTimeout(() => b.dispose(), 1000);
+  },
+
+  buy: function() {
+    if (!sfx._ok()) return;
+    const kick = new Tone.MembraneSynth({ pitchDecay:0.05,octaves:5,envelope:{attack:0.001,decay:0.18,sustain:0,release:0.1} }).toDestination();
+    const clk  = new Tone.Synth({ oscillator:{type:'triangle'}, envelope:{attack:0.001,decay:0.08,sustain:0,release:0.05} }).toDestination();
+    kick.volume.value = -6; clk.volume.value = -14;
+    kick.triggerAttackRelease('C2','8n');
+    clk.triggerAttackRelease('C5','32n','+0.06');
+    setTimeout(() => { kick.dispose(); clk.dispose(); }, 800);
+  },
+
+  levelUp: function() {
+    if (!sfx._ok()) return;
+    const bell  = new Tone.Synth({ oscillator:{type:'triangle'}, envelope:{attack:0.001,decay:0.5,sustain:0,release:0.3} }).toDestination();
+    const metal = new Tone.MetalSynth({ frequency:600,harmonicity:3,modulationIndex:16,resonance:3000,octaves:1,envelope:{attack:0.001,decay:0.6,release:0.2} }).toDestination();
+    bell.volume.value = -10; metal.volume.value = -16;
+    ['C6','E6','G6','C7','E7'].forEach((n,i) => bell.triggerAttackRelease(n,'16n',`+${i*0.09}`));
+    metal.triggerAttackRelease('16n','+0.36');
+    setTimeout(() => { bell.dispose(); metal.dispose(); }, 2000);
+  },
+
+  tap: function() {
+    if (!sfx._ok()) return;
+    const r = () => Math.random();
+    const clickFreq = 4400 + r() * 1200;          // 4400–5600 Hz
+    const clickDecay = 0.006 + r() * 0.005;       // 6–11 ms
+    const clickVol  = -6  + r() * 2;              // -6 to -4 dB
+    const bodyPitch = ['F2','G2','G#2','A2'][Math.floor(r() * 4)];
+    const bodyDecay = 0.055 + r() * 0.03;         // 55–85 ms
+    const bodyVol   = -13  + r() * 3;             // -13 to -10 dB
+
+    const noise = new Tone.NoiseSynth({ noise:{type:'white'}, envelope:{attack:0.0001,decay:clickDecay,sustain:0,release:0.004} }).toDestination();
+    const filt  = new Tone.Filter({ frequency:clickFreq, type:'bandpass', Q:2.5 }).toDestination();
+    noise.connect(filt); noise.volume.value = clickVol;
+    const body  = new Tone.MembraneSynth({ pitchDecay:0.025,octaves:4,envelope:{attack:0.0001,decay:bodyDecay,sustain:0,release:0.03} }).toDestination();
+    body.volume.value = bodyVol;
+    noise.triggerAttackRelease('64n');
+    body.triggerAttackRelease(bodyPitch,'32n','+0.008');
+    setTimeout(() => { noise.dispose(); filt.dispose(); body.dispose(); }, 500);
+  },
+
+  error: function() {
+    if (!sfx._ok()) return;
+    const s = new Tone.Synth({ oscillator:{type:'sawtooth'}, envelope:{attack:0.005,decay:0.25,sustain:0,release:0.1} }).toDestination();
+    const f = new Tone.Filter({ frequency:300, type:'lowpass' }).toDestination();
+    s.connect(f); s.volume.value = -12;
+    s.triggerAttackRelease('A2','8n');
+    setTimeout(() => { s.dispose(); f.dispose(); }, 700);
+  },
+
+  repair: function() {
+    if (!sfx._ok()) return;
+    const k = new Tone.MembraneSynth({ pitchDecay:0.12,octaves:6,envelope:{attack:0.001,decay:0.3,sustain:0,release:0.15} }).toDestination();
+    const n = new Tone.NoiseSynth({ noise:{type:'brown'}, envelope:{attack:0.001,decay:0.1,sustain:0,release:0.05} }).toDestination();
+    k.volume.value = -10; n.volume.value = -16;
+    k.triggerAttackRelease('G2','8n');
+    n.triggerAttackRelease('32n','+0.02');
+    setTimeout(() => { k.dispose(); n.dispose(); }, 800);
+  },
+
+  complete: function() {
+    if (!sfx._ok()) return;
+    const p = new Tone.PolySynth(Tone.Synth, { oscillator:{type:'triangle'}, envelope:{attack:0.01,decay:0.4,sustain:0.3,release:0.5} }).toDestination();
+    p.volume.value = -10;
+    p.triggerAttackRelease(['C4','E4','G4','C5'],'8n');
+    setTimeout(() => p.dispose(), 1500);
+  },
+  advTime: function() {
+    if (!sfx._ok()) return;
+    const ch = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'triangle' }, envelope: { attack: 0.005, decay: 0.6, sustain: 0.02, release: 0.8 } }).toDestination();
+    ch.volume.value = -10;
+    [[0, 'E5'], [180, 'G5'], [360, 'C6']].forEach(([ms2, note]) => {
+      ch.triggerAttackRelease(note, '16n', Tone.now() + ms2 / 1000);
+    });
+    setTimeout(() => ch.dispose(), 2500);
+    const swn = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.02, decay: 0.22, sustain: 0, release: 0.15 } }).toDestination();
+    const swf = new Tone.Filter(2000, 'bandpass').toDestination();
+    swn.disconnect(); swn.connect(swf);
+    swn.volume.value = -18;
+    swn.triggerAttackRelease('8n');
+    setTimeout(() => { swn.dispose(); swf.dispose(); }, 700);
+  },
+  infoOpen: function() {
+    if (!sfx._ok()) return;
+    const mc = new Tone.MetalSynth({ frequency: 180, envelope: { attack: 0.001, decay: 0.07, release: 0.04 }, harmonicity: 3.1, modulationIndex: 10, resonance: 2500, octaves: 0.5 }).toDestination();
+    mc.volume.value = -13;
+    mc.triggerAttackRelease('32n');
+    setTimeout(function() { mc.dispose(); }, 400);
+    const ni = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.03, sustain: 0, release: 0.01 } }).toDestination();
+    const fi = new Tone.Filter(3500, 'bandpass').toDestination();
+    ni.disconnect(); ni.connect(fi);
+    ni.volume.value = -18;
+    ni.triggerAttackRelease('64n');
+    setTimeout(function() { ni.dispose(); fi.dispose(); }, 300);
+  },
+  tab: function() {
+    if (!sfx._ok()) return;
+    const ot = new Tone.Oscillator({ type: 'sine', frequency: 520 }).toDestination();
+    ot.volume.value = -20;
+    ot.start();
+    ot.frequency.exponentialRampToValueAtTime(260, Tone.now() + 0.1);
+    ot.volume.rampTo(-80, 0.12);
+    setTimeout(function() { ot.stop(); ot.dispose(); }, 200);
+  },
+  accordion: function() {
+    if (!sfx._ok()) return;
+    const sa = new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { attack: 0.001, decay: 0.22, sustain: 0, release: 0.08 } }).toDestination();
+    sa.volume.value = -13;
+    sa.frequency.setValueAtTime(330, Tone.now());
+    sa.frequency.exponentialRampToValueAtTime(590, Tone.now() + 0.1);
+    sa.triggerAttackRelease('E4', '16n');
+    setTimeout(function() { sa.dispose(); }, 500);
+    const na = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.05, sustain: 0, release: 0.01 } }).toDestination();
+    const fa = new Tone.Filter(1400, 'bandpass').toDestination();
+    na.disconnect(); na.connect(fa);
+    na.volume.value = -22;
+    na.triggerAttackRelease('32n');
+    setTimeout(function() { na.dispose(); fa.dispose(); }, 300);
+  },
+  propOpen: function() {
+    if (!sfx._ok()) return;
+    [0, 130].forEach(function(delay) {
+      const mp = new Tone.MembraneSynth({ pitchDecay: 0.05, octaves: 2.5, envelope: { attack: 0.001, decay: 0.2, sustain: 0, release: 0.1 } }).toDestination();
+      mp.volume.value = -9;
+      mp.triggerAttackRelease('C2', '8n', Tone.now() + delay / 1000);
+      setTimeout(function() { mp.dispose(); }, delay + 600);
+      const np = new Tone.NoiseSynth({ noise: { type: 'brown' }, envelope: { attack: 0.001, decay: 0.08, sustain: 0, release: 0.02 } }).toDestination();
+      const fp = new Tone.Filter(600, 'lowpass').toDestination();
+      np.disconnect(); np.connect(fp);
+      np.volume.value = -14;
+      np.triggerAttackRelease('16n', Tone.now() + delay / 1000);
+      setTimeout(function() { np.dispose(); fp.dispose(); }, delay + 600);
+    });
+  },
+  buyOpen: function() {
+    if (!sfx._ok()) return;
+    const mb = new Tone.MembraneSynth({ pitchDecay: 0.07, octaves: 4, envelope: { attack: 0.001, decay: 0.28, sustain: 0, release: 0.12 } }).toDestination();
+    mb.volume.value = -7;
+    mb.triggerAttackRelease('G1', '8n');
+    setTimeout(function() { mb.dispose(); }, 700);
+    const nb = new Tone.NoiseSynth({ noise: { type: 'brown' }, envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.03 } }).toDestination();
+    const fb = new Tone.Filter(900, 'lowpass').toDestination();
+    nb.disconnect(); nb.connect(fb);
+    nb.volume.value = -11;
+    nb.triggerAttackRelease('16n');
+    setTimeout(function() { nb.dispose(); fb.dispose(); }, 400);
+  },
+  findTenant: function() {
+    if (!sfx._ok()) return;
+    const st = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'triangle' }, envelope: { attack: 0.01, decay: 0.9, sustain: 0.08, release: 1.2 } }).toDestination();
+    st.volume.value = -11;
+    st.triggerAttackRelease('G5', '4n', Tone.now());
+    st.triggerAttackRelease('D5', '4n', Tone.now() + 0.38);
+    setTimeout(function() { st.dispose(); }, 3000);
+  },
+  signLease: function() {
+    if (!sfx._ok()) return;
+    const nl = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.015, decay: 0.12, sustain: 0.03, release: 0.18 } }).toDestination();
+    const fl = new Tone.Filter(2800, 'bandpass').toDestination();
+    nl.disconnect(); nl.connect(fl);
+    nl.volume.value = -13;
+    nl.triggerAttackRelease('8n');
+    setTimeout(function() { nl.dispose(); fl.dispose(); }, 600);
+    const cl = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'triangle' }, envelope: { attack: 0.005, decay: 0.7, sustain: 0.04, release: 0.9 } }).toDestination();
+    cl.volume.value = -12;
+    cl.triggerAttackRelease('E5', '16n', Tone.now() + 0.12);
+    cl.triggerAttackRelease('G5', '16n', Tone.now() + 0.28);
+    cl.triggerAttackRelease('B5', '8n',  Tone.now() + 0.44);
+    setTimeout(function() { cl.dispose(); }, 3000);
+  },
+  specialReno: function() {
+    if (!sfx._ok()) return;
+    const sr = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'triangle' }, envelope: { attack: 0.005, decay: 0.45, sustain: 0, release: 0.6 } }).toDestination();
+    sr.volume.value = -9;
+    [[0, 'C6'], [80, 'E6'], [160, 'G6'], [260, 'C7']].forEach(([ms4, note]) => {
+      sr.triggerAttackRelease(note, '16n', Tone.now() + ms4 / 1000);
+    });
+    setTimeout(() => sr.dispose(), 2200);
+    const srm = new Tone.MembraneSynth({ pitchDecay: 0.08, octaves: 5, envelope: { attack: 0.001, decay: 0.4, sustain: 0, release: 0.15 } }).toDestination();
+    srm.volume.value = -6;
+    srm.triggerAttackRelease('C1', '8n');
+    setTimeout(() => srm.dispose(), 800);
+    const srmt = new Tone.MetalSynth({ frequency: 400, envelope: { attack: 0.001, decay: 0.5, release: 0.3 }, harmonicity: 5.1, modulationIndex: 24, resonance: 5000, octaves: 2 }).toDestination();
+    srmt.volume.value = -12;
+    srmt.triggerAttackRelease('8n', Tone.now() + 0.1);
+    setTimeout(() => srmt.dispose(), 1500);
+  },
+  moveIn: function() {
+    if (!sfx._ok()) return;
+    const mi = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'triangle' }, envelope: { attack: 0.04, decay: 0.6, sustain: 0.2, release: 1.2 } }).toDestination();
+    mi.volume.value = -9;
+    mi.triggerAttackRelease(['C4','E4','G4','C5'], '4n');
+    setTimeout(() => {
+      mi.triggerAttackRelease(['E4','G4','B4','E5'], '4n');
+      setTimeout(() => mi.dispose(), 3000);
+    }, 350);
+    const mk = new Tone.MetalSynth({ frequency: 600, envelope: { attack: 0.001, decay: 0.12, release: 0.1 }, harmonicity: 6.1, modulationIndex: 12, resonance: 3000, octaves: 0.5 }).toDestination();
+    mk.volume.value = -18;
+    mk.triggerAttackRelease('32n', Tone.now() + 0.05);
+    setTimeout(() => mk.dispose(), 500);
+  },
+  cancel: function() {
+    if (!sfx._ok()) return;
+    const cv = new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { attack: 0.001, decay: 0.18, sustain: 0, release: 0.1 } }).toDestination();
+    cv.volume.value = -14;
+    cv.frequency.setValueAtTime(400, Tone.now());
+    cv.frequency.exponentialRampToValueAtTime(200, Tone.now() + 0.18);
+    cv.triggerAttackRelease('G3', '16n');
+    setTimeout(() => cv.dispose(), 400);
+    const cn = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.04, sustain: 0, release: 0.01 } }).toDestination();
+    const cf = new Tone.Filter(1500, 'lowpass').toDestination();
+    cn.disconnect(); cn.connect(cf);
+    cn.volume.value = -22;
+    cn.triggerAttackRelease('32n');
+    setTimeout(() => { cn.dispose(); cf.dispose(); }, 200);
+  },
+  evict: function() {
+    if (!sfx._ok()) return;
+    const ev = new Tone.MembraneSynth({ pitchDecay: 0.09, octaves: 5, envelope: { attack: 0.001, decay: 0.4, sustain: 0, release: 0.15 } }).toDestination();
+    ev.volume.value = -5;
+    ev.triggerAttackRelease('A0', '8n');
+    setTimeout(() => ev.dispose(), 800);
+    const en = new Tone.NoiseSynth({ noise: { type: 'brown' }, envelope: { attack: 0.001, decay: 0.25, sustain: 0, release: 0.05 } }).toDestination();
+    const ef = new Tone.Filter(400, 'lowpass').toDestination();
+    en.disconnect(); en.connect(ef);
+    en.volume.value = -9;
+    en.triggerAttackRelease('8n');
+    setTimeout(() => { en.dispose(); ef.dispose(); }, 700);
+  },
+  purchase: function() {
+    if (!sfx._ok()) return;
+    const pu = new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { attack: 0.005, decay: 0.35, sustain: 0, release: 0.2 } }).toDestination();
+    pu.volume.value = -12;
+    pu.triggerAttackRelease('C5', '16n');
+    setTimeout(() => { pu.triggerAttackRelease('E5', '16n'); setTimeout(() => pu.dispose(), 600); }, 110);
+  },
+  hire: function() {
+    if (!sfx._ok()) return;
+    const hi = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'sine' }, envelope: { attack: 0.01, decay: 0.4, sustain: 0.05, release: 0.4 } }).toDestination();
+    hi.volume.value = -13;
+    hi.triggerAttackRelease('C4', '8n', Tone.now());
+    hi.triggerAttackRelease('E4', '8n', Tone.now() + 0.12);
+    hi.triggerAttackRelease('G4', '8n', Tone.now() + 0.24);
+    setTimeout(() => hi.dispose(), 1200);
+  },
+  construct: function() {
+    if (!sfx._ok()) return;
+    const co = new Tone.MembraneSynth({ pitchDecay: 0.03, octaves: 3, envelope: { attack: 0.001, decay: 0.2, sustain: 0, release: 0.08 } }).toDestination();
+    co.volume.value = -8;
+    co.triggerAttackRelease('E2', '8n');
+    setTimeout(() => co.dispose(), 500);
+    const cm = new Tone.MetalSynth({ frequency: 250, envelope: { attack: 0.001, decay: 0.15, release: 0.1 }, harmonicity: 4.1, modulationIndex: 8, resonance: 1500, octaves: 0.8 }).toDestination();
+    cm.volume.value = -16;
+    cm.triggerAttackRelease('16n', Tone.now() + 0.05);
+    setTimeout(() => cm.dispose(), 600);
+  },
+  restock: function() {
+    if (!sfx._ok()) return;
+    [0, 55, 110, 165].forEach((ms3, i) => {
+      const rs = new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.001, decay: 0.12, sustain: 0, release: 0.05 } }).toDestination();
+      rs.volume.value = -19;
+      rs.triggerAttackRelease(330 * Math.pow(1.18, i), '32n', Tone.now() + ms3 / 1000);
+      setTimeout(() => rs.dispose(), ms3 + 300);
+    });
+  },
+  clean: function() {
+    if (!sfx._ok()) return;
+    const cln = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.04, decay: 0.25, sustain: 0, release: 0.18 } }).toDestination();
+    const clf = new Tone.Filter(4000, 'highpass').toDestination();
+    cln.disconnect(); cln.connect(clf);
+    cln.volume.value = -15;
+    cln.triggerAttackRelease('4n');
+    setTimeout(() => { cln.dispose(); clf.dispose(); }, 800);
+    const cld = new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { attack: 0.005, decay: 0.65, sustain: 0, release: 0.45 } }).toDestination();
+    cld.volume.value = -13;
+    cld.triggerAttackRelease('A5', '16n', Tone.now() + 0.2);
+    setTimeout(() => cld.dispose(), 1500);
+  },
+  toggle: function() {
+    if (!sfx._ok()) return;
+    const tn = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.025, sustain: 0, release: 0.01 } }).toDestination();
+    const tf = new Tone.Filter(4000, 'bandpass').toDestination();
+    tn.disconnect(); tn.connect(tf);
+    tn.volume.value = -15;
+    tn.triggerAttackRelease('64n');
+    setTimeout(() => { tn.dispose(); tf.dispose(); }, 200);
+    const tc = new Tone.Synth({ oscillator: { type: 'square' }, envelope: { attack: 0.001, decay: 0.04, sustain: 0, release: 0.02 } }).toDestination();
+    tc.volume.value = -20;
+    tc.triggerAttackRelease('C4', '64n');
+    setTimeout(() => tc.dispose(), 200);
+  },
+  deposit: function() {
+    if (!sfx._ok()) return;
+    const dp = new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { attack: 0.005, decay: 0.45, sustain: 0.05, release: 0.35 } }).toDestination();
+    dp.volume.value = -12;
+    dp.frequency.setValueAtTime(330, Tone.now());
+    dp.frequency.exponentialRampToValueAtTime(528, Tone.now() + 0.09);
+    dp.triggerAttackRelease('C5', '8n');
+    setTimeout(() => dp.dispose(), 1000);
+  },
+  withdraw: function() {
+    if (!sfx._ok()) return;
+    const wd = new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { attack: 0.005, decay: 0.45, sustain: 0.05, release: 0.35 } }).toDestination();
+    wd.volume.value = -12;
+    wd.frequency.setValueAtTime(528, Tone.now());
+    wd.frequency.exponentialRampToValueAtTime(330, Tone.now() + 0.09);
+    wd.triggerAttackRelease('E4', '8n');
+    setTimeout(() => wd.dispose(), 1000);
+  },
+  loan: function() {
+    if (!sfx._ok()) return;
+    const ln = new Tone.Synth({ oscillator: { type: 'sawtooth' }, envelope: { attack: 0.02, decay: 0.5, sustain: 0.08, release: 0.4 } }).toDestination();
+    ln.volume.value = -15;
+    ln.triggerAttackRelease('A2', '4n');
+    setTimeout(() => ln.dispose(), 1200);
+    const lnm = new Tone.MembraneSynth({ pitchDecay: 0.05, octaves: 2, envelope: { attack: 0.001, decay: 0.25, sustain: 0, release: 0.1 } }).toDestination();
+    lnm.volume.value = -11;
+    lnm.triggerAttackRelease('F2', '8n', Tone.now() + 0.12);
+    setTimeout(() => lnm.dispose(), 700);
+  },
+  loanPay: function() {
+    if (!sfx._ok()) return;
+    const lp = new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { attack: 0.001, decay: 0.28, sustain: 0, release: 0.18 } }).toDestination();
+    lp.volume.value = -12;
+    lp.triggerAttackRelease('C5', '16n');
+    setTimeout(() => { lp.triggerAttackRelease('E5', '16n'); setTimeout(() => lp.dispose(), 600); }, 100);
+  },
+  stockBuy: function() {
+    if (!sfx._ok()) return;
+    const sb = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'sine' }, envelope: { attack: 0.001, decay: 0.25, sustain: 0, release: 0.15 } }).toDestination();
+    sb.volume.value = -13;
+    sb.triggerAttackRelease('D5', '16n', Tone.now());
+    sb.triggerAttackRelease('F#5', '16n', Tone.now() + 0.09);
+    sb.triggerAttackRelease('A5', '8n',  Tone.now() + 0.18);
+    setTimeout(() => sb.dispose(), 800);
+  },
+  stockSell: function() {
+    if (!sfx._ok()) return;
+    const ss = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'sine' }, envelope: { attack: 0.001, decay: 0.25, sustain: 0, release: 0.15 } }).toDestination();
+    ss.volume.value = -13;
+    ss.triggerAttackRelease('A5', '16n', Tone.now());
+    ss.triggerAttackRelease('F#5', '16n', Tone.now() + 0.09);
+    ss.triggerAttackRelease('D5', '8n',  Tone.now() + 0.18);
+    setTimeout(() => ss.dispose(), 800);
+  },
+};
+
+function toggleSfxEnabled(on) {
+  _sfxEnabled = on;
+  localStorage.setItem('sfxEnabled', on ? '1' : '0');
+  renderSettings();
+}
+
+function setupSfxAutoStart() {
+  if (_sfxReady || _musicEnabled || !_sfxEnabled) return;
+  let _h = function() {
+    document.removeEventListener('touchend', _h, false);
+    document.removeEventListener('click',    _h, false);
+    if (typeof Tone !== 'undefined') Tone.start().then(function() { _sfxReady = true; });
+  };
+  document.addEventListener('touchend', _h, false);
+  document.addEventListener('click',    _h, false);
 }
 
 // ── Settings ──────────────────────────────────────────────────────────────────
@@ -9816,6 +10541,16 @@ function renderSettings() {
         </div>
         <label class="dark-toggle">
           <input type="checkbox" ${_musicEnabled ? 'checked' : ''} onchange="toggleMusicEnabled(this.checked)">
+          <span class="dark-toggle-track"></span>
+        </label>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+        <div>
+          <div style="font-size:13px;font-weight:600">🔊 Sound Effects</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Taps, cha-chings, alerts</div>
+        </div>
+        <label class="dark-toggle">
+          <input type="checkbox" ${_sfxEnabled ? 'checked' : ''} onchange="toggleSfxEnabled(this.checked)">
           <span class="dark-toggle-track"></span>
         </label>
       </div>
@@ -10043,6 +10778,7 @@ async function confirmBuyStock(ticker, price) {
   if (shares < 1) { toast('Enter at least 1 share', 'error'); return; }
   const res = await api('/stocks/buy', 'POST', { ticker, shares });
   if (res.error) { toast(res.error, 'error'); return; }
+  sfx.stockBuy();
   closeModal();
   state.cash = res.cash;
   updateHeader();
@@ -10104,6 +10840,7 @@ async function confirmSellStock(ticker) {
   if (shares < 1) { toast('Enter at least 1 share', 'error'); return; }
   const res = await api('/stocks/sell', 'POST', { ticker, shares });
   if (res.error) { toast(res.error, 'error'); return; }
+  sfx.stockSell();
   closeModal();
   state.cash = res.cash;
   updateHeader();
@@ -10183,7 +10920,7 @@ function showConfirmModal(title, subtitle, onConfirm) {
     <div class="modal-title">${title}</div>
     <div class="modal-subtitle">${subtitle}</div>
     <div class="btn-row">
-      <button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-ghost btn-sm" onclick="sfx.cancel(); closeModal()">Cancel</button>
       <button class="btn btn-primary" onclick="runConfirm()">Confirm</button>
     </div>`);
 }
@@ -10197,6 +10934,7 @@ document.getElementById('modal-overlay').addEventListener('click', function(e) {
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
 function toast(msg, type = '') {
+  if (type === 'error') sfx.error();
   const el = document.createElement('div');
   el.className = `toast ${type}`;
   const icons = { success: '✓', error: '✕', warning: '⚠' };
