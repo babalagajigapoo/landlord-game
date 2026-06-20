@@ -48,9 +48,7 @@ const COMMERCIAL_TYPES_DATA = {
 };
 
 const ASSISTANTS_DATA = {
-  repair: { name: 'Repair Assistant', icon: '🔧', unlock_level: 6,  monthly_fee: 1500, desc: 'Auto-handles all repair events. Always picks the best contractor your budget allows.' },
-  tenant: { name: 'Tenant Assistant', icon: '🤝', unlock_level: 9,  monthly_fee: 3000, desc: 'Handles ~50% of tenant requests automatically, balancing morale and condition.' },
-  estate: { name: 'Estate Manager',   icon: '🏛️', unlock_level: 13, monthly_fee: 6500, desc: 'Full autopilot — every repair and tenant request handled. True passive income mode.' },
+  manager: { name: 'Property Manager', icon: '🤝', unlock_level: 11, monthly_fee: 20000, desc: 'Full hands-off management. Automatically handles every tenant issue, repair, story event, and lease renewal across all your rentals — true passive income.' },
 };
 
 const COMMERCIAL_UPGRADES_DATA = {
@@ -125,9 +123,9 @@ let _pendingRepairs       = [];   // repair events queued after advancing
 let _currentRepair        = null; // repair being handled right now
 let _pendingJob           = null; // side job being played
 let _pendingSquatter         = null; // squatter event queued after repairs
-let _pendingMoraleEvents     = [];   // morale-choice events queued after repairs
 let _pendingCommercialEvents = [];   // commercial events (lease renewals, inspections, subletting)
 let _pendingRenewalOffers = [];   // lease renewal offers queued after advancing
+let _pendingStorylets     = [];   // multi-stage tenant situations queued after advancing
 let _pendingTaxEvent      = null; // tax-due event queued after advancing
 
 // ── Tenant window cache ───────────────────────────────────────────────────────
@@ -1697,6 +1695,44 @@ const FP_SPRITES = {
   decor_stairs:        { w:20, h:30, art:`<rect x="-10" y="-15" width="20" height="30" rx="1" fill="#C7B299" stroke="#9A8568" stroke-width="1"/><line x1="-10" y1="-9" x2="10" y2="-9" stroke="#9A8568"/><line x1="-10" y1="-3" x2="10" y2="-3" stroke="#9A8568"/><line x1="-10" y1="3" x2="10" y2="3" stroke="#9A8568"/><line x1="-10" y1="9" x2="10" y2="9" stroke="#9A8568"/>` },
   decor_bar_stool:     { w:10, h:10, art:`<circle cx="0" cy="0" r="5" fill="#5A5A66" stroke="#3A3A42" stroke-width="1"/><circle cx="0" cy="0" r="2" fill="#7A7A86"/>` },
   decor_plant_small:   { w:14, h:16, art:`<rect x="-4" y="2" width="8" height="6" rx="1.5" fill="#C66B3D" stroke="#8A4527" stroke-width="1"/><circle cx="-2" cy="-3" r="4" fill="#5FB85F"/><circle cx="3" cy="-4" r="4" fill="#4CAF50"/>` },
+  decor_coffee_table:  { w:28, h:16, art:`<rect x="-14" y="-8" width="28" height="16" rx="3" fill="#C98A4E" stroke="#8A5A28" stroke-width="1.3"/><rect x="-10" y="-5" width="20" height="10" rx="2" fill="#B5763A"/>` },
+  decor_tv_console:    { w:34, h:12, art:`<rect x="-17" y="-6" width="34" height="12" rx="2" fill="#7A4F2F" stroke="#4A2F1A" stroke-width="1.3"/><rect x="-13" y="-3" width="9" height="6" rx="1" fill="#5A3A1F"/><rect x="-2" y="-3" width="9" height="6" rx="1" fill="#5A3A1F"/><rect x="9" y="-3" width="6" height="6" rx="1" fill="#5A3A1F"/>` },
+  decor_ottoman:       { w:16, h:16, art:`<rect x="-8" y="-8" width="16" height="16" rx="4" fill="#D4A05A" stroke="#9A6A3F" stroke-width="1.3"/><line x1="-8" y1="0" x2="8" y2="0" stroke="#B5763A" stroke-width="0.8"/><line x1="0" y1="-8" x2="0" y2="8" stroke="#B5763A" stroke-width="0.8"/>` },
+  decor_wall_shelf:    { w:26, h:8,  art:`<rect x="-13" y="-4" width="26" height="6" rx="1" fill="#A9744F" stroke="#7A4F2F" stroke-width="1.2"/><rect x="-10" y="-7" width="4" height="3" fill="#E0533F"/><rect x="-4" y="-8" width="3" height="4" fill="#4D8FE0"/><rect x="2" y="-7" width="4" height="3" fill="#5FB85F"/><rect x="8" y="-8" width="3" height="4" fill="#F2C744"/>` },
+  decor_record_player: { w:16, h:14, art:`<rect x="-8" y="-7" width="16" height="14" rx="2" fill="#3A3A42" stroke="#111" stroke-width="1.2"/><circle cx="-1" cy="0" r="5" fill="#5A5A66"/><circle cx="-1" cy="0" r="1.5" fill="#C98A4E"/><rect x="4" y="-5" width="3" height="6" rx="1" fill="#8A8A92"/>` },
+  decor_plant_tall:    { w:16, h:18, art:`<rect x="-5" y="4" width="10" height="8" rx="2" fill="#C66B3D" stroke="#8A4527" stroke-width="1.2"/><circle cx="-3" cy="-4" r="5" fill="#4CAF50"/><circle cx="3" cy="-6" r="5" fill="#66BB6A"/><circle cx="2" cy="0" r="4" fill="#4CAF50"/><circle cx="-2" cy="-9" r="4" fill="#7CCB7E"/>` },
+  decor_mirror:        { w:8,  h:18, art:`<rect x="-4" y="-9" width="8" height="18" rx="3" fill="#CFE8F5" stroke="#9AA6AE" stroke-width="1.3"/><rect x="-2" y="-7" width="3" height="14" rx="1" fill="#EAF4FA" opacity="0.7"/>` },
+  decor_clock:         { w:12, h:12, art:`<circle cx="0" cy="0" r="6" fill="#F4F0E6" stroke="#5A5A62" stroke-width="1.3"/><line x1="0" y1="0" x2="0" y2="-4" stroke="#2B2B33" stroke-width="1"/><line x1="0" y1="0" x2="3" y2="1" stroke="#2B2B33" stroke-width="1"/>` },
+  decor_runner_rug:    { w:14, h:44, art:`<rect x="-7" y="-22" width="14" height="44" rx="3" fill="#C97676" stroke="#A85E5E" stroke-width="1.3"/><rect x="-5" y="-19" width="10" height="38" rx="2" fill="none" stroke="#EFC9C9" stroke-width="1.2"/>` },
+  decor_wall_divider:  { w:30, h:5,  art:`<rect x="-15" y="-2.5" width="30" height="5" rx="1" fill="#4A3A2C"/>` },
+  decor_column:        { w:12, h:12, art:`<circle cx="0" cy="0" r="6" fill="#D7DBE0" stroke="#9AA3AB" stroke-width="1.3"/><circle cx="0" cy="0" r="3" fill="#ECEFF1"/>` },
+  decor_wardrobe:      { w:26, h:14, art:`<rect x="-13" y="-7" width="26" height="14" rx="2" fill="#9A6A3F" stroke="#5A3A1F" stroke-width="1.3"/><line x1="0" y1="-7" x2="0" y2="7" stroke="#5A3A1F"/><circle cx="-2" cy="0" r="1.2" fill="#3A2410"/><circle cx="2" cy="0" r="1.2" fill="#3A2410"/>` },
+  decor_vanity:        { w:22, h:12, art:`<rect x="-11" y="-2" width="22" height="10" rx="2" fill="#C98A4E" stroke="#8A5A28" stroke-width="1.3"/><rect x="-8" y="-7" width="16" height="6" rx="2" fill="#CFE8F5" stroke="#9AA6AE" stroke-width="1"/>` },
+  decor_crib:          { w:22, h:28, art:`<rect x="-11" y="-14" width="22" height="28" rx="3" fill="#FBF3E6" stroke="#CBB89A" stroke-width="1.3"/><rect x="-8" y="-3" width="16" height="14" rx="3" fill="#F4C0D1"/><line x1="-11" y1="-7" x2="11" y2="-7" stroke="#CBB89A" stroke-width="0.7"/>` },
+  decor_microwave:     { w:16, h:12, art:`<rect x="-8" y="-6" width="16" height="12" rx="2" fill="#D7DBE0" stroke="#9AA3AB" stroke-width="1.2"/><rect x="-6" y="-4" width="8" height="8" rx="1" fill="#4A4A52"/><circle cx="5" cy="-2" r="1" fill="#5A5A66"/><circle cx="5" cy="2" r="1" fill="#5A5A66"/>` },
+  decor_dishwasher:    { w:20, h:18, art:`<rect x="-10" y="-9" width="20" height="18" rx="2" fill="#ECEFF1" stroke="#90A4AE" stroke-width="1.3"/><rect x="-7" y="-6" width="14" height="3" rx="1" fill="#B0BEC5"/><rect x="-6" y="6" width="12" height="1.5" rx="0.7" fill="#90A4AE"/>` },
+  decor_trash_can:     { w:10, h:12, art:`<rect x="-5" y="-6" width="10" height="12" rx="2" fill="#8A8A92" stroke="#5A5A62" stroke-width="1.2"/><rect x="-6" y="-7" width="12" height="2.5" rx="1" fill="#6A6A72"/>` },
+  decor_pantry:        { w:16, h:14, art:`<rect x="-8" y="-7" width="16" height="14" rx="2" fill="#A9744F" stroke="#7A4F2F" stroke-width="1.3"/><line x1="0" y1="-7" x2="0" y2="7" stroke="#7A4F2F"/><circle cx="-2" cy="0" r="1" fill="#5A3A1F"/><circle cx="2" cy="0" r="1" fill="#5A3A1F"/>` },
+  decor_washer:        { w:18, h:18, art:`<rect x="-9" y="-9" width="18" height="18" rx="2" fill="#ECEFF1" stroke="#90A4AE" stroke-width="1.3"/><circle cx="0" cy="1" r="5.5" fill="#CFE8F5" stroke="#7FB5D8" stroke-width="1.2"/><circle cx="0" cy="1" r="2.5" fill="#AED4EA"/><rect x="-6" y="-7" width="12" height="2" rx="1" fill="#B0BEC5"/>` },
+  decor_dryer:         { w:18, h:18, art:`<rect x="-9" y="-9" width="18" height="18" rx="2" fill="#E4EBF0" stroke="#90A4AE" stroke-width="1.3"/><circle cx="0" cy="1" r="5.5" fill="#F4EAD8" stroke="#C7B299" stroke-width="1.2"/><circle cx="0" cy="1" r="2.5" fill="#E8DCC4"/><rect x="-6" y="-7" width="12" height="2" rx="1" fill="#B0BEC5"/>` },
+  decor_towel_rack:    { w:14, h:6,  art:`<rect x="-7" y="-3" width="14" height="6" rx="1" fill="#A9C8C0" stroke="#6A9A90" stroke-width="1.2"/><rect x="-5" y="-3" width="4" height="6" rx="1" fill="#CFE8E2"/><rect x="1" y="-3" width="4" height="6" rx="1" fill="#E8DCC4"/>` },
+  decor_desk:          { w:28, h:14, art:`<rect x="-14" y="-7" width="28" height="14" rx="2" fill="#A9744F" stroke="#7A4F2F" stroke-width="1.3"/><rect x="-12" y="-2" width="8" height="7" rx="1" fill="#8A5A28"/>` },
+  decor_office_chair:  { w:12, h:12, art:`<ellipse cx="0" cy="1" rx="6" ry="5" fill="#5A5A66" stroke="#3A3A42" stroke-width="1.2"/><rect x="-5" y="-6" width="10" height="4" rx="2" fill="#6A6A72"/>` },
+  decor_car_sedan:     { w:26, h:36, art:`<rect x="-11" y="-16" width="22" height="32" rx="7" fill="#5E7BA8" stroke="#3F567A" stroke-width="1.3"/><rect x="-8" y="-5" width="16" height="11" rx="3" fill="#AED4EA" stroke="#7FB5D8" stroke-width="1"/><rect x="-8" y="-13" width="16" height="6" rx="2" fill="#8FAAD6"/><rect x="-14" y="-11" width="4" height="8" rx="2" fill="#2B2B33"/><rect x="10" y="-11" width="4" height="8" rx="2" fill="#2B2B33"/><rect x="-14" y="4" width="4" height="8" rx="2" fill="#2B2B33"/><rect x="10" y="4" width="4" height="8" rx="2" fill="#2B2B33"/>` },
+  decor_tool_chest:    { w:20, h:12, art:`<rect x="-10" y="-6" width="20" height="12" rx="2" fill="#C0392B" stroke="#7E2218" stroke-width="1.3"/><rect x="-8" y="-3.5" width="16" height="2.5" rx="1" fill="#E0533F"/><rect x="-8" y="0.5" width="16" height="2.5" rx="1" fill="#E0533F"/>` },
+  decor_storage_rack:  { w:28, h:12, art:`<rect x="-14" y="-6" width="28" height="12" rx="1" fill="#8A8A92" stroke="#5A5A62" stroke-width="1.2"/><rect x="-12" y="-4" width="7" height="8" fill="#C98A4E"/><rect x="-3" y="-4" width="7" height="8" fill="#A9744F"/><rect x="6" y="-4" width="6" height="8" fill="#C98A4E"/>` },
+  decor_bicycle:       { w:12, h:26, art:`<circle cx="0" cy="-9" r="6" fill="none" stroke="#3A3A42" stroke-width="2"/><circle cx="0" cy="9" r="6" fill="none" stroke="#3A3A42" stroke-width="2"/><line x1="0" y1="-9" x2="0" y2="9" stroke="#E0533F" stroke-width="2"/><line x1="-3" y1="0" x2="3" y2="0" stroke="#E0533F" stroke-width="2"/>` },
+  decor_tree:          { w:28, h:28, art:`<circle cx="0" cy="0" r="13" fill="#5FB85F" stroke="#3E8E3E" stroke-width="1.5"/><circle cx="-5" cy="-4" r="6" fill="#7CCB7E"/><circle cx="5" cy="3" r="6" fill="#4CAF50"/><circle cx="0" cy="0" r="3" fill="#8A5A2F"/>` },
+  decor_bush:          { w:18, h:16, art:`<ellipse cx="0" cy="0" rx="9" ry="8" fill="#5FB85F" stroke="#3E8E3E" stroke-width="1.3"/><circle cx="-3" cy="-2" r="4" fill="#7CCB7E"/><circle cx="3" cy="2" r="4" fill="#4CAF50"/>` },
+  decor_bench:         { w:22, h:8,  art:`<rect x="-11" y="-4" width="22" height="6" rx="1" fill="#B5763A" stroke="#7A4F2F" stroke-width="1.2"/><rect x="-11" y="-4" width="22" height="2.5" rx="1" fill="#9A6432"/>` },
+  decor_patio_umbrella:{ w:30, h:30, art:`<circle cx="0" cy="0" r="14" fill="#E0533F" stroke="#992F22" stroke-width="1.4"/><line x1="0" y1="-14" x2="0" y2="14" stroke="#fff" stroke-width="0.8" opacity="0.6"/><line x1="-14" y1="0" x2="14" y2="0" stroke="#fff" stroke-width="0.8" opacity="0.6"/><circle cx="0" cy="0" r="2.5" fill="#7A4F2F"/>` },
+  decor_lounge_chair:  { w:14, h:26, art:`<rect x="-6" y="-13" width="12" height="26" rx="4" fill="#A9C8C0" stroke="#6A9A90" stroke-width="1.3"/><rect x="-5" y="-12" width="10" height="8" rx="3" fill="#CFE8E2"/><line x1="-5" y1="-2" x2="5" y2="-2" stroke="#6A9A90" stroke-width="0.7"/><line x1="-5" y1="3" x2="5" y2="3" stroke="#6A9A90" stroke-width="0.7"/>` },
+  decor_fence:         { w:30, h:6,  art:`<rect x="-15" y="-3" width="30" height="4" rx="1" fill="#C7B299" stroke="#9A8568" stroke-width="1"/><rect x="-13" y="-3" width="2" height="6" fill="#B5A082"/><rect x="-5" y="-3" width="2" height="6" fill="#B5A082"/><rect x="3" y="-3" width="2" height="6" fill="#B5A082"/><rect x="11" y="-3" width="2" height="6" fill="#B5A082"/>` },
+  decor_flower_bed:    { w:24, h:12, art:`<rect x="-12" y="-6" width="24" height="12" rx="3" fill="#8A5A2F" stroke="#5A3A1F" stroke-width="1.2"/><circle cx="-7" cy="0" r="2.5" fill="#E08AB0"/><circle cx="-1" cy="-1" r="2.5" fill="#F2C744"/><circle cx="5" cy="0" r="2.5" fill="#E0533F"/><circle cx="9" cy="1" r="2" fill="#7CCB7E"/>` },
+  decor_pond:          { w:34, h:22, art:`<ellipse cx="0" cy="0" rx="16" ry="10" fill="#5AB6E0" stroke="#2E7FA8" stroke-width="1.5"/><ellipse cx="0" cy="0" rx="11" ry="6" fill="#8AD4F0"/><ellipse cx="-4" cy="-1" rx="2.5" ry="1.5" fill="#5FB85F"/>` },
+  decor_mailbox:       { w:8,  h:10, art:`<rect x="-4" y="-3" width="8" height="6" rx="2" fill="#C0392B" stroke="#7E2218" stroke-width="1.2"/><rect x="-1" y="3" width="2" height="4" fill="#7A4F2F"/><rect x="3" y="-3" width="2" height="3" fill="#F2C744"/>` },
+  decor_pet_dog:       { w:14, h:12, art:`<ellipse cx="0" cy="1" rx="6" ry="5" fill="#C98A4E" stroke="#8A5A28" stroke-width="1.2"/><circle cx="0" cy="-5" r="3.5" fill="#B5763A"/><circle cx="-2" cy="-6" r="1.2" fill="#5A3A1F"/><circle cx="2" cy="-6" r="1.2" fill="#5A3A1F"/>` },
+  decor_pet_cat:       { w:12, h:12, art:`<ellipse cx="0" cy="1" rx="5" ry="5" fill="#8A8A92" stroke="#5A5A62" stroke-width="1.2"/><circle cx="0" cy="-4" r="3" fill="#9AA0A8"/><path d="M-3 -6 l1 -2 l1.5 1.5 z" fill="#9AA0A8"/><path d="M3 -6 l-1 -2 l-1.5 1.5 z" fill="#9AA0A8"/>` },
 };
 
 // Each home has a genuinely different floor-plan silhouette (not just scaled).
@@ -3207,8 +3243,9 @@ async function showTenantsModal(id) {
       <div class="tenant-card" onclick="showRentSettingModal(${id}, ${t.idx})">
         <div class="tenant-header">
           <div style="flex:1">
-            <div class="tenant-name">${t.name}</div>
-            ${t.desc ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px;line-height:1.4">${t.desc}</div>` : ''}
+            <div class="tenant-name">${t.name}${t.trait_info ? ` <span style="font-size:10px;font-weight:700;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:1px 7px;margin-left:4px;white-space:nowrap">${t.trait_info.icon} ${t.trait_info.name}</span>` : ''}</div>
+            ${t.desc ? `<div style="font-size:11px;color:var(--text-muted);margin-top:3px;line-height:1.4">${t.desc}</div>` : ''}
+            ${t.trait_info ? `<div style="font-size:11px;color:var(--accent);margin-top:3px;line-height:1.4">${t.trait_info.icon} ${t.trait_info.desc}</div>` : ''}
             <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${t.stay_min}–${t.stay_max} day base lease</div>
           </div>
         </div>
@@ -3473,7 +3510,6 @@ function startDIY(upgradeKey) {
 
 async function finishDIY(upgradeKey, score) {
   sfx.complete();
-  if (_mg.isRepair) { await finishRepairDIY(score); return; }
   if (_mg.isJob)    { await finishJob(score); return; }
   const { propId } = pendingUpgrade;
   const res = await api('/diy_renovate', 'POST', { prop_id: propId, upgrade_key: upgradeKey, quality: score });
@@ -9118,33 +9154,33 @@ async function advanceDays(days) {
     : allRows;
 
   _pendingRepairs          = res.repairs           || [];
-  _pendingMoraleEvents     = res.morale_events     || [];
+  _pendingStorylets        = res.storylet_events   || [];
   _pendingRenewalOffers    = res.renewal_offers    || [];
   _pendingCommercialEvents = res.commercial_events || [];
   _pendingSquatter      = (res.events || []).find(e => e.type === 'squatter') || null;
   _pendingTaxEvent      = (res.tax_event && res.tax_event.amount >= 0) ? res.tax_event : null;
-  const totalPending    = _pendingRepairs.length + _pendingMoraleEvents.length + _pendingRenewalOffers.length + _pendingCommercialEvents.length;
+  const totalPending    = _pendingRepairs.length + _pendingStorylets.length + _pendingRenewalOffers.length + _pendingCommercialEvents.length;
   const repairNote = _pendingRepairs.length > 0
-    ? `<div style="background:var(--warning-bg,#FFF8E1);border:2px solid var(--warning);border-radius:var(--radius-sm);padding:10px 12px;margin-top:12px;font-size:13px;font-weight:700">
+    ? `<div style="background:#FFF8E1;color:#7A4A00;border:2px solid var(--warning);border-radius:var(--radius-sm);padding:10px 12px;margin-top:12px;font-size:13px;font-weight:700">
         ${pxIcon('🔧',16)} ${_pendingRepairs.length} repair${_pendingRepairs.length > 1 ? 's' : ''} need${_pendingRepairs.length === 1 ? 's' : ''} attention!</div>`
     : '';
-  const moraleNote = _pendingMoraleEvents.length > 0
-    ? `<div style="background:#F3E5F5;border:2px solid #CE93D8;border-radius:var(--radius-sm);padding:10px 12px;margin-top:8px;font-size:13px;font-weight:700">
-        ${pxIcon('💬',16)} ${_pendingMoraleEvents.length} tenant request${_pendingMoraleEvents.length > 1 ? 's' : ''} waiting!</div>`
+  const storyletNote = _pendingStorylets.length > 0
+    ? `<div style="background:#E8EAF6;color:#283593;border:2px solid #9FA8DA;border-radius:var(--radius-sm);padding:10px 12px;margin-top:8px;font-size:13px;font-weight:700">
+        ${pxIcon('📖',16)} ${_pendingStorylets.length} tenant situation${_pendingStorylets.length > 1 ? 's' : ''} to handle!</div>`
     : '';
   const renewalNote = _pendingRenewalOffers.length > 0
-    ? `<div style="background:#E8F5E9;border:2px solid #66BB6A;border-radius:var(--radius-sm);padding:10px 12px;margin-top:8px;font-size:13px;font-weight:700">
+    ? `<div style="background:#E8F5E9;color:#1B5E20;border:2px solid #66BB6A;border-radius:var(--radius-sm);padding:10px 12px;margin-top:8px;font-size:13px;font-weight:700">
         ${pxIcon('🔄',16)} ${_pendingRenewalOffers.length} lease renewal${_pendingRenewalOffers.length > 1 ? 's' : ''} to review!</div>`
     : '';
   const taxNote = _pendingTaxEvent
-    ? `<div style="background:#FFEBEE;border:2px solid #C62828;border-radius:var(--radius-sm);padding:10px 12px;margin-top:8px;font-size:13px;font-weight:700">
+    ? `<div style="background:#FFEBEE;color:#B71C1C;border:2px solid #C62828;border-radius:var(--radius-sm);padding:10px 12px;margin-top:8px;font-size:13px;font-weight:700">
         ${pxIcon('🧾',16)} Tax Day! ${fmt(_pendingTaxEvent.amount)} owed — you must respond before continuing.</div>`
     : '';
 
   const btnLabel = _pendingRepairs.length > 0
     ? `Fix Repairs (${_pendingRepairs.length})`
-    : _pendingMoraleEvents.length > 0
-      ? `Respond to Requests (${_pendingMoraleEvents.length})`
+    : _pendingStorylets.length > 0
+      ? `Tenant Situations (${_pendingStorylets.length})`
       : _pendingRenewalOffers.length > 0
         ? `Review Leases (${_pendingRenewalOffers.length})`
         : _pendingCommercialEvents.length > 0
@@ -9161,7 +9197,7 @@ async function advanceDays(days) {
     <div class="section-title" style="margin-bottom:8px">Events</div>
     ${eventsHtml}
     ${repairNote}
-    ${moraleNote}
+    ${storyletNote}
     ${renewalNote}
     ${taxNote}
     <button class="btn btn-primary btn-full mt-8" onclick="continueFromEvents()">${btnLabel}</button>`);
@@ -9174,8 +9210,8 @@ async function advanceDays(days) {
 function continueFromEvents() {
   if (_pendingRepairs.length > 0) {
     showNextRepair();
-  } else if (_pendingMoraleEvents.length > 0) {
-    showNextMoraleEvent();
+  } else if (_pendingStorylets.length > 0) {
+    showNextStorylet();
   } else if (_pendingRenewalOffers.length > 0) {
     showNextRenewalOffer();
   } else if (_pendingCommercialEvents.length > 0) {
@@ -9291,95 +9327,6 @@ async function fileTaxExtension() {
   toast(`Extension filed — ${fmt(res.tax_owed)} due by Spring Day 7`, 'info');
 }
 
-// ── Morale Events ─────────────────────────────────────────────────────────────
-function showNextMoraleEvent() {
-  if (_pendingMoraleEvents.length === 0) { continueFromEvents(); return; }
-  showMoraleEventModal(_pendingMoraleEvents.shift());
-}
-
-function showMoraleEventModal(ev) {
-  const damPct = Math.round(ev.damage_chance * 100);
-  const prop    = state?.properties?.find(p => p.id === ev.prop_id);
-  const morale  = prop?.tenant?.morale ?? ev.morale ?? '?';
-  const cond    = prop?.condition ?? '?';
-  const condLabel = cond !== '?' ? condTier(cond) : '?';
-  const condColor = cond !== '?' ? tierColor(condLabel) : 'var(--text)';
-  const moraleColor = morale >= 70 ? 'var(--positive)' : morale >= 40 ? 'var(--warning)' : 'var(--negative)';
-  openModal(`
-    <div class="modal-handle"></div>
-    <div class="modal-title">${pxIcon(ev.icon)} Tenant Request</div>
-    <div class="modal-subtitle">${ev.prop_name}</div>
-    <div style="display:flex;gap:8px;margin-bottom:12px">
-      <div style="flex:1;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;text-align:center">
-        <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Condition</div>
-        <div style="font-size:15px;font-weight:800;color:${condColor}">${condLabel}</div>
-      </div>
-      <div style="flex:1;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;text-align:center">
-        <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Tenant Morale</div>
-        <div style="font-size:15px;font-weight:800;color:${moraleColor}">${morale}%</div>
-      </div>
-    </div>
-    <p style="font-size:14px;color:var(--text-2);margin-bottom:16px">${ev.message}</p>
-
-    <div class="card" style="margin-bottom:10px;border:2px solid var(--positive)">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-        ${pxIcon('✅',24)}
-        <div style="flex:1">
-          <div style="font-size:14px;font-weight:800">Agree</div>
-          <div style="font-size:12px;color:var(--text-muted)">
-            ${ev.cond_gain
-              ? `Morale +${ev.morale_gain} · Condition +${ev.cond_gain}`
-              : ev.cash_bonus
-                ? `Morale +${ev.morale_gain} · Cash bonus $150–$350`
-                : `Morale +${ev.morale_gain} · ${damPct}% chance of −${ev.damage_pts} condition`
-            }
-          </div>
-        </div>
-      </div>
-      <button class="btn btn-primary btn-full" onclick="respondMoraleEvent(${ev.prop_id},'${ev.key}',true)">
-        ${ev.agree_label}
-      </button>
-    </div>
-
-    <div class="card">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-        ${pxIcon('❌',24)}
-        <div style="flex:1">
-          <div style="font-size:14px;font-weight:800">Decline</div>
-          <div style="font-size:12px;color:var(--text-muted)">Tenant morale drops 5–10 points.</div>
-        </div>
-      </div>
-      <button class="btn btn-ghost btn-full" onclick="respondMoraleEvent(${ev.prop_id},'${ev.key}',false)">
-        ${ev.decline_label}
-      </button>
-    </div>
-
-    ${_pendingMoraleEvents.length > 0
-      ? `<div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:8px">${_pendingMoraleEvents.length} more request(s) after this</div>`
-      : ''}`);
-}
-
-async function respondMoraleEvent(propId, eventKey, agree) {
-  const res = await api('/tenant_event/respond', 'POST', { prop_id: propId, event_key: eventKey, agree });
-  if (res.error) { toast(res.error, 'error'); return; }
-  if (agree) {
-    if (res.condition_change < 0) {
-      toast(`They made a mess! Condition −${Math.abs(res.condition_change)} pts`, 'warning');
-    } else if (res.condition_change > 0) {
-      toast(`Nice work! Condition +${res.condition_change} pts`, 'success');
-    } else if (res.cash_awarded > 0) {
-      toast(`They paid extra! +$${res.cash_awarded.toLocaleString()}`, 'success');
-    } else {
-      toast(`Agreed! Tenant morale +${res.morale_change}`, 'success');
-    }
-  } else {
-    toast(`Declined — tenant morale ${res.morale_change}`, 'warning');
-  }
-  await refreshState();
-  renderAll();
-  showNextMoraleEvent();
-}
-
 // ── Lease Renewal ─────────────────────────────────────────────────────────────
 function showNextRenewalOffer() {
   if (_pendingRenewalOffers.length === 0) { continueFromEvents(); return; }
@@ -9397,55 +9344,100 @@ function showRenewalModal(offer) {
     ? `~${Math.round(offer.new_stay_days / 28)} seasons`
     : `${offer.new_stay_days} days`;
 
+  const morale      = offer.morale ?? 50;
+  const moraleColor = morale >= 60 ? 'var(--positive)' : morale >= 30 ? 'var(--warning)' : 'var(--negative)';
+  const odds        = offer.renewal_odds || {};
+  const raiseBtns   = [5, 10, 15].map(p => {
+    const nr = Math.round(offer.rent * (1 + p / 100));
+    const od = Math.round((odds[String(p)] ?? 0.5) * 100);
+    const odColor = od >= 70 ? 'var(--positive)' : od >= 40 ? 'var(--warning)' : 'var(--negative)';
+    return `<button class="btn btn-ghost btn-sm btn-full" style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px" onclick="respondRenewal(${offer.prop_id},{action:'raise',pct:${p}})"><span style="font-weight:800;min-width:38px;text-align:left">+${p}%</span><span style="font-size:12px;color:var(--text-muted)">${fmt(nr)}/wk</span><span style="font-size:12px;color:${odColor};font-weight:700">${od}% accept</span></button>`;
+  }).join('');
+  const traitChip = offer.trait_info
+    ? ` <span style="font-size:10px;font-weight:700;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:1px 7px">${offer.trait_info.icon} ${offer.trait_info.name}</span>`
+    : '';
+
   openModal(`
     <div class="modal-handle"></div>
     <div class="modal-title">${pxIcon('🔄',20)} Lease Renewal</div>
     <div class="modal-subtitle">${offer.prop_name}</div>
 
-    <div class="card" style="margin-bottom:14px;text-align:center">
-      <div style="font-size:32px;margin-bottom:4px">${offer.tenant_icon}</div>
-      <div style="font-weight:800;font-size:15px">${offer.tenant_name}</div>
-      <div style="font-size:13px;color:var(--text-muted);margin-top:4px">wants to stay for another <strong>${stayLabel}</strong></div>
-      <div style="font-size:13px;margin-top:6px">Rent: <strong>${fmt(offer.rent)}/wk</strong></div>
-      <div style="font-size:13px;margin-top:4px;color:${missedColor};font-weight:700">${missedLabel}</div>
+    <div class="card" style="margin-bottom:12px;text-align:center">
+      <div style="font-size:32px;margin-bottom:2px">${offer.tenant_icon}</div>
+      <div style="font-weight:800;font-size:15px">${offer.tenant_name}${traitChip}</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Wants another <strong>${stayLabel}</strong> · current rent <strong>${fmt(offer.rent)}/wk</strong> (${offer.rent_tier || 'Average'})</div>
+      <div style="display:flex;justify-content:center;gap:14px;margin-top:8px;font-size:12px;font-weight:700">
+        <span style="color:${moraleColor}">😊 ${morale}%</span>
+        <span style="color:var(--accent)">💛 Loyalty ${offer.loyalty ?? 0}%</span>
+        ${offer.renewals ? `<span style="color:var(--text-muted)">🔁 ${offer.renewals}×</span>` : ''}
+      </div>
+      <div style="font-size:12px;margin-top:6px;color:${missedColor};font-weight:700">${missedLabel}</div>
     </div>
 
-    <div class="card" style="margin-bottom:10px;border:2px solid var(--positive)">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-        ${pxIcon('✅',24)}
-        <div><div style="font-size:14px;font-weight:800">Renew Lease</div>
-          <div style="font-size:12px;color:var(--text-muted)">They stay for another ${stayLabel} at the same rent</div>
-        </div>
-      </div>
-      <button class="btn btn-primary btn-full" onclick="respondRenewal(${offer.prop_id}, true)">Renew Lease</button>
+    <button class="btn btn-primary btn-full" style="margin-bottom:8px" onclick="respondRenewal(${offer.prop_id},{action:'renew'})">${pxIcon('✅',14)} Renew at same rent · ${fmt(offer.rent)}/wk</button>
+
+    <div class="card" style="margin-bottom:8px">
+      <div style="font-size:12px;font-weight:800;margin-bottom:8px">${pxIcon('📈',14)} Raise the rent <span style="font-weight:400;color:var(--text-muted)">— a reject risks them walking</span></div>
+      ${raiseBtns}
     </div>
 
-    <div class="card">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-        ${pxIcon('👋',24)}
-        <div><div style="font-size:14px;font-weight:800">Let Them Go</div>
-          <div style="font-size:12px;color:var(--text-muted)">They move out and the property goes vacant</div>
-        </div>
-      </div>
-      <button class="btn btn-ghost btn-full" onclick="respondRenewal(${offer.prop_id}, false)">Let Them Go</button>
-    </div>
+    <button class="btn btn-ghost btn-full btn-sm" style="margin-bottom:8px" onclick="respondRenewal(${offer.prop_id},{action:'discount'})">${pxIcon('🤝',14)} Offer -5% to lock them in longer (+loyalty)</button>
+
+    <button class="btn btn-ghost btn-full btn-sm" onclick="respondRenewal(${offer.prop_id},{action:'decline'})">${pxIcon('👋',14)} Let them go</button>
 
     ${_pendingRenewalOffers.length > 0
       ? `<div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:8px">${_pendingRenewalOffers.length} more renewal(s) after this</div>`
       : ''}`);
 }
 
-async function respondRenewal(propId, agree) {
-  const res = await api(`/property/${propId}/renewal_respond`, 'POST', { agree });
+async function respondRenewal(propId, payload) {
+  if (payload === true)  payload = { action: 'renew' };
+  if (payload === false) payload = { action: 'decline' };
+  const res = await api(`/property/${propId}/renewal_respond`, 'POST', payload);
   if (res.error) { toast(res.error, 'error'); return; }
-  if (agree) {
-    toast('Lease renewed! Tenant staying on.', 'success');
-  } else {
-    toast('Tenant moved out. Property is now vacant.', 'warning');
-  }
+  const msgs = {
+    renewed:               ['Lease renewed — tenant staying on.', 'success'],
+    discounted:            ['Renewed at a 5% discount — they love you for it.', 'success'],
+    raise_accepted:        [`They accepted! Rent is now ${fmt(res.rent)}/wk.`, 'success'],
+    raise_rejected_stayed: ['They balked at the raise but stayed at the old rent.', 'info'],
+    raise_rejected_left:   ['They refused to pay more and moved out.', 'warning'],
+    declined:              ['Tenant moved out. Property is now vacant.', 'warning'],
+  };
+  const [msg, kind] = msgs[res.outcome] || ['Done.', 'info'];
+  toast(msg, kind);
   await refreshState();
   renderAll();
   showNextRenewalOffer();
+}
+
+// ── Tenant Storylets ──────────────────────────────────────────────────────────
+function showNextStorylet() {
+  if (_pendingStorylets.length === 0) { continueFromEvents(); return; }
+  showStoryletModal(_pendingStorylets.shift());
+}
+
+function showStoryletModal(ev) {
+  const choices = (ev.choices || []).map((c, i) =>
+    `<button class="btn btn-ghost btn-full" style="margin-bottom:8px;text-align:left;white-space:normal;line-height:1.35" onclick="respondStorylet(${ev.prop_id}, ${i})">${c.label}</button>`
+  ).join('');
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">${pxIcon(ev.icon || '📖',20)} ${ev.title}</div>
+    <div class="modal-subtitle">${ev.prop_name}</div>
+    <p style="font-size:14px;color:var(--text-2);margin:12px 0 16px;line-height:1.5">${ev.text}</p>
+    ${choices}
+    ${_pendingStorylets.length > 0 ? `<div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:6px">${_pendingStorylets.length} more situation(s) after this</div>` : ''}`);
+}
+
+async function respondStorylet(propId, idx) {
+  const res = await api('/storylet/respond', 'POST', { prop_id: propId, choice_idx: idx });
+  if (res.error) { toast(res.error, 'error'); return; }
+  toast(res.result || 'Done.', res.left ? 'warning' : 'success');
+  if (res.xp_gain) toast(`+${res.xp_gain} XP`, 'success');
+  if (res.level_up) _pendingLevelUp = res.new_level;
+  await refreshState();
+  renderAll();
+  showNextStorylet();
 }
 
 function drainCommercialEvents() {
@@ -9526,74 +9518,45 @@ function showNextRepair() {
 
 function showRepairModal(repair) {
   sfx.repair();
-  const rt = repair.repair_type;
+  const lastIdx = repair.choices.length - 1;
+  const choicesHtml = repair.choices.map((c, i) => {
+    const isIgnore  = (i === lastIdx);
+    const costLabel = c.cost > 0 ? fmt(c.cost) : (isIgnore ? '' : 'FREE');
+    const costColor = c.cost > 0 ? 'var(--text-1)' : 'var(--positive)';
+    const cardStyle = isIgnore
+      ? 'border-color:var(--negative);margin-top:10px;margin-bottom:4px'
+      : (i === 0 ? 'border-color:var(--primary);margin-bottom:8px' : 'margin-bottom:8px');
+    const nameColor = isIgnore ? 'color:var(--negative)' : '';
+    return `<div class="contractor-card" style="${cardStyle}" onclick="resolveRepair(${i})">
+      <div class="contractor-header">
+        <span class="contractor-name" style="${nameColor}">${c.label}</span>
+        ${costLabel ? `<span class="contractor-cost" style="color:${costColor}">${costLabel}</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">${pxIcon(rt.icon)} ${rt.name}</div>
+    <div class="modal-title">${pxIcon(repair.icon)} ${repair.title}</div>
     <div class="modal-subtitle">${repair.prop_name}</div>
-    <p style="font-size:13px;color:var(--text-2);margin-bottom:12px">Your tenant reported a problem. Address it now or ignore and let the condition drop.</p>
-
-    <div class="contractor-card" style="border-color:var(--primary);margin-bottom:8px" onclick="startRepairDIY()">
-      <div class="contractor-header">
-        <span class="contractor-icon">${pxIcon('🧰',28)}</span>
-        <span class="contractor-name">Fix It Yourself</span>
-        <span class="contractor-cost" style="color:var(--positive)">FREE</span>
-      </div>
-      <div class="contractor-desc">Play a random mini-game. Your score = repair quality.</div>
-    </div>
-
-    <div style="text-align:center;font-size:11px;color:var(--text-muted);margin-bottom:8px">── or hire a contractor ──</div>
-
-    ${Object.entries(repair.costs).map(([key, cost]) => {
-      const cNames = { budget: '🔨 Budget Bob', standard: '🛠️ Standard Steve', premium: '⭐ Premier Pete' };
-      return `<div class="contractor-card" onclick="fixRepairContractor('${key}')">
-        <div class="contractor-header">
-          <span class="contractor-name">${cNames[key] || key}</span>
-          <span class="contractor-cost">${fmt(cost)}</span>
-        </div>
-      </div>`;
-    }).join('')}
-
-    <button class="btn btn-danger btn-sm btn-full mt-8" onclick="ignoreRepair()">
-      Ignore — Condition −${rt.cond_loss}
-    </button>
-    ${_pendingRepairs.length > 0 ? `<div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:8px">${_pendingRepairs.length} more repair(s) after this</div>` : ''}`);
+    <p style="font-size:13px;color:var(--text-2);margin:8px 0 14px;line-height:1.5">${repair.text}</p>
+    ${choicesHtml}
+    ${_pendingRepairs.length > 0 ? `<div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:10px">${_pendingRepairs.length} more repair(s) after this</div>` : ''}`);
 }
 
-function startRepairDIY() {
-  const rt = _currentRepair?.repair_type;
-  _mg = { isRepair: true };
-  launchMgByType(selectMgType(rt?.key || ''), null);
-}
-
-async function fixRepairContractor(contractorKey) {
+async function resolveRepair(choiceIdx) {
   const repair = _currentRepair;
-  const res = await api('/repair/fix', 'POST', {
-    prop_id: repair.prop_id, repair_key: repair.repair_type.key,
-    method: contractorKey,
-  });
-  if (res.error) { toast(res.error, 'error'); return; }
-  toast(`Repaired! Condition: ${condTier(res.condition)} Tier`, 'success');
-  await refreshState();
-  renderAll();
-  showNextRepair();
-}
-
-async function finishRepairDIY(score) {
-  const repair = _currentRepair;
-  const res = await api('/repair/fix', 'POST', {
-    prop_id: repair.prop_id, repair_key: repair.repair_type.key,
-    method: 'diy', quality: score,
+  const res = await api('/repair/resolve', 'POST', {
+    prop_id: repair.prop_id, repair_key: repair.key, choice_idx: choiceIdx,
   });
   if (res.error) { toast(res.error, 'error'); return; }
   const tColor = tierColor(condTier(res.condition));
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">${pxIcon('🔧',20)} Repair Done!</div>
+    <div class="modal-title">${pxIcon(repair.icon, 20)} ${repair.title}</div>
+    <p style="font-size:14px;color:var(--text-1);margin:10px 4px 14px;line-height:1.55">${res.result}</p>
     <div style="text-align:center;margin:12px 0">
-      <div style="font-size:64px;font-weight:900;color:${tColor}">${condTier(res.condition)}</div>
-      <div style="font-size:13px;color:var(--text-muted)">new condition</div>
-      <div class="mg-score-bar" style="margin:8px 16px"><div class="mg-score-fill" style="width:${res.quality}%"></div></div>
+      <div style="font-size:52px;font-weight:900;color:${tColor}">${condTier(res.condition)}</div>
+      <div style="font-size:13px;color:var(--text-muted)">condition${res.cost > 0 ? ` · −${fmt(res.cost)}` : ''}</div>
     </div>
     <button class="btn btn-primary btn-full mt-8" onclick="nextRepairFromResult()">
       ${_pendingRepairs.length > 0 ? `Next Repair (${_pendingRepairs.length})` : 'Done'}
@@ -9603,18 +9566,6 @@ async function finishRepairDIY(score) {
 }
 
 function nextRepairFromResult() {
-  showNextRepair();
-}
-
-async function ignoreRepair() {
-  const repair = _currentRepair;
-  const res = await api('/repair/ignore', 'POST', {
-    prop_id: repair.prop_id, repair_key: repair.repair_type.key,
-  });
-  if (res.error) { toast(res.error, 'error'); return; }
-  toast(`Ignored — condition now ${condTier(res.condition)} Tier`, 'warning');
-  await refreshState();
-  renderAll();
   showNextRepair();
 }
 

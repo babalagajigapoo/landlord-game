@@ -82,8 +82,8 @@ HOOD_PROP_CONFIG = {
 }
 
 NEIGHBORHOODS = {
-    "Midtown":            {"price_mult": 0.70, "rent_mult": 0.75, "desc": "Crumbling blocks, forgotten by time",       "tier": "budget"},
-    "Northside":          {"price_mult": 0.85, "rent_mult": 0.90, "desc": "Gritty streets, high turnover",             "tier": "budget"},
+    "Midtown":            {"price_mult": 0.70, "rent_mult": 0.85, "desc": "Crumbling blocks, forgotten by time",       "tier": "budget"},
+    "Northside":          {"price_mult": 0.85, "rent_mult": 0.97, "desc": "Gritty streets, high turnover",             "tier": "budget"},
     "Westwood":           {"price_mult": 1.00, "rent_mult": 1.00, "desc": "Solid middle-class area",                   "tier": "mid"},
     "Riverside":          {"price_mult": 1.40, "rent_mult": 1.35, "desc": "Desirable suburb, great schools",           "tier": "premium"},
     "Newbay":             {"price_mult": 1.60, "rent_mult": 1.55, "desc": "High-demand urban core",                    "tier": "premium"},
@@ -115,6 +115,282 @@ REPAIR_TYPES = [
     {"key": "pest",       "name": "Pest Problem",        "icon": "🐛", "base_cost": 300,  "cond_loss": 7,  "cond_fix": 7},
     {"key": "hvac_fix",   "name": "HVAC Repair",         "icon": "🌡️", "base_cost": 600,  "cond_loss": 7,  "cond_fix": 9},
 ]
+
+# ── Repair Scenarios (choice-based; replaces the old fix-it/contractor/ignore flow) ──
+# Each repair is a "how do you want to handle it?" card. Choices have:
+#   label, cost (cash), cond (condition delta), morale (tenant morale delta), result text.
+#   optional "risk": {"chance": 0-1, "cond": delta, "morale": delta, "result_bad": text}
+#       — a baked-in gamble applied server-side (cheap/DIY fixes that might backfire).
+#   optional "loyalty": tenant loyalty delta.
+# A standard "Ignore it" choice is appended automatically based on "sev" (severity).
+REPAIR_IGNORE_SEV = {"minor": (6, 10), "moderate": (11, 15), "major": (17, 22)}
+
+REPAIR_SCENARIOS = [
+    # ── Plumbing ────────────────────────────────────────────────────────────────
+    {"key": "sink_leak", "title": "Leak Under the Sink", "icon": "🚰", "sev": "minor",
+     "text": "{name} reports water pooling in the cabinet under the kitchen sink.", "choices": [
+        {"label": "Call a plumber", "cost": 300, "cond": 12, "morale": 6, "result": "A pro swaps the corroded trap. Dry as a bone, tenant pleased."},
+        {"label": "Patch it with a repair kit", "cost": 45, "cond": 5, "result": "The kit holds and the cabinet dries out.",
+         "risk": {"chance": 0.30, "cond": -7, "result_bad": "The patch let go a week later and warped the cabinet floor."}},
+        {"label": "Tighten the fitting yourself", "cost": 0, "cond": 3, "morale": -2, "result": "A wrench and ten minutes. Good enough for now."}]},
+    {"key": "running_toilet", "title": "The Running Toilet", "icon": "🚽", "sev": "minor",
+     "text": "{name}'s toilet won't stop running — and the water bill shows it.", "choices": [
+        {"label": "Plumber replaces the guts", "cost": 140, "cond": 8, "morale": 4, "result": "New fill and flush valve. Blissful silence."},
+        {"label": "Drop in a flapper kit", "cost": 20, "cond": 4, "result": "A two-dollar flapper does the trick."},
+        {"label": "Jiggle-the-handle note to tenant", "cost": 0, "cond": 1, "morale": -3, "result": "You tell them to jiggle it. They are not thrilled."}]},
+    {"key": "low_pressure", "title": "Weak Water Pressure", "icon": "🚿", "sev": "moderate",
+     "text": "The whole unit's water pressure has dropped to a sad trickle, {name} says.", "choices": [
+        {"label": "Repipe the corroded section", "cost": 650, "cond": 16, "morale": 6, "result": "Old galvanized pipe replaced. Showers feel brand new."},
+        {"label": "Descale the fixtures", "cost": 120, "cond": 7, "result": "Cleaning the aerators and valves buys real improvement.",
+         "risk": {"chance": 0.30, "cond": -6, "result_bad": "It helped for a day — the real problem is deeper in the pipes."}},
+        {"label": "Tell them it's the city's mains", "cost": 0, "cond": 0, "morale": -6, "result": "You blame the city. They don't buy it."}]},
+    {"key": "water_heater_leak", "title": "Leaking Water Heater", "icon": "🔥", "sev": "major",
+     "text": "The water heater is weeping rust-colored water across the basement floor.", "choices": [
+        {"label": "Replace the tank", "cost": 850, "cond": 20, "morale": 10, "result": "A new high-efficiency unit. Endless hot water, happy tenant."},
+        {"label": "Patch it and add a drip pan", "cost": 180, "cond": 6, "result": "Bought some time and contained the mess.",
+         "risk": {"chance": 0.40, "cond": -12, "morale": -6, "result_bad": "The tank failed completely days later — and flooded the basement."}},
+        {"label": "It'll last a while longer", "cost": 0, "cond": -3, "morale": -5, "result": "You leave it. The drip becomes a puddle."}]},
+    {"key": "sewer_smell", "title": "A Foul Smell", "icon": "🤢", "sev": "moderate",
+     "text": "{name} keeps catching a sewer-gas smell from the bathroom drain.", "choices": [
+        {"label": "Snake the line, fix the vent", "cost": 280, "cond": 12, "morale": 6, "result": "A clogged vent stack was the culprit. Air's fresh again."},
+        {"label": "Pour in enzyme cleaner", "cost": 30, "cond": 4, "result": "The enzymes clear the gunk and the smell fades.",
+         "risk": {"chance": 0.35, "cond": -8, "result_bad": "The smell came roaring back — it was a cracked drain line all along."}},
+        {"label": "Suggest an air freshener", "cost": 0, "cond": -1, "morale": -5, "result": "A plug-in masks it. Barely."}]},
+    {"key": "burst_pipe", "title": "Burst Pipe in the Wall", "icon": "💥", "sev": "major",
+     "text": "A pipe let go inside the wall and water is coming through the drywall fast.", "choices": [
+        {"label": "Emergency plumber, now", "cost": 700, "cond": 22, "morale": 8, "result": "Shut off, repaired, drywall patched. Disaster averted."},
+        {"label": "Kill the water, clamp it yourself", "cost": 150, "cond": 8, "result": "A pipe clamp and a fan. Crisis managed for now.",
+         "risk": {"chance": 0.45, "cond": -14, "morale": -8, "result_bad": "The clamp slipped overnight — extensive water damage and mold risk."}},
+        {"label": "Mop it and hope", "cost": 0, "cond": -6, "morale": -10, "result": "You mop up. The wall behind stays soaked."}]},
+    # ── Electrical ──────────────────────────────────────────────────────────────
+    {"key": "flickering_lights", "title": "Flickering Lights", "icon": "💡", "sev": "moderate",
+     "text": "Lights across the unit flicker whenever the fridge kicks on. {name} is uneasy.", "choices": [
+        {"label": "Electrician traces the wiring", "cost": 520, "cond": 15, "morale": 6, "result": "A loose neutral, found and fixed. Rock-steady lights."},
+        {"label": "Swap the worst fixtures", "cost": 90, "cond": 6, "result": "New fixtures calm most of the flicker.",
+         "risk": {"chance": 0.30, "cond": -8, "result_bad": "It wasn't the fixtures — the flickering hid a real wiring fault."}},
+        {"label": "Probably just the bulbs", "cost": 0, "cond": 0, "morale": -5, "result": "You blame the bulbs. The flicker continues, ominously."}]},
+    {"key": "tripping_breaker", "title": "The Tripping Breaker", "icon": "⚡", "sev": "moderate",
+     "text": "The kitchen breaker trips constantly and {name} is tired of resetting it.", "choices": [
+        {"label": "Upgrade the panel circuit", "cost": 900, "cond": 18, "morale": 8, "result": "A dedicated circuit ends the tripping for good."},
+        {"label": "Rebalance the loads", "cost": 60, "cond": 5, "result": "An electrician redistributes the circuits. Better.",
+         "risk": {"chance": 0.30, "cond": -7, "result_bad": "Still trips under load — the panel itself is undersized."}},
+        {"label": "Tell them to unplug things", "cost": 0, "cond": 0, "morale": -6, "result": "Your advice: run fewer appliances. They're unimpressed."}]},
+    {"key": "dead_outlets", "title": "Dead Outlets", "icon": "🔌", "sev": "minor",
+     "text": "Half the outlets in the living room have gone dead, {name} reports.", "choices": [
+        {"label": "Electrician rewires them", "cost": 240, "cond": 10, "morale": 4, "result": "A failed outlet upstream was the cause. All live again."},
+        {"label": "Replace the outlets yourself", "cost": 35, "cond": 5, "result": "New outlets, carefully wired. Power restored.",
+         "risk": {"chance": 0.25, "cond": -6, "result_bad": "A miswire popped the GFCI and you had to call a pro anyway."}},
+        {"label": "Point them to a power strip", "cost": 0, "cond": 0, "morale": -4, "result": "An extension cord 'solution.' Not ideal."}]},
+    {"key": "smoke_detector", "title": "Chirping Smoke Alarms", "icon": "🚨", "sev": "minor",
+     "text": "The smoke detectors are chirping and at least one is fully dead — a real safety issue.", "choices": [
+        {"label": "Replace all detectors", "cost": 90, "cond": 5, "morale": 8, "loyalty": 4, "result": "Fresh hardwired detectors throughout. {name} feels safe."},
+        {"label": "Fresh batteries all around", "cost": 15, "cond": 2, "morale": 3, "result": "New batteries hush the chirping."},
+        {"label": "Tell them to pull the battery", "cost": 0, "cond": -2, "morale": -8, "result": "Disabling a smoke alarm. They know it's wrong, and so do you."}]},
+    # ── HVAC ──────────────────────────────────────────────────────────────────
+    {"key": "ac_dead", "title": "The AC Died", "icon": "🥵", "sev": "major",
+     "text": "The air conditioning quit and {name} is sweltering through a heat wave.", "choices": [
+        {"label": "Install a new AC unit", "cost": 1100, "cond": 20, "morale": 12, "result": "Cool, quiet, efficient. Tenant practically weeps with relief."},
+        {"label": "Recharge and repair the old one", "cost": 260, "cond": 8, "result": "A recharge and a new capacitor bring it back to life.",
+         "risk": {"chance": 0.35, "cond": -6, "morale": -6, "result_bad": "The compressor was shot — the repair money was wasted."}},
+        {"label": "Drop off window units", "cost": 150, "cond": 3, "morale": 4, "result": "Two window units take the edge off the heat."},
+        {"label": "It'll cool down at night", "cost": 0, "cond": -4, "morale": -12, "result": "You wait it out. They do not forgive easily."}]},
+    {"key": "furnace_out", "title": "No Heat", "icon": "❄️", "sev": "major",
+     "text": "The furnace won't fire and the unit is getting cold fast, {name} warns.", "choices": [
+        {"label": "Replace the furnace", "cost": 1000, "cond": 20, "morale": 12, "result": "A new furnace roars to life. Toasty and reliable."},
+        {"label": "Repair the igniter", "cost": 220, "cond": 8, "result": "A new igniter and it lights right up.",
+         "risk": {"chance": 0.30, "cond": -8, "morale": -6, "result_bad": "The heat exchanger was cracked — it needs full replacement after all."}},
+        {"label": "Lend them space heaters", "cost": 80, "cond": 2, "morale": 3, "result": "Space heaters keep the chill off, for now."},
+        {"label": "Tell them to bundle up", "cost": 0, "cond": -4, "morale": -12, "result": "Sweaters as a heating plan. They start apartment-hunting."}]},
+    {"key": "clogged_filter", "title": "Weak Airflow", "icon": "🌬️", "sev": "minor",
+     "text": "{name} says barely any air comes from the vents lately.", "choices": [
+        {"label": "Full HVAC service + new filters", "cost": 90, "cond": 6, "morale": 3, "result": "Cleaned coils and fresh filters. Airflow restored."},
+        {"label": "Swap the filter yourself", "cost": 0, "cond": 3, "result": "A $5 filter and the vents breathe again."},
+        {"label": "Tell them it's fine", "cost": 0, "cond": -1, "morale": -4, "result": "You wave it off. The system keeps straining."}]},
+    {"key": "thermostat_dead", "title": "Dead Thermostat", "icon": "🌡️", "sev": "minor",
+     "text": "The thermostat's screen is black and the system won't respond.", "choices": [
+        {"label": "Install a smart thermostat", "cost": 180, "cond": 8, "morale": 4, "result": "A sleek smart stat — lower bills and a delighted tenant."},
+        {"label": "Basic replacement", "cost": 40, "cond": 4, "result": "A simple new thermostat. Back in business."},
+        {"label": "Reset the breaker and pray", "cost": 0, "cond": 1, "morale": -3, "result": "A reset gets a flicker of life. Temporary at best."}]},
+    {"key": "duct_leak", "title": "Leaky Ductwork", "icon": "♨️", "sev": "moderate",
+     "text": "Heating bills are sky-high and {name} suspects the ducts are leaking.", "choices": [
+        {"label": "Seal and insulate the ducts", "cost": 300, "cond": 12, "morale": 6, "result": "Sealed ducts, even temperatures, lower bills all around."},
+        {"label": "Foil-tape the obvious gaps", "cost": 40, "cond": 5, "result": "Taping the accessible joints helps noticeably.",
+         "risk": {"chance": 0.30, "cond": -6, "result_bad": "The worst leaks were buried in the walls — bills stayed high."}},
+        {"label": "Ignore the bills", "cost": 0, "cond": -2, "morale": -4, "result": "The drafts and the bills both linger."}]},
+    # ── Roof & Exterior ──────────────────────────────────────────────────────
+    {"key": "roof_leak", "title": "The Roof Leaks", "icon": "🏚️", "sev": "major",
+     "text": "A brown stain blooms across {name}'s ceiling every time it rains.", "choices": [
+        {"label": "Re-roof the failing section", "cost": 850, "cond": 20, "morale": 8, "result": "New shingles and flashing. Bone dry through the next storm."},
+        {"label": "Tar-patch the leak", "cost": 160, "cond": 8, "result": "A roofing patch stops the drip for now.",
+         "risk": {"chance": 0.40, "cond": -12, "result_bad": "The patch failed in the next downpour — the deck is rotting."}},
+        {"label": "Put a bucket under it", "cost": 0, "cond": -6, "morale": -8, "result": "A bucket and a prayer. The stain keeps spreading."}]},
+    {"key": "gutter_fail", "title": "Overflowing Gutters", "icon": "🍂", "sev": "moderate",
+     "text": "The gutters are sheeting water down the siding and pooling at the foundation.", "choices": [
+        {"label": "Replace gutters, add guards", "cost": 380, "cond": 14, "morale": 4, "result": "New seamless gutters with guards. Low-maintenance and dry."},
+        {"label": "Clean them out", "cost": 60, "cond": 5, "result": "A good clearing gets them flowing again."},
+        {"label": "Wait for a dry spell", "cost": 0, "cond": -3, "result": "You leave it. The siding starts to stain and swell."}]},
+    {"key": "siding_rot", "title": "Rotting Siding", "icon": "🪵", "sev": "moderate",
+     "text": "A patch of exterior siding has gone soft and spongy with rot.", "choices": [
+        {"label": "Replace the rotted boards", "cost": 420, "cond": 14, "morale": 4, "result": "New boards, primed and painted. Solid and sharp."},
+        {"label": "Paint over the soft spots", "cost": 80, "cond": 5, "result": "Filler and paint hide it for the season.",
+         "risk": {"chance": 0.35, "cond": -8, "result_bad": "The rot spread underneath the paint — now it's a bigger job."}},
+        {"label": "Leave it", "cost": 0, "cond": -2, "result": "The rot quietly creeps along the wall."}]},
+    {"key": "chimney_crack", "title": "Cracked Chimney", "icon": "🧱", "sev": "moderate",
+     "text": "The chimney's mortar is crumbling and a few bricks have shifted.", "choices": [
+        {"label": "Repoint the brickwork", "cost": 340, "cond": 12, "morale": 4, "result": "Fresh mortar and a cap. Sound for decades."},
+        {"label": "Seal the worst cracks", "cost": 70, "cond": 5, "result": "A masonry sealant buys time.",
+         "risk": {"chance": 0.30, "cond": -7, "result_bad": "Water got behind the seal and a freeze popped more bricks loose."}},
+        {"label": "It's just cosmetic", "cost": 0, "cond": -2, "result": "You decide it can wait. The crack widens."}]},
+    {"key": "foundation_crack", "title": "Foundation Cracks", "icon": "🏗️", "sev": "major",
+     "text": "Cracks are spidering up a foundation wall — could be settling, could be worse.", "choices": [
+        {"label": "Assess and stabilize", "cost": 750, "cond": 18, "morale": 6, "result": "Caught early and braced. The structure is secure."},
+        {"label": "Epoxy-fill the cracks", "cost": 130, "cond": 6, "result": "Injected epoxy seals them up cosmetically.",
+         "risk": {"chance": 0.40, "cond": -12, "result_bad": "The settling continued — the cracks reopened, wider than before."}},
+        {"label": "Houses settle, right?", "cost": 0, "cond": -5, "morale": -4, "result": "You hope it's nothing. The cracks say otherwise."}]},
+    {"key": "broken_window", "title": "Shattered Window", "icon": "🪟", "sev": "minor",
+     "text": "A window pane shattered and {name} has it taped up with cardboard.", "choices": [
+        {"label": "Glazier installs new glass", "cost": 180, "cond": 8, "morale": 4, "result": "A clean new pane. Light and security restored."},
+        {"label": "DIY glass kit", "cost": 40, "cond": 4, "result": "You fit a replacement pane yourself. Tidy enough.",
+         "risk": {"chance": 0.25, "cond": -5, "result_bad": "The pane cracked during install and you had to redo it."}},
+        {"label": "Leave the cardboard", "cost": 0, "cond": -3, "morale": -6, "result": "Cardboard and tape. Not a great look for the block."}]},
+    # ── Appliances ────────────────────────────────────────────────────────────
+    {"key": "fridge_dying", "title": "Fridge on the Fritz", "icon": "🧊", "sev": "moderate",
+     "text": "The refrigerator is humming loudly, leaking, and barely keeping cold.", "choices": [
+        {"label": "Buy a new fridge", "cost": 640, "cond": 10, "morale": 8, "result": "A shiny efficient fridge. {name} is thrilled."},
+        {"label": "Repair the compressor", "cost": 180, "cond": 5, "result": "A compressor relay swap brings it back.",
+         "risk": {"chance": 0.40, "cond": -4, "morale": -5, "result_bad": "It died for good a week later — money down the drain."}},
+        {"label": "Grab a used replacement", "cost": 220, "cond": 6, "morale": 3, "result": "A decent secondhand unit does the job."},
+        {"label": "Tell them to defrost it", "cost": 0, "cond": -2, "morale": -6, "result": "Your fix: defrost it more. The groceries disagree."}]},
+    {"key": "dishwasher_leak", "title": "Leaking Dishwasher", "icon": "🍽️", "sev": "minor",
+     "text": "The dishwasher is leaving a puddle across the kitchen floor each cycle.", "choices": [
+        {"label": "Replace the dishwasher", "cost": 480, "cond": 8, "morale": 5, "result": "A quiet new unit, properly plumbed. No more puddles."},
+        {"label": "Reseal the door gasket", "cost": 40, "cond": 4, "result": "A fresh gasket stops the leak.",
+         "risk": {"chance": 0.30, "cond": -5, "result_bad": "The leak was from the pump, not the door — it's back."}},
+        {"label": "They can hand-wash", "cost": 0, "cond": -1, "morale": -5, "result": "Hand-washing as a 'feature.' They're not amused."}]},
+    {"key": "oven_out", "title": "The Oven Won't Heat", "icon": "🔥", "sev": "moderate",
+     "text": "{name}'s oven won't come up to temperature anymore.", "choices": [
+        {"label": "Install a new range", "cost": 560, "cond": 9, "morale": 6, "result": "A gleaming new range. Baking season is saved."},
+        {"label": "Replace the heating element", "cost": 70, "cond": 5, "result": "A new bake element and it's good as new."},
+        {"label": "Suggest the microwave", "cost": 0, "cond": -1, "morale": -5, "result": "Microwave dinners indefinitely. A hard sell."}]},
+    {"key": "washer_broke", "title": "The Washer Died", "icon": "🧺", "sev": "minor",
+     "text": "The washing machine stopped mid-cycle and won't drain, {name} says.", "choices": [
+        {"label": "Replace the washer", "cost": 520, "cond": 8, "morale": 5, "result": "A new washer, properly leveled. Laundry day restored."},
+        {"label": "Repair the belt and pump", "cost": 90, "cond": 4, "result": "A belt and pump fix gets it spinning.",
+         "risk": {"chance": 0.30, "cond": -4, "result_bad": "The motor was failing too — it quit again within days."}},
+        {"label": "Point them to a laundromat", "cost": 0, "cond": -1, "morale": -5, "result": "Hauling laundry across town. They're not happy."}]},
+    {"key": "garbage_disposal", "title": "Jammed Disposal", "icon": "🌀", "sev": "minor",
+     "text": "The garbage disposal is jammed and humming ominously.", "choices": [
+        {"label": "Plumber clears and resets it", "cost": 130, "cond": 5, "morale": 3, "result": "Unjammed and tested. Grinding happily again."},
+        {"label": "Reset and free it yourself", "cost": 0, "cond": 3, "result": "The reset button and a hex key do the trick.",
+         "risk": {"chance": 0.20, "cond": -3, "result_bad": "Something metal had wrecked the blades — it needs replacing."}},
+        {"label": "Tell them to stop using it", "cost": 0, "cond": -1, "morale": -3, "result": "A disposal they can't use. Minor, but annoying."}]},
+    # ── Pests & Bio ────────────────────────────────────────────────────────────
+    {"key": "roaches", "title": "Roach Problem", "icon": "🪳", "sev": "moderate",
+     "text": "{name} has spotted roaches in the kitchen — and where there's one...", "choices": [
+        {"label": "Hire an exterminator", "cost": 320, "cond": 12, "morale": 8, "result": "A full treatment and follow-up. Pest-free and grateful."},
+        {"label": "Store-bought baits and spray", "cost": 35, "cond": 4, "morale": -2, "result": "The baits knock the population down a lot.",
+         "risk": {"chance": 0.50, "cond": -8, "morale": -6, "result_bad": "They came right back — an infestation needs the pros."}},
+        {"label": "Tell them to clean more", "cost": 0, "cond": -3, "morale": -10, "result": "Blaming the tenant. The roaches multiply regardless."}]},
+    {"key": "mice", "title": "Mice in the Walls", "icon": "🐭", "sev": "moderate",
+     "text": "Scratching in the walls at night — {name} is sure it's mice.", "choices": [
+        {"label": "Pro pest control + seal entry", "cost": 280, "cond": 12, "morale": 8, "result": "Trapped, removed, and sealed out. Quiet nights again."},
+        {"label": "Set traps yourself", "cost": 30, "cond": 5, "result": "A line of traps thins them out.",
+         "risk": {"chance": 0.40, "cond": -6, "morale": -4, "result_bad": "Without sealing the gaps, the mice just kept coming."}},
+        {"label": "Get them a cat? (decline)", "cost": 0, "cond": -3, "morale": -8, "result": "You shrug it off. The scratching gets louder."}]},
+    {"key": "termites", "title": "Termite Damage", "icon": "🐜", "sev": "major",
+     "text": "An inspection turned up active termites in a structural beam.", "choices": [
+        {"label": "Full treatment + repair", "cost": 900, "cond": 18, "morale": 6, "result": "Colony eradicated, beam reinforced. Structure saved."},
+        {"label": "Spot-treat the visible damage", "cost": 200, "cond": 6, "result": "A targeted treatment hits the active area.",
+         "risk": {"chance": 0.50, "cond": -14, "result_bad": "The colony was far larger — they kept eating through the framing."}},
+        {"label": "Hope they move on", "cost": 0, "cond": -8, "morale": -4, "result": "Termites do not move on. They feast."}]},
+    {"key": "wasp_nest", "title": "Wasp Nest by the Door", "icon": "🐝", "sev": "minor",
+     "text": "A wasp nest has appeared right beside the front door. {name} is dodging it daily.", "choices": [
+        {"label": "Pro removal", "cost": 110, "cond": 4, "morale": 6, "result": "Gone safely, no stings. Easy in and out again."},
+        {"label": "Knock it down at dusk yourself", "cost": 0, "cond": 2, "morale": -3, "result": "A can of spray and quick aim. Handled.",
+         "risk": {"chance": 0.40, "cond": -4, "morale": -5, "result_bad": "You got swarmed and the tenant got stung. Bad scene."}},
+        {"label": "Just avoid that door", "cost": 0, "cond": -1, "morale": -6, "result": "Telling them to use the back door. Not a fix."}]},
+    {"key": "mold", "title": "Mold Patch", "icon": "🦠", "sev": "moderate",
+     "text": "Black mold is creeping up the bathroom wall and {name} is worried about the air.", "choices": [
+        {"label": "Professional remediation", "cost": 400, "cond": 15, "morale": 8, "result": "Source found, sealed, and the mold's gone for good."},
+        {"label": "Bleach it and add a fan", "cost": 50, "cond": 5, "result": "Scrubbed and ventilated — looks clean now.",
+         "risk": {"chance": 0.45, "cond": -10, "morale": -6, "result_bad": "It bloomed right back — the moisture source was never fixed."}},
+        {"label": "Tell them to wipe it down", "cost": 0, "cond": -4, "morale": -8, "result": "A rag won't stop mold. It spreads behind the tile."}]},
+    # ── Structural, Safety & Misc ────────────────────────────────────────────
+    {"key": "stair_rot", "title": "Rotting Porch Steps", "icon": "🪜", "sev": "moderate",
+     "text": "The porch steps are soft and one cracked under {name}'s foot — a real hazard.", "choices": [
+        {"label": "Rebuild the steps", "cost": 360, "cond": 12, "morale": 6, "loyalty": 4, "result": "Solid new treads and stringers. Safe and sturdy."},
+        {"label": "Reinforce the worst tread", "cost": 80, "cond": 5, "result": "A sister board shores up the bad step.",
+         "risk": {"chance": 0.30, "cond": -7, "morale": -6, "result_bad": "Another step gave way — the whole stringer was rotten."}},
+        {"label": "Add a 'watch your step' note", "cost": 0, "cond": -3, "morale": -8, "result": "A sign instead of a repair. Someone could get hurt."}]},
+    {"key": "floor_squeak", "title": "Soft, Squeaky Floor", "icon": "🪵", "sev": "minor",
+     "text": "A spot in the hallway floor squeaks loudly and feels a little spongy underfoot.", "choices": [
+        {"label": "Repair the subfloor", "cost": 300, "cond": 10, "morale": 4, "result": "The subfloor's re-secured and refinished. Silent and solid."},
+        {"label": "Screw it down yourself", "cost": 30, "cond": 4, "result": "A few deck screws into the joist quiet it down."},
+        {"label": "It adds character", "cost": 0, "cond": -1, "morale": -3, "result": "You call the squeak 'charm.' They call it annoying."}]},
+    {"key": "door_wont_lock", "title": "Front Door Won't Lock", "icon": "🔒", "sev": "minor",
+     "text": "The front door deadbolt is sticking and won't reliably lock — a security worry for {name}.", "choices": [
+        {"label": "Install a new deadbolt", "cost": 90, "cond": 5, "morale": 8, "loyalty": 4, "result": "A smooth new lock. They sleep easier tonight."},
+        {"label": "Lubricate and realign it", "cost": 0, "cond": 3, "morale": 2, "result": "Some graphite and a strike-plate tweak. Working again."},
+        {"label": "Tell them to use the chain", "cost": 0, "cond": -2, "morale": -8, "result": "A door chain isn't a deadbolt. They feel unsafe."}]},
+    {"key": "ceiling_stain", "title": "Spreading Ceiling Stain", "icon": "🟤", "sev": "moderate",
+     "text": "A brown stain on the ceiling is slowly growing — something's leaking above.", "choices": [
+        {"label": "Find the leak and repair", "cost": 420, "cond": 14, "morale": 6, "result": "Traced to a loose supply line, fixed and repainted. Done right."},
+        {"label": "Paint over the stain", "cost": 50, "cond": 4, "result": "A stain-blocking coat hides it nicely.",
+         "risk": {"chance": 0.50, "cond": -9, "result_bad": "The leak kept going — the stain bled right back through the paint."}},
+        {"label": "It's barely noticeable", "cost": 0, "cond": -4, "result": "You ignore it. The stain — and the leak — keep growing."}]},
+    {"key": "driveway_crack", "title": "Cracked Driveway", "icon": "🛣️", "sev": "minor",
+     "text": "The driveway has cracked badly and a lip is becoming a trip hazard.", "choices": [
+        {"label": "Repave it", "cost": 500, "cond": 10, "morale": 4, "result": "Smooth fresh asphalt. Curb appeal way up."},
+        {"label": "Fill the cracks", "cost": 60, "cond": 4, "result": "Crack filler levels the worst of it."},
+        {"label": "Leave it", "cost": 0, "cond": -2, "result": "The cracks widen with every freeze."}]},
+    {"key": "fence_down", "title": "Fence Section Down", "icon": "🚧", "sev": "minor",
+     "text": "A storm knocked down a section of the backyard fence.", "choices": [
+        {"label": "Replace the section", "cost": 300, "cond": 8, "morale": 4, "result": "New posts and panels. Yard's secure again."},
+        {"label": "Prop and patch it", "cost": 60, "cond": 4, "result": "Braced and re-screwed. Standing for now.",
+         "risk": {"chance": 0.30, "cond": -5, "result_bad": "The next gust took it down again, worse this time."}},
+        {"label": "Leave it leaning", "cost": 0, "cond": -2, "morale": -3, "result": "The gap stays. The neighbor's dog visits often."}]},
+    {"key": "garage_door", "title": "Garage Door Stuck", "icon": "🚙", "sev": "minor",
+     "text": "The garage door opener gave out — with {name}'s car trapped inside.", "choices": [
+        {"label": "New opener + tune-up", "cost": 240, "cond": 8, "morale": 5, "result": "A quiet new opener and balanced springs. Smooth as silk."},
+        {"label": "Repair the motor", "cost": 90, "cond": 5, "result": "A gear kit gets it moving again.",
+         "risk": {"chance": 0.30, "cond": -4, "result_bad": "A spring snapped soon after — the whole unit needs replacing."}},
+        {"label": "They can lift it by hand", "cost": 0, "cond": -1, "morale": -4, "result": "Manual operation as the plan. A daily hassle."}]},
+    # ── Weather / Emergency ──────────────────────────────────────────────────
+    {"key": "frozen_pipe", "title": "A Frozen Pipe", "icon": "🧊", "sev": "major",
+     "text": "A pipe froze overnight and cracked — water's seeping out as it thaws.", "choices": [
+        {"label": "Emergency repair + insulate", "cost": 650, "cond": 18, "morale": 8, "result": "Replaced and insulated against the next freeze. Solid."},
+        {"label": "Thaw it and clamp the crack", "cost": 120, "cond": 6, "result": "A clamp holds the split for now.",
+         "risk": {"chance": 0.50, "cond": -12, "morale": -6, "result_bad": "The clamp failed and the line burst fully — major water damage."}},
+        {"label": "Let it thaw naturally", "cost": 0, "cond": -6, "morale": -8, "result": "You wait. The crack widens as it thaws and floods the floor."}]},
+    {"key": "storm_damage", "title": "Storm Knocked Shingles Loose", "icon": "🌬️", "sev": "moderate",
+     "text": "Last night's storm tore several shingles loose and exposed the roof deck.", "choices": [
+        {"label": "Roofer replaces the shingles", "cost": 420, "cond": 14, "morale": 5, "result": "New shingles and flashing. Watertight before the next storm."},
+        {"label": "Tarp it temporarily", "cost": 70, "cond": 5, "result": "A secured tarp keeps the rain out for now.",
+         "risk": {"chance": 0.40, "cond": -8, "result_bad": "Wind ripped the tarp off and the deck soaked through."}},
+        {"label": "It'll probably be fine", "cost": 0, "cond": -5, "morale": -4, "result": "You leave the deck exposed. The next rain finds it."}]},
+    {"key": "ice_dam", "title": "Ice Dam on the Roof", "icon": "🏔️", "sev": "moderate",
+     "text": "An ice dam has formed at the eaves and meltwater is backing up under the shingles.", "choices": [
+        {"label": "Steam removal + insulate attic", "cost": 380, "cond": 13, "morale": 5, "result": "Dam cleared and the attic insulated to prevent the next one."},
+        {"label": "Chip the ice off yourself", "cost": 0, "cond": 3, "result": "Hours of careful chipping clears the worst of it.",
+         "risk": {"chance": 0.40, "cond": -9, "result_bad": "You gouged the shingles and the meltwater got into the ceiling."}},
+        {"label": "Wait for the thaw", "cost": 0, "cond": -4, "morale": -3, "result": "You wait it out. The water finds its way inside."}]},
+    {"key": "gas_smell", "title": "A Faint Gas Smell", "icon": "🟡", "sev": "major",
+     "text": "{name} reports a faint smell of gas near the furnace — this needs a careful response.", "choices": [
+        {"label": "Shut off gas & call the utility (free)", "cost": 0, "cond": 6, "morale": 10, "loyalty": 4, "result": "You do it right: gas off, utility out same day. A loose fitting, tightened. Safe."},
+        {"label": "Hire a private tech to inspect", "cost": 280, "cond": 14, "morale": 8, "result": "A thorough inspection finds and fixes a small leak. Peace of mind."},
+        {"label": "Crack a window and wait", "cost": 0, "cond": -8, "morale": -14, "result": "Ignoring a gas smell. Reckless — and the tenant is rightly furious."}]},
+]
+
+def _repair_choices(sc):
+    """Full ordered choice list for a repair scenario, with a standard Ignore appended."""
+    choices = [dict(c) for c in sc["choices"]]
+    cond, mor = REPAIR_IGNORE_SEV.get(sc.get("sev", "moderate"), (11, 15))
+    choices.append({
+        "label": "Ignore it for now", "cost": 0, "cond": -cond, "morale": -mor, "ignore": True,
+        "result": sc.get("ignore_result",
+                         "You let it slide. The problem festers — the property's condition drops and your tenant's patience wears thin."),
+    })
+    return choices
 
 # ── Tenant Event System ────────────────────────────────────────────────────────
 # One event can fire per day when the global roll succeeds.
@@ -155,12 +431,6 @@ TENANT_EVENTS = [
         "agree_label": "Sure, have fun!", "decline_label": "No parties.",
         "morale_gain": 8, "damage_chance": 0.40, "damage_pts": 25,
         "reasons": ["birthday", "promotion", "holiday", "housewarming", "New Year's Eve"],
-    },
-    {
-        "key": "dog", "weight": 6, "type": "morale_choice",
-        "name": "Dog Request", "icon": "🐶",
-        "agree_label": "Sure, one dog is fine!", "decline_label": "No pets allowed.",
-        "morale_gain": 8, "damage_chance": 0.20, "damage_pts": 20,
     },
     {
         "key": "cat", "weight": 6, "type": "morale_choice",
@@ -205,12 +475,6 @@ TENANT_EVENTS = [
         "morale_gain": 9, "damage_chance": 0.30, "damage_pts": 25,
     },
     {
-        "key": "duck", "weight": 4, "type": "morale_choice",
-        "name": "The Duck", "icon": "🦆",
-        "agree_label": "...Fine. One duck.", "decline_label": "Absolutely not.",
-        "morale_gain": 12, "damage_chance": 0.20, "damage_pts": 15,
-    },
-    {
         "key": "taco_tuesday", "weight": 5, "type": "morale_choice",
         "name": "Taco Tuesday", "icon": "🌮",
         "agree_label": "Sounds delicious, go ahead!", "decline_label": "Keep the gatherings small.",
@@ -221,12 +485,6 @@ TENANT_EVENTS = [
         "name": "Feng Shui Rearrangement", "icon": "🔮",
         "agree_label": "Sure, rearrange whatever you like.", "decline_label": "Please leave the fixtures alone.",
         "morale_gain": 6, "damage_chance": 0.40, "damage_pts": 20,
-    },
-    {
-        "key": "backyard_chicken", "weight": 4, "type": "morale_choice",
-        "name": "Backyard Chickens", "icon": "🦃",
-        "agree_label": "Only if they stay in the yard.", "decline_label": "No livestock.",
-        "morale_gain": 10, "damage_chance": 0.50, "damage_pts": 30,
     },
     {
         "key": "candles", "weight": 5, "type": "morale_choice",
@@ -759,6 +1017,12 @@ TENANT_EVENTS = [
     },
     # ── Add future events below this line ─────────────────────────────────────
 ]
+
+# The old yes/no "tenant request" events (type "morale_choice") were retired in
+# favor of the storylet system. They're filtered out here so they never fire,
+# never queue, and never match the (removed) respond endpoint. Repairs and the
+# ambient auto-flavor events (morale_auto / cash_auto / cond_auto) all remain.
+TENANT_EVENTS = [e for e in TENANT_EVENTS if e.get("type") != "morale_choice"]
 
 def _pick_weighted_event(event_list):
     """Weighted-random pick from a list of events."""
@@ -2239,20 +2503,10 @@ CONTRACTORS = {
 }
 
 ASSISTANTS = {
-    "repair": {
-        "name": "Repair Assistant", "icon": "🔧",
-        "unlock_level": 6, "monthly_fee": 1_500,
-        "desc": "Automatically handles all repair events. Always picks the best contractor your budget allows.",
-    },
-    "tenant": {
-        "name": "Tenant Assistant", "icon": "🤝",
-        "unlock_level": 9, "monthly_fee": 3_000,
-        "desc": "Handles ~50% of tenant requests automatically, choosing the best outcome for morale and condition.",
-    },
-    "estate": {
-        "name": "Estate Manager", "icon": "🏛️",
-        "unlock_level": 13, "monthly_fee": 6_500,
-        "desc": "Full autopilot for all residential events — every repair, every tenant request, every renewal.",
+    "manager": {
+        "name": "Property Manager", "icon": "🤝",
+        "unlock_level": 11, "monthly_fee": 20_000,
+        "desc": "Full hands-off management. Automatically handles every tenant issue, repair, story event, and lease renewal across all your rentals — true passive income.",
     },
 }
 
@@ -2480,6 +2734,98 @@ TENANT_PROFILES = [
     {"name": "Carl & Judy Prescott","icon": "👴",  "pay_chance": 0.98, "damage_chance": 0.01, "stay_min": 120, "stay_max": 365, "tiers": ["budget", "mid", "premium"], "unique": True,
      "desc": "Older couple. Never miss rent. Will occasionally leave a casserole on the counter."},
 
+    # ── Friends & family (cameos) ──────────────────────────────────────────────
+    {"name": "Alexis Kennedy",      "icon": "🗨️",  "pay_chance": 0.91, "damage_chance": 0.05, "stay_min": 60,  "stay_max": 180, "tiers": ["budget", "mid"], "unique": True,
+     "desc": "Could talk to a brick wall and leave the wall feeling heard. Somehow never annoying. You now know everything about competitive hot dog eating."},
+    {"name": "Hannah Bailey",       "icon": "💡",  "pay_chance": 0.98, "damage_chance": 0.01, "stay_min": 120, "stay_max": 365, "tiers": ["mid", "premium"], "unique": True,
+     "desc": "Reads the whole lease twice and finds the typo you missed. Sharp, funny, three steps ahead. Quietly the best tenant on your books."},
+    {"name": "Dez Castro",          "icon": "🤍",  "pay_chance": 0.95, "damage_chance": 0.02, "stay_min": 120, "stay_max": 365, "tiers": ["budget", "mid"], "unique": True,
+     "desc": "Knows every neighbor and their kids by name. The porch has never had more flowers. Leaves soup on your step when you look tired."},
+    {"name": "Pablo Blanco",        "icon": "🧽",  "pay_chance": 0.96, "damage_chance": 0.01, "stay_min": 90,  "stay_max": 270, "tiers": ["mid", "premium"], "unique": True,
+     "desc": "The unit is cleaner than the day he moved in. Fixed the disposal, the gutter, and a problem you hadn't noticed. Owns a label maker. Uses it daily."},
+
+    # ── Quirky originals — budget ──────────────────────────────────────────────
+    {"name": "Tonya Brick",         "icon": "🧱",  "pay_chance": 0.85, "damage_chance": 0.10, "stay_min": 30,  "stay_max": 90,  "tiers": ["budget"], "unique": True,
+     "desc": "Competitive powerlifter. Drops the bar like it owes her money. Apologizes through the floor to the unit below. Every single time."},
+    {"name": "Gil Pruitt",          "icon": "🪀",  "pay_chance": 0.86, "damage_chance": 0.09, "stay_min": 30,  "stay_max": 120, "tiers": ["budget"], "unique": True,
+     "desc": "Backyard inventor. The smoke alarm now goes off on a schedule. He calls these 'controlled tests.' You call the fire department."},
+    {"name": "Marisol Vega",        "icon": "🌶️",  "pay_chance": 0.88, "damage_chance": 0.07, "stay_min": 45,  "stay_max": 150, "tiers": ["budget"], "unique": True,
+     "desc": "Grows peppers on every windowsill. Handed you a jar of her hot sauce and watched you try it. You wept. She was delighted."},
+    {"name": "Dewey Pratt",         "icon": "🦝",  "pay_chance": 0.83, "damage_chance": 0.11, "stay_min": 30,  "stay_max": 90,  "tiers": ["budget"], "unique": True,
+     "desc": "Insists the raccoon is now a pet. It is not a pet. It does, however, come when he calls it."},
+    {"name": "Bex Holloway",        "icon": "🛹",  "pay_chance": 0.84, "damage_chance": 0.10, "stay_min": 30,  "stay_max": 90,  "tiers": ["budget"], "unique": True,
+     "desc": "Builds skate ramps in the driveway. A genuinely skilled carpenter. A genuinely terrible asker-of-permission."},
+    {"name": "Otis Crumb",          "icon": "🥪",  "pay_chance": 0.87, "damage_chance": 0.06, "stay_min": 45,  "stay_max": 150, "tiers": ["budget"], "unique": True,
+     "desc": "Films a sandwich-review channel from your kitchen. Forty thousand subscribers. Will offer you a bite — take it, it's incredible."},
+    {"name": "Sandy Pell",          "icon": "🐚",  "pay_chance": 0.86, "damage_chance": 0.07, "stay_min": 45,  "stay_max": 120, "tiers": ["budget"], "unique": True,
+     "desc": "Collects seashells. The whole place whispers like the ocean when the vents kick on. Mostly soothing. Occasionally haunting."},
+    {"name": "Reg Tubbs",           "icon": "📺",  "pay_chance": 0.85, "damage_chance": 0.08, "stay_min": 60,  "stay_max": 180, "tiers": ["budget"], "unique": True,
+     "desc": "Has a strong opinion about every show ever aired and the time to share it. Pays rent promptly during the commercial breaks."},
+    {"name": "Wally Ng",            "icon": "🐠",  "pay_chance": 0.87, "damage_chance": 0.09, "stay_min": 30,  "stay_max": 120, "tiers": ["budget"], "unique": True,
+     "desc": "Aquascaping obsessive. Six tanks and counting. The power bill is a felony. The fish have never been happier."},
+    {"name": "Cricket Doyle",       "icon": "🎻",  "pay_chance": 0.84, "damage_chance": 0.08, "stay_min": 30,  "stay_max": 90,  "tiers": ["budget"], "unique": True,
+     "desc": "Practicing violin, and honestly improving. The cat in the next unit remains his harshest critic."},
+    {"name": "Trixie Vaughn",       "icon": "🪩",  "pay_chance": 0.85, "damage_chance": 0.11, "stay_min": 30,  "stay_max": 90,  "tiers": ["budget"], "unique": True,
+     "desc": "Hosts a weekly disco night in the living room. The neighbors have stopped complaining and started attending."},
+
+    # ── Quirky originals — budget + mid ────────────────────────────────────────
+    {"name": "Lupe Ramos",          "icon": "🔧",  "pay_chance": 0.89, "damage_chance": 0.03, "stay_min": 60,  "stay_max": 180, "tiers": ["budget", "mid"], "unique": True,
+     "desc": "Fixes the neighbors' cars in the lot. Yours runs smoother now and you never asked. Faint smell of motor oil. Completely worth it."},
+    {"name": "Hank Mosby",          "icon": "🪣",  "pay_chance": 0.88, "damage_chance": 0.05, "stay_min": 60,  "stay_max": 180, "tiers": ["budget", "mid"], "unique": True,
+     "desc": "Retired plumber, physically unable to walk past a drip. Every faucet you own has been silent since the day he arrived."},
+    {"name": "Penny Lautner",       "icon": "💸",  "pay_chance": 0.90, "damage_chance": 0.05, "stay_min": 60,  "stay_max": 180, "tiers": ["budget", "mid"], "unique": True,
+     "desc": "Negotiates everything to the cent — once got the power company to apologize. Always pays on time. Just argues first, on principle."},
+    {"name": "Mateo Ferreira",      "icon": "⚽",  "pay_chance": 0.91, "damage_chance": 0.08, "stay_min": 60,  "stay_max": 150, "tiers": ["budget", "mid"], "unique": True,
+     "desc": "Coaches a kids' rec team that practices in the yard. The grass never fully recovers. The kids absolutely worship him."},
+    {"name": "Glenda Pope",         "icon": "🧶",  "pay_chance": 0.92, "damage_chance": 0.03, "stay_min": 90,  "stay_max": 270, "tiers": ["budget", "mid"], "unique": True,
+     "desc": "Knits without pause. You own three scarves and it is July. Possibly the sweetest human being currently alive."},
+    {"name": "Foster Klein",        "icon": "🔬",  "pay_chance": 0.89, "damage_chance": 0.09, "stay_min": 60,  "stay_max": 180, "tiers": ["budget", "mid"], "unique": True,
+     "desc": "Self-described 'independent researcher.' The garage hums faintly at night. He assures you it is legal. It is, you think, probably legal."},
+    {"name": "Roni Salazar",        "icon": "📦",  "pay_chance": 0.91, "damage_chance": 0.04, "stay_min": 60,  "stay_max": 180, "tiers": ["budget", "mid"], "unique": True,
+     "desc": "Runs a small online shop. Boxes stacked by the door, never blocking the hall, rent in your account a day early every week."},
+    {"name": "Faye Okonkwo",        "icon": "📷",  "pay_chance": 0.91, "damage_chance": 0.04, "stay_min": 90,  "stay_max": 240, "tiers": ["budget", "mid"], "unique": True,
+     "desc": "Photographer who develops film in the bathroom. The hallway smells faintly of chemistry. The prints taped up in the window are stunning."},
+    {"name": "Norbert Stamp",       "icon": "📮",  "pay_chance": 0.92, "damage_chance": 0.03, "stay_min": 90,  "stay_max": 270, "tiers": ["budget", "mid"], "unique": True,
+     "desc": "Philatelist. Has shown you his stamp collection three times. You now know more about 19th-century postage than any person should."},
+
+    # ── Quirky originals — mid ─────────────────────────────────────────────────
+    {"name": "Vivian Stathakis",    "icon": "📐",  "pay_chance": 0.96, "damage_chance": 0.02, "stay_min": 90,  "stay_max": 270, "tiers": ["mid"], "unique": True,
+     "desc": "Architect. Returned your lease with the formatting redlined. Pays ten days early. Has Opinions about the doorframes she will share unprompted."},
+    {"name": "Doc Ferraro",         "icon": "🩻",  "pay_chance": 0.95, "damage_chance": 0.02, "stay_min": 120, "stay_max": 365, "tiers": ["mid"], "unique": True,
+     "desc": "Retired radiologist. Sees straight through everyone and says nothing about it. Somehow always knows the week you're stressed and stays out of your way."},
+    {"name": "The Okafor Twins",    "icon": "👯",  "pay_chance": 0.93, "damage_chance": 0.07, "stay_min": 90,  "stay_max": 240, "tiers": ["mid"], "unique": True,
+     "desc": "Identical. You genuinely cannot tell which one signed the lease. Based on a recent conversation, neither can they."},
+    {"name": "Beatrice Lund",       "icon": "🕯️",  "pay_chance": 0.96, "damage_chance": 0.02, "stay_min": 120, "stay_max": 365, "tiers": ["mid"], "unique": True,
+     "desc": "Runs a candle business from the spare bedroom. The entire house now smells like 'Autumn Reverie.' You have stopped fighting it."},
+    {"name": "Quentin Ash",         "icon": "♟️",  "pay_chance": 0.95, "damage_chance": 0.03, "stay_min": 90,  "stay_max": 270, "tiers": ["mid"], "unique": True,
+     "desc": "Plays chess by mail against seventeen opponents. The mailbox is a daily avalanche of postcards. He is winning twelve of them."},
+    {"name": "The Mwangi Family",   "icon": "👨‍👩‍👧‍👦","pay_chance": 0.96, "damage_chance": 0.07, "stay_min": 150, "stay_max": 365, "tiers": ["mid"], "unique": True,
+     "desc": "Three kids, one trampoline, infinite energy. The walls have a few new stories. Loud, warm, and worth every single scuff."},
+    {"name": "Lorne Pickett",       "icon": "🪕",  "pay_chance": 0.94, "damage_chance": 0.05, "stay_min": 90,  "stay_max": 270, "tiers": ["mid"], "unique": True,
+     "desc": "Builds banjos by hand. The garage is full of half-finished banjos. Every so often a complete one escapes into the world."},
+    {"name": "Yusuf Demir",         "icon": "♨️",  "pay_chance": 0.95, "damage_chance": 0.03, "stay_min": 90,  "stay_max": 270, "tiers": ["mid"], "unique": True,
+     "desc": "Mechanical engineer. Rebalanced your water pressure 'for fun.' Every shower in the building has been a religious experience since."},
+
+    # ── Quirky originals — mid + premium ───────────────────────────────────────
+    {"name": "Cordelia Vance",      "icon": "🎭",  "pay_chance": 0.97, "damage_chance": 0.03, "stay_min": 90,  "stay_max": 240, "tiers": ["mid", "premium"], "unique": True,
+     "desc": "Theater director. The living room is a permanent rehearsal space. You have already been handed a script 'just to read, no pressure.'"},
+    {"name": "The Abernathys",      "icon": "🐕",  "pay_chance": 0.96, "damage_chance": 0.06, "stay_min": 120, "stay_max": 365, "tiers": ["mid", "premium"], "unique": True,
+     "desc": "Two humans, four dogs, one deeply exhausted mail carrier. Spotless inside, against all odds. Among the finest people you'll ever rent to."},
+    {"name": "Sunny Adeyemi",       "icon": "☀️",  "pay_chance": 0.98, "damage_chance": 0.02, "stay_min": 120, "stay_max": 365, "tiers": ["mid", "premium"], "unique": True,
+     "desc": "Botanist who turned the side yard into an unofficial garden tour. Neighbors stop to photograph it. The property has never looked better."},
+    {"name": "Roman Petrov",        "icon": "🧊",  "pay_chance": 0.97, "damage_chance": 0.02, "stay_min": 90,  "stay_max": 270, "tiers": ["mid", "premium"], "unique": True,
+     "desc": "Speaks maybe forty words a month. Pays in crisp, flat bills. You're certain he has a fascinating life. You will never learn a thing about it."},
+    {"name": "Delphine Marchetti",  "icon": "🥂",  "pay_chance": 0.98, "damage_chance": 0.02, "stay_min": 120, "stay_max": 365, "tiers": ["mid", "premium"], "unique": True,
+     "desc": "Sommelier. Paid a full year ahead 'to simplify things.' Left a bottle on your desk that was older than you are."},
+
+    # ── Quirky originals — premium ─────────────────────────────────────────────
+    {"name": "Judge Edwin Cho",     "icon": "⚖️",  "pay_chance": 0.99, "damage_chance": 0.01, "stay_min": 120, "stay_max": 365, "tiers": ["premium"], "unique": True,
+     "desc": "Retired judge. Reads the lease like he's about to rule on it. Has not been late to a single thing in his entire life."},
+    {"name": "Saoirse Byrne",       "icon": "✒️",  "pay_chance": 0.98, "damage_chance": 0.02, "stay_min": 90,  "stay_max": 270, "tiers": ["premium"], "unique": True,
+     "desc": "Bestselling novelist who writes from 4am to noon. You have definitely appeared in a book — you're pretty sure you're the suspicious landlord."},
+    {"name": "Magnus Holt",         "icon": "🏔️",  "pay_chance": 0.97, "damage_chance": 0.03, "stay_min": 60,  "stay_max": 180, "tiers": ["premium"], "unique": True,
+     "desc": "Mountaineer between expeditions. Vanishes for months at a time. Returns sun-scorched and silent, pays the whole balance, says almost nothing."},
+
     # ── Generic fallbacks (non-unique, always in pool) ─────────────────────────
     {"name": "College Student",     "icon": "🎓",  "pay_chance": 0.82, "damage_chance": 0.12, "stay_min": 30,  "stay_max": 90,  "tiers": ["budget"],
      "desc": "Responsible enough. On time most months."},
@@ -2512,6 +2858,80 @@ TENANT_PROFILES = [
     {"name": "Empty Nesters",       "icon": "🪑",  "pay_chance": 0.99, "damage_chance": 0.01, "stay_min": 120, "stay_max": 365, "tiers": ["premium"],
      "desc": "Kids are grown. They want peace, quiet, and the same parking spot every time."},
 ]
+
+# ── Tenant traits ──────────────────────────────────────────────────────────────
+# One signature trait per tenant — surfaced at screening so picking matters, and
+# it drives behavior. Some traits are mechanical now; others are flavor + hooks
+# for the upcoming renewal/storylet systems.
+TENANT_TRAITS = {
+    "reliable":    {"name": "Reliable",      "icon": "🎯",   "desc": "Pays like clockwork — basically never misses rent."},
+    "handy":       {"name": "Handy",         "icon": "🔧",   "desc": "Fixes things up — condition slowly improves while they live here."},
+    "green_thumb": {"name": "Green Thumb",   "icon": "🌱",   "desc": "Tends the place — condition gently improves over time."},
+    "quiet":       {"name": "Quiet",         "icon": "🤫",   "desc": "Low-key and easy to keep happy. Little wear."},
+    "rowdy":       {"name": "Rowdy",         "icon": "🔊",   "desc": "Lively — noticeably harder on the property."},
+    "big_family":  {"name": "Big Family",    "icon": "👨‍👩‍👧‍👦", "desc": "Full house — more wear, but they stay for the long haul."},
+    "creative":    {"name": "Creative",      "icon": "🎨",   "desc": "Big projects at home — a little harder on the place."},
+    "homebody":    {"name": "Homebody",      "icon": "🏠",   "desc": "Always home. Notices — and reports — everything."},
+    "penny":       {"name": "Penny Pincher", "icon": "💰",   "desc": "Haggles on rent, but won't walk over a few dollars."},
+    "subletter":   {"name": "Subletter",     "icon": "🕵️",   "desc": "Might quietly rent your place out to someone else…"},
+}
+
+# Mechanical effects applied this pass. Traits not listed are flavor + future hooks.
+TRAIT_EFFECTS = {
+    "reliable":    {"pay_floor": 0.97},
+    "handy":       {"cond_per_week":  3},
+    "green_thumb": {"cond_per_week":  2},
+    "rowdy":       {"cond_per_week": -2},
+    "big_family":  {"cond_per_week": -1},
+    "creative":    {"cond_per_week": -1},
+}
+
+# Signature trait per named profile (matched to their bio).
+PROFILE_TRAITS = {
+    "Todd Burman": "homebody", "Stevie Reinholt": "creative", "Darnell Okafor": "rowdy",
+    "Wanda Greer": "homebody", "Priya Nair": "green_thumb", "Ziggy": "rowdy",
+    "Kevin Marsh": "reliable", "Miles Garner": "reliable", "Dennis Falk": "creative",
+    "Orlando Cruz": "creative", "Fran Dubois": "creative", "Clint Hooper": "reliable",
+    "Margot Voss": "handy", "Carol Fitch": "quiet", "Juno Park": "homebody",
+    "Cynthia Bloom": "rowdy", "Russ Tirado": "creative", "Janet Osei": "rowdy",
+    "Marcus Webb": "reliable", "Nora Finch": "homebody", "Sam & Deb Hollis": "creative",
+    "Theo Blackwell": "handy", "Donna Kephart": "homebody", "Bev Stanton": "homebody",
+    '"Coach" Ernie Walls': "quiet", "Gerald": "reliable", "Nina Alcott": "creative",
+    "The Watkins Brothers": "rowdy", "Simone Adeyemi": "subletter", "Arthur Pham": "reliable",
+    "Gracie Monroe": "quiet", "Hector Vidal": "creative", "Patrice Owens": "quiet",
+    "Ben Kowalczyk": "handy", "Pete": "subletter", "The Nguyens": "reliable",
+    "The Delgados": "big_family", '"Big" Lou Santino': "quiet", "Diane Cho": "homebody",
+    "Dr. Yemi Adebayo": "homebody", "Cassandra Lyle": "reliable", "Maureen Tully": "homebody",
+    "Old Man Pietrzak": "reliable", "Ray Kowalski": "quiet", "Carl & Judy Prescott": "reliable",
+    "College Student": "rowdy", "The Musician": "rowdy", "Night Owl": "quiet",
+    "The Artist": "creative", "The Freelancer": "homebody", "Young Couple": "creative",
+    "Section 8": "reliable", "The Teacher": "quiet", "Single Parent": "reliable",
+    "The Handyman": "handy", "Remote Worker": "homebody", "Young Professional": "quiet",
+    "The Couple": "quiet", "The Executive": "reliable", "Empty Nesters": "homebody",
+    # Cameos
+    "Alexis Kennedy": "homebody", "Hannah Bailey": "reliable", "Dez Castro": "green_thumb", "Pablo Blanco": "handy",
+    # Quirky originals
+    "Tonya Brick": "rowdy", "Gil Pruitt": "creative", "Marisol Vega": "green_thumb", "Dewey Pratt": "rowdy",
+    "Bex Holloway": "creative", "Otis Crumb": "homebody", "Sandy Pell": "quiet", "Reg Tubbs": "homebody",
+    "Wally Ng": "creative", "Cricket Doyle": "rowdy", "Trixie Vaughn": "rowdy", "Lupe Ramos": "handy",
+    "Hank Mosby": "handy", "Penny Lautner": "penny", "Mateo Ferreira": "rowdy", "Glenda Pope": "quiet",
+    "Foster Klein": "creative", "Roni Salazar": "reliable", "Faye Okonkwo": "homebody", "Norbert Stamp": "homebody",
+    "Vivian Stathakis": "reliable", "Doc Ferraro": "quiet", "The Okafor Twins": "rowdy", "Beatrice Lund": "homebody",
+    "Quentin Ash": "quiet", "The Mwangi Family": "big_family", "Lorne Pickett": "creative", "Yusuf Demir": "handy",
+    "Cordelia Vance": "creative", "The Abernathys": "big_family", "Sunny Adeyemi": "green_thumb", "Roman Petrov": "quiet",
+    "Delphine Marchetti": "reliable", "Judge Edwin Cho": "reliable", "Saoirse Byrne": "homebody", "Magnus Holt": "quiet",
+}
+
+def trait_for(profile):
+    """A tenant's signature trait — mapped by name, else inferred from stats."""
+    name = profile.get("name", "")
+    if name in PROFILE_TRAITS:
+        return PROFILE_TRAITS[name]
+    if profile.get("damage_chance", 0) >= 0.10:
+        return "rowdy"
+    if profile.get("pay_chance", 0) >= 0.96:
+        return "reliable"
+    return "quiet"
 
 # ── Game Logic ─────────────────────────────────────────────────────────────────
 
@@ -2619,7 +3039,7 @@ def calc_market_value(prop):
         return val
     n         = NEIGHBORHOODS[prop["neighborhood"]]
     base      = prop["sqft"] * 120 + prop["bedrooms"] * 15000 + prop["bathrooms"] * 8000
-    cond_mult = 0.5 + (prop["condition"] / MAX_CONDITION) * 0.7
+    cond_mult = 0.70 + (prop["condition"] / MAX_CONDITION) * 0.30
     val       = int(base * n["price_mult"] * cond_mult)
     for key, upg_val in prop.get("upgrades", {}).items():
         quality = get_upgrade_quality(upg_val)
@@ -2631,8 +3051,8 @@ def calc_monthly_rent(prop):
     if prop.get("commercial"):
         return sum(u.get("monthly_rent", 0) for u in prop.get("units", []))
     n         = NEIGHBORHOODS[prop["neighborhood"]]
-    base      = int((prop["sqft"] * 1.1 + prop["bedrooms"] * 400 + prop["bathrooms"] * 150) * n["rent_mult"])
-    cond_mult = 0.6 + (prop["condition"] / MAX_CONDITION) * 0.5
+    base      = int((prop["sqft"] * 1.3 + prop["bedrooms"] * 475 + prop["bathrooms"] * 185) * n["rent_mult"])
+    cond_mult = 0.65 + (prop["condition"] / MAX_CONDITION) * 0.55
     bonus     = sum(int(UPGRADES[k]["value_add"] * 0.003 * (get_upgrade_quality(v) / 100))
                     for k, v in prop.get("upgrades", {}).items())
     # premium_weekly is per-week; monthly_rent is used as 4-week equivalent
@@ -2742,7 +3162,7 @@ def generate_property(nid, hoods=None):
             "scheduled_reno": None, "scheduled_premium": None,
             "tenant": None, "days_rented": 0,
             "total_rent_collected": 0, "total_repair_costs": 0, "purchase_price": 0}
-    prop["purchase_price"] = int(calc_market_value(prop) * random.uniform(0.88, 1.06))
+    prop["purchase_price"] = int(calc_market_value(prop) * random.uniform(0.97, 1.10))
     return prop
 
 def make_starter_home():
@@ -2840,6 +3260,13 @@ def _migrate_state(s):
     s.setdefault("car_wash", None)
     s.setdefault("commercial_market", [])
     s.setdefault("assistants", {})
+    # The three old assistants (repair / tenant / estate) were merged into one
+    # all-in-one "manager". Grandfather anyone who hired any of them into the bundle.
+    _asst = s["assistants"]
+    if any(_asst.get(k) for k in ("repair", "tenant", "estate")) and not _asst.get("manager"):
+        _asst["manager"] = True
+    for k in ("repair", "tenant", "estate"):
+        _asst.pop(k, None)
     for prop in s.get("properties", []):
         if prop.get("commercial"):
             prop.setdefault("superintendent", False)
@@ -3315,7 +3742,7 @@ def api_sell():
     if prop.get("fixed_market_value") and not prop.get("upgrades") and not prop.get("premium_upgrades"):
         sale = prop["fixed_market_value"]
     else:
-        sale = int(calc_market_value(prop) * random.uniform(0.95, 1.05))
+        sale = int(calc_market_value(prop) * random.uniform(0.90, 1.00))
     if s.get("owned_items", {}).get("negotiation_book"):
         sale = int(sale * 1.04)
     if s.get("owned_items", {}).get("bookshelf"):
@@ -3359,15 +3786,23 @@ def api_applicants(pid):
             p["tenant"]["name"] for p in s["properties"]
             if p.get("tenant") and not any(p["tenant"].get(k) for k in ("is_phil","is_baileys","is_goldbergs","is_mystery"))
         }
-        eligible  = [
-            t for t in TENANT_PROFILES
-            if hood_tier in t.get("tiers", ["budget", "mid", "premium"])
-            and (not t.get("unique") or t["name"] not in active_names)
-        ]
-        picks     = random.sample(eligible, min(3, len(eligible)))
-        applicants = [{**t, "idx": i,
-                       "damage_label": "Low" if t["damage_chance"] < 0.05 else ("Medium" if t["damage_chance"] < 0.10 else "High")}
-                      for i, t in enumerate(picks)]
+        def _in_tier(t):
+            return hood_tier in t.get("tiers", ["budget", "mid", "premium"])
+        # Prefer unique named tenants not already renting somewhere.
+        uniq_pool = [t for t in TENANT_PROFILES
+                     if _in_tier(t) and t.get("unique") and t["name"] not in active_names]
+        picks = random.sample(uniq_pool, min(3, len(uniq_pool)))
+        # Generic fallbacks ONLY fill the remaining slots when the unique pool for
+        # this tier is exhausted — never when named tenants are still available.
+        if len(picks) < 3:
+            generic_pool = [t for t in TENANT_PROFILES if _in_tier(t) and not t.get("unique")]
+            picks += random.sample(generic_pool, min(3 - len(picks), len(generic_pool)))
+        applicants = []
+        for i, t in enumerate(picks):
+            tk = trait_for(t)
+            applicants.append({**t, "idx": i, "trait": tk,
+                "trait_info": {**TENANT_TRAITS[tk], "key": tk},
+                "damage_label": "Low" if t["damage_chance"] < 0.05 else ("Medium" if t["damage_chance"] < 0.10 else "High")})
         # Possibly inject a special tenant — 5% chance per applicant list refresh.
         # Only one special tenant appears at a time, chosen randomly from eligible ones.
         special_pool = []
@@ -3412,6 +3847,10 @@ def api_rent():
     stay_days   = max(7, int(base_stay * tier["stay_mult"]))
     pay_chance  = min(0.99, max(0.50, t["pay_chance"] + tier["pay_adj"]))
     dmg_chance  = min(0.50, max(0.005, t["damage_chance"] * tier["damage_mult"]))
+    # Trait: reliable tenants have a pay-chance floor regardless of rent tier
+    _trait_eff  = TRAIT_EFFECTS.get(t.get("trait"), {})
+    if "pay_floor" in _trait_eff:
+        pay_chance = max(pay_chance, _trait_eff["pay_floor"])
 
     initial_morale = calc_initial_morale(prop, weekly_rent)
     prop["tenant"] = {
@@ -3426,6 +3865,8 @@ def api_rent():
         "morale":           initial_morale,
         "recent_events":    [],   # {key, day} — prevents same event repeating within a season
         "missed_payments":  0,
+        "loyalty":          10,   # 0-100; grows with renewals & tenure, drives negotiation
+        "renewals":         0,
     }
     # Special tenant overrides — pin pay/damage, lock morale at 100
     if _is_special_tenant(t):
@@ -3477,6 +3918,1367 @@ def _season_info(game_day):
     return season_idx, day_in_season
 
 
+# ── Tenant storylets ────────────────────────────────────────────────────────
+# Multi-stage tenant situations. One active storylet per tenant at a time.
+# Choice stages pause for the player (queued like tenant requests); auto stages
+# resolve during a time-advance by weighted roll. Choice transitions use delay>=1
+# (land in a future advance); auto transitions may use delay 0 to chain instantly.
+# Outcome keys: morale, loyalty, condition, cash(+income/-cost), pay_chance,
+#   damage_chance_add, flag{}, goto+delay, resolve, leave, result(player text).
+STORYLETS = {
+    "hard_times": {
+        "title": "Hard Times", "icon": "💼",
+        "trigger": {"weight": 5, "cooldown_days": 84, "min_days_resident": 21},
+        "stages": {
+            "start": {
+                "text": "{name} just lost their job and is short on rent this week. They're asking for a little flexibility.",
+                "choices": [
+                    {"label": "Offer a payment plan",
+                     "outcome": {"morale": 8, "loyalty": 8, "goto": "recovery", "delay": 14,
+                                 "result": "You set up a payment plan. They're grateful."}},
+                    {"label": "Forgive this week's rent", "cost": {"cash_weeks": 1},
+                     "outcome": {"morale": 16, "loyalty": 14, "resolve": True,
+                                 "result": "You forgave the week. They won't forget it."}},
+                    {"label": "Hold firm — rent's due",
+                     "outcome": {"morale": -12, "goto": "ultimatum", "delay": 18,
+                                 "result": "You held firm. The air is tense."}},
+                ],
+            },
+            "recovery": {"auto": True, "roll": [
+                {"weight": 60, "text": "{name} landed a new job and is back on track.",
+                 "outcome": {"loyalty": 10, "resolve": True}},
+                {"weight": 40, "text": "{name} is still out of work and falling behind.",
+                 "outcome": {"goto": "ultimatum", "delay": 14}},
+            ]},
+            "ultimatum": {
+                "text": "{name} is now weeks behind on rent. Time to make a call.",
+                "choices": [
+                    {"label": "Start eviction ($1,500)", "cost": {"cash": 1500},
+                     "outcome": {"leave": True, "result": "You started eviction. They're gone."}},
+                    {"label": "Cash-for-keys ($800, clean exit)", "cost": {"cash": 800},
+                     "outcome": {"leave": True, "result": "They took the deal and left without a fuss."}},
+                    {"label": "One more extension",
+                     "outcome": {"morale": 5, "goto": "recovery", "delay": 14,
+                                 "result": "You gave them one more shot."}},
+                ],
+            },
+        },
+    },
+    "dog": {
+        "title": "The Dog Question", "icon": "🐕",
+        "trigger": {"weight": 6, "cooldown_days": 84, "min_days_resident": 14},
+        "stages": {
+            "start": {
+                "text": "{name} wants to adopt a dog and is asking your permission.",
+                "choices": [
+                    {"label": "Allow it",
+                     "outcome": {"morale": 10, "flag": {"has_pet": True}, "damage_chance_add": 0.08,
+                                 "resolve": True, "result": "They're thrilled. Hope the floors hold up."}},
+                    {"label": "Allow it — with a $400 pet deposit",
+                     "outcome": {"morale": 4, "cash": 400, "flag": {"has_pet": True}, "damage_chance_add": 0.05,
+                                 "resolve": True, "result": "Deposit collected. Everybody wins."}},
+                    {"label": "Say no",
+                     "outcome": {"morale": -8, "resolve": True,
+                                 "result": "They're disappointed but accept it."}},
+                ],
+            },
+        },
+    },
+    "small_leak": {
+        "title": "The Small Leak", "icon": "💧",
+        "trigger": {"weight": 6, "cooldown_days": 56, "min_days_resident": 7, "min_condition": 40},
+        "stages": {
+            "start": {
+                "text": "{name} reports a small leak under the kitchen sink.",
+                "choices": [
+                    {"label": "Fix it now ($300)", "cost": {"cash": 300},
+                     "outcome": {"morale": 6, "condition": 4, "resolve": True,
+                                 "result": "Fixed fast. They appreciate a responsive landlord."}},
+                    {"label": "Credit them $150 to handle it", "cost": {"cash": 150},
+                     "outcome": {"morale": 4, "resolve": True,
+                                 "result": "They sorted it out and pocketed the credit."}},
+                    {"label": "It can wait",
+                     "outcome": {"morale": -4, "goto": "escalate", "delay": 12,
+                                 "result": "You'll deal with it later. Probably."}},
+                ],
+            },
+            "escalate": {"auto": True, "roll": [
+                {"weight": 55, "text": "That little leak became real water damage at {prop}.",
+                 "outcome": {"condition": -30, "morale": -12, "resolve": True}},
+                {"weight": 45, "text": "{name} got fed up waiting and fixed the leak themselves.",
+                 "outcome": {"morale": -6, "loyalty": -5, "resolve": True}},
+            ]},
+        },
+    },
+    "sublet": {
+        "title": "The Sublet", "icon": "🕵️",
+        "trigger": {"weight": 8, "cooldown_days": 84, "min_days_resident": 21, "traits": ["subletter"]},
+        "stages": {
+            "start": {
+                "text": "Word is {name} might be quietly subletting the place on a vacation-rental site.",
+                "choices": [
+                    {"label": "Investigate quietly",
+                     "outcome": {"goto": "confirmed", "delay": 2, "result": "You start digging…"}},
+                    {"label": "Confront them directly",
+                     "outcome": {"morale": -10, "goto": "confront", "delay": 1, "result": "You call them out."}},
+                    {"label": "Let it slide",
+                     "outcome": {"damage_chance_add": 0.05, "resolve": True,
+                                 "result": "You look the other way. The extra foot traffic adds wear."}},
+                ],
+            },
+            "confirmed": {"auto": True, "roll": [
+                {"weight": 65, "text": "Confirmed — {name} has been subletting your unit.",
+                 "outcome": {"goto": "confront", "delay": 0}},
+                {"weight": 35, "text": "False alarm — {name} was just hosting out-of-town family.",
+                 "outcome": {"morale": 4, "resolve": True}},
+            ]},
+            "confront": {
+                "text": "{name} is busted subletting. How do you handle it?",
+                "choices": [
+                    {"label": "Fine them ($1,000 penalty to you)... collect it", "cost": {},
+                     "outcome": {"cash": 1000, "morale": -8, "loyalty": -10, "resolve": True,
+                                 "result": "You levied a $1,000 fine. They paid, grumbling."}},
+                    {"label": "Evict ($1,500)", "cost": {"cash": 1500},
+                     "outcome": {"leave": True, "result": "You evicted them on the spot."}},
+                    {"label": "Cut a deal — take a cut (+$600)", "cost": {},
+                     "outcome": {"cash": 600, "morale": 6, "flag": {"sublet_deal": True}, "resolve": True,
+                                 "result": "You take a cut of the action. Unorthodox, but profitable."}},
+                ],
+            },
+        },
+    },
+
+    # ── Special-tenant signature storylets ─────────────────────────────────────
+    "phil_gift": {
+        "title": "A Note from Phil", "icon": "🔱",
+        "trigger": {"special": "is_phil", "weight": 10, "cooldown_days": 56, "min_days_resident": 10},
+        "stages": {
+            "start": {
+                "text": "You find a handwritten note from The Phil. He'd like to spend the weekend 'setting a few things right,' if you'll allow it. He asks for nothing in return.",
+                "choices": [
+                    {"label": "Give him free rein",
+                     "outcome": {"condition": 30, "morale": 6, "resolve": True,
+                                 "result": "By Monday the place gleams. You can't find a single flaw. You never will."}},
+                    {"label": "Cover materials ($200)", "cost": {"cash": 200},
+                     "outcome": {"condition": 42, "loyalty": 10, "resolve": True,
+                                 "result": "He accepts with a small nod. The work is somewhere beyond professional."}},
+                    {"label": "Politely decline",
+                     "outcome": {"resolve": True,
+                                 "result": "He folds the note away. 'Another time, then.' The faucet you'd been meaning to fix is fixed by morning anyway."}},
+                ],
+            },
+        },
+    },
+    "baileys_dinner": {
+        "title": "Sunday Dinner", "icon": "👨‍👩‍👧‍👦",
+        "trigger": {"special": "is_baileys", "weight": 10, "cooldown_days": 56, "min_days_resident": 14},
+        "stages": {
+            "start": {
+                "text": "The Baileys leave an invitation: they'd love to have you over for Sunday dinner, just to say thank you for being a good landlord.",
+                "choices": [
+                    {"label": "Happily accept",
+                     "outcome": {"loyalty": 20, "morale": 8, "resolve": True,
+                                 "result": "Best roast you've had in years. They ask to renew on the spot — you're basically family now."}},
+                    {"label": "Send a gift instead ($150)", "cost": {"cash": 150},
+                     "outcome": {"loyalty": 12, "morale": 6, "resolve": True,
+                                 "result": "They're touched. The kids drew you a card. It's on your fridge now."}},
+                    {"label": "Too busy — maybe next time",
+                     "outcome": {"morale": -4, "resolve": True,
+                                 "result": "They understand completely. They always do."}},
+                ],
+            },
+        },
+    },
+    "goldbergs_soiree": {
+        "title": "The Soirée", "icon": "🎩",
+        "trigger": {"special": "is_goldbergs", "weight": 12, "cooldown_days": 30, "min_days_resident": 7},
+        "stages": {
+            "start": {
+                "text": "The Goldbergs wish to host an extravagant soirée at the property this weekend. Enclosed is a generous 'inconvenience fee,' should you agree.",
+                "choices": [
+                    {"label": "By all means (+$3,000 fee)",
+                     "outcome": {"cash": 3000, "damage_chance_add": 0.05, "resolve": True,
+                                 "result": "Valets, a string quartet, an ice sculpture of — apparently — you. $3,000 richer, minor wear."}},
+                    {"label": "A smaller gathering (+$1,200)",
+                     "outcome": {"cash": 1200, "resolve": True,
+                                 "result": "Tastefully restrained, by Goldberg standards. The check clears before they leave."}},
+                    {"label": "Decline — too much liability",
+                     "outcome": {"morale": -6, "resolve": True,
+                                 "result": "They're mildly affronted, but pay their (enormous) rent regardless."}},
+                ],
+            },
+        },
+    },
+    "mystery_visit": {
+        "title": "Something Odd", "icon": "👤",
+        "trigger": {"special": "is_mystery", "weight": 12, "cooldown_days": 42, "min_days_resident": 7},
+        "stages": {
+            "start": {
+                "text": "Neighbors report strange lights and a faint humming from ???'s unit at 3am. ???, as always, has said nothing.",
+                "choices": [
+                    {"label": "Knock and ask",
+                     "outcome": {"goto": "knock", "delay": 1, "result": "You decide to head over and ask…"}},
+                    {"label": "Let it be",
+                     "outcome": {"resolve": True,
+                                 "result": "Whatever it is, the rent's always paid in full and early. You let it be."}},
+                ],
+            },
+            "knock": {"auto": True, "roll": [
+                {"weight": 50, "text": "???'s unit is immaculate, ordinary, silent. They press an envelope of cash into your hand and gently close the door.",
+                 "outcome": {"cash": 1500, "resolve": True}},
+                {"weight": 50, "text": "No one answers. By morning every fixture in the building works better than new, and a note reads only: 'Thank you.'",
+                 "outcome": {"condition": 25, "resolve": True}},
+            ]},
+        },
+    },
+
+    # ── Special-tenant events (expansion) ──────────────────────────────────────
+    # THE PHIL — mysterious, immaculate, just… fixes things.
+    "phil_storm": {
+        "title": "After the Storm", "icon": "🔱",
+        "trigger": {"special": "is_phil", "weight": 8, "cooldown_days": 60, "min_days_resident": 14},
+        "stages": {"start": {
+            "text": "A nasty storm battered the block. By dawn, every home on the street is somehow already repaired — and The Phil is wiping his hands clean on the sidewalk, saying nothing.",
+            "choices": [
+                {"label": "Thank him and insist on paying ($200)", "cost": {"cash": 200},
+                 "outcome": {"condition": 30, "loyalty": 10, "resolve": True, "result": "He waves the money off twice before accepting. The property has never looked sturdier."}},
+                {"label": "Just thank him warmly",
+                 "outcome": {"condition": 22, "morale": 6, "resolve": True, "result": "A single nod. 'It needed doing.' The roof will outlast you both."}},
+                {"label": "Ask how he does it",
+                 "outcome": {"goto": "phil_secret", "delay": 1, "result": "He pauses, considering whether to answer…"}}]},
+            "phil_secret": {"auto": True, "roll": [
+                {"weight": 100, "text": "He smiles faintly. 'Right tools. Right time.' That's all you'll ever get. The repairs are flawless.",
+                 "outcome": {"condition": 28, "loyalty": 8, "resolve": True}}]}}},
+    "phil_apprentice": {
+        "title": "The Toolbox", "icon": "🧰",
+        "trigger": {"special": "is_phil", "weight": 7, "cooldown_days": 70, "min_days_resident": 28},
+        "stages": {"start": {
+            "text": "The Phil leaves a beautifully kept antique toolbox outside your door with a note: 'For the next thing that breaks. You'll know what to do.'",
+            "choices": [
+                {"label": "Accept it gratefully",
+                 "outcome": {"condition": 10, "loyalty": 12, "morale": 8, "resolve": True, "result": "Oddly, the next three repairs around the property go perfectly. Beginner's luck, surely."}},
+                {"label": "Try to return it",
+                 "outcome": {"morale": 4, "resolve": True, "result": "It's back on your doorstep the next morning. You keep it."}},
+                {"label": "Offer to pay for such fine tools ($150)", "cost": {"cash": 150},
+                 "outcome": {"condition": 12, "loyalty": 14, "resolve": True, "result": "He accepts, just this once. The tools feel weightless and perfectly balanced."}}]}}},
+    "phil_neighbor": {
+        "title": "A Favor for the Block", "icon": "🏘️",
+        "trigger": {"special": "is_phil", "weight": 7, "cooldown_days": 70, "min_days_resident": 21},
+        "stages": {"start": {
+            "text": "An elderly neighbor's porch is collapsing and they can't afford repairs. The Phil quietly asks your blessing to fix it on his own time.",
+            "choices": [
+                {"label": "Bless it — and chip in for materials ($175)", "cost": {"cash": 175},
+                 "outcome": {"condition": 8, "loyalty": 16, "morale": 12, "resolve": True, "result": "The whole street notices. Your reputation as a landlord quietly soars."}},
+                {"label": "Of course — go ahead",
+                 "outcome": {"loyalty": 12, "morale": 10, "resolve": True, "result": "The porch is rebuilt by Sunday. The neighbor leaves you a pie."}},
+                {"label": "Better not get involved",
+                 "outcome": {"morale": -4, "resolve": True, "result": "He respects it. The porch gets fixed anyway, somehow, a week later."}}]}}},
+    "phil_farewell": {
+        "title": "Phil's Farewell", "icon": "🕯️",
+        "trigger": {"special": "is_phil", "weight": 6, "cooldown_days": 90, "min_days_resident": 70},
+        "stages": {"start": {
+            "text": "The Phil mentions, almost in passing, that he'll be moving on soon. Before he goes, he'd like to leave the place 'truly finished.'",
+            "choices": [
+                {"label": "Let him do his final work",
+                 "outcome": {"condition": 45, "loyalty": 10, "resolve": True, "result": "When he's done, the home is, by any measure, perfect. You almost don't want to rent it to anyone else."}},
+                {"label": "Insist on a parting gift for him ($250)", "cost": {"cash": 250},
+                 "outcome": {"condition": 40, "loyalty": 18, "morale": 10, "resolve": True, "result": "He's quietly moved. 'Nobody's ever done that.' The work is his masterpiece."}},
+                {"label": "Thank him and let him rest",
+                 "outcome": {"condition": 20, "morale": 8, "resolve": True, "result": "He smiles. 'Maybe just the gutters, then.' Even his 'rest' is excellent work."}}]}}},
+    # THE BAILEYS — wholesome, devoted family. Never a complaint.
+    "baileys_lemonade": {
+        "title": "The Lemonade Stand", "icon": "🍋",
+        "trigger": {"special": "is_baileys", "weight": 8, "cooldown_days": 60, "min_days_resident": 14},
+        "stages": {"start": {
+            "text": "The Bailey kids have set up a lemonade stand out front and shyly ask if it's allowed.",
+            "choices": [
+                {"label": "Grant them an official 'permit' (and buy a cup)",
+                 "outcome": {"loyalty": 16, "morale": 12, "resolve": True, "result": "Best fifty-cent lemonade you've ever had. The kids beam. The parents melt."}},
+                {"label": "Of course — have fun",
+                 "outcome": {"loyalty": 10, "morale": 8, "resolve": True, "result": "A summer staple is born. The block adores them."}},
+                {"label": "Keep it off the sidewalk, please",
+                 "outcome": {"morale": -2, "resolve": True, "result": "They move it to the porch, only slightly deflated."}}]}}},
+    "baileys_holiday": {
+        "title": "Decking the Block", "icon": "🎁",
+        "trigger": {"special": "is_baileys", "weight": 7, "cooldown_days": 80, "min_days_resident": 21, "season": 3},
+        "stages": {"start": {
+            "text": "The Baileys want to go all-out with holiday decorations — lights, inflatables, the whole display — and ask if you mind.",
+            "choices": [
+                {"label": "Mind? Help fund it! ($75)", "cost": {"cash": 75},
+                 "outcome": {"loyalty": 16, "morale": 14, "resolve": True, "result": "The house wins the neighborhood lights contest. Photos of YOUR property are all over local social media."}},
+                {"label": "Absolutely, go for it",
+                 "outcome": {"loyalty": 10, "morale": 10, "resolve": True, "result": "A magical display. Cars slow down just to look."}},
+                {"label": "Keep it tasteful, watch the wiring",
+                 "outcome": {"morale": 4, "resolve": True, "result": "They keep it classy. Still lovely."}}]}}},
+    "baileys_reference": {
+        "title": "Friends of the Family", "icon": "👪",
+        "trigger": {"special": "is_baileys", "weight": 7, "cooldown_days": 70, "min_days_resident": 21},
+        "stages": {"start": {
+            "text": "The Baileys know another family — 'just like us' — looking for a good landlord, and would love to vouch for them.",
+            "choices": [
+                {"label": "Gratefully take the referral ($50 thank-you)", "cost": {"cash": 50},
+                 "outcome": {"loyalty": 14, "morale": 10, "resolve": True, "result": "A pre-vetted dream tenant for one of your other units. Gold."}},
+                {"label": "Happily take their word",
+                 "outcome": {"loyalty": 10, "morale": 8, "resolve": True, "result": "If the Baileys vouch, that's all you need to know."}},
+                {"label": "Not looking right now",
+                 "outcome": {"resolve": True, "result": "They understand completely. They always do."}}]}}},
+    "baileys_milestone": {
+        "title": "A Family Milestone", "icon": "🎓",
+        "trigger": {"special": "is_baileys", "weight": 7, "cooldown_days": 80, "min_days_resident": 28},
+        "stages": {"start": {
+            "text": "The eldest Bailey is graduating, and the family invites you to the small backyard celebration.",
+            "choices": [
+                {"label": "Attend with a gift ($100)", "cost": {"cash": 100},
+                 "outcome": {"loyalty": 20, "morale": 14, "resolve": True, "result": "You're seated with the family. They introduce you as 'the best landlord in the world.' You believe them."}},
+                {"label": "Stop by to congratulate them",
+                 "outcome": {"loyalty": 12, "morale": 10, "resolve": True, "result": "A warm afternoon. The grad thanks you for keeping their home steady."}},
+                {"label": "Send your best wishes",
+                 "outcome": {"loyalty": 4, "morale": 4, "resolve": True, "result": "They appreciate the thought."}}]}}},
+    # THE GOLDBERGS — old money, extravagant, brief stays.
+    "goldbergs_art": {
+        "title": "A Lasting Impression", "icon": "🖼️",
+        "trigger": {"special": "is_goldbergs", "weight": 10, "cooldown_days": 35, "min_days_resident": 7},
+        "stages": {"start": {
+            "text": "The Goldbergs wish to install a rather expensive chandelier and built-in shelving — and, naturally, they'll leave it all behind when they go.",
+            "choices": [
+                {"label": "By all means (keep the fixtures)",
+                 "outcome": {"condition": 25, "cash": 500, "resolve": True, "result": "The crystal chandelier alone adds real value. They even cover the electrician."}},
+                {"label": "Delighted — split the install ($300)", "cost": {"cash": 300},
+                 "outcome": {"condition": 35, "loyalty": 6, "resolve": True, "result": "A tasteful, permanent upgrade. The next tenant will swoon."}},
+                {"label": "Nothing structural, please",
+                 "outcome": {"morale": -4, "resolve": True, "result": "They sigh dramatically and hang their art on existing hooks. Philistine."}}]}}},
+    "goldbergs_gala": {
+        "title": "The Charity Gala", "icon": "🥂",
+        "trigger": {"special": "is_goldbergs", "weight": 10, "cooldown_days": 35, "min_days_resident": 7},
+        "stages": {"start": {
+            "text": "The Goldbergs propose hosting a charity gala at the property. There will be valets. There will be swans. There will be a 'venue honorarium' for you.",
+            "choices": [
+                {"label": "Host it (+$2,500 honorarium)",
+                 "outcome": {"cash": 2500, "damage_chance_add": 0.04, "resolve": True, "result": "A dazzling, slightly chaotic evening. The check is, of course, immaculate. Minor wear from the swans."}},
+                {"label": "A refined, smaller affair (+$1,000)",
+                 "outcome": {"cash": 1000, "resolve": True, "result": "Restrained elegance. No swans this time. Sadly."}},
+                {"label": "Decline — far too much",
+                 "outcome": {"morale": -6, "resolve": True, "result": "'How very… practical of you.' They pay their staggering rent regardless."}}]}}},
+    "goldbergs_complaint": {
+        "title": "A Trifling Matter", "icon": "🎩",
+        "trigger": {"special": "is_goldbergs", "weight": 9, "cooldown_days": 35, "min_days_resident": 7},
+        "stages": {"start": {
+            "text": "The Goldbergs are displeased: the water pressure is 'merely adequate.' They have, however, enclosed an apology gift for troubling you with it.",
+            "choices": [
+                {"label": "Upgrade the fixtures at once ($250)", "cost": {"cash": 250},
+                 "outcome": {"condition": 12, "cash": 400, "loyalty": 8, "resolve": True, "result": "Spa-grade pressure restored. Their 'thank-you' more than covers it."}},
+                {"label": "Accept the gift, look into it",
+                 "outcome": {"cash": 400, "morale": 2, "resolve": True, "result": "You pocket a startlingly generous gift for doing very little."}},
+                {"label": "The pressure is perfectly fine",
+                 "outcome": {"morale": -4, "resolve": True, "result": "They are scandalized. The gift, regrettably, is rescinded."}}]}}},
+    "goldbergs_extend": {
+        "title": "An Unusual Extension", "icon": "💎",
+        "trigger": {"special": "is_goldbergs", "weight": 8, "cooldown_days": 40, "min_days_resident": 21},
+        "stages": {"start": {
+            "text": "Against all their usual habits, the Goldbergs are enjoying it here and float staying longer — at a generous premium, of course.",
+            "choices": [
+                {"label": "Welcome them to stay (+8% rent)",
+                 "outcome": {"rent_mult": 1.08, "loyalty": 10, "morale": 8, "resolve": True, "result": "A rare long stay from old money. Your bank account approves."}},
+                {"label": "A toast to it — same terms",
+                 "outcome": {"loyalty": 12, "morale": 10, "resolve": True, "result": "They're charmed you didn't gouge them. Refreshing, they say."}},
+                {"label": "Their suite awaits elsewhere",
+                 "outcome": {"resolve": True, "result": "'Quite right. We do get restless.' They begin packing the silver."}}]}}},
+    # ??? — THE MYSTERY. Pays early, in full. Says nothing.
+    "mystery_package": {
+        "title": "The Package", "icon": "📦",
+        "trigger": {"special": "is_mystery", "weight": 10, "cooldown_days": 45, "min_days_resident": 7},
+        "stages": {"start": {
+            "text": "A plain box arrives at your door, addressed to you in elegant handwriting. No return address. It is, unmistakably, from ???.",
+            "choices": [
+                {"label": "Open it",
+                 "outcome": {"goto": "open_box", "delay": 1, "result": "You carefully lift the lid…"}},
+                {"label": "Leave it sealed on the shelf",
+                 "outcome": {"morale": 4, "resolve": True, "result": "Some things are better left unopened. The humming from their unit stops that night."}}]},
+            "open_box": {"auto": True, "roll": [
+                {"weight": 60, "text": "Inside: a neat stack of cash and a card reading 'For your trouble. There will be none.'",
+                 "outcome": {"cash": 1200, "resolve": True}},
+                {"weight": 40, "text": "Inside: an antique brass key that fits no lock you own — and the next morning, the property's every flaw has quietly mended itself.",
+                 "outcome": {"condition": 30, "resolve": True}}]}}},
+    "mystery_request": {
+        "title": "One Small Request", "icon": "🔑",
+        "trigger": {"special": "is_mystery", "weight": 9, "cooldown_days": 45, "min_days_resident": 7},
+        "stages": {"start": {
+            "text": "A single typed line slides under your door: 'Do not enter the basement on the night of the full moon. This is the only thing I will ever ask.'",
+            "choices": [
+                {"label": "Honor the request without question",
+                 "outcome": {"loyalty": 20, "condition": 15, "resolve": True, "result": "You never go down there that night. In return, the unit is impossibly well-kept, and the rent is always early."}},
+                {"label": "Agree, but leave a camera",
+                 "outcome": {"goto": "mystery_cam", "delay": 1, "result": "Curiosity gets the better of you…"}},
+                {"label": "Refuse — it's your property",
+                 "outcome": {"morale": -6, "resolve": True, "result": "The reply is a single word, slid back under the door: 'Pity.' The humming grows louder for a week."}}]},
+            "mystery_cam": {"auto": True, "roll": [
+                {"weight": 50, "text": "The footage is nothing but static from dusk to dawn. The camera is, afterward, mysteriously polished.",
+                 "outcome": {"condition": 10, "resolve": True}},
+                {"weight": 50, "text": "The camera simply won't record that night. You decide not to try again.",
+                 "outcome": {"morale": 2, "resolve": True}}]}}},
+    "mystery_offer": {
+        "title": "The Standing Offer", "icon": "🌑",
+        "trigger": {"special": "is_mystery", "weight": 8, "cooldown_days": 50, "min_days_resident": 21},
+        "stages": {"start": {
+            "text": "An envelope appears, heavier than it should be. Inside: a great deal of cash and a note offering to extend the lease 'indefinitely, on the current terms.' No signature.",
+            "choices": [
+                {"label": "Accept the indefinite lease (+$1,500)",
+                 "outcome": {"cash": 1500, "loyalty": 20, "resolve": True, "result": "You shake a hand you never quite see. The arrangement is, in every way, ideal."}},
+                {"label": "Accept the cash, keep it lease-to-lease",
+                 "outcome": {"cash": 1500, "morale": 4, "resolve": True, "result": "They seem to expect this. The note vanishes from your hand."}},
+                {"label": "Return the envelope unopened",
+                 "outcome": {"morale": -2, "resolve": True, "result": "It's gone by morning, along with any memory of strange humming. The rent still arrives, early as ever."}}]}}},
+
+    # ── Converted requests (now branching) ─────────────────────────────────────
+    "duck": {
+        "title": "The Duck", "icon": "🦆",
+        "trigger": {"weight": 4, "cooldown_days": 84, "min_days_resident": 14},
+        "stages": {
+            "start": {
+                "text": "{name} would like to keep a duck. Just one duck, they promise. A single, solitary duck.",
+                "choices": [
+                    {"label": "…Fine. One duck.",
+                     "outcome": {"morale": 12, "flag": {"has_duck": True}, "goto": "more_ducks", "delay": 21,
+                                 "result": "The duck has a name. The duck has a little ramp. The duck seems content."}},
+                    {"label": "Allow it — cleaning deposit ($250)",
+                     "outcome": {"cash": 250, "morale": 8, "flag": {"has_duck": True}, "resolve": True,
+                                 "result": "Deposit in hand. The duck is, against all odds, impeccably behaved."}},
+                    {"label": "Absolutely not",
+                     "outcome": {"morale": -8, "resolve": True,
+                                 "result": "They're crushed. The duck, you imagine, is also crushed."}},
+                ],
+            },
+            "more_ducks": {"auto": True, "roll": [
+                {"weight": 55, "text": "It was never one duck. There are now several ducks at {prop}. There is a kiddie pool.",
+                 "outcome": {"condition": -18, "morale": 4, "resolve": True}},
+                {"weight": 45, "text": "{name} kept their word — it really was just the one duck, and it's basically a mascot now.",
+                 "outcome": {"morale": 6, "loyalty": 5, "resolve": True}},
+            ]},
+        },
+    },
+    "chickens": {
+        "title": "Backyard Chickens", "icon": "🐔",
+        "trigger": {"weight": 4, "cooldown_days": 84, "min_days_resident": 14},
+        "stages": {
+            "start": {
+                "text": "{name} wants to keep backyard chickens. 'Fresh eggs!' they say, eyes shining.",
+                "choices": [
+                    {"label": "Sure — keep them in the yard",
+                     "outcome": {"morale": 10, "damage_chance_add": 0.06, "goto": "egg_returns", "delay": 18,
+                                 "result": "A modest coop appears. The neighborhood roosters now have competition."}},
+                    {"label": "No livestock, sorry",
+                     "outcome": {"morale": -7, "resolve": True,
+                                 "result": "No eggs for you, then. Or for them."}},
+                ],
+            },
+            "egg_returns": {"auto": True, "roll": [
+                {"weight": 50, "text": "{name} keeps leaving fresh eggs at your door — lovely — but the coop's done a number on the yard.",
+                 "outcome": {"condition": -22, "morale": 5, "loyalty": 6, "resolve": True}},
+                {"weight": 50, "text": "The chickens are a tidy little operation, and {name} sends the occasional dozen eggs your way.",
+                 "outcome": {"morale": 6, "resolve": True}},
+            ]},
+        },
+    },
+
+    # ── Batch 1: trait-driven situations ───────────────────────────────────────
+    "noise_war": {
+        "title": "Noise War", "icon": "🔊",
+        "trigger": {"traits": ["rowdy"], "weight": 6, "cooldown_days": 60, "min_days_resident": 14},
+        "stages": {
+            "start": {
+                "text": "The neighbors are filing complaints about late-night noise from {prop}.",
+                "choices": [
+                    {"label": "Have a friendly word with them",
+                     "outcome": {"morale": -2, "goto": "talk", "delay": 3, "result": "You stop by to talk it out."}},
+                    {"label": "Hire a mediator ($200)", "cost": {"cash": 200},
+                     "outcome": {"morale": 2, "resolve": True, "result": "A neutral third party smooths it over. Peace restored."}},
+                    {"label": "Stay out of it",
+                     "outcome": {"goto": "escalate", "delay": 10, "result": "Not your circus. Probably fine."}},
+                ],
+            },
+            "talk": {"auto": True, "roll": [
+                {"weight": 60, "text": "{name} took the hint and dialed it back.", "outcome": {"morale": 3, "loyalty": 4, "resolve": True}},
+                {"weight": 40, "text": "{name} promised to behave… and didn't.", "outcome": {"goto": "escalate", "delay": 7}},
+            ]},
+            "escalate": {"auto": True, "roll": [
+                {"weight": 55, "text": "The city slapped a noise citation on {prop}.", "outcome": {"cash": -400, "morale": -8, "resolve": True}},
+                {"weight": 45, "text": "A neighbor moved out and blamed your tenant. Awkward.", "outcome": {"morale": -5, "resolve": True}},
+            ]},
+        },
+    },
+    "handy_helper": {
+        "title": "The Handy Tenant", "icon": "🔧",
+        "trigger": {"traits": ["handy"], "weight": 6, "cooldown_days": 70, "min_days_resident": 21},
+        "stages": {"start": {
+            "text": "{name} offers to renovate the place themselves over a weekend — for a small rent break.",
+            "choices": [
+                {"label": "Deal — comp a week's rent", "cost": {"cash_weeks": 1},
+                 "outcome": {"condition": 25, "loyalty": 10, "resolve": True, "result": "Pro-grade work for a week's rent. Steal of a deal."}},
+                {"label": "Just buy the materials ($250)", "cost": {"cash": 250},
+                 "outcome": {"condition": 30, "morale": 6, "resolve": True, "result": "They do the labor; the place looks fantastic."}},
+                {"label": "Thanks, but no",
+                 "outcome": {"morale": -3, "resolve": True, "result": "They shrug and fix the squeaky door anyway."}},
+            ]}},
+    },
+    "garden_takeover": {
+        "title": "Garden Takeover", "icon": "🌱",
+        "trigger": {"traits": ["green_thumb"], "weight": 6, "cooldown_days": 70, "min_days_resident": 21},
+        "stages": {"start": {
+            "text": "{name} wants to transform the tired yard into a proper garden.",
+            "choices": [
+                {"label": "Go for it",
+                 "outcome": {"condition": 12, "morale": 8, "resolve": True, "result": "The curb appeal is unreal. Neighbors keep stopping to look."}},
+                {"label": "Chip in for supplies ($150)", "cost": {"cash": 150},
+                 "outcome": {"condition": 20, "loyalty": 8, "resolve": True, "result": "A showpiece garden. Worth every dollar."}},
+                {"label": "Keep the yard as-is",
+                 "outcome": {"morale": -5, "resolve": True, "result": "They settle for a few pots on the porch."}},
+            ]}},
+    },
+    "the_haggle": {
+        "title": "The Haggle", "icon": "💰",
+        "trigger": {"traits": ["penny"], "weight": 6, "cooldown_days": 56, "min_days_resident": 14},
+        "stages": {"start": {
+            "text": "{name} is making a case for a rent reduction — and they've brought a spreadsheet.",
+            "choices": [
+                {"label": "Hold firm",
+                 "outcome": {"morale": -4, "resolve": True, "result": "They grumble, but they're not going anywhere over it."}},
+                {"label": "Small cut to keep the peace (-3%)",
+                 "outcome": {"rent_mult": 0.97, "morale": 8, "loyalty": 10, "resolve": True, "result": "A tiny discount buys a lot of goodwill."}},
+                {"label": "Trade a chore for a break",
+                 "outcome": {"condition": 8, "morale": 6, "resolve": True, "result": "They take on some upkeep in exchange. Win-win."}},
+            ]}},
+    },
+    "the_report": {
+        "title": "The Detailed Report", "icon": "🏠",
+        "trigger": {"traits": ["homebody"], "weight": 6, "cooldown_days": 56, "min_days_resident": 14},
+        "stages": {
+            "start": {
+                "text": "{name} hands you a meticulous list of three things 'starting to go' around the property.",
+                "choices": [
+                    {"label": "Fix all of it now ($350)", "cost": {"cash": 350},
+                     "outcome": {"condition": 15, "morale": 8, "loyalty": 6, "resolve": True, "result": "Caught early, all minor. They feel heard."}},
+                    {"label": "Handle the urgent one yourself",
+                     "outcome": {"condition": 5, "morale": 3, "resolve": True, "result": "You take care of the worst of it."}},
+                    {"label": "Tell them it's fine",
+                     "outcome": {"morale": -4, "goto": "ignored", "delay": 14, "result": "You wave it off."}},
+                ],
+            },
+            "ignored": {"auto": True, "roll": [
+                {"weight": 60, "text": "One of those little issues at {prop} became a real repair.", "outcome": {"condition": -20, "resolve": True}},
+                {"weight": 40, "text": "{name} quietly fixed it themselves and said nothing. The look says everything.", "outcome": {"morale": -6, "loyalty": -6, "resolve": True}},
+            ]},
+        },
+    },
+    "the_studio": {
+        "title": "The Home Studio", "icon": "🎨",
+        "trigger": {"traits": ["creative"], "weight": 6, "cooldown_days": 70, "min_days_resident": 21},
+        "stages": {"start": {
+            "text": "{name} wants to turn the spare room into a studio — soundproofing, easels, the works.",
+            "choices": [
+                {"label": "Sure, get creative",
+                 "outcome": {"morale": 10, "damage_chance_add": 0.06, "resolve": True, "result": "Paint everywhere, but they're inspired and happy."}},
+                {"label": "Allow it — $300 deposit",
+                 "outcome": {"cash": 300, "morale": 6, "damage_chance_add": 0.04, "resolve": True, "result": "Deposit covers the inevitable. They get to work."}},
+                {"label": "Not in this unit",
+                 "outcome": {"morale": -7, "resolve": True, "result": "They set up a corner easel instead, deflated."}},
+            ]}},
+    },
+    "growing_family": {
+        "title": "Growing Family", "icon": "👶",
+        "trigger": {"traits": ["big_family"], "weight": 6, "cooldown_days": 84, "min_days_resident": 21},
+        "stages": {
+            "start": {
+                "text": "The family is growing — {name} asks if a grandparent can move in to help out.",
+                "choices": [
+                    {"label": "Of course — family first",
+                     "outcome": {"loyalty": 18, "morale": 8, "damage_chance_add": 0.03, "goto": "settled", "delay": 21, "result": "Three generations under one roof now."}},
+                    {"label": "Adjust the lease (+10% rent)",
+                     "outcome": {"rent_mult": 1.10, "morale": 2, "resolve": True, "result": "More people, fair bump. They agree it's reasonable."}},
+                    {"label": "Sorry — occupancy limits",
+                     "outcome": {"morale": -9, "loyalty": -6, "resolve": True, "result": "They're hurt. Grandma stays across town."}},
+                ],
+            },
+            "settled": {"auto": True, "roll": [
+                {"weight": 60, "text": "Grandma fixed the porch and bakes for the whole street. Best tenants ever.", "outcome": {"condition": 10, "loyalty": 8, "resolve": True}},
+                {"weight": 40, "text": "A full house means more wear at {prop}.", "outcome": {"condition": -12, "resolve": True}},
+            ]},
+        },
+    },
+    "commit_offer": {
+        "title": "Pay Ahead", "icon": "🎯",
+        "trigger": {"traits": ["reliable"], "weight": 5, "cooldown_days": 70, "min_days_resident": 21},
+        "stages": {"start": {
+            "text": "{name}, ever reliable, offers to commit to a longer stay if you'll trim the rent a touch.",
+            "choices": [
+                {"label": "Deal — small discount (-2%)",
+                 "outcome": {"rent_mult": 0.98, "loyalty": 12, "morale": 6, "resolve": True, "result": "Locked-in income and a thrilled tenant."}},
+                {"label": "Appreciate it, but no discount",
+                 "outcome": {"morale": -2, "resolve": True, "result": "They pay on time regardless, as always."}},
+            ]}},
+    },
+    "new_roommate": {
+        "title": "The Roommate", "icon": "🛋️",
+        "trigger": {"weight": 5, "cooldown_days": 70, "min_days_resident": 21},
+        "stages": {"start": {
+            "text": "{name} wants to bring on a roommate to split costs.",
+            "choices": [
+                {"label": "Fine — bump the rent (+8%)",
+                 "outcome": {"rent_mult": 1.08, "damage_chance_add": 0.03, "morale": 2, "resolve": True, "result": "Two tenants, more rent, a bit more wear."}},
+                {"label": "Allow it, no change",
+                 "outcome": {"morale": 8, "loyalty": 6, "damage_chance_add": 0.04, "resolve": True, "result": "They're grateful you kept it simple."}},
+                {"label": "One name on the lease only",
+                 "outcome": {"morale": -6, "resolve": True, "result": "They drop it, a little put out."}},
+            ]}},
+    },
+    "the_promotion": {
+        "title": "The Promotion", "icon": "📈",
+        "trigger": {"weight": 5, "cooldown_days": 84, "min_days_resident": 28, "min_morale": 40},
+        "stages": {
+            "start": {
+                "text": "{name} just landed a big promotion and is in a celebrating mood.",
+                "choices": [
+                    {"label": "Congratulate them warmly",
+                     "outcome": {"morale": 10, "loyalty": 8, "resolve": True, "result": "A little kindness goes a long way."}},
+                    {"label": "Gently float a small raise (+5%)",
+                     "outcome": {"goto": "raise_ask", "delay": 1, "result": "You bring up the rent…"}},
+                    {"label": "Send a bottle of champagne ($60)", "cost": {"cash": 60},
+                     "outcome": {"morale": 12, "loyalty": 12, "resolve": True, "result": "They're genuinely touched."}},
+                ],
+            },
+            "raise_ask": {"auto": True, "roll": [
+                {"weight": 60, "text": "Flush with the new salary, {name} accepts the bump.", "outcome": {"rent_mult": 1.05, "morale": -3, "resolve": True}},
+                {"weight": 40, "text": "{name} politely declines — 'bad timing.'", "outcome": {"morale": -4, "resolve": True}},
+            ]},
+        },
+    },
+    # ── Batch 2: life events ───────────────────────────────────────────────────
+    "new_baby": {"title": "A New Arrival", "icon": "👶", "trigger": {"weight": 5, "cooldown_days": 120, "min_days_resident": 28}, "stages": {"start": {"text": "{name} is expecting a baby and is over the moon about it.", "choices": [
+        {"label": "Send a gift basket ($80)", "cost": {"cash": 80}, "outcome": {"morale": 10, "loyalty": 14, "resolve": True, "result": "They're touched you remembered."}},
+        {"label": "Offer to repaint a nursery", "cost": {"cash": 250}, "outcome": {"condition": 6, "morale": 12, "loyalty": 10, "resolve": True, "result": "A fresh little nursery. They'll stay for years."}},
+        {"label": "Congratulate them and move on", "outcome": {"morale": 4, "resolve": True, "result": "Warm wishes, nothing more."}}]}}},
+    "breakup": {"title": "The Breakup", "icon": "💔", "trigger": {"weight": 5, "cooldown_days": 120, "min_days_resident": 21}, "stages": {"start": {"text": "{name} is going through a rough breakup — one of the couple is moving out.", "choices": [
+        {"label": "Keep the lease as-is", "outcome": {"morale": -3, "resolve": True, "result": "They'll manage the rent alone, somehow."}},
+        {"label": "Check in and be kind", "outcome": {"morale": 8, "loyalty": 10, "resolve": True, "result": "A little compassion goes a long way."}},
+        {"label": "Trim the rent while they regroup (-4%)", "outcome": {"rent_mult": 0.96, "morale": 12, "loyalty": 12, "resolve": True, "result": "They won't forget the kindness."}}]}}},
+    "retirement": {"title": "Retirement", "icon": "🌅", "trigger": {"weight": 5, "cooldown_days": 120, "min_days_resident": 60}, "stages": {"start": {"text": "{name} is retiring and would love to settle in here for the long haul.", "choices": [
+        {"label": "Offer a long-stay discount (-2%)", "outcome": {"rent_mult": 0.98, "loyalty": 18, "morale": 10, "resolve": True, "result": "A loyal, low-maintenance tenant for years to come."}},
+        {"label": "Keep terms the same", "outcome": {"loyalty": 6, "resolve": True, "result": "They're staying regardless."}},
+        {"label": "Send a retirement gift ($100)", "cost": {"cash": 100}, "outcome": {"loyalty": 14, "morale": 10, "resolve": True, "result": "They're delighted."}}]}}},
+    "job_relocation": {"title": "The Job Offer", "icon": "✈️", "trigger": {"weight": 5, "cooldown_days": 120, "min_days_resident": 28}, "stages": {
+        "start": {"text": "{name} got a job offer in another city and is genuinely torn about leaving.", "choices": [
+            {"label": "Offer an incentive to stay (-5%)", "outcome": {"rent_mult": 0.95, "morale": 8, "goto": "decide", "delay": 7, "result": "You make a case for staying…"}},
+            {"label": "Wish them well", "outcome": {"goto": "decide_low", "delay": 7, "result": "You tell them to do what's best."}},
+            {"label": "Help with a glowing reference", "outcome": {"loyalty": 10, "goto": "decide", "delay": 7, "result": "You write them a great reference either way."}}]},
+        "decide": {"auto": True, "roll": [
+            {"weight": 60, "text": "{name} decided to stay after all.", "outcome": {"loyalty": 8, "resolve": True}},
+            {"weight": 40, "text": "{name} took the job and gave proper notice.", "outcome": {"leave": True}}]},
+        "decide_low": {"auto": True, "roll": [
+            {"weight": 65, "text": "{name} took the new job and moved on.", "outcome": {"leave": True}},
+            {"weight": 35, "text": "It fell through — {name} is staying put.", "outcome": {"morale": 4, "resolve": True}}]}}},
+    "lottery": {"title": "Lucky Numbers", "icon": "🍀", "trigger": {"weight": 4, "cooldown_days": 150, "min_days_resident": 21}, "stages": {
+        "start": {"text": "{name} won a modest lottery prize and is feeling generous.", "choices": [
+            {"label": "Accept a thank-you tip", "outcome": {"cash": 500, "morale": 6, "resolve": True, "result": "They slip you $500 'for being a decent landlord.'"}},
+            {"label": "Suggest they invest it", "outcome": {"goto": "invest", "delay": 21, "result": "You give some sage advice…"}},
+            {"label": "Congratulate them", "outcome": {"morale": 6, "resolve": True, "result": "Good for them."}}]},
+        "invest": {"auto": True, "roll": [
+            {"weight": 50, "text": "{name} used the winnings as a down payment — and gave notice.", "outcome": {"leave": True}},
+            {"weight": 50, "text": "{name} blew it on a hot tub for the patio. Surprisingly, you don't mind.", "outcome": {"morale": 6, "condition": 4, "resolve": True}}]}}},
+    "health_scare": {"title": "Health Scare", "icon": "🩺", "trigger": {"weight": 5, "cooldown_days": 120, "min_days_resident": 21}, "stages": {"start": {"text": "{name} had a health scare and needs a few accessibility fixes — a grab bar, better lighting.", "choices": [
+        {"label": "Install everything ($300)", "cost": {"cash": 300}, "outcome": {"condition": 8, "morale": 14, "loyalty": 16, "resolve": True, "result": "They're moved that you cared. A tenant for life."}},
+        {"label": "Offer a credit to DIY ($120)", "cost": {"cash": 120}, "outcome": {"morale": 8, "loyalty": 6, "resolve": True, "result": "They handle it with the credit."}},
+        {"label": "Say it's not your responsibility", "outcome": {"morale": -14, "loyalty": -10, "resolve": True, "result": "Cold. They won't forget it."}}]}}},
+    "back_to_school": {"title": "Back to School", "icon": "🎓", "trigger": {"weight": 4, "cooldown_days": 120, "min_days_resident": 21}, "stages": {"start": {"text": "{name} enrolled in night school and money's a little tighter now.", "choices": [
+        {"label": "Temporary discount (-4%)", "outcome": {"rent_mult": 0.96, "morale": 10, "loyalty": 10, "resolve": True, "result": "They'll repay the faith."}},
+        {"label": "Offer flexible due dates", "outcome": {"morale": 6, "pay_chance": -0.02, "resolve": True, "result": "A little breathing room helps."}},
+        {"label": "Hold firm on terms", "outcome": {"morale": -5, "resolve": True, "result": "They tighten the budget and manage."}}]}}},
+    "home_business": {"title": "The Side Hustle", "icon": "💻", "trigger": {"weight": 5, "cooldown_days": 100, "min_days_resident": 28}, "stages": {"start": {"text": "{name} quit their job to run a small business out of the unit.", "choices": [
+        {"label": "Support the dream", "outcome": {"morale": 10, "damage_chance_add": 0.04, "resolve": True, "result": "Boxes and ring lights everywhere, but they're thriving."}},
+        {"label": "Allow it — light commercial bump (+6%)", "outcome": {"rent_mult": 1.06, "morale": 2, "resolve": True, "result": "Fair, given the extra use. They agree."}},
+        {"label": "No businesses in a residential unit", "outcome": {"morale": -8, "resolve": True, "result": "They rent a co-working desk instead, grumbling."}}]}}},
+    "moving_in_partner": {"title": "Moving In Together", "icon": "💕", "trigger": {"weight": 5, "cooldown_days": 90, "min_days_resident": 21}, "stages": {"start": {"text": "{name} wants their partner to move in.", "choices": [
+        {"label": "Add them to the lease (+8%)", "outcome": {"rent_mult": 1.08, "damage_chance_add": 0.02, "morale": 4, "resolve": True, "result": "Two on the lease, fair bump."}},
+        {"label": "Welcome them, no change", "outcome": {"morale": 10, "loyalty": 8, "damage_chance_add": 0.03, "resolve": True, "result": "They're thrilled you made it easy."}},
+        {"label": "One leaseholder only", "outcome": {"morale": -7, "resolve": True, "result": "A frosty 'understood.'"}}]}}},
+    "rescue_animals": {"title": "Foster Fails", "icon": "🐾", "trigger": {"weight": 4, "cooldown_days": 100, "min_days_resident": 21}, "stages": {"start": {"text": "{name} fosters rescue animals and asks to keep a few at the unit for a while.", "choices": [
+        {"label": "Allow it", "outcome": {"morale": 10, "damage_chance_add": 0.07, "resolve": True, "result": "The place is a menagerie, but a happy one."}},
+        {"label": "Allow it with a deposit ($300)", "outcome": {"cash": 300, "morale": 6, "damage_chance_add": 0.04, "resolve": True, "result": "Deposit covers the chaos."}},
+        {"label": "Just one or two", "outcome": {"morale": 2, "damage_chance_add": 0.02, "resolve": True, "result": "A reasonable compromise."}}]}}},
+    "tenant_anniversary": {"title": "One Year In", "icon": "🎂", "trigger": {"weight": 5, "cooldown_days": 200, "min_days_resident": 60}, "stages": {"start": {"text": "{name} leaves a kind note marking a year (or more) of renting from you.", "choices": [
+        {"label": "Reciprocate with a small gift ($60)", "cost": {"cash": 60}, "outcome": {"loyalty": 16, "morale": 10, "resolve": True, "result": "A lovely little tradition begins."}},
+        {"label": "Write a heartfelt note back", "outcome": {"loyalty": 10, "morale": 8, "resolve": True, "result": "Sometimes words are enough."}},
+        {"label": "Let it pass", "outcome": {"morale": -2, "resolve": True, "result": "A missed moment, but no harm done."}}]}}},
+    "family_visit": {"title": "Relatives in Town", "icon": "🧳", "trigger": {"weight": 5, "cooldown_days": 80, "min_days_resident": 14}, "stages": {"start": {"text": "{name}'s relatives are visiting and staying at the unit for a month.", "choices": [
+        {"label": "No problem at all", "outcome": {"morale": 8, "resolve": True, "result": "A full, happy house for a few weeks."}},
+        {"label": "Ask for a small occupancy fee ($150)", "outcome": {"cash": 150, "morale": -2, "resolve": True, "result": "They pay it, a touch surprised."}},
+        {"label": "Remind them of guest limits", "outcome": {"morale": -6, "resolve": True, "result": "The relatives get a hotel. Tension lingers."}}]}}},
+    "new_job_upgrade": {"title": "Moving Up", "icon": "📈", "trigger": {"weight": 4, "cooldown_days": 120, "min_days_resident": 28, "min_morale": 45}, "stages": {"start": {"text": "{name} landed a great job and is eyeing nicer places — but loves it here.", "choices": [
+        {"label": "Make the case to stay", "outcome": {"loyalty": 10, "morale": 6, "resolve": True, "result": "Loyalty wins out — they re-commit."}},
+        {"label": "Propose a modest raise (+4%)", "outcome": {"rent_mult": 1.04, "morale": -2, "resolve": True, "result": "They can afford it now and agree."}},
+        {"label": "Wish them well if they go", "outcome": {"morale": 2, "resolve": True, "result": "No pressure. They appreciate it."}}]}}},
+    "midlife_motorcycle": {"title": "The Motorcycle", "icon": "🏍️", "trigger": {"weight": 4, "cooldown_days": 100, "min_days_resident": 21}, "stages": {"start": {"text": "{name} bought a motorcycle and wants to store it inside over winter.", "choices": [
+        {"label": "Sure, in the garage", "outcome": {"morale": 8, "damage_chance_add": 0.03, "resolve": True, "result": "Oil stains, but a happy tenant."}},
+        {"label": "Charge a storage fee ($200)", "outcome": {"cash": 200, "morale": 2, "resolve": True, "result": "Fair's fair. They pay up."}},
+        {"label": "Outdoor parking only", "outcome": {"morale": -4, "resolve": True, "result": "It gets a tarp and a sad corner of the lot."}}]}}},
+    "newlyweds": {"title": "The Engagement", "icon": "💍", "trigger": {"weight": 4, "cooldown_days": 150, "min_days_resident": 21}, "stages": {"start": {"text": "{name} just got engaged and wants to host a small engagement party at the place.", "choices": [
+        {"label": "Of course — congrats!", "outcome": {"morale": 10, "damage_chance_add": 0.04, "resolve": True, "result": "A joyful night. Minor wear, major goodwill."}},
+        {"label": "Fine, with a cleaning deposit ($150)", "outcome": {"cash": 150, "morale": 6, "resolve": True, "result": "Deposit secured, party approved."}},
+        {"label": "Keep it small, please", "outcome": {"morale": -3, "resolve": True, "result": "A quiet toast instead."}}]}}},
+    "remote_upgrade": {"title": "Work-From-Home Woes", "icon": "🖥️", "trigger": {"weight": 5, "cooldown_days": 90, "min_days_resident": 21}, "stages": {"start": {"text": "{name} works from home now and the unit's wiring and AC aren't keeping up.", "choices": [
+        {"label": "Upgrade it properly ($400)", "cost": {"cash": 400}, "outcome": {"condition": 12, "morale": 10, "loyalty": 8, "resolve": True, "result": "A pro setup. They'll renew without blinking."}},
+        {"label": "Split the cost with them ($150)", "cost": {"cash": 150}, "outcome": {"condition": 6, "morale": 6, "resolve": True, "result": "A fair compromise."}},
+        {"label": "Suggest a co-working space", "outcome": {"morale": -6, "resolve": True, "result": "They're not impressed."}}]}}},
+    "empty_nest": {"title": "Empty Nest", "icon": "🪺", "trigger": {"weight": 4, "cooldown_days": 150, "min_days_resident": 60}, "stages": {"start": {"text": "{name}'s kids have moved out and the place suddenly feels too big and too quiet.", "choices": [
+        {"label": "Check in warmly", "outcome": {"morale": 8, "loyalty": 8, "resolve": True, "result": "They appreciate being seen."}},
+        {"label": "Suggest taking in a boarder", "outcome": {"goto": "boarder", "delay": 14, "result": "You float the idea of renting a room out."}},
+        {"label": "Leave them to it", "outcome": {"resolve": True, "result": "They'll adjust in time."}}]},
+        "boarder": {"auto": True, "roll": [
+            {"weight": 55, "text": "{name} took in a lovely boarder and feels alive again.", "outcome": {"morale": 8, "loyalty": 6, "resolve": True}},
+            {"weight": 45, "text": "The boarder didn't work out and left a mess.", "outcome": {"condition": -10, "morale": -4, "resolve": True}}]}}},
+    # ── Batch 3: property & neighbor drama ─────────────────────────────────────
+    "parking_dispute": {"title": "Parking Wars", "icon": "🅿️", "trigger": {"weight": 5, "cooldown_days": 70, "min_days_resident": 14}, "stages": {
+        "start": {"text": "A neighbor keeps parking in {name}'s assigned spot, and tempers are flaring.", "choices": [
+            {"label": "Paint the spot number clearly ($60)", "cost": {"cash": 60}, "outcome": {"morale": 6, "resolve": True, "result": "A little paint settles it."}},
+            {"label": "Talk to the neighbor", "outcome": {"goto": "talk", "delay": 4, "result": "You go have a word."}},
+            {"label": "Tell them to sort it out", "outcome": {"morale": -6, "resolve": True, "result": "They're annoyed you won't help."}}]},
+        "talk": {"auto": True, "roll": [{"weight": 65, "text": "The neighbor apologized and stopped.", "outcome": {"morale": 5, "loyalty": 4, "resolve": True}}, {"weight": 35, "text": "It turned into a shouting match in the lot.", "outcome": {"morale": -6, "resolve": True}}]}}},
+    "package_thief": {"title": "Porch Pirate", "icon": "📦", "trigger": {"weight": 5, "cooldown_days": 70, "min_days_resident": 14}, "stages": {"start": {"text": "{name}'s packages keep vanishing off the porch.", "choices": [
+        {"label": "Install a doorbell camera ($120)", "cost": {"cash": 120}, "outcome": {"condition": 3, "morale": 8, "resolve": True, "result": "Thefts stop overnight. They feel safe."}},
+        {"label": "Suggest a parcel locker", "outcome": {"morale": 3, "resolve": True, "result": "A decent workaround."}},
+        {"label": "Not your problem", "outcome": {"morale": -7, "resolve": True, "result": "They start having things shipped to work."}}]}}},
+    "pest_problem": {"title": "Uninvited Guests", "icon": "🪳", "trigger": {"weight": 5, "cooldown_days": 60, "min_days_resident": 14}, "stages": {
+        "start": {"text": "{name} reports a pest problem creeping in.", "choices": [
+            {"label": "Call an exterminator ($300)", "cost": {"cash": 300}, "outcome": {"condition": 6, "morale": 8, "resolve": True, "result": "Handled professionally. Crisis averted."}},
+            {"label": "Drop off traps and spray ($40)", "cost": {"cash": 40}, "outcome": {"morale": 2, "goto": "linger", "delay": 14, "result": "A cheap first attempt."}},
+            {"label": "Tell them to keep it cleaner", "outcome": {"morale": -8, "goto": "linger", "delay": 14, "result": "You imply it's their fault."}}]},
+        "linger": {"auto": True, "roll": [{"weight": 55, "text": "The infestation spread before it was dealt with.", "outcome": {"condition": -18, "morale": -8, "resolve": True}}, {"weight": 45, "text": "The traps did the trick after all.", "outcome": {"morale": 2, "resolve": True}}]}}},
+    "ac_breakdown": {"title": "Heat Wave", "icon": "🥵", "trigger": {"weight": 5, "cooldown_days": 70, "min_days_resident": 7, "season": 1}, "stages": {"start": {"text": "The AC died during a brutal heat wave and {name} is miserable.", "choices": [
+        {"label": "Emergency repair, today ($500)", "cost": {"cash": 500}, "outcome": {"condition": 8, "morale": 12, "loyalty": 8, "resolve": True, "result": "Cool air by evening. They're grateful."}},
+        {"label": "Drop off window units ($150)", "cost": {"cash": 150}, "outcome": {"morale": 4, "resolve": True, "result": "Not elegant, but it works."}},
+        {"label": "It'll get scheduled eventually", "outcome": {"morale": -16, "resolve": True, "result": "Three sweltering days. They are furious."}}]}}},
+    "storm_branch": {"title": "Storm Damage", "icon": "🌬️", "trigger": {"weight": 4, "cooldown_days": 90, "min_days_resident": 7}, "stages": {"start": {"text": "A storm dropped a heavy branch on the property.", "choices": [
+        {"label": "Full removal + cleanup ($350)", "cost": {"cash": 350}, "outcome": {"condition": 6, "morale": 6, "resolve": True, "result": "Cleared and tidy by the weekend."}},
+        {"label": "Quick clear, deal with the rest later ($100)", "cost": {"cash": 100}, "outcome": {"morale": 2, "resolve": True, "result": "Good enough for now."}},
+        {"label": "Leave it", "outcome": {"condition": -10, "morale": -5, "resolve": True, "result": "The yard's a mess and the tenant's embarrassed."}}]}}},
+    "basement_flood": {"title": "Basement Flood", "icon": "🌊", "trigger": {"weight": 4, "cooldown_days": 90, "min_days_resident": 14, "min_condition": 30}, "stages": {
+        "start": {"text": "Heavy rain flooded the basement at {prop}.", "choices": [
+            {"label": "Pump, dry, and restore ($600)", "cost": {"cash": 600}, "outcome": {"condition": 10, "morale": 8, "resolve": True, "result": "Fully restored, no lasting damage."}},
+            {"label": "Pump it and hope ($150)", "cost": {"cash": 150}, "outcome": {"goto": "mold_risk", "delay": 18, "result": "Water's gone, dampness remains."}},
+            {"label": "Let it dry on its own", "outcome": {"condition": -12, "morale": -8, "goto": "mold_risk", "delay": 14, "result": "You leave it to nature."}}]},
+        "mold_risk": {"auto": True, "roll": [{"weight": 55, "text": "Mold took hold in the damp basement.", "outcome": {"condition": -22, "morale": -10, "resolve": True}}, {"weight": 45, "text": "It dried out fine in the end.", "outcome": {"resolve": True}}]}}},
+    "roof_leak": {"title": "Ceiling Stain", "icon": "🏠", "trigger": {"weight": 4, "cooldown_days": 80, "min_days_resident": 14}, "stages": {"start": {"text": "A brown stain is spreading across {name}'s ceiling — the roof's leaking.", "choices": [
+        {"label": "Reroof the section ($800)", "cost": {"cash": 800}, "outcome": {"condition": 18, "morale": 8, "resolve": True, "result": "Done right. No more leaks."}},
+        {"label": "Patch it for now ($150)", "cost": {"cash": 150}, "outcome": {"condition": 4, "morale": 3, "resolve": True, "result": "Holds for this season, at least."}},
+        {"label": "Put a bucket under it", "outcome": {"condition": -16, "morale": -10, "resolve": True, "result": "The stain — and the smell — only grow."}}]}}},
+    "neighbor_feud": {"title": "Neighbor Feud", "icon": "😠", "trigger": {"weight": 4, "cooldown_days": 70, "min_days_resident": 21}, "stages": {"start": {"text": "{name} is locked in a petty, escalating feud with the next-door neighbor.", "choices": [
+        {"label": "Mediate between them", "outcome": {"morale": 6, "loyalty": 4, "resolve": True, "result": "You broker an uneasy peace."}},
+        {"label": "Stay strictly neutral", "outcome": {"resolve": True, "result": "Not your fight. It eventually fizzles."}},
+        {"label": "Take your tenant's side loudly", "outcome": {"morale": 10, "goto": "fallout", "delay": 10, "result": "You back them to the hilt."}}]},
+        "fallout": {"auto": True, "roll": [{"weight": 50, "text": "Your tenant adores you for it; the neighbor complains to the city.", "outcome": {"loyalty": 8, "cash": -200, "resolve": True}}, {"weight": 50, "text": "It blew over and everyone moved on.", "outcome": {"resolve": True}}]}}},
+    "graffiti": {"title": "Tagged", "icon": "🎨", "trigger": {"weight": 4, "cooldown_days": 70, "min_days_resident": 7}, "stages": {"start": {"text": "Someone tagged the exterior wall with graffiti overnight.", "choices": [
+        {"label": "Repaint the wall ($200)", "cost": {"cash": 200}, "outcome": {"condition": 6, "morale": 4, "resolve": True, "result": "Gone by morning. Curb appeal restored."}},
+        {"label": "Pressure-wash it ($50)", "cost": {"cash": 50}, "outcome": {"condition": 2, "resolve": True, "result": "Mostly gone — a faint shadow remains."}},
+        {"label": "Leave it as 'urban character'", "outcome": {"condition": -6, "morale": -5, "resolve": True, "result": "The tag invites more tags."}}]}}},
+    "car_breakin": {"title": "Break-In in the Lot", "icon": "🚗", "trigger": {"weight": 4, "cooldown_days": 80, "min_days_resident": 14}, "stages": {"start": {"text": "{name}'s car was broken into in the parking lot.", "choices": [
+        {"label": "Add lighting and a camera ($250)", "cost": {"cash": 250}, "outcome": {"condition": 4, "morale": 8, "loyalty": 6, "resolve": True, "result": "They feel looked-after. No repeat incidents."}},
+        {"label": "Be supportive, file a report together", "outcome": {"morale": 6, "resolve": True, "result": "It helps to feel heard."}},
+        {"label": "Shrug it off", "outcome": {"morale": -8, "goto": "repeat", "delay": 14, "result": "You don't do much."}}]},
+        "repeat": {"auto": True, "roll": [{"weight": 50, "text": "There was a second break-in. {name} is rattled.", "outcome": {"morale": -8, "resolve": True}}, {"weight": 50, "text": "Thankfully, no repeat.", "outcome": {"resolve": True}}]}}},
+    "power_outage": {"title": "The Long Outage", "icon": "🔌", "trigger": {"weight": 4, "cooldown_days": 90, "min_days_resident": 7}, "stages": {"start": {"text": "An extended power outage spoiled everything in {name}'s fridge.", "choices": [
+        {"label": "Reimburse the groceries ($100)", "cost": {"cash": 100}, "outcome": {"morale": 10, "loyalty": 10, "resolve": True, "result": "A small gesture, big goodwill."}},
+        {"label": "Sympathize, but it's the utility's fault", "outcome": {"morale": 2, "resolve": True, "result": "Fair point, mostly accepted."}},
+        {"label": "Not your problem", "outcome": {"morale": -7, "resolve": True, "result": "They disagree, pointedly."}}]}}},
+    "hoa_fine": {"title": "HOA Trouble", "icon": "📋", "trigger": {"weight": 4, "cooldown_days": 80, "min_days_resident": 21}, "stages": {"start": {"text": "The HOA fined you over {name}'s overgrown lawn and 'unapproved' decor.", "choices": [
+        {"label": "Pay it and ask them to tidy up ($250)", "cost": {"cash": 250}, "outcome": {"morale": 2, "condition": 4, "resolve": True, "result": "Smoothed over; they trim the hedges."}},
+        {"label": "Pass the fine to the tenant", "outcome": {"morale": -10, "resolve": True, "result": "Technically fair. They're not happy."}},
+        {"label": "Fight the HOA", "outcome": {"goto": "hoa_fight", "delay": 14, "result": "You take it to the next meeting."}}]},
+        "hoa_fight": {"auto": True, "roll": [{"weight": 50, "text": "You won the appeal — fine waived.", "outcome": {"morale": 4, "resolve": True}}, {"weight": 50, "text": "You lost, and now they're watching you.", "outcome": {"cash": -250, "resolve": True}}]}}},
+    "water_heater": {"title": "Cold Showers", "icon": "🚿", "trigger": {"weight": 5, "cooldown_days": 70, "min_days_resident": 7}, "stages": {"start": {"text": "The water heater quit — {name} has been taking cold showers for two days.", "choices": [
+        {"label": "Replace it ($700)", "cost": {"cash": 700}, "outcome": {"condition": 14, "morale": 10, "resolve": True, "result": "Endless hot water again. Relief all around."}},
+        {"label": "Repair the old one ($200)", "cost": {"cash": 200}, "outcome": {"condition": 4, "morale": 5, "resolve": True, "result": "Patched up — should last a while."}},
+        {"label": "Tell them you'll get to it", "outcome": {"morale": -12, "resolve": True, "result": "Day three of cold showers. They are not amused."}}]}}},
+    "driveway_crack": {"title": "Trip Hazard", "icon": "🧱", "trigger": {"weight": 4, "cooldown_days": 90, "min_days_resident": 21}, "stages": {"start": {"text": "The cracked walkway is becoming a genuine trip hazard.", "choices": [
+        {"label": "Repave it properly ($500)", "cost": {"cash": 500}, "outcome": {"condition": 12, "morale": 4, "resolve": True, "result": "Smooth and safe. One less worry."}},
+        {"label": "Patch the worst cracks ($120)", "cost": {"cash": 120}, "outcome": {"condition": 4, "resolve": True, "result": "Good enough to stop the stumbling."}},
+        {"label": "Put up a 'watch your step' sign", "outcome": {"morale": -4, "goto": "trip", "delay": 21, "result": "A sign'll do, surely."}}]},
+        "trip": {"auto": True, "roll": [{"weight": 40, "text": "A guest tripped and there was talk of liability.", "outcome": {"cash": -400, "morale": -6, "resolve": True}}, {"weight": 60, "text": "Nobody got hurt, thankfully.", "outcome": {"resolve": True}}]}}},
+    "appliance_choice": {"title": "Fridge on the Fritz", "icon": "🧊", "trigger": {"weight": 5, "cooldown_days": 70, "min_days_resident": 14}, "stages": {"start": {"text": "The refrigerator is dying — humming, leaking, barely cold.", "choices": [
+        {"label": "Buy a nice new one ($600)", "cost": {"cash": 600}, "outcome": {"condition": 10, "morale": 8, "resolve": True, "result": "Shiny, quiet, ice-cold. A clear upgrade."}},
+        {"label": "Grab a used replacement ($200)", "cost": {"cash": 200}, "outcome": {"condition": 4, "morale": 3, "resolve": True, "result": "It works. That's what matters."}},
+        {"label": "Tell them to defrost it more", "outcome": {"morale": -8, "resolve": True, "result": "That is not how refrigerators work, and they know it."}}]}}},
+    "noisy_construction": {"title": "Construction Next Door", "icon": "🚧", "trigger": {"weight": 4, "cooldown_days": 80, "min_days_resident": 14}, "stages": {"start": {"text": "A months-long construction project next door is driving {name} up the wall.", "choices": [
+        {"label": "Offer a small rent credit ($100)", "cost": {"cash": 100}, "outcome": {"morale": 10, "loyalty": 8, "resolve": True, "result": "A fair gesture for the disruption."}},
+        {"label": "Drop off some earplugs and sympathy", "outcome": {"morale": 4, "resolve": True, "result": "It's the thought that counts."}},
+        {"label": "Nothing you can do about it", "outcome": {"morale": -6, "resolve": True, "result": "True, but cold comfort."}}]}}},
+    # ── Batch 4: money & lease situations ──────────────────────────────────────
+    "wants_to_buy": {"title": "An Offer to Buy", "icon": "🏷️", "trigger": {"weight": 3, "cooldown_days": 150, "min_days_resident": 60, "min_morale": 55}, "stages": {"start": {"text": "{name} loves the place so much they ask if you'd ever consider selling it to them.", "choices": [
+        {"label": "Not for sale — but I'm flattered", "outcome": {"loyalty": 10, "morale": 6, "resolve": True, "result": "They take it as the compliment it is."}},
+        {"label": "Everything's for sale at a price", "outcome": {"goto": "haggle_buy", "delay": 7, "result": "You name a (high) number."}},
+        {"label": "Offer rent-to-own talk later", "outcome": {"loyalty": 8, "resolve": True, "result": "A maybe is enough to keep them happy."}}]},
+        "haggle_buy": {"auto": True, "roll": [{"weight": 75, "text": "{name} couldn't swing your asking price, but appreciated the honesty.", "outcome": {"morale": 4, "resolve": True}}, {"weight": 25, "text": "{name} got serious about financing — one to revisit.", "outcome": {"loyalty": 6, "resolve": True}}]}}},
+    "late_excuse": {"title": "The Excuse", "icon": "🐕", "trigger": {"weight": 5, "cooldown_days": 50, "min_days_resident": 14}, "stages": {"start": {"text": "Rent's late, and {name} has a truly spectacular excuse involving a dog and a printer.", "choices": [
+        {"label": "Give them grace this once", "outcome": {"morale": 8, "loyalty": 6, "resolve": True, "result": "They pay two days later, mortified and grateful."}},
+        {"label": "Charge the late fee ($50)", "outcome": {"cash": 50, "morale": -5, "resolve": True, "result": "Rules are rules. They pay it."}},
+        {"label": "Firm reminder, no fee", "outcome": {"pay_chance": 0.01, "resolve": True, "result": "Message received. It won't happen again."}}]}}},
+    "early_break": {"title": "Breaking the Lease", "icon": "🚪", "trigger": {"weight": 4, "cooldown_days": 90, "min_days_resident": 21}, "stages": {"start": {"text": "{name} needs to break the lease early and is asking how to handle it.", "choices": [
+        {"label": "Let them go, keep the deposit", "outcome": {"cash": 400, "leave": True, "result": "Clean break. You keep the deposit and re-list."}},
+        {"label": "Negotiate a buyout (+$900)", "outcome": {"cash": 900, "leave": True, "result": "They pay to walk away amicably."}},
+        {"label": "Hold them to the lease", "outcome": {"morale": -10, "resolve": True, "result": "They stay, resentful, counting the days."}}]}}},
+    "deposit_talk": {"title": "Deposit Dispute", "icon": "💵", "trigger": {"weight": 4, "cooldown_days": 80, "min_days_resident": 21}, "stages": {"start": {"text": "{name} is anxious about getting their full deposit back someday and wants reassurance now.", "choices": [
+        {"label": "Promise a fair walkthrough", "outcome": {"morale": 8, "loyalty": 6, "resolve": True, "result": "Transparency buys trust."}},
+        {"label": "Offer a small move-in credit ($75)", "cost": {"cash": 75}, "outcome": {"morale": 6, "loyalty": 4, "resolve": True, "result": "A goodwill gesture lands well."}},
+        {"label": "Brush off the worry", "outcome": {"morale": -6, "resolve": True, "result": "They start photographing every scratch."}}]}}},
+    "rent_strike": {"title": "Withholding Rent", "icon": "✊", "trigger": {"weight": 4, "cooldown_days": 80, "min_days_resident": 21, "max_morale": 55}, "stages": {
+        "start": {"text": "{name} is threatening to withhold rent until a lingering issue gets fixed.", "choices": [
+            {"label": "Fix the issue properly ($300)", "cost": {"cash": 300}, "outcome": {"condition": 8, "morale": 12, "resolve": True, "result": "Addressed. Rent resumes, relationship repaired."}},
+            {"label": "Compromise — partial fix + credit ($120)", "cost": {"cash": 120}, "outcome": {"morale": 5, "resolve": True, "result": "Not perfect, but it defuses things."}},
+            {"label": "Call their bluff", "outcome": {"goto": "bluff", "delay": 10, "result": "You hold your ground."}}]},
+        "bluff": {"auto": True, "roll": [{"weight": 50, "text": "{name} backed down and paid up.", "outcome": {"morale": -4, "resolve": True}}, {"weight": 50, "text": "{name} actually withheld — and started looking for legal advice.", "outcome": {"morale": -10, "pay_chance": -0.05, "resolve": True}}]}}},
+    "upgrade_ultimatum": {"title": "Upgrade or I Walk", "icon": "🔧", "trigger": {"weight": 4, "cooldown_days": 90, "min_days_resident": 28}, "stages": {"start": {"text": "{name} will happily re-sign — if you upgrade the kitchen first.", "choices": [
+        {"label": "Do the upgrade ($900)", "cost": {"cash": 900}, "outcome": {"condition": 20, "loyalty": 14, "morale": 10, "resolve": True, "result": "A lovely kitchen and a locked-in tenant."}},
+        {"label": "Meet halfway — new appliances ($350)", "cost": {"cash": 350}, "outcome": {"condition": 8, "morale": 6, "resolve": True, "result": "A fair compromise they accept."}},
+        {"label": "No upgrades", "outcome": {"morale": -8, "resolve": True, "result": "They mark it down as a strike against renewing."}}]}}},
+    "bounced_payment": {"title": "Bounced Payment", "icon": "📉", "trigger": {"weight": 4, "cooldown_days": 60, "min_days_resident": 14}, "stages": {"start": {"text": "{name}'s rent payment bounced — they swear it's a bank glitch.", "choices": [
+        {"label": "Waive it, no big deal", "outcome": {"morale": 8, "loyalty": 6, "resolve": True, "result": "Grace appreciated; they fix it same day."}},
+        {"label": "Charge the NSF fee ($35)", "outcome": {"cash": 35, "morale": -3, "resolve": True, "result": "Standard fee, paid without much fuss."}},
+        {"label": "Set them up on autopay", "outcome": {"pay_chance": 0.03, "morale": 3, "resolve": True, "result": "Future payments now run like clockwork."}}]}}},
+    "prepay_deal": {"title": "Cash Up Front", "icon": "💸", "trigger": {"weight": 4, "cooldown_days": 90, "min_days_resident": 21}, "stages": {"start": {"text": "{name} offers a chunk of cash up front in exchange for a small ongoing discount.", "choices": [
+        {"label": "Take the deal (+$1,000, -3% rent)", "outcome": {"cash": 1000, "rent_mult": 0.97, "loyalty": 10, "resolve": True, "result": "Cash in hand, a happy long-term tenant."}},
+        {"label": "Cash yes, no discount (+$600)", "outcome": {"cash": 600, "morale": 4, "resolve": True, "result": "They go for it anyway."}},
+        {"label": "Prefer steady monthly", "outcome": {"resolve": True, "result": "No harm in keeping it simple."}}]}}},
+    "long_lease": {"title": "The Long Lease", "icon": "📜", "trigger": {"weight": 4, "cooldown_days": 90, "min_days_resident": 28, "min_morale": 55}, "stages": {"start": {"text": "{name} asks for a two-year lease — they want to put down roots.", "choices": [
+        {"label": "Grant it with a small discount (-2%)", "outcome": {"rent_mult": 0.98, "loyalty": 20, "morale": 8, "resolve": True, "result": "Two years of guaranteed, happy income."}},
+        {"label": "Grant it at the current rate", "outcome": {"loyalty": 12, "morale": 5, "resolve": True, "result": "Stability for you both."}},
+        {"label": "Prefer to keep it year-to-year", "outcome": {"morale": -4, "resolve": True, "result": "They're a little disappointed."}}]}}},
+    "utility_dispute": {"title": "Whose Bill Is It?", "icon": "🧾", "trigger": {"weight": 4, "cooldown_days": 70, "min_days_resident": 14}, "stages": {"start": {"text": "{name} is disputing who's responsible for a surprise utility bill.", "choices": [
+        {"label": "Eat the cost to keep peace ($120)", "cost": {"cash": 120}, "outcome": {"morale": 8, "loyalty": 6, "resolve": True, "result": "Cheaper than a sour tenant."}},
+        {"label": "Split it down the middle", "outcome": {"cash": -60, "morale": 3, "resolve": True, "result": "Fair is fair. They agree."}},
+        {"label": "Point to the lease", "outcome": {"morale": -5, "resolve": True, "result": "Correct, but it stings."}}]}}},
+    "referral": {"title": "A Good Word", "icon": "🤝", "trigger": {"weight": 4, "cooldown_days": 90, "min_days_resident": 28, "min_morale": 55}, "stages": {"start": {"text": "{name} has a friend looking to rent and offers to vouch for them.", "choices": [
+        {"label": "Thank them with a credit ($75)", "cost": {"cash": 75}, "outcome": {"loyalty": 12, "morale": 8, "resolve": True, "result": "A referral bonus — and a pre-screened lead."}},
+        {"label": "Gladly take the lead", "outcome": {"loyalty": 8, "morale": 4, "resolve": True, "result": "Word-of-mouth is the best kind."}},
+        {"label": "Not taking applications", "outcome": {"resolve": True, "result": "No harm done."}}]}}},
+    "tax_passthrough": {"title": "Taxes Went Up", "icon": "🏛️", "trigger": {"weight": 4, "cooldown_days": 120, "min_days_resident": 28}, "stages": {"start": {"text": "Property taxes jumped this year. Do you pass any of it along to {name}?", "choices": [
+        {"label": "Modest raise to cover it (+5%)", "outcome": {"rent_mult": 1.05, "morale": -6, "resolve": True, "result": "They grumble but understand."}},
+        {"label": "Absorb it yourself", "outcome": {"morale": 8, "loyalty": 10, "resolve": True, "result": "They notice you didn't gouge them."}},
+        {"label": "Explain it and split the difference (+2%)", "outcome": {"rent_mult": 1.02, "morale": -1, "resolve": True, "result": "A reasonable middle ground."}}]}}},
+    "rent_relief": {"title": "A Tough Month", "icon": "🙏", "trigger": {"weight": 5, "cooldown_days": 60, "min_days_resident": 14}, "stages": {"start": {"text": "{name} hit a rough patch and asks to defer part of this month's rent.", "choices": [
+        {"label": "Defer it, no fee", "outcome": {"morale": 10, "loyalty": 10, "resolve": True, "result": "They pay it back in full next month, grateful."}},
+        {"label": "Take partial now, rest later", "outcome": {"morale": 5, "resolve": True, "result": "A workable plan."}},
+        {"label": "Rent's due on time", "outcome": {"morale": -8, "resolve": True, "result": "They scrape it together, resentful."}}]}}},
+    "insurance_question": {"title": "Renters Insurance", "icon": "📄", "trigger": {"weight": 3, "cooldown_days": 90, "min_days_resident": 14}, "stages": {"start": {"text": "After a minor mishap, {name} isn't sure what's covered by whom.", "choices": [
+        {"label": "Walk them through it patiently", "outcome": {"morale": 8, "loyalty": 6, "resolve": True, "result": "A confused tenant becomes a confident one."}},
+        {"label": "Cover a small out-of-pocket cost ($100)", "cost": {"cash": 100}, "outcome": {"morale": 10, "loyalty": 8, "resolve": True, "result": "Above and beyond — they notice."}},
+        {"label": "That's on their policy", "outcome": {"resolve": True, "result": "Accurate, if a little curt."}}]}}},
+    # ── Batch 5: quirky & comedic ───────────────────────────────────────────────
+    "garage_band": {"title": "The Garage Band", "icon": "🎸", "trigger": {"weight": 4, "cooldown_days": 80, "min_days_resident": 21}, "stages": {"start": {"text": "{name} has started a garage band. The good news: they're not bad. The bad news: it's 11pm.", "choices": [
+        {"label": "Set practice hours, all good", "outcome": {"morale": 6, "loyalty": 4, "resolve": True, "result": "A compromise everyone can live with."}},
+        {"label": "Soundproof the garage ($250)", "cost": {"cash": 250}, "outcome": {"condition": 5, "morale": 12, "loyalty": 8, "resolve": True, "result": "Now they're your biggest fans."}},
+        {"label": "Absolutely not", "outcome": {"morale": -8, "resolve": True, "result": "The band breaks up. So does some goodwill."}}]}}},
+    "influencer_shoot": {"title": "Content Creator", "icon": "📸", "trigger": {"weight": 4, "cooldown_days": 80, "min_days_resident": 14}, "stages": {"start": {"text": "{name} wants to film a home tour for their channel and tag the listing.", "choices": [
+        {"label": "Sure — free marketing", "outcome": {"morale": 8, "loyalty": 4, "resolve": True, "result": "The video pulls 40k views. Your DMs are flooded with would-be renters."}},
+        {"label": "Ask for a cut ($60)", "outcome": {"cash": 60, "morale": -2, "resolve": True, "result": "They pay, but find it a little gauche."}},
+        {"label": "No filming, please", "outcome": {"morale": -4, "resolve": True, "result": "They respect it, reluctantly."}}]}}},
+    "the_hoard": {"title": "Just a Little Clutter", "icon": "📦", "trigger": {"weight": 3, "cooldown_days": 90, "min_days_resident": 45, "max_morale": 65}, "stages": {
+        "start": {"text": "You notice {name}'s place is getting... full. Like, narrow-pathways full.", "choices": [
+            {"label": "Gentle check-in", "outcome": {"goto": "hoard_check", "delay": 8, "result": "You offer help, no judgment."}},
+            {"label": "Cite the lease's clutter clause", "outcome": {"morale": -6, "resolve": True, "result": "They clear a path, embarrassed."}},
+            {"label": "Hire a cleanup ($200)", "cost": {"cash": 200}, "outcome": {"condition": 6, "morale": 8, "loyalty": 6, "resolve": True, "result": "A fresh start. They're quietly grateful."}}]},
+        "hoard_check": {"auto": True, "roll": [{"weight": 60, "text": "{name} opened up — it was a rough year. They start decluttering.", "outcome": {"morale": 10, "loyalty": 8, "resolve": True}}, {"weight": 40, "text": "{name} got defensive and the clutter stayed.", "outcome": {"condition": -5, "morale": -4, "resolve": True}}]}}},
+    "the_prepper": {"title": "Just In Case", "icon": "🥫", "trigger": {"weight": 3, "cooldown_days": 90, "min_days_resident": 30}, "stages": {"start": {"text": "{name} has converted the spare room into a survival pantry. They'd like to install a water tank.", "choices": [
+        {"label": "Approve the tank", "outcome": {"morale": 8, "loyalty": 6, "resolve": True, "result": "They feel safe. You feel oddly reassured too."}},
+        {"label": "Pantry's fine, no plumbing changes", "outcome": {"morale": 2, "resolve": True, "result": "A fair line to draw."}},
+        {"label": "This is a lot", "outcome": {"morale": -5, "resolve": True, "result": "They quietly judge your lack of preparedness."}}]}}},
+    "the_aquarium": {"title": "The Giant Aquarium", "icon": "🐠", "trigger": {"weight": 3, "cooldown_days": 90, "min_days_resident": 30}, "stages": {"start": {"text": "{name} wants to install a 200-gallon saltwater aquarium. That's... a lot of water on a floor.", "choices": [
+        {"label": "Approve, with a reinforced stand", "outcome": {"morale": 10, "loyalty": 6, "resolve": True, "result": "It's genuinely stunning. And it holds."}},
+        {"label": "Smaller tank only", "outcome": {"morale": 2, "resolve": True, "result": "They settle for 40 gallons."}},
+        {"label": "Picture the leak. No.", "outcome": {"morale": -4, "resolve": True, "result": "Your floors thank you."}}]}}},
+    "the_telescope": {"title": "Rooftop Observatory", "icon": "🔭", "trigger": {"weight": 3, "cooldown_days": 100, "min_days_resident": 30}, "stages": {"start": {"text": "{name}, an amateur astronomer, asks to mount a telescope platform on the roof.", "choices": [
+        {"label": "Approve it properly ($150)", "cost": {"cash": 150}, "outcome": {"condition": 4, "morale": 10, "loyalty": 8, "resolve": True, "result": "They name a (very small) star after the house."}},
+        {"label": "Balcony setup instead", "outcome": {"morale": 4, "resolve": True, "result": "Less ideal, but they make it work."}},
+        {"label": "No roof access", "outcome": {"morale": -3, "resolve": True, "result": "They stargaze from the yard, wistfully."}}]}}},
+    "the_beekeeper": {"title": "Backyard Bees", "icon": "🐝", "trigger": {"weight": 3, "cooldown_days": 90, "min_days_resident": 30, "traits": ["green_thumb"]}, "stages": {"start": {"text": "{name} wants to keep two beehives in the yard. They promise jars of honey.", "choices": [
+        {"label": "Approve the hives", "outcome": {"goto": "bee_result", "delay": 10, "result": "Welcome to beekeeping."}},
+        {"label": "One hive, on probation", "outcome": {"morale": 4, "resolve": True, "result": "A cautious yes."}},
+        {"label": "Too risky with neighbors", "outcome": {"morale": -4, "resolve": True, "result": "The bees find another home."}}]},
+        "bee_result": {"auto": True, "roll": [{"weight": 80, "text": "The hives thrive — you get honey, the garden booms.", "outcome": {"condition": 6, "morale": 10, "loyalty": 8, "resolve": True}}, {"weight": 20, "text": "A neighbor got stung and complained loudly.", "outcome": {"morale": -4, "resolve": True}}]}}},
+    "escape_room": {"title": "The Home Escape Room", "icon": "🗝️", "trigger": {"weight": 3, "cooldown_days": 90, "min_days_resident": 30, "traits": ["creative"]}, "stages": {"start": {"text": "{name} has turned the basement into a homemade escape room and wants to charge friends admission.", "choices": [
+        {"label": "Love it — just keep it safe", "outcome": {"morale": 10, "loyalty": 6, "resolve": True, "result": "It becomes a neighborhood legend."}},
+        {"label": "No paid guests on the property", "outcome": {"morale": -2, "resolve": True, "result": "They keep it for friends only."}},
+        {"label": "Ask for a small cut ($40)", "outcome": {"cash": 40, "morale": -1, "resolve": True, "result": "A modest house cut."}}]}}},
+    "the_quail": {"title": "Quail This Time", "icon": "🐤", "trigger": {"weight": 3, "cooldown_days": 90, "min_days_resident": 30, "exclude_traits": ["rowdy"]}, "stages": {"start": {"text": "{name} read that quail are 'easier than chickens' and would like to keep a dozen.", "choices": [
+        {"label": "Sure, with a proper coop", "outcome": {"morale": 8, "loyalty": 6, "resolve": True, "result": "Tiny eggs arrive at your door weekly."}},
+        {"label": "We've been down this road", "outcome": {"morale": -2, "resolve": True, "result": "They take the gentle ribbing well."}},
+        {"label": "No more livestock", "outcome": {"morale": -4, "resolve": True, "result": "The quail dream dies."}}]}}},
+    "metal_detector": {"title": "X Marks the Yard", "icon": "🪙", "trigger": {"weight": 3, "cooldown_days": 100, "min_days_resident": 30}, "stages": {
+        "start": {"text": "{name} swears there's buried treasure in the backyard and wants to dig.", "choices": [
+            {"label": "Let them dig (fill it back in!)", "outcome": {"goto": "dig_result", "delay": 6, "result": "Happy hunting."}},
+            {"label": "No holes in my yard", "outcome": {"morale": -3, "resolve": True, "result": "They sulk with their detector."}}]},
+        "dig_result": {"auto": True, "roll": [{"weight": 70, "text": "They found old bottle caps and a 1987 quarter. Thrilled anyway.", "outcome": {"morale": 6, "resolve": True}}, {"weight": 30, "text": "They actually found an old coin cache and split it with you!", "outcome": {"cash": 220, "morale": 8, "loyalty": 6, "resolve": True}}]}}},
+    "karaoke_machine": {"title": "Karaoke Night", "icon": "🎤", "trigger": {"weight": 4, "cooldown_days": 70, "min_days_resident": 21, "traits": ["rowdy"]}, "stages": {"start": {"text": "{name} hosts weekly karaoke. The neighbors have... opinions about the 2am power ballads.", "choices": [
+        {"label": "Mediate a reasonable curfew", "outcome": {"morale": 6, "loyalty": 4, "resolve": True, "result": "Songs stop by 11. Mostly."}},
+        {"label": "Shut it down", "outcome": {"morale": -8, "resolve": True, "result": "The mic goes quiet, and so does their warmth toward you."}},
+        {"label": "Join one night", "outcome": {"morale": 12, "loyalty": 10, "resolve": True, "result": "Your duet was, by all accounts, a triumph."}}]}}},
+    "the_statue": {"title": "Yard Art", "icon": "🗿", "trigger": {"weight": 3, "cooldown_days": 90, "min_days_resident": 30, "traits": ["creative"]}, "stages": {"start": {"text": "{name} installed a large, abstract metal sculpture in the front yard. It's... bold.", "choices": [
+        {"label": "Honestly? Kind of love it", "outcome": {"morale": 8, "loyalty": 6, "resolve": True, "result": "It becomes the most photographed spot on the block."}},
+        {"label": "Backyard only", "outcome": {"morale": 2, "resolve": True, "result": "A reasonable relocation."}},
+        {"label": "It has to go", "outcome": {"morale": -6, "resolve": True, "result": "Art is subjective. They are hurt."}}]}}},
+    "indoor_jungle": {"title": "The Indoor Jungle", "icon": "🪴", "trigger": {"weight": 3, "cooldown_days": 80, "min_days_resident": 30, "traits": ["green_thumb"]}, "stages": {"start": {"text": "{name} now has 200 houseplants and wants to install grow lights and a misting system.", "choices": [
+        {"label": "Approve it (watch the humidity)", "outcome": {"condition": 4, "morale": 10, "loyalty": 8, "resolve": True, "result": "The place looks incredible. Air quality: elite."}},
+        {"label": "Grow lights yes, no misters", "outcome": {"morale": 4, "resolve": True, "result": "A sensible middle path."}},
+        {"label": "Worried about moisture damage", "outcome": {"morale": -3, "resolve": True, "result": "They scale back, a little crushed."}}]}}},
+    "the_ghost": {"title": "Something in the Walls", "icon": "👻", "trigger": {"weight": 3, "cooldown_days": 110, "min_days_resident": 30}, "stages": {
+        "start": {"text": "{name} is convinced the place is haunted — knocking pipes, cold spots, the works.", "choices": [
+            {"label": "Send someone to investigate ($120)", "cost": {"cash": 120}, "outcome": {"goto": "ghost_result", "delay": 5, "result": "A pro takes a look."}},
+            {"label": "Reassure them it's an old house", "outcome": {"morale": 3, "resolve": True, "result": "They remain... unconvinced."}},
+            {"label": "Play along, suggest a sage cleanse", "outcome": {"morale": 6, "loyalty": 4, "resolve": True, "result": "They feel heard, which is half the battle."}}]},
+        "ghost_result": {"auto": True, "roll": [{"weight": 85, "text": "It was a loose pipe and a drafty vent. Fixed — and the 'ghost' is gone.", "outcome": {"condition": 6, "morale": 8, "loyalty": 6, "resolve": True}}, {"weight": 15, "text": "The contractor found nothing and left looking a little pale.", "outcome": {"morale": 2, "resolve": True}}]}}},
+    # ── Batch 6: trait depth (round 2) & seasonal ───────────────────────────────
+    "rooftop_party": {"title": "Rooftop Rager", "icon": "🎉", "trigger": {"weight": 4, "cooldown_days": 70, "min_days_resident": 21, "traits": ["rowdy"]}, "stages": {
+        "start": {"text": "{name} threw a rooftop party that, per three neighbors, 'shook the whole street.'", "choices": [
+            {"label": "Stern warning, no fee", "outcome": {"morale": -4, "pay_chance": 0.0, "resolve": True, "result": "They dial it back. Mostly."}},
+            {"label": "Charge for a noise complaint ($75)", "outcome": {"cash": 75, "morale": -7, "resolve": True, "result": "An expensive lesson."}},
+            {"label": "Ask to be invited next time", "outcome": {"goto": "party_invite", "delay": 8, "result": "You disarm them with charm."}}]},
+        "party_invite": {"auto": True, "roll": [{"weight": 70, "text": "They actually invited you — and kept it tamer out of respect.", "outcome": {"morale": 8, "loyalty": 10, "resolve": True}}, {"weight": 30, "text": "The next party was just as loud. Charm has limits.", "outcome": {"morale": -6, "condition": -3, "resolve": True}}]}}},
+    "unauthorized_addition": {"title": "They Built... a Deck?", "icon": "🪚", "trigger": {"weight": 3, "cooldown_days": 100, "min_days_resident": 45, "traits": ["handy"]}, "stages": {"start": {"text": "{name} built a (genuinely nice) deck out back — without asking first.", "choices": [
+        {"label": "It's great — keep it, thank them", "outcome": {"condition": 12, "morale": 10, "loyalty": 8, "resolve": True, "result": "Free home improvement. You'll allow it."}},
+        {"label": "Reimburse the materials ($150)", "cost": {"cash": 150}, "outcome": {"condition": 12, "morale": 14, "loyalty": 14, "resolve": True, "result": "A class move. They're a tenant for life now."}},
+        {"label": "Lecture them on asking first", "outcome": {"condition": 6, "morale": -6, "resolve": True, "result": "Correct, but the deck stays and so does the chill between you."}}]}}},
+    "mysterious_absence": {"title": "Gone, But Paid", "icon": "🌑", "trigger": {"weight": 3, "cooldown_days": 100, "min_days_resident": 45, "traits": ["quiet"]}, "stages": {
+        "start": {"text": "You haven't seen {name} in weeks — but rent keeps arriving, right on time.", "choices": [
+            {"label": "Do a welfare check", "outcome": {"goto": "absence_check", "delay": 4, "result": "You knock, just in case."}},
+            {"label": "Rent's paid — respect the privacy", "outcome": {"loyalty": 8, "morale": 4, "resolve": True, "result": "They appreciate not being hovered over."}}]},
+        "absence_check": {"auto": True, "roll": [{"weight": 70, "text": "They were traveling for work. Touched you checked.", "outcome": {"loyalty": 6, "morale": 4, "resolve": True}}, {"weight": 30, "text": "They found it a bit intrusive, honestly.", "outcome": {"morale": -4, "resolve": True}}]}}},
+    "camera_privacy": {"title": "Too Many Cameras", "icon": "📹", "trigger": {"weight": 3, "cooldown_days": 90, "min_days_resident": 30, "traits": ["homebody"]}, "stages": {"start": {"text": "{name} feels uneasy about the exterior cameras and asks about privacy.", "choices": [
+        {"label": "Walk them through what's recorded", "outcome": {"morale": 8, "loyalty": 6, "resolve": True, "result": "Transparency settles their nerves."}},
+        {"label": "Remove the cameras facing their space ($60)", "cost": {"cash": 60}, "outcome": {"morale": 10, "loyalty": 8, "resolve": True, "result": "They feel respected at home."}},
+        {"label": "Cameras stay, full stop", "outcome": {"morale": -6, "resolve": True, "result": "They feel watched in their own home."}}]}}},
+    "the_mural": {"title": "The Mural", "icon": "🎨", "trigger": {"weight": 3, "cooldown_days": 90, "min_days_resident": 30, "traits": ["creative"]}, "stages": {"start": {"text": "{name} painted a stunning mural across the living room wall and hopes you won't mind.", "choices": [
+        {"label": "It's beautiful — leave it", "outcome": {"condition": 6, "morale": 12, "loyalty": 10, "resolve": True, "result": "Future renters will fight over this place."}},
+        {"label": "Love it, but neutral it before move-out", "outcome": {"morale": 4, "resolve": True, "result": "A fair condition they accept."}},
+        {"label": "Walls stay white ($40 to repaint)", "outcome": {"cash": -40, "morale": -8, "resolve": True, "result": "You repaint. The artist within them weeps."}}]}}},
+    "kids_olympics": {"title": "Backyard Olympics", "icon": "🥇", "trigger": {"weight": 3, "cooldown_days": 80, "min_days_resident": 30, "traits": ["big_family"]}, "stages": {"start": {"text": "{name}'s kids have turned the yard into an athletic arena. The lawn is... a casualty.", "choices": [
+        {"label": "Kids will be kids — reseed it ($90)", "cost": {"cash": 90}, "outcome": {"condition": 5, "morale": 10, "loyalty": 8, "resolve": True, "result": "The yard recovers; the family adores you."}},
+        {"label": "Ask them to protect the lawn", "outcome": {"morale": 2, "resolve": True, "result": "They set up a 'track' on the patio instead."}},
+        {"label": "Charge for yard damage ($60)", "outcome": {"cash": 60, "morale": -7, "resolve": True, "result": "Technically fair. Emotionally? Cold."}}]}}},
+    "coupon_loophole": {"title": "The Fine Print", "icon": "🔎", "trigger": {"weight": 3, "cooldown_days": 90, "min_days_resident": 30, "traits": ["penny"]}, "stages": {"start": {"text": "{name} found a clause in the lease they're convinced entitles them to a discount.", "choices": [
+        {"label": "They're right — honor it (-3%)", "outcome": {"rent_mult": 0.97, "loyalty": 10, "morale": 8, "resolve": True, "result": "Fair's fair. They respect that you owned it."}},
+        {"label": "Nice try — clarify the wording", "outcome": {"morale": -2, "resolve": True, "result": "They concede, grudgingly impressed you read it too."}},
+        {"label": "Split the difference (-1%)", "outcome": {"rent_mult": 0.99, "morale": 4, "resolve": True, "result": "A negotiated peace."}}]}}},
+    "reliable_vip": {"title": "The Golden Reference", "icon": "⭐", "trigger": {"weight": 3, "cooldown_days": 120, "min_days_resident": 60, "traits": ["reliable"], "min_morale": 60}, "stages": {"start": {"text": "{name} has been a model tenant for ages and offers to mentor a struggling neighbor of yours.", "choices": [
+        {"label": "Gratefully accept their help", "outcome": {"loyalty": 12, "morale": 10, "resolve": True, "result": "The whole building runs smoother. Reputation up."}},
+        {"label": "Reward them with a loyalty credit ($100)", "cost": {"cash": 100}, "outcome": {"loyalty": 16, "morale": 12, "resolve": True, "result": "They're floored. A tenant for life."}},
+        {"label": "Politely keep things separate", "outcome": {"resolve": True, "result": "No harm; they understand."}}]}}},
+    "sublet_office": {"title": "Working From... Whose Home?", "icon": "💼", "trigger": {"weight": 3, "cooldown_days": 90, "min_days_resident": 30, "traits": ["subletter"]}, "stages": {
+        "start": {"text": "You hear {name} has been quietly running a small business out of the unit — clients coming and going.", "choices": [
+            {"label": "Allow it for a small bump (+4%)", "outcome": {"rent_mult": 1.04, "morale": 4, "resolve": True, "result": "Above board now, and you're compensated."}},
+            {"label": "Residential only — shut it down", "outcome": {"morale": -8, "resolve": True, "result": "They comply, but the warmth cools."}},
+            {"label": "Look the other way", "outcome": {"goto": "office_result", "delay": 12, "result": "You decide not to make a thing of it."}}]},
+        "office_result": {"auto": True, "roll": [{"weight": 65, "text": "It stayed small and tidy. No harm done.", "outcome": {"loyalty": 6, "resolve": True}}, {"weight": 35, "text": "The foot traffic annoyed neighbors and wore on the place.", "outcome": {"condition": -6, "morale": -4, "resolve": True}}]}}},
+    "holiday_goodwill": {"title": "Season's Greetings", "icon": "🎄", "trigger": {"weight": 4, "cooldown_days": 300, "min_days_resident": 30, "season": 3}, "stages": {"start": {"text": "It's the holidays. {name} has been a good tenant this year — do you mark the occasion?", "choices": [
+        {"label": "Send a small gift ($50)", "cost": {"cash": 50}, "outcome": {"loyalty": 14, "morale": 14, "resolve": True, "result": "A card and a gift basket. They're genuinely touched."}},
+        {"label": "Knock $25 off this month", "outcome": {"cash": -25, "loyalty": 10, "morale": 12, "resolve": True, "result": "A little holiday relief goes a long way."}},
+        {"label": "A heartfelt thank-you note", "outcome": {"loyalty": 6, "morale": 6, "resolve": True, "result": "Free, sincere, and surprisingly effective."}}]}}},
+    "summer_pool": {"title": "Pool Party Season", "icon": "🏊", "trigger": {"weight": 4, "cooldown_days": 300, "min_days_resident": 21, "season": 1}, "stages": {"start": {"text": "Summer's here and {name} asks about putting in an above-ground pool for the season.", "choices": [
+        {"label": "Approve it (liability waiver signed)", "outcome": {"morale": 12, "loyalty": 8, "resolve": True, "result": "Best summer ever, per {name}."}},
+        {"label": "A kiddie pool, maybe", "outcome": {"morale": 4, "resolve": True, "result": "A modest splash."}},
+        {"label": "Too much liability", "outcome": {"morale": -4, "resolve": True, "result": "They settle for the sprinkler."}}]}}},
+    "fall_yardwork": {"title": "Leaf It to Me", "icon": "🍂", "trigger": {"weight": 4, "cooldown_days": 300, "min_days_resident": 21, "season": 2}, "stages": {"start": {"text": "Autumn leaves are burying the yard. {name} asks who's handling cleanup.", "choices": [
+        {"label": "Hire a service ($80)", "cost": {"cash": 80}, "outcome": {"condition": 5, "morale": 8, "resolve": True, "result": "Spotless yard, happy tenant."}},
+        {"label": "Offer a rent credit if they do it ($40)", "outcome": {"cash": -40, "morale": 6, "loyalty": 6, "resolve": True, "result": "They like the deal and the autonomy."}},
+        {"label": "It's in their lease to maintain", "outcome": {"morale": -3, "resolve": True, "result": "True, if a little brisk."}}]}}},
+    "spring_cleaning": {"title": "Spring Refresh", "icon": "🌷", "trigger": {"weight": 4, "cooldown_days": 300, "min_days_resident": 21, "season": 0}, "stages": {"start": {"text": "Spring's arrived and {name} is in a refresh mood — they'd love some small updates.", "choices": [
+        {"label": "Fund a refresh ($120)", "cost": {"cash": 120}, "outcome": {"condition": 8, "morale": 10, "loyalty": 6, "resolve": True, "result": "New paint, new energy. The place sparkles."}},
+        {"label": "Provide supplies, they do the work", "outcome": {"cash": -40, "condition": 4, "morale": 6, "resolve": True, "result": "A team effort that brightens the unit."}},
+        {"label": "Maybe next year", "outcome": {"morale": -2, "resolve": True, "result": "They tidy up on their own anyway."}}]}}},
+    # ── Batch 7A: life events (round 2) ─────────────────────────────────────────
+    "college_kid": {"title": "Off to College", "icon": "🎓", "trigger": {"weight": 4, "cooldown_days": 120, "min_days_resident": 30}, "stages": {"start": {"text": "{name}'s eldest is leaving for college and the house feels suddenly emptier.", "choices": [
+        {"label": "Send a care package ($50)", "cost": {"cash": 50}, "outcome": {"loyalty": 10, "morale": 10, "resolve": True, "result": "A thoughtful touch they won't forget."}},
+        {"label": "Warm congratulations", "outcome": {"morale": 6, "resolve": True, "result": "They appreciate you noticing."}},
+        {"label": "Float downsizing to a smaller unit", "outcome": {"morale": -3, "resolve": True, "result": "Too soon — they're not ready to move."}}]}}},
+    "military_deploy": {"title": "Deployment", "icon": "🎖️", "trigger": {"weight": 3, "cooldown_days": 150, "min_days_resident": 21}, "stages": {"start": {"text": "{name} is being deployed for several months and asks you to hold the unit.", "choices": [
+        {"label": "Hold it, no questions", "outcome": {"loyalty": 18, "morale": 12, "resolve": True, "result": "They leave with one less worry. A tenant for life."}},
+        {"label": "Hold it at a reduced holding rate (-20%)", "outcome": {"rent_mult": 0.80, "loyalty": 14, "morale": 10, "resolve": True, "result": "A generous arrangement they deeply value."}},
+        {"label": "Can't hold it unpaid", "outcome": {"morale": -8, "resolve": True, "result": "They understand, but it stings."}}]}}},
+    "inheritance": {"title": "An Inheritance", "icon": "📜", "trigger": {"weight": 3, "cooldown_days": 150, "min_days_resident": 30}, "stages": {"start": {"text": "{name} came into a modest inheritance and is weighing what to do with it.", "choices": [
+        {"label": "Suggest prepaying their lease", "outcome": {"cash": 800, "loyalty": 8, "resolve": True, "result": "They prepay several months on the spot."}},
+        {"label": "Just be happy for them", "outcome": {"morale": 6, "resolve": True, "result": "No strings, and they notice."}},
+        {"label": "Mention you'd consider selling", "outcome": {"goto": "inherit_buy", "delay": 7, "result": "They mull it over."}}]},
+        "inherit_buy": {"auto": True, "roll": [{"weight": 80, "text": "Not quite enough to buy — but they re-signed gladly.", "outcome": {"loyalty": 8, "resolve": True}}, {"weight": 20, "text": "They decided to keep renting and travel instead.", "outcome": {"morale": 4, "resolve": True}}]}}},
+    "divorce_final": {"title": "A Fresh Start", "icon": "🕊️", "trigger": {"weight": 3, "cooldown_days": 120, "min_days_resident": 30}, "stages": {"start": {"text": "{name}'s divorce just finalized. They're rebuilding and want to stay put for stability.", "choices": [
+        {"label": "Lock in their rate for a year", "outcome": {"loyalty": 14, "morale": 10, "resolve": True, "result": "Stability is exactly what they needed."}},
+        {"label": "Check in and be supportive", "outcome": {"morale": 8, "loyalty": 6, "resolve": True, "result": "A little kindness goes a long way."}},
+        {"label": "Keep it strictly professional", "outcome": {"resolve": True, "result": "Fair enough. They carry on."}}]}}},
+    "adoption": {"title": "Welcoming a Child", "icon": "🧸", "trigger": {"weight": 3, "cooldown_days": 130, "min_days_resident": 30}, "stages": {"start": {"text": "{name} is adopting a child and asks about adding a small safety upgrade or two.", "choices": [
+        {"label": "Install childproofing ($150)", "cost": {"cash": 150}, "outcome": {"condition": 4, "loyalty": 14, "morale": 12, "resolve": True, "result": "They're moved that you cared."}},
+        {"label": "Approve any changes they make", "outcome": {"loyalty": 8, "morale": 8, "resolve": True, "result": "Flexibility they're grateful for."}},
+        {"label": "They can DIY at their cost", "outcome": {"morale": 2, "resolve": True, "result": "They handle it themselves."}}]}}},
+    "eldercare": {"title": "Caring for a Parent", "icon": "👵", "trigger": {"weight": 3, "cooldown_days": 120, "min_days_resident": 30, "exclude_traits": ["big_family"]}, "stages": {"start": {"text": "{name}'s aging parent needs to move in, and they ask about accessibility tweaks.", "choices": [
+        {"label": "Add a ramp and grab bars ($250)", "cost": {"cash": 250}, "outcome": {"condition": 5, "loyalty": 14, "morale": 12, "resolve": True, "result": "A real kindness during a hard time."}},
+        {"label": "Approve the parent on the lease", "outcome": {"loyalty": 8, "morale": 6, "resolve": True, "result": "Family comes first."}},
+        {"label": "Occupancy limits, sorry", "outcome": {"morale": -8, "resolve": True, "result": "A painful no for them."}}]}}},
+    "career_change": {"title": "A New Path", "icon": "🧭", "trigger": {"weight": 3, "cooldown_days": 110, "min_days_resident": 30}, "stages": {"start": {"text": "{name} is retraining for a whole new career, and income is bumpy for a few months.", "choices": [
+        {"label": "Offer flexible due dates", "outcome": {"morale": 10, "loyalty": 8, "resolve": True, "result": "Breathing room they'll repay in loyalty."}},
+        {"label": "Small temporary discount (-4%)", "outcome": {"rent_mult": 0.96, "morale": 8, "resolve": True, "result": "A bridge through the lean stretch."}},
+        {"label": "Rent stays the same", "outcome": {"morale": -4, "resolve": True, "result": "They tighten the belt and manage."}}]}}},
+    "podcast_start": {"title": "The Podcast", "icon": "🎙️", "trigger": {"weight": 3, "cooldown_days": 100, "min_days_resident": 21}, "stages": {"start": {"text": "{name} started a podcast and wants to build a small recording booth in the closet.", "choices": [
+        {"label": "Go for it, sounds fun", "outcome": {"morale": 8, "loyalty": 6, "resolve": True, "result": "Episode one features a glowing landlord shoutout."}},
+        {"label": "Closet only, easily removable", "outcome": {"morale": 4, "resolve": True, "result": "A reasonable boundary."}},
+        {"label": "No structural changes", "outcome": {"morale": -3, "resolve": True, "result": "They record under a blanket fort instead."}}]}}},
+    "wedding_host": {"title": "The Backyard Wedding", "icon": "💒", "trigger": {"weight": 3, "cooldown_days": 130, "min_days_resident": 30}, "stages": {"start": {"text": "{name} wants to host their small backyard wedding at the property.", "choices": [
+        {"label": "What an honor — yes!", "outcome": {"loyalty": 16, "morale": 14, "resolve": True, "result": "A beautiful day. You're in the photos."}},
+        {"label": "Yes, with a cleanup deposit ($200)", "outcome": {"cash": 200, "morale": 8, "resolve": True, "result": "They happily agree."}},
+        {"label": "Too much liability", "outcome": {"morale": -6, "resolve": True, "result": "They book a venue, a little hurt."}}]}}},
+    "puppy_training": {"title": "Puppy Problems", "icon": "🐶", "trigger": {"weight": 4, "cooldown_days": 80, "min_days_resident": 21}, "stages": {
+        "start": {"text": "{name}'s new puppy has discovered the joy of chewing baseboards.", "choices": [
+            {"label": "Offer to split a trainer ($90)", "cost": {"cash": 90}, "outcome": {"condition": 3, "morale": 10, "loyalty": 8, "resolve": True, "result": "A well-behaved pup and a grateful tenant."}},
+            {"label": "Ask them to handle repairs", "outcome": {"goto": "puppy_later", "delay": 12, "result": "You trust them to sort it."}},
+            {"label": "Add a pet damage deposit ($200)", "outcome": {"cash": 200, "morale": -3, "resolve": True, "result": "Fair, if a little cold."}}]},
+        "puppy_later": {"auto": True, "roll": [{"weight": 70, "text": "The puppy grew out of it; they patched the baseboards themselves.", "outcome": {"condition": 2, "loyalty": 6, "resolve": True}}, {"weight": 30, "text": "The chewing spread to the door frames before it stopped.", "outcome": {"condition": -6, "resolve": True}}]}}},
+    "outgrowing_space": {"title": "Bursting at the Seams", "icon": "📐", "trigger": {"weight": 3, "cooldown_days": 110, "min_days_resident": 45, "traits": ["big_family"]}, "stages": {"start": {"text": "{name}'s family has simply outgrown the place and they're eyeing a move.", "choices": [
+        {"label": "Offer them a bigger unit if you have one", "outcome": {"loyalty": 14, "morale": 10, "resolve": True, "result": "They'd love to stay in your portfolio."}},
+        {"label": "Help them find space-saving fixes", "outcome": {"morale": 6, "resolve": True, "result": "It buys some time."}},
+        {"label": "Wish them well", "outcome": {"morale": 2, "resolve": True, "result": "An amicable parting, eventually."}}]}}},
+    "gap_year": {"title": "The Gap Year", "icon": "🌍", "trigger": {"weight": 3, "cooldown_days": 130, "min_days_resident": 30}, "stages": {"start": {"text": "{name} is taking a year to travel the world and asks whether they can hold the unit.", "choices": [
+        {"label": "Allow a sublet while they're away", "outcome": {"goto": "gap_result", "delay": 14, "result": "You okay a vetted subletter."}},
+        {"label": "Hold it if they keep paying", "outcome": {"loyalty": 10, "morale": 6, "resolve": True, "result": "They pay from afar and send postcards."}},
+        {"label": "Can't hold it that long", "outcome": {"morale": -5, "resolve": True, "result": "They give notice, sadly."}}]},
+        "gap_result": {"auto": True, "roll": [{"weight": 65, "text": "The subletter was lovely; the place stayed pristine.", "outcome": {"loyalty": 8, "resolve": True}}, {"weight": 35, "text": "The subletter left it a bit rough around the edges.", "outcome": {"condition": -6, "resolve": True}}]}}},
+    # ── Batch 7B: maintenance & property (round 2) ──────────────────────────────
+    "mold_spot": {"title": "The Mold Spot", "icon": "🦠", "trigger": {"weight": 4, "cooldown_days": 80, "min_days_resident": 14, "max_condition": 70}, "stages": {"start": {"text": "{name} found a patch of mold creeping up the bathroom wall.", "choices": [
+        {"label": "Remediate it properly ($350)", "cost": {"cash": 350}, "outcome": {"condition": 10, "morale": 10, "resolve": True, "result": "Source found and sealed. No more mold."}},
+        {"label": "Clean and ventilate ($80)", "cost": {"cash": 80}, "outcome": {"condition": 3, "morale": 3, "resolve": True, "result": "Better for now — keep an eye on it."}},
+        {"label": "Tell them to wipe it down", "outcome": {"condition": -5, "morale": -8, "resolve": True, "result": "It comes right back, bigger."}}]}}},
+    "gutter_clog": {"title": "Overflowing Gutters", "icon": "🍂", "trigger": {"weight": 4, "cooldown_days": 80, "min_days_resident": 14}, "stages": {"start": {"text": "The gutters are clogged and rainwater is sheeting down the siding.", "choices": [
+        {"label": "Clean and add guards ($180)", "cost": {"cash": 180}, "outcome": {"condition": 8, "morale": 5, "resolve": True, "result": "Done right, and low-maintenance going forward."}},
+        {"label": "Quick clear-out ($50)", "cost": {"cash": 50}, "outcome": {"condition": 3, "resolve": True, "result": "Flowing again, for now."}},
+        {"label": "It can wait for dry weather", "outcome": {"condition": -4, "resolve": True, "result": "A little siding damage sets in."}}]}}},
+    "fence_repair": {"title": "The Leaning Fence", "icon": "🪵", "trigger": {"weight": 4, "cooldown_days": 90, "min_days_resident": 21}, "stages": {"start": {"text": "A section of the backyard fence is leaning badly after the last storm.", "choices": [
+        {"label": "Replace the section ($300)", "cost": {"cash": 300}, "outcome": {"condition": 8, "morale": 6, "resolve": True, "result": "Sturdy and straight again."}},
+        {"label": "Prop and patch it ($70)", "cost": {"cash": 70}, "outcome": {"condition": 3, "resolve": True, "result": "Holds — for now."}},
+        {"label": "Leave it leaning", "outcome": {"condition": -3, "morale": -3, "resolve": True, "result": "It topples by month's end."}}]}}},
+    "mailbox_smashed": {"title": "Smashed Mailbox", "icon": "📪", "trigger": {"weight": 3, "cooldown_days": 90, "min_days_resident": 14}, "stages": {"start": {"text": "Someone knocked over the mailbox overnight — again.", "choices": [
+        {"label": "Install a sturdy new one ($90)", "cost": {"cash": 90}, "outcome": {"condition": 3, "morale": 5, "resolve": True, "result": "Reinforced and standing tall."}},
+        {"label": "Cheap replacement ($25)", "cost": {"cash": 25}, "outcome": {"condition": 1, "resolve": True, "result": "Functional, if flimsy."}},
+        {"label": "Tell them to prop it back up", "outcome": {"morale": -3, "resolve": True, "result": "The mail piles up at the curb."}}]}}},
+    "smart_lock": {"title": "Smart Lock Request", "icon": "🔐", "trigger": {"weight": 3, "cooldown_days": 90, "min_days_resident": 21}, "stages": {"start": {"text": "{name} asks if they can swap the deadbolt for a keypad smart lock.", "choices": [
+        {"label": "Install one yourself ($120)", "cost": {"cash": 120}, "outcome": {"condition": 4, "loyalty": 8, "morale": 8, "resolve": True, "result": "A nice upgrade that adds value too."}},
+        {"label": "They can, if you keep a code", "outcome": {"morale": 6, "loyalty": 4, "resolve": True, "result": "Convenient and secure for you both."}},
+        {"label": "Keep the original lock", "outcome": {"morale": -3, "resolve": True, "result": "They fumble for keys, mildly annoyed."}}]}}},
+    "ev_charger": {"title": "EV Charger", "icon": "🔋", "trigger": {"weight": 3, "cooldown_days": 100, "min_days_resident": 28}, "stages": {"start": {"text": "{name} bought an electric car and wants a charger installed in the driveway.", "choices": [
+        {"label": "Install it ($500) and bump rent (+3%)", "cost": {"cash": 500}, "outcome": {"condition": 6, "rent_mult": 1.03, "loyalty": 10, "resolve": True, "result": "A modern amenity that pays for itself."}},
+        {"label": "Split the cost with them ($200)", "cost": {"cash": 200}, "outcome": {"condition": 5, "loyalty": 8, "morale": 8, "resolve": True, "result": "A fair partnership."}},
+        {"label": "They use a public charger", "outcome": {"morale": -3, "resolve": True, "result": "Inconvenient, but they cope."}}]}}},
+    "solar_panels": {"title": "Going Solar", "icon": "☀️", "trigger": {"weight": 3, "cooldown_days": 130, "min_days_resident": 30}, "stages": {"start": {"text": "{name} suggests adding solar panels — they'd love lower bills and so would the planet.", "choices": [
+        {"label": "Invest in panels ($900), raise rent (+4%)", "cost": {"cash": 900}, "outcome": {"condition": 10, "rent_mult": 1.04, "loyalty": 10, "resolve": True, "result": "Greener, cheaper to run, and worth more."}},
+        {"label": "Look into a lease-to-own program", "outcome": {"morale": 6, "resolve": True, "result": "A maybe that keeps the door open."}},
+        {"label": "Not in the budget", "outcome": {"morale": -2, "resolve": True, "result": "They understand."}}]}}},
+    "chimney_sweep": {"title": "The Chimney", "icon": "🧹", "trigger": {"weight": 3, "cooldown_days": 100, "min_days_resident": 21}, "stages": {"start": {"text": "{name} wants to use the fireplace, but it hasn't been swept in years.", "choices": [
+        {"label": "Hire a sweep and inspect ($160)", "cost": {"cash": 160}, "outcome": {"condition": 5, "morale": 8, "resolve": True, "result": "Safe, clean, and cozy for winter."}},
+        {"label": "Cap it off, no fires", "outcome": {"morale": -2, "resolve": True, "result": "Safe, if less charming."}},
+        {"label": "Let them light it up", "outcome": {"goto": "chimney_risk", "delay": 8, "result": "You take their word it's fine."}}]},
+        "chimney_risk": {"auto": True, "roll": [{"weight": 70, "text": "All was well — cozy fires all season.", "outcome": {"morale": 6, "resolve": True}}, {"weight": 30, "text": "A small chimney fire scorched the flue. Lesson learned.", "outcome": {"condition": -10, "morale": -5, "resolve": True}}]}}},
+    "foundation_settle": {"title": "Settling Cracks", "icon": "🧱", "trigger": {"weight": 3, "cooldown_days": 120, "min_days_resident": 30, "max_condition": 65}, "stages": {"start": {"text": "Hairline cracks are spidering up a wall — could be settling, could be more.", "choices": [
+        {"label": "Get it assessed and stabilized ($700)", "cost": {"cash": 700}, "outcome": {"condition": 14, "morale": 8, "resolve": True, "result": "Caught early. Stabilized and patched."}},
+        {"label": "Patch the cracks cosmetically ($100)", "cost": {"cash": 100}, "outcome": {"condition": 3, "resolve": True, "result": "Looks better; the cause remains."}},
+        {"label": "Probably nothing", "outcome": {"condition": -6, "resolve": True, "result": "The cracks widen over time."}}]}}},
+    "window_crack": {"title": "Cracked Window", "icon": "🪟", "trigger": {"weight": 4, "cooldown_days": 80, "min_days_resident": 14}, "stages": {"start": {"text": "A window cracked across the pane and lets in a draft.", "choices": [
+        {"label": "Replace with double-pane ($220)", "cost": {"cash": 220}, "outcome": {"condition": 7, "morale": 6, "resolve": True, "result": "Quieter, warmer, better."}},
+        {"label": "Patch and tape for now ($20)", "cost": {"cash": 20}, "outcome": {"condition": 1, "morale": -1, "resolve": True, "result": "Holds the draft back, barely."}},
+        {"label": "It's just cosmetic", "outcome": {"condition": -3, "morale": -4, "resolve": True, "result": "The draft drives up their heating bill."}}]}}},
+    "garage_door": {"title": "Stuck Garage Door", "icon": "🚙", "trigger": {"weight": 3, "cooldown_days": 90, "min_days_resident": 21}, "stages": {"start": {"text": "The garage door opener gave out with the car trapped inside.", "choices": [
+        {"label": "New opener + tune-up ($240)", "cost": {"cash": 240}, "outcome": {"condition": 6, "morale": 8, "resolve": True, "result": "Smooth and quiet again."}},
+        {"label": "Repair the old motor ($90)", "cost": {"cash": 90}, "outcome": {"condition": 2, "resolve": True, "result": "Working, for now."}},
+        {"label": "They can lift it manually", "outcome": {"morale": -4, "resolve": True, "result": "A daily workout they didn't ask for."}}]}}},
+    "sump_pump": {"title": "The Sump Pump", "icon": "💧", "trigger": {"weight": 3, "cooldown_days": 100, "min_days_resident": 21}, "stages": {"start": {"text": "With the rainy season coming, {name} worries the basement sump pump is on its last legs.", "choices": [
+        {"label": "Replace it now ($300)", "cost": {"cash": 300}, "outcome": {"condition": 8, "morale": 8, "resolve": True, "result": "Peace of mind before the rains."}},
+        {"label": "Service the existing one ($80)", "cost": {"cash": 80}, "outcome": {"condition": 3, "resolve": True, "result": "Should hold the season."}},
+        {"label": "Wait and see", "outcome": {"goto": "sump_risk", "delay": 14, "result": "You roll the dice on the weather."}}]},
+        "sump_risk": {"auto": True, "roll": [{"weight": 55, "text": "Dry season — the old pump held.", "outcome": {"morale": 2, "resolve": True}}, {"weight": 45, "text": "It failed during a downpour and the basement flooded.", "outcome": {"condition": -12, "morale": -8, "resolve": True}}]}}},
+    # ── Batch 7C: money & lease (round 2) ───────────────────────────────────────
+    "rent_comparison": {"title": "The Neighbor Pays Less", "icon": "⚖️", "trigger": {"weight": 4, "cooldown_days": 80, "min_days_resident": 28}, "stages": {"start": {"text": "{name} found out a neighbor pays less and feels a little cheated.", "choices": [
+        {"label": "Explain the difference fairly", "outcome": {"morale": 4, "resolve": True, "result": "Context they can accept."}},
+        {"label": "Match it to keep them happy (-3%)", "outcome": {"rent_mult": 0.97, "loyalty": 8, "morale": 8, "resolve": True, "result": "Goodwill bought cheaply."}},
+        {"label": "Rates are rates", "outcome": {"morale": -5, "resolve": True, "result": "They grumble about it for weeks."}}]}}},
+    "cosigner_request": {"title": "A Co-Signer", "icon": "✍️", "trigger": {"weight": 3, "cooldown_days": 100, "min_days_resident": 21}, "stages": {"start": {"text": "{name} wants to add a co-signer to strengthen the lease and lower their deposit.", "choices": [
+        {"label": "Approve and reduce the deposit", "outcome": {"loyalty": 8, "morale": 6, "resolve": True, "result": "A fair, lower-risk arrangement."}},
+        {"label": "Approve, deposit unchanged", "outcome": {"morale": 3, "resolve": True, "result": "They're satisfied enough."}},
+        {"label": "No co-signers on your leases", "outcome": {"morale": -3, "resolve": True, "result": "A rigid no."}}]}}},
+    "pet_rent": {"title": "Pet Rent Talk", "icon": "🐾", "trigger": {"weight": 3, "cooldown_days": 90, "min_days_resident": 21}, "stages": {"start": {"text": "You're considering adding a small monthly pet fee for {name}'s well-behaved cat.", "choices": [
+        {"label": "Add modest pet rent (+3%)", "outcome": {"rent_mult": 1.03, "morale": -4, "resolve": True, "result": "Standard practice; they accept it."}},
+        {"label": "One-time pet fee instead ($120)", "outcome": {"cash": 120, "morale": -1, "resolve": True, "result": "A cleaner deal they prefer."}},
+        {"label": "Waive it — the cat's an angel", "outcome": {"loyalty": 8, "morale": 8, "resolve": True, "result": "They love you for it."}}]}}},
+    "parking_fee": {"title": "The Second Spot", "icon": "🅿️", "trigger": {"weight": 3, "cooldown_days": 90, "min_days_resident": 21}, "stages": {"start": {"text": "{name} wants a second parking space for their other vehicle.", "choices": [
+        {"label": "Rent them the extra spot (+$60/mo)", "outcome": {"cash": 60, "rent_mult": 1.02, "resolve": True, "result": "Found money from unused space."}},
+        {"label": "Include it as a perk", "outcome": {"loyalty": 8, "morale": 6, "resolve": True, "result": "A generous freebie."}},
+        {"label": "Only one spot per unit", "outcome": {"morale": -3, "resolve": True, "result": "They park the second car on the street."}}]}}},
+    "storage_request": {"title": "Storage Space", "icon": "📦", "trigger": {"weight": 3, "cooldown_days": 90, "min_days_resident": 21}, "stages": {"start": {"text": "{name} asks to use part of the garage or basement for extra storage.", "choices": [
+        {"label": "Rent the space (+$40/mo)", "outcome": {"cash": 40, "rent_mult": 1.015, "resolve": True, "result": "A little extra income."}},
+        {"label": "Let them use it, no charge", "outcome": {"loyalty": 6, "morale": 6, "resolve": True, "result": "A small kindness."}},
+        {"label": "Keep those areas clear", "outcome": {"morale": -2, "resolve": True, "result": "They rent a unit across town."}}]}}},
+    "lease_transfer": {"title": "Lease Transfer", "icon": "🔁", "trigger": {"weight": 3, "cooldown_days": 100, "min_days_resident": 28}, "stages": {
+        "start": {"text": "{name} has to move and wants to transfer the lease to a friend instead of breaking it.", "choices": [
+            {"label": "Approve, pending screening", "outcome": {"goto": "transfer_screen", "delay": 6, "result": "You vet the replacement."}},
+            {"label": "Charge a transfer fee ($150)", "outcome": {"cash": 150, "resolve": True, "result": "Standard processing; they pay it."}},
+            {"label": "They must break the lease normally", "outcome": {"morale": -5, "resolve": True, "result": "A costlier path for them."}}]},
+        "transfer_screen": {"auto": True, "roll": [{"weight": 75, "text": "The friend checked out great. Smooth handoff.", "outcome": {"loyalty": 6, "resolve": True, "leave": True}}, {"weight": 25, "text": "The friend didn't qualify; {name} broke the lease after all.", "outcome": {"cash": 300, "resolve": True, "leave": True}}]}}},
+    "app_glitch": {"title": "Payment App Glitch", "icon": "📱", "trigger": {"weight": 3, "cooldown_days": 70, "min_days_resident": 14}, "stages": {"start": {"text": "The rent app double-charged {name} and they're (rightly) frustrated.", "choices": [
+        {"label": "Refund immediately, apologize", "outcome": {"cash": -0, "morale": 8, "loyalty": 6, "resolve": True, "result": "Handled fast; trust intact."}},
+        {"label": "Credit it to next month", "outcome": {"morale": 4, "resolve": True, "result": "Resolved, if a little slowly."}},
+        {"label": "Tell them to dispute it with the app", "outcome": {"morale": -6, "resolve": True, "result": "They feel brushed off."}}]}}},
+    "voucher_program": {"title": "The Housing Voucher", "icon": "🎫", "trigger": {"weight": 3, "cooldown_days": 110, "min_days_resident": 21}, "stages": {"start": {"text": "{name} qualifies for a housing assistance voucher and asks if you'll accept it.", "choices": [
+        {"label": "Accept it — guaranteed portion", "outcome": {"pay_chance": 0.05, "loyalty": 10, "morale": 10, "resolve": True, "result": "Steadier payments and a grateful tenant."}},
+        {"label": "Accept, with the paperwork", "outcome": {"pay_chance": 0.03, "morale": 6, "resolve": True, "result": "A bit of admin, but worth it."}},
+        {"label": "Decline the program", "outcome": {"morale": -8, "resolve": True, "result": "A hard blow for them."}}]}}},
+    "guarantor_issue": {"title": "The Guarantor Falls Through", "icon": "📋", "trigger": {"weight": 3, "cooldown_days": 100, "min_days_resident": 21}, "stages": {"start": {"text": "{name}'s guarantor backed out and they're scrambling to reassure you.", "choices": [
+        {"label": "Accept a larger deposit instead ($300)", "outcome": {"cash": 300, "morale": 4, "resolve": True, "result": "Risk covered; everyone's comfortable."}},
+        {"label": "Trust their track record", "outcome": {"loyalty": 10, "morale": 8, "resolve": True, "result": "A vote of confidence they'll honor."}},
+        {"label": "No guarantor, no lease renewal", "outcome": {"morale": -8, "resolve": True, "result": "A tense standoff."}}]}}},
+    "rate_lock": {"title": "Lock My Rate", "icon": "🔒", "trigger": {"weight": 4, "cooldown_days": 100, "min_days_resident": 28, "min_morale": 55}, "stages": {"start": {"text": "{name} asks you to lock their rent for two years, worried about rising rates.", "choices": [
+        {"label": "Lock it — slight bump now (+2%)", "outcome": {"rent_mult": 1.02, "loyalty": 14, "morale": 8, "resolve": True, "result": "Predictability for you both."}},
+        {"label": "Lock it at the current rate", "outcome": {"loyalty": 12, "morale": 10, "resolve": True, "result": "They breathe a sigh of relief."}},
+        {"label": "Keep it year-to-year", "outcome": {"morale": -3, "resolve": True, "result": "They worry, but stay."}}]}}},
+    # ── Batch 7D: quirky (round 2) ──────────────────────────────────────────────
+    "the_drone": {"title": "Drone Pilot", "icon": "🛸", "trigger": {"weight": 3, "cooldown_days": 90, "min_days_resident": 21}, "stages": {"start": {"text": "{name} has taken up drone racing and is launching from the backyard at all hours.", "choices": [
+        {"label": "Set sensible flight hours", "outcome": {"morale": 4, "resolve": True, "result": "A fair compromise with the neighbors."}},
+        {"label": "Ask them to use the park", "outcome": {"morale": 2, "resolve": True, "result": "They relocate the hobby."}},
+        {"label": "No drones over the property", "outcome": {"morale": -4, "resolve": True, "result": "Grounded, and grumpy about it."}}]}}},
+    "model_trains": {"title": "The Train Room", "icon": "🚂", "trigger": {"weight": 3, "cooldown_days": 100, "min_days_resident": 30}, "stages": {"start": {"text": "{name} has built an elaborate model railroad that now occupies the entire spare room.", "choices": [
+        {"label": "Marvel at it — totally fine", "outcome": {"morale": 8, "loyalty": 6, "resolve": True, "result": "A masterpiece. They give you a guided tour."}},
+        {"label": "No permanent fixtures to the walls", "outcome": {"morale": 2, "resolve": True, "result": "They keep it freestanding."}},
+        {"label": "That's a lot of room for trains", "outcome": {"morale": -2, "resolve": True, "result": "They take the comment in stride."}}]}}},
+    "reptile_room": {"title": "The Reptile Collection", "icon": "🦎", "trigger": {"weight": 3, "cooldown_days": 100, "min_days_resident": 30}, "stages": {"start": {"text": "{name} keeps a growing collection of reptiles — heat lamps, terrariums, the works.", "choices": [
+        {"label": "Fine, with safe wiring", "outcome": {"morale": 6, "loyalty": 4, "resolve": True, "result": "The geckos are, admittedly, charming."}},
+        {"label": "Cap the number of tanks", "outcome": {"morale": 2, "resolve": True, "result": "A reasonable limit."}},
+        {"label": "Worried about the wiring load", "outcome": {"morale": -3, "resolve": True, "result": "They scale back the heat lamps."}}]}}},
+    "ham_radio": {"title": "The Radio Tower", "icon": "📡", "trigger": {"weight": 3, "cooldown_days": 110, "min_days_resident": 30}, "stages": {"start": {"text": "{name}, a ham radio enthusiast, wants to erect an antenna tower in the yard.", "choices": [
+        {"label": "Approve a modest mast", "outcome": {"morale": 8, "loyalty": 6, "resolve": True, "result": "They talk to Japan from the backyard. Delighted."}},
+        {"label": "Roof-mounted antenna only", "outcome": {"morale": 4, "resolve": True, "result": "A tidy compromise."}},
+        {"label": "No towers, sorry", "outcome": {"morale": -4, "resolve": True, "result": "They settle for a smaller setup."}}]}}},
+    "indoor_trampoline": {"title": "Indoor Trampoline", "icon": "🤸", "trigger": {"weight": 3, "cooldown_days": 90, "min_days_resident": 21}, "stages": {"start": {"text": "{name} installed a full-size trampoline. Indoors. In the living room.", "choices": [
+        {"label": "Honestly, why not", "outcome": {"morale": 8, "loyalty": 4, "resolve": True, "result": "The downstairs neighbor has thoughts, but okay."}},
+        {"label": "Backyard only", "outcome": {"morale": 2, "resolve": True, "result": "A safer arrangement."}},
+        {"label": "Picture the ceiling below. No.", "outcome": {"morale": -3, "resolve": True, "result": "Deflated, literally."}}]}}},
+    "sourdough_empire": {"title": "The Sourdough Empire", "icon": "🍞", "trigger": {"weight": 3, "cooldown_days": 90, "min_days_resident": 21}, "stages": {"start": {"text": "{name} runs a small sourdough business from the kitchen. The whole block smells amazing.", "choices": [
+        {"label": "Allow it — and accept a loaf", "outcome": {"morale": 10, "loyalty": 8, "resolve": True, "result": "Best bread you've ever had. Worth it."}},
+        {"label": "Light home-business bump (+4%)", "outcome": {"rent_mult": 1.04, "morale": 2, "resolve": True, "result": "Above board, and you still get bread."}},
+        {"label": "No commercial baking", "outcome": {"morale": -6, "resolve": True, "result": "The ovens cool. The block mourns."}}]}}},
+    "mannequin_collection": {"title": "The Mannequins", "icon": "🧍", "trigger": {"weight": 3, "cooldown_days": 100, "min_days_resident": 30}, "stages": {"start": {"text": "During a visit you notice {name} collects vintage mannequins. Dozens of them. Watching.", "choices": [
+        {"label": "To each their own", "outcome": {"morale": 6, "resolve": True, "result": "Unsettling, but harmless."}},
+        {"label": "Maybe fewer by the window?", "outcome": {"morale": 2, "resolve": True, "result": "The neighbors will sleep easier."}},
+        {"label": "Politely note it's a bit much", "outcome": {"morale": -3, "resolve": True, "result": "They're a little hurt on the mannequins' behalf."}}]}}},
+    "vintage_arcade": {"title": "The Home Arcade", "icon": "🕹️", "trigger": {"weight": 3, "cooldown_days": 90, "min_days_resident": 21, "traits": ["rowdy"]}, "stages": {"start": {"text": "{name} filled the basement with vintage arcade cabinets and hosts game nights.", "choices": [
+        {"label": "Amazing — keep it down past 11", "outcome": {"morale": 8, "loyalty": 6, "resolve": True, "result": "You're invited to the next tournament."}},
+        {"label": "Mind the electrical load", "outcome": {"morale": 4, "resolve": True, "result": "They add a dedicated circuit."}},
+        {"label": "Game nights are getting loud", "outcome": {"morale": -4, "resolve": True, "result": "They dial it back, reluctantly."}}]}}},
+    "the_llama": {"title": "The Llama", "icon": "🦙", "trigger": {"weight": 2, "cooldown_days": 120, "min_days_resident": 45}, "stages": {"start": {"text": "{name} would like to keep a llama in the backyard. As a pet. Named Gerald.", "choices": [
+        {"label": "...Okay. One llama.", "outcome": {"morale": 10, "loyalty": 6, "resolve": True, "result": "Gerald becomes the neighborhood mascot."}},
+        {"label": "Check the zoning first", "outcome": {"goto": "llama_zone", "delay": 6, "result": "You make a call to the city."}},
+        {"label": "Absolutely not a llama", "outcome": {"morale": -5, "resolve": True, "result": "Gerald goes to a farm. A real one."}}]},
+        "llama_zone": {"auto": True, "roll": [{"weight": 50, "text": "Zoning allows it! Gerald moves in.", "outcome": {"morale": 8, "loyalty": 6, "resolve": True}}, {"weight": 50, "text": "Zoning says no livestock. Gerald is heartbroken.", "outcome": {"morale": -3, "resolve": True}}]}}},
+    "snake_escape": {"title": "The Escaped Snake", "icon": "🐍", "trigger": {"weight": 2, "cooldown_days": 110, "min_days_resident": 30}, "stages": {
+        "start": {"text": "{name} sheepishly admits their pet snake has... gotten loose. Somewhere in the unit.", "choices": [
+            {"label": "Hire a pro to find it ($150)", "cost": {"cash": 150}, "outcome": {"morale": 8, "loyalty": 8, "resolve": True, "result": "Found behind the water heater. Crisis averted."}},
+            {"label": "Give them 48 hours to find it", "outcome": {"goto": "snake_hunt", "delay": 3, "result": "You wait, nervously."}},
+            {"label": "No more snakes after this", "outcome": {"morale": -2, "resolve": True, "result": "They agree, still searching."}}]},
+        "snake_hunt": {"auto": True, "roll": [{"weight": 75, "text": "They found it curled up in a boot. All's well.", "outcome": {"morale": 4, "resolve": True}}, {"weight": 25, "text": "Still missing. The downstairs neighbor is NOT pleased.", "outcome": {"morale": -8, "resolve": True}}]}}},
+    "giant_pumpkin": {"title": "The Giant Pumpkin", "icon": "🎃", "trigger": {"weight": 2, "cooldown_days": 300, "min_days_resident": 30, "season": 2}, "stages": {"start": {"text": "{name} is growing a county-fair giant pumpkin that's slowly eating the entire backyard.", "choices": [
+        {"label": "Root for it!", "outcome": {"morale": 8, "loyalty": 6, "resolve": True, "result": "It takes second place. A backyard legend."}},
+        {"label": "Just keep it off the fence", "outcome": {"morale": 4, "resolve": True, "result": "Contained, mostly."}},
+        {"label": "That's a lot of lawn gone", "outcome": {"morale": -2, "resolve": True, "result": "They promise to reseed after harvest."}}]}}},
+    "taxidermy_hobby": {"title": "The Taxidermy Hobby", "icon": "🦌", "trigger": {"weight": 2, "cooldown_days": 110, "min_days_resident": 30}, "stages": {"start": {"text": "{name} has picked up taxidermy and the living room is becoming a small natural history museum.", "choices": [
+        {"label": "Fascinating, carry on", "outcome": {"morale": 6, "resolve": True, "result": "Surprisingly tasteful, actually."}},
+        {"label": "Ask about ventilation and chemicals", "outcome": {"morale": 3, "resolve": True, "result": "Good call — they set up a proper workspace."}},
+        {"label": "Keep it to one room", "outcome": {"morale": -2, "resolve": True, "result": "The owl stays in the den."}}]}}},
+    "pipe_organ": {"title": "The Pipe Organ", "icon": "🎹", "trigger": {"weight": 2, "cooldown_days": 120, "min_days_resident": 30, "traits": ["creative"]}, "stages": {"start": {"text": "{name} acquired a secondhand pipe organ and wants to install it in the living room.", "choices": [
+        {"label": "Approve it (it's magnificent)", "outcome": {"morale": 10, "loyalty": 8, "resolve": True, "result": "Sunday recitals become a neighborhood event."}},
+        {"label": "Soundproof first ($200)", "cost": {"cash": 200}, "outcome": {"condition": 4, "morale": 8, "resolve": True, "result": "Glorious, and the neighbors can still sleep."}},
+        {"label": "Too big, too loud", "outcome": {"morale": -5, "resolve": True, "result": "They get a keyboard instead, deflated."}}]}}},
+    "backyard_zipline": {"title": "The Zipline", "icon": "🪢", "trigger": {"weight": 2, "cooldown_days": 110, "min_days_resident": 30}, "stages": {"start": {"text": "{name} wants to string a zipline between two backyard trees for the kids.", "choices": [
+        {"label": "Approve with a safety inspection ($80)", "cost": {"cash": 80}, "outcome": {"morale": 10, "loyalty": 6, "resolve": True, "result": "The most popular backyard on the block."}},
+        {"label": "Low and short only", "outcome": {"morale": 4, "resolve": True, "result": "Safe thrills for the little ones."}},
+        {"label": "Too much liability", "outcome": {"morale": -4, "resolve": True, "result": "The trees remain zipline-free."}}]}}},
+    # ── Batch 7E: trait depth (round 3) ─────────────────────────────────────────
+    "early_bird": {"title": "Months Ahead", "icon": "🐦", "trigger": {"weight": 4, "cooldown_days": 100, "min_days_resident": 30, "traits": ["reliable"]}, "stages": {"start": {"text": "{name} offers to pay several months of rent in advance, just because they can.", "choices": [
+        {"label": "Gladly accept (+$1,200)", "outcome": {"cash": 1200, "loyalty": 10, "resolve": True, "result": "Cash flow and a rock-solid tenant."}},
+        {"label": "Accept, knock off a little (-2%)", "outcome": {"cash": 1100, "rent_mult": 0.98, "loyalty": 14, "resolve": True, "result": "A small thank-you they appreciate."}},
+        {"label": "Monthly's fine, thanks", "outcome": {"morale": 4, "resolve": True, "result": "No pressure either way."}}]}}},
+    "workshop_request": {"title": "The Workshop", "icon": "🛠️", "trigger": {"weight": 4, "cooldown_days": 90, "min_days_resident": 30, "traits": ["handy"]}, "stages": {"start": {"text": "{name} wants to set up a proper workshop in the garage — and offers to fix things around the place in exchange.", "choices": [
+        {"label": "Deal — they maintain, you supply ($100)", "cost": {"cash": 100}, "outcome": {"condition": 12, "loyalty": 14, "morale": 10, "resolve": True, "result": "Your handiest tenant becomes your unofficial super."}},
+        {"label": "Sure, just keep it safe", "outcome": {"condition": 6, "loyalty": 8, "morale": 8, "resolve": True, "result": "Half the small repairs vanish from your list."}},
+        {"label": "Garage stays for cars", "outcome": {"morale": -4, "resolve": True, "result": "A missed opportunity, honestly."}}]}}},
+    "veggie_stand": {"title": "The Veggie Stand", "icon": "🥕", "trigger": {"weight": 4, "cooldown_days": 90, "min_days_resident": 30, "traits": ["green_thumb"]}, "stages": {"start": {"text": "{name}'s garden is so productive they want to sell the surplus from a little front-yard stand.", "choices": [
+        {"label": "Charming — go for it", "outcome": {"morale": 10, "loyalty": 8, "resolve": True, "result": "The block loves it. So do the property photos."}},
+        {"label": "Fine, keep it tidy and weekends-only", "outcome": {"morale": 6, "resolve": True, "result": "A reasonable arrangement."}},
+        {"label": "No commerce out front", "outcome": {"morale": -4, "resolve": True, "result": "They give the veggies away instead."}}]}}},
+    "quiet_bothered": {"title": "The Quiet One Speaks Up", "icon": "🤫", "trigger": {"weight": 4, "cooldown_days": 90, "min_days_resident": 30, "traits": ["quiet"]}, "stages": {"start": {"text": "Your most low-key tenant rarely complains — so when {name} mentions the upstairs noise, you know it's real.", "choices": [
+        {"label": "Address it with the neighbor", "outcome": {"morale": 10, "loyalty": 12, "resolve": True, "result": "They're relieved you took them seriously."}},
+        {"label": "Offer them earplugs and sympathy", "outcome": {"morale": 2, "resolve": True, "result": "A weak response they quietly note."}},
+        {"label": "Tell them it's just apartment living", "outcome": {"morale": -8, "loyalty": -6, "resolve": True, "result": "A rare tenant, taken for granted."}}]}}},
+    "game_day": {"title": "The Big Game", "icon": "🏈", "trigger": {"weight": 4, "cooldown_days": 80, "min_days_resident": 21, "traits": ["rowdy"]}, "stages": {"start": {"text": "{name} is hosting a huge game-day party and the guest list keeps growing.", "choices": [
+        {"label": "Have fun — just no fireworks", "outcome": {"morale": 8, "loyalty": 4, "resolve": True, "result": "A blowout, but it stays in bounds."}},
+        {"label": "Cap the guest count", "outcome": {"morale": 2, "resolve": True, "result": "A sensible limit they accept."}},
+        {"label": "Not this time", "outcome": {"morale": -6, "resolve": True, "result": "They watch the game elsewhere, sulking."}}]}}},
+    "carpool_lot": {"title": "The Family Fleet", "icon": "🚐", "trigger": {"weight": 4, "cooldown_days": 90, "min_days_resident": 30, "traits": ["big_family"]}, "stages": {"start": {"text": "Between teen drivers and a minivan, {name}'s family has more cars than parking.", "choices": [
+        {"label": "Add a gravel parking pad ($300)", "cost": {"cash": 300}, "outcome": {"condition": 4, "loyalty": 12, "morale": 10, "resolve": True, "result": "Problem solved, and the property gains a spot."}},
+        {"label": "Assign street-permit parking", "outcome": {"morale": 4, "resolve": True, "result": "A workable fix."}},
+        {"label": "They'll have to figure it out", "outcome": {"morale": -4, "resolve": True, "result": "The driveway becomes a daily puzzle."}}]}}},
+    "gallery_night": {"title": "Gallery Night", "icon": "🖼️", "trigger": {"weight": 4, "cooldown_days": 90, "min_days_resident": 30, "traits": ["creative"]}, "stages": {"start": {"text": "{name} wants to host a one-night art show at the unit to sell their work.", "choices": [
+        {"label": "Wonderful — happy to host", "outcome": {"morale": 10, "loyalty": 8, "resolve": True, "result": "A lovely evening. The place looks gorgeous in the listing photos after."}},
+        {"label": "Yes, with a cleanup deposit ($100)", "outcome": {"cash": 100, "morale": 6, "resolve": True, "result": "A fair safeguard they accept."}},
+        {"label": "No public events", "outcome": {"morale": -5, "resolve": True, "result": "They host it at a friend's instead."}}]}}},
+    "delivery_overload": {"title": "Package Mountain", "icon": "📬", "trigger": {"weight": 4, "cooldown_days": 80, "min_days_resident": 21, "traits": ["homebody"]}, "stages": {"start": {"text": "{name} rarely leaves home, so deliveries pile up daily at the entrance.", "choices": [
+        {"label": "Install a parcel drop box ($110)", "cost": {"cash": 110}, "outcome": {"condition": 3, "morale": 8, "loyalty": 6, "resolve": True, "result": "Tidy entryway, happy homebody."}},
+        {"label": "Ask them to clear it daily", "outcome": {"morale": 2, "resolve": True, "result": "They're better about it now."}},
+        {"label": "It's becoming a hazard", "outcome": {"morale": -4, "resolve": True, "result": "They take it personally."}}]}}},
+    "thermostat_war": {"title": "The Thermostat War", "icon": "🌡️", "trigger": {"weight": 4, "cooldown_days": 90, "min_days_resident": 30, "traits": ["penny"]}, "stages": {
+        "start": {"text": "To save money, {name} keeps the heat off entirely — even as pipes get dangerously cold.", "choices": [
+            {"label": "Explain the frozen-pipe risk kindly", "outcome": {"morale": 4, "resolve": True, "result": "They set a sensible minimum. Crisis avoided."}},
+            {"label": "Include a heat minimum in the lease", "outcome": {"morale": -3, "resolve": True, "result": "Enforced, if grudgingly accepted."}},
+            {"label": "Let them save their pennies", "outcome": {"goto": "pipe_freeze", "delay": 10, "result": "You leave it to them."}}]},
+        "pipe_freeze": {"auto": True, "roll": [{"weight": 55, "text": "Mild winter — the pipes held.", "outcome": {"morale": 2, "resolve": True}}, {"weight": 45, "text": "A pipe froze and burst. Expensive lesson.", "outcome": {"condition": -12, "cash": -200, "morale": -6, "resolve": True}}]}}},
+    "listed_again": {"title": "Listed Again", "icon": "🛏️", "trigger": {"weight": 4, "cooldown_days": 80, "min_days_resident": 21, "traits": ["subletter"]}, "stages": {
+        "start": {"text": "You spot the unit back up on a short-term rental site, despite the last conversation.", "choices": [
+            {"label": "Final warning, in writing", "outcome": {"morale": -4, "pay_chance": 0.0, "resolve": True, "result": "They take it down. This time you mean it."}},
+            {"label": "Charge a penalty ($250)", "outcome": {"cash": 250, "morale": -8, "resolve": True, "result": "An expensive habit to break."}},
+            {"label": "Strike a revenue-share deal", "outcome": {"goto": "share_result", "delay": 10, "result": "If you can't beat them..."}}]},
+        "share_result": {"auto": True, "roll": [{"weight": 60, "text": "The arrangement worked — steady extra income, kept clean.", "outcome": {"cash": 300, "loyalty": 6, "resolve": True}}, {"weight": 40, "text": "Guests trashed the place one weekend. Deal's off.", "outcome": {"condition": -10, "morale": -4, "resolve": True}}]}}},
+    "the_fixer_pitch": {"title": "Let Me Renovate", "icon": "🔨", "trigger": {"weight": 3, "cooldown_days": 110, "min_days_resident": 45, "traits": ["handy"]}, "stages": {"start": {"text": "{name} pitches a full bathroom remodel they'd do themselves, for materials plus a rent break.", "choices": [
+        {"label": "Fund materials ($400), comp two weeks", "cost": {"cash": 400}, "outcome": {"condition": 22, "loyalty": 16, "morale": 12, "resolve": True, "result": "A stunning remodel at a fraction of contractor cost."}},
+        {"label": "Materials only, no rent break ($400)", "cost": {"cash": 400}, "outcome": {"condition": 18, "loyalty": 8, "resolve": True, "result": "Great work; they'd have liked the discount."}},
+        {"label": "Leave renovations to the pros", "outcome": {"morale": -3, "resolve": True, "result": "They respect the call, mostly."}}]}}},
+    "memory_lane": {"title": "Down Memory Lane", "icon": "📷", "trigger": {"weight": 3, "cooldown_days": 150, "min_days_resident": 90, "traits": ["reliable"], "min_morale": 55}, "stages": {"start": {"text": "{name} reflects on how many years they've been here and how much the place means to them.", "choices": [
+        {"label": "Frame a thank-you for the wall ($40)", "cost": {"cash": 40}, "outcome": {"loyalty": 16, "morale": 14, "resolve": True, "result": "A small gesture that means the world to them."}},
+        {"label": "Reminisce together warmly", "outcome": {"loyalty": 10, "morale": 10, "resolve": True, "result": "A genuine moment between landlord and tenant."}},
+        {"label": "Nice — anyway, about renewal", "outcome": {"morale": -3, "resolve": True, "result": "The moment passes, a little awkwardly."}}]}}},
+}
+
+def _fmt_sl(txt, t, prop):
+    return (txt or "").replace("{name}", t.get("name", "Your tenant")) \
+                      .replace("{prop}", f"{prop['type']} — {prop['neighborhood']}")
+
+def _storylet_eligible(sl, t, prop, season_idx, current_day):
+    tr = sl["trigger"]
+    # Special-tenant gating: storylets with a "special" key fire ONLY for that
+    # special tenant; storylets without one never fire for special tenants.
+    sp = tr.get("special")
+    if sp:
+        if not t.get(sp):
+            return False
+    elif _is_special_tenant(t):
+        return False
+    if t.get("days_resident", 0) < tr.get("min_days_resident", 0):
+        return False
+    m = t.get("morale", 50)
+    if m < tr.get("min_morale", 0) or m > tr.get("max_morale", 100):
+        return False
+    c = prop.get("condition", 0)
+    if c < tr.get("min_condition", 0) or c > tr.get("max_condition", MAX_CONDITION):
+        return False
+    if "traits" in tr and t.get("trait") not in tr["traits"]:
+        return False
+    if t.get("trait") in tr.get("exclude_traits", []):
+        return False
+    if "season" in tr and season_idx != tr["season"]:
+        return False
+    return True
+
+def _storylet_leave(s, prop, t, current_day):
+    for flag, ckey, mult in (("is_phil", "phil_cooldown_until", 4), ("is_baileys", "baileys_cooldown_until", 2),
+                              ("is_goldbergs", "goldbergs_cooldown_until", 2), ("is_mystery", "mystery_cooldown_until", 2)):
+        if t.get(flag): s[ckey] = current_day + DAYS_PER_SEASON * mult
+    prop["tenant"]       = None
+    prop["vacant_since"] = current_day
+
+def _apply_storylet_outcome(s, prop, t, outcome, current_day):
+    """Apply an outcome. Returns True only if the storylet should keep processing now."""
+    if outcome.get("morale"):
+        t["morale"] = max(0, min(100, t.get("morale", 50) + outcome["morale"]))
+    if outcome.get("loyalty"):
+        t["loyalty"] = max(0, min(100, t.get("loyalty", 10) + outcome["loyalty"]))
+    if outcome.get("condition"):
+        prop["condition"] = max(0, min(MAX_CONDITION, prop.get("condition", 0) + outcome["condition"]))
+    if outcome.get("cash"):
+        s["cash"] += outcome["cash"]
+    if outcome.get("rent_mult"):
+        t["rent"] = max(1, int(round(t.get("rent", 0) * outcome["rent_mult"])))
+    if outcome.get("pay_chance"):
+        t["pay_chance"] = max(0.50, min(0.99, t.get("pay_chance", 0.9) + outcome["pay_chance"]))
+    if outcome.get("damage_chance_add"):
+        t["damage_chance"] = min(0.60, t.get("damage_chance", 0.10) + outcome["damage_chance_add"])
+    for k, v in (outcome.get("flag") or {}).items():
+        t[k] = v
+    if outcome.get("leave"):
+        _storylet_leave(s, prop, t, current_day)
+        t.pop("storylet", None)
+        return False
+    if outcome.get("resolve"):
+        t.pop("storylet", None)
+        return False
+    if "goto" in outcome:
+        t["storylet"]["stage"]   = outcome["goto"]
+        t["storylet"]["due_day"] = current_day + outcome.get("delay", 0)
+        return outcome.get("delay", 0) == 0
+    t.pop("storylet", None)
+    return False
+
+def _run_until_player(s, prop, t, current_day, recap):
+    """Resolve auto stages until a choice stage (return its queued dict) or the storylet ends."""
+    for _ in range(8):
+        st = t.get("storylet")
+        if not st or not prop.get("tenant"):
+            return None
+        if st.get("due_day", 9_999_999) > current_day:
+            return None
+        sl = STORYLETS.get(st["id"])
+        if not sl:
+            t.pop("storylet", None); return None
+        stage = sl["stages"].get(st["stage"])
+        if not stage:
+            t.pop("storylet", None); return None
+        if stage.get("auto"):
+            rolls = stage["roll"]
+            pick  = random.choices(rolls, weights=[r.get("weight", 1) for r in rolls], k=1)[0]
+            recap.append({"prop": f"{prop['type']} — {prop['neighborhood']}",
+                          "text": f"{sl['icon']} {_fmt_sl(pick['text'], t, prop)}", "type": "info"})
+            if not _apply_storylet_outcome(s, prop, t, pick["outcome"], current_day):
+                return None
+        else:
+            st["due_day"] = 9_999_999   # pause until the player responds
+            return {
+                "prop_id": prop["id"], "prop_name": f"{prop['type']} — {prop['neighborhood']}",
+                "storylet_id": st["id"], "stage": st["stage"],
+                "title": sl["title"], "icon": sl["icon"],
+                "text": _fmt_sl(stage["text"], t, prop),
+                "choices": [{"label": c["label"]} for c in stage["choices"]],
+            }
+    return None
+
+def _storylet_tick(s, prop, t, current_day, events):
+    """Progress this tenant's active storylet, or maybe start a new one. Returns a queued choice event or None."""
+    st = t.get("storylet")
+    if st:
+        if st.get("due_day", 9_999_999) <= current_day:
+            return _run_until_player(s, prop, t, current_day, events)
+        return None
+    if random.random() >= 0.015:   # ~1.5%/day to kick off a new storylet
+        return None
+    season_idx = _season_info(current_day)[0]
+    cands = []
+    for key, sl in STORYLETS.items():
+        if not _storylet_eligible(sl, t, prop, season_idx, current_day):
+            continue
+        cd = sl["trigger"].get("cooldown_days", 56)
+        if any(r["id"] == key and current_day - r["day"] < cd for r in t.get("recent_storylets", [])):
+            continue
+        cands.append((key, sl["trigger"].get("weight", 5)))
+    if not cands:
+        return None
+    key = random.choices([k for k, _ in cands], weights=[w for _, w in cands], k=1)[0]
+    t["storylet"] = {"id": key, "stage": "start", "due_day": current_day}
+    t.setdefault("recent_storylets", []).append({"id": key, "day": current_day})
+    t["recent_storylets"] = [r for r in t["recent_storylets"] if current_day - r["day"] < DAYS_PER_SEASON * 4]
+    return _run_until_player(s, prop, t, current_day, events)
+
 @app.route('/api/advance', methods=['POST'])
 def api_advance():
     data     = request.json
@@ -3486,9 +5288,9 @@ def api_advance():
         return jsonify({"error": "There's a squatter in your house. Time isn't going anywhere until you deal with that."}), 400
     events             = []
     new_repairs            = []
-    new_morale_events      = []
     new_renewal_offers     = []
     new_commercial_events  = []
+    new_storylet_events    = []
     rent_log               = {}   # prop_id -> summary dict
     squatter_spawned       = False
 
@@ -3513,21 +5315,39 @@ def api_advance():
             if t.get("renewal_pending"):
                 continue
 
-            # Lease end — 50% chance the tenant offers to renew
+            # Storylets — progress an active one (or maybe start one)
+            _sev = _storylet_tick(s, prop, t, current_day, events)
+            if _sev:
+                new_storylet_events.append(_sev)
+            if not prop.get("tenant"):
+                continue   # tenant left via a storylet outcome
+            t = prop["tenant"]
+
+            # Lease end — willingness to renew scales with morale, loyalty, rent tier
             if current_day >= t.get("lease_end_day", 999999):
-                if random.random() < 0.50:
+                _tier_pen = {"Very High": 0.40, "High": 0.20}.get(t.get("rent_tier", "Average"), 0.0)
+                renew_chance = 0.40 + 0.40 * (t.get("morale", 50) / 100) + 0.20 * (t.get("loyalty", 10) / 100) - _tier_pen
+                renew_chance = max(0.05, min(0.97, renew_chance))
+                if random.random() < renew_chance:
                     new_stay = random.randint(t.get("stay_min", 60), t.get("stay_max", 180))
                     t["renewal_pending"]   = True
                     t["renewal_stay_days"] = new_stay
+                    t["renewal_odds"]      = _renewal_odds(t)
                     new_renewal_offers.append({
                         "prop_id":        prop["id"],
                         "prop_name":      f"{prop['type']} — {prop['neighborhood']}",
                         "tenant_name":    t["name"],
                         "tenant_icon":    t.get("icon", "👤"),
                         "rent":           t["rent"],
+                        "fair_rent":      calc_fair_weekly_rent(prop),
+                        "rent_tier":      t.get("rent_tier", "Average"),
                         "new_stay_days":  new_stay,
                         "missed_payments": t.get("missed_payments", 0),
                         "morale":         t.get("morale", 50),
+                        "loyalty":        t.get("loyalty", 10),
+                        "renewals":       t.get("renewals", 0),
+                        "trait_info":     t.get("trait_info"),
+                        "renewal_odds":   t["renewal_odds"],
                     })
                     events.append({"prop": f"{prop['type']} — {prop['neighborhood']}",
                                    "text": f"🔄 {t['name']}'s lease ended — they want to renew! (respond below)",
@@ -3569,6 +5389,10 @@ def api_advance():
             # Weekly rent due
             if current_day >= t.get("next_rent_day", 999999):
                 t["next_rent_day"] += 7
+                # Trait: weekly condition effect (handy/green_thumb improve, rowdy/family wear)
+                _cpw = TRAIT_EFFECTS.get(t.get("trait"), {}).get("cond_per_week", 0)
+                if _cpw:
+                    prop["condition"] = max(0, min(MAX_CONDITION, prop["condition"] + _cpw))
                 rent = t["rent"]
                 if pid not in rent_log:
                     rent_log[pid] = {"name": t["name"],
@@ -3629,7 +5453,8 @@ def api_advance():
                             events.append({"prop": f"{prop['type']} — {prop['neighborhood']}",
                                 "text": "🔱 The Phil deep-cleaned everything — condition +10!", "type": "positive"})
 
-            prop["days_rented"] = prop.get("days_rented", 0) + 1
+            prop["days_rented"]  = prop.get("days_rented", 0) + 1
+            t["days_resident"]   = t.get("days_resident", 0) + 1
 
         # ── Global tenant event roll ───────────────────────────────────────────
         # 15% base chance + 1% per tenant (capped at 75%) that one event fires.
@@ -3670,81 +5495,18 @@ def api_advance():
                                           if current_day - e["day"] < DAYS_PER_SEASON * 2]
 
                     if chosen_event["type"] == "repair":
-                        rt = random.choice(REPAIR_TYPES)
+                        sc = random.choice(REPAIR_SCENARIOS)
                         target_prop["condition"] = max(0, target_prop["condition"] - 2)
                         new_repairs.append({
-                            "id":          f"r{current_day}_{target_prop['id']}",
-                            "prop_id":     target_prop["id"],
-                            "prop_name":   f"{target_prop['type']} — {target_prop['neighborhood']}",
-                            "repair_type": rt,
-                            "costs":       {k: int(rt["base_cost"] * c["cost_mult"])
-                                            for k, c in CONTRACTORS.items()},
-                        })
-
-                    elif chosen_event["type"] == "morale_choice":
-                        ev_data = {
-                            "key":          chosen_event["key"],
-                            "name":         chosen_event["name"],
-                            "icon":         chosen_event.get("icon", "💬"),
-                            "prop_id":      target_prop["id"],
-                            "prop_name":    f"{target_prop['type']} — {target_prop['neighborhood']}",
-                            "morale_gain":  chosen_event["morale_gain"],
-                            "damage_chance":chosen_event["damage_chance"],
-                            "damage_pts":   chosen_event["damage_pts"],
-                            "agree_label":  chosen_event["agree_label"],
-                            "decline_label":chosen_event["decline_label"],
-                            "cond_gain":    chosen_event.get("cond_gain", 0),
-                            "cash_bonus":   bool(chosen_event.get("cash_bonus")),
-                        }
-                        if chosen_event["key"] == "paint_room":
-                            room = random.choice(chosen_event["rooms"])
-                            ev_data["message"] = f"Your tenant wants to paint the {room}."
-                        elif chosen_event["key"] == "garage_sale":
-                            ev_data["message"] = "Your tenant wants to host a garage sale."
-                        elif chosen_event["key"] == "party":
-                            reason = random.choice(chosen_event["reasons"])
-                            ev_data["message"] = f"Your tenant wants to throw a party for their {reason}."
-                        elif chosen_event["key"] == "dog":
-                            ev_data["message"] = "Your tenant wants to get a dog."
-                        elif chosen_event["key"] == "cat":
-                            ev_data["message"] = "Your tenant wants to get a cat."
-                        elif chosen_event["key"] == "garden":
-                            ev_data["message"] = "Your tenant wants to start a garden in the backyard."
-                        elif chosen_event["key"] == "satellite_dish":
-                            ev_data["message"] = "Your tenant wants to install a satellite dish on the roof."
-                        elif chosen_event["key"] == "band_practice":
-                            ev_data["message"] = "Your tenant wants to host band practice at the property."
-                        elif chosen_event["key"] == "home_gym":
-                            ev_data["message"] = "Your tenant wants to set up a home gym with heavy equipment."
-                        elif chosen_event["key"] == "holiday_decorations":
-                            ev_data["message"] = "Your tenant wants to put up holiday decorations outside."
-                        elif chosen_event["key"] == "fire_pit":
-                            ev_data["message"] = "Your tenant wants to set up a fire pit in the backyard."
-                        elif chosen_event["key"] == "duck":
-                            ev_data["message"] = "Your tenant wants to keep a duck. Just one duck, they promise."
-                        elif chosen_event["key"] == "taco_tuesday":
-                            ev_data["message"] = "Your tenant wants to host a weekly Taco Tuesday with friends."
-                        elif chosen_event["key"] == "feng_shui":
-                            ev_data["message"] = "Your tenant wants to rearrange everything according to feng shui."
-                        elif chosen_event["key"] == "backyard_chicken":
-                            ev_data["message"] = "Your tenant wants to keep backyard chickens."
-                        elif chosen_event["key"] == "candles":
-                            ev_data["message"] = "Your tenant has developed a serious candle obsession."
-                        elif chosen_event["key"] == "bulletin_board":
-                            ev_data["message"] = "Your tenant wants to mount a large bulletin board on the wall."
-                        elif chosen_event["key"] == "dartboard":
-                            ev_data["message"] = "Your tenant wants to mount a dartboard on the wall."
-                        elif chosen_event.get("message"):
-                            ev_data["message"] = chosen_event["message"]
-                        else:
-                            ev_data["message"] = f"Your tenant has a request: {chosen_event['name']}."
-                        new_morale_events.append(ev_data)
-                        # Also show a line in the advance events list so the player
-                        # can see the request even before clicking "Respond"
-                        events.append({
-                            "prop": ev_data["prop_name"],
-                            "text": f"{chosen_event.get('icon','💬')} {ev_data['message']} — tap below to respond",
-                            "type": "request",
+                            "id":        f"r{current_day}_{target_prop['id']}",
+                            "prop_id":   target_prop["id"],
+                            "prop_name": f"{target_prop['type']} — {target_prop['neighborhood']}",
+                            "key":       sc["key"],
+                            "title":     sc["title"],
+                            "icon":      sc["icon"],
+                            "text":      _fmt_sl(sc["text"], t, target_prop),
+                            "choices":   [{"label": c["label"], "cost": c["cost"]}
+                                          for c in _repair_choices(sc)],
                         })
 
                     elif chosen_event["type"] == "morale_auto":
@@ -4818,62 +6580,98 @@ def api_advance():
     # ── Assistant auto-resolution ─────────────────────────────────────────────
     hired = s.get("assistants", {})
 
-    if hired.get("repair") or hired.get("estate"):
+    if hired.get("manager"):
         auto_handled = []
         for repair in new_repairs:
             prop = next((p for p in s["properties"] if p["id"] == repair["prop_id"]), None)
             if not prop:
                 auto_handled.append(repair)
                 continue
-            rt = repair["repair_type"]
-            chosen_method = None
-            for method_key in ["premium", "standard", "budget"]:
-                cost = int(rt["base_cost"] * CONTRACTORS[method_key]["cost_mult"])
-                if s["cash"] >= cost:
-                    chosen_method = method_key
-                    break
-            if chosen_method:
-                cont      = CONTRACTORS[chosen_method]
-                cost      = int(rt["base_cost"] * cont["cost_mult"])
-                quality   = random.randint(cont["q_min"], cont["q_max"])
-                cond_gain = int(rt["cond_fix"] * (quality / 100))
+            sc = next((r for r in REPAIR_SCENARIOS if r["key"] == repair.get("key")), None)
+            if not sc:
+                auto_handled.append(repair)
+                continue
+            # Pick the best (highest-cost) proactive fix the budget allows; skip "ignore".
+            affordable = [c for c in sc["choices"] if c.get("cost", 0) <= s["cash"]]
+            if affordable:
+                choice    = max(affordable, key=lambda c: c.get("cost", 0))
+                cost      = choice.get("cost", 0)
+                cond_gain = choice.get("cond", 0)
                 s["cash"] -= cost
-                prop["condition"] = min(MAX_CONDITION, prop["condition"] + cond_gain)
+                prop["condition"] = max(0, min(MAX_CONDITION, prop["condition"] + cond_gain))
                 if prop.get("tenant"):
-                    prop["tenant"]["morale"] = min(100, prop["tenant"].get("morale", 50) + 5)
+                    mdelta = max(0, choice.get("morale", 0)) + 3
+                    prop["tenant"]["morale"] = min(100, prop["tenant"].get("morale", 50) + mdelta)
+                if cost > 0:
+                    prop["total_repair_costs"] = prop.get("total_repair_costs", 0) + cost
                 s["log"].insert(0, {"day": s["day"] + days, "type": "renovate",
-                    "text": f"🔧 Assistant fixed {rt['name']} at {prop['type']} in {prop['neighborhood']} ({cont['name']}, quality {quality}/100, cost ${cost:,})"})
+                    "text": f"🔧 Assistant handled '{sc['title']}' at {prop['type']} in {prop['neighborhood']} — {choice['label']} (cost ${cost:,})"})
                 events.append({"prop": f"{prop['type']} — {prop['neighborhood']}", "type": "info",
-                    "text": f"🔧 Assistant: {rt['name']} fixed by {cont['name']} (quality {quality}/100, cost ${cost:,})"})
+                    "text": f"🔧 Assistant: {sc['title']} — {choice['label']} (cost ${cost:,})"})
                 auto_handled.append(repair)
         new_repairs = [r for r in new_repairs if r not in auto_handled]
 
-    if hired.get("tenant") or hired.get("estate"):
-        handle_all       = bool(hired.get("estate"))
-        auto_handled_m   = []
-        for ev in new_morale_events:
-            if not handle_all and random.random() >= 0.50:
-                continue
-            cond_gain_ev   = ev.get("cond_gain", 0)
-            damage_chance  = ev.get("damage_chance", 0)
-            choice = "agree" if (cond_gain_ev > 0 or damage_chance < 0.40) else "decline"
-            prop = next((p for p in s["properties"] if p["id"] == ev["prop_id"]), None)
-            if prop and prop.get("tenant"):
-                t = prop["tenant"]
-                if choice == "agree":
-                    t["morale"] = min(100, t.get("morale", 50) + ev.get("morale_gain", 0))
-                    if damage_chance > 0 and random.random() < damage_chance:
-                        prop["condition"] = max(0, prop.get("condition", 0) - ev.get("damage_pts", 0))
-                    if cond_gain_ev > 0:
-                        prop["condition"] = min(MAX_CONDITION, prop.get("condition", 0) + cond_gain_ev)
-                else:
-                    t["morale"] = max(0, t.get("morale", 50) - 5)
-                s["log"].insert(0, {"day": s["day"] + days, "type": "info",
-                    "text": f"🤝 Assistant {choice}d '{ev['name']}' at {prop['type']} in {prop['neighborhood']}"})
-                events.append({"prop": f"{prop['type']} — {prop['neighborhood']}", "type": "info",
-                    "text": f"🤝 Assistant handled '{ev['name']}' — {choice}d"})
-                auto_handled_m.append(ev)
-        new_morale_events = [e for e in new_morale_events if e not in auto_handled_m]
+    # Property Manager auto-resolves tenant storylets (the story system).
+    if hired.get("manager"):
+        resolve_day = s["day"] + days
+        def _sl_cash_cost(c, t):
+            cc = c.get("cost", {})
+            return cc.get("cash", 0) + int(t.get("rent", 0)) * cc.get("cash_weeks", 0)
+        def _sl_score(c, t):
+            o = c.get("outcome", {})
+            return (o.get("morale", 0) + o.get("loyalty", 0) + o.get("condition", 0)
+                    + o.get("cash", 0) / 200.0 - _sl_cash_cost(c, t) / 200.0)
+        auto_handled_s = []
+        for sev in new_storylet_events:
+            prop = next((p for p in s["properties"] if p["id"] == sev["prop_id"]), None)
+            if not prop or not prop.get("tenant"):
+                auto_handled_s.append(sev); continue
+            t     = prop["tenant"]
+            st    = t.get("storylet")
+            sl    = STORYLETS.get(sev["storylet_id"])
+            stage = sl["stages"].get(sev["stage"]) if sl else None
+            if not st or not sl or not stage or stage.get("auto"):
+                auto_handled_s.append(sev); continue
+            affordable = [c for c in stage["choices"] if _sl_cash_cost(c, t) <= s["cash"]]
+            # Prefer choices that don't make the tenant leave; fall back if those are all we can afford.
+            pool = [c for c in affordable if not c.get("outcome", {}).get("leave")] or affordable
+            if not pool:
+                continue   # can't afford any option — leave it for the player to decide
+            choice = max(pool, key=lambda c: _sl_score(c, t))
+            s["cash"] -= _sl_cash_cost(choice, t)
+            st["due_day"] = resolve_day
+            _apply_storylet_outcome(s, prop, t, choice["outcome"], resolve_day)
+            result = choice["outcome"].get("result", "Handled.")
+            s["log"].insert(0, {"day": resolve_day, "type": "info",
+                "text": f"📖 Assistant handled '{sl['title']}' at {prop['type']} in {prop['neighborhood']} — {choice['label']}"})
+            events.append({"prop": f"{prop['type']} — {prop['neighborhood']}", "type": "info",
+                "text": f"📖 Assistant: {sl['title']} — {result}"})
+            auto_handled_s.append(sev)
+        new_storylet_events = [e for e in new_storylet_events if e not in auto_handled_s]
+
+    # Property Manager auto-renews lease offers at the current rent (keeps the tenant).
+    if hired.get("manager"):
+        renew_day = s["day"] + days
+        auto_handled_rn = []
+        for offer in new_renewal_offers:
+            prop = next((p for p in s["properties"] if p["id"] == offer["prop_id"]), None)
+            if not prop or not prop.get("tenant"):
+                auto_handled_rn.append(offer); continue
+            t = prop["tenant"]
+            new_stay = t.get("renewal_stay_days", offer.get("new_stay_days", 120))
+            t["lease_end_day"]   = renew_day + new_stay
+            t["renewal_pending"] = False
+            t.pop("renewal_stay_days", None)
+            t.pop("renewal_odds", None)
+            t["renewals"]   = t.get("renewals", 0) + 1
+            t["loyalty"]    = min(100, t.get("loyalty", 10) + 15)
+            t["pay_chance"] = min(0.99, t.get("pay_chance", 0.9) + 0.01)
+            s["log"].insert(0, {"day": renew_day, "type": "rent",
+                "text": f"🤝 Assistant renewed {t['name']} at {prop['type']} in {prop['neighborhood']} — ${t['rent']:,}/wk, {new_stay} more days"})
+            events.append({"prop": f"{prop['type']} — {prop['neighborhood']}", "type": "info",
+                "text": f"🤝 Assistant renewed {t['name']}'s lease — ${t['rent']:,}/wk"})
+            auto_handled_rn.append(offer)
+        new_renewal_offers = [o for o in new_renewal_offers if o not in auto_handled_rn]
 
     _update_stock_prices(s, days)
     _roll_special_contractors(s)
@@ -4887,7 +6685,7 @@ def api_advance():
         "net_worth": s["cash"] + sum(calc_market_value(p) for p in s["properties"]),
         "events":             events,
         "repairs":            new_repairs,
-        "morale_events":      new_morale_events,
+        "storylet_events":    new_storylet_events,
         "renewal_offers":     new_renewal_offers,
         "commercial_events":  new_commercial_events,
         "tax_event":          tax_event,
@@ -4947,6 +6745,19 @@ def api_file_tax_extension():
     return jsonify({"success": True, "tax_owed": tax_owed, "cash": s["cash"]})
 
 
+def _renewal_odds(t):
+    """Acceptance probability for a rent increase at renewal, per raise % tier."""
+    morale   = t.get("morale", 50)
+    loyalty  = t.get("loyalty", 10)
+    tier_pen = {"Very High": 0.40, "High": 0.20}.get(t.get("rent_tier", "Average"), 0.0)
+    penny    = t.get("trait") == "penny"
+    base = {5: 0.85, 10: 0.65, 15: 0.45}
+    odds = {}
+    for pct, b in base.items():
+        p = b + (morale - 50) / 250 + loyalty / 350 - tier_pen - (0.30 if penny else 0.0)
+        odds[str(pct)] = round(max(0.05, min(0.97, p)), 2)
+    return odds
+
 @app.route('/api/property/<int:pid>/renewal_respond', methods=['POST'])
 def api_renewal_respond(pid):
     s    = load()
@@ -4955,28 +6766,114 @@ def api_renewal_respond(pid):
     if not prop or not prop.get("tenant") or not prop["tenant"].get("renewal_pending"):
         return jsonify({"error": "No pending renewal for this property"}), 400
 
-    t = prop["tenant"]
-    if data.get("agree"):
-        new_stay = t.get("renewal_stay_days",
-                         random.randint(t.get("stay_min", 60), t.get("stay_max", 180)))
-        t["lease_end_day"]   = s["day"] + new_stay
-        t["renewal_pending"] = False
-        t.pop("renewal_stay_days", None)
-        s["log"].append({"day": s["day"], "type": "rent",
-            "text": f"{t['name']} renewed lease at {prop['type']} in {prop['neighborhood']} for {new_stay} more days"})
-    else:
+    t        = prop["tenant"]
+    action   = data.get("action") or ("renew" if data.get("agree") else "decline")  # back-compat
+    new_stay = t.get("renewal_stay_days", random.randint(t.get("stay_min", 60), t.get("stay_max", 180)))
+
+    def _leave(reason):
         name = t["name"]
-        if t.get("is_phil"):      s["phil_cooldown_until"]      = s["day"] + DAYS_PER_SEASON * 4
-        if t.get("is_baileys"):   s["baileys_cooldown_until"]   = s["day"] + DAYS_PER_SEASON * 2
-        if t.get("is_goldbergs"): s["goldbergs_cooldown_until"] = s["day"] + DAYS_PER_SEASON * 2
-        if t.get("is_mystery"):   s["mystery_cooldown_until"]   = s["day"] + DAYS_PER_SEASON * 2
+        for flag, ckey, mult in (("is_phil", "phil_cooldown_until", 4), ("is_baileys", "baileys_cooldown_until", 2),
+                                  ("is_goldbergs", "goldbergs_cooldown_until", 2), ("is_mystery", "mystery_cooldown_until", 2)):
+            if t.get(flag): s[ckey] = s["day"] + DAYS_PER_SEASON * mult
         prop["tenant"]       = None
         prop["vacant_since"] = s["day"]
         s["log"].append({"day": s["day"], "type": "info",
-            "text": f"{name}'s renewal denied at {prop['type']} in {prop['neighborhood']} — moved out"})
+            "text": f"{name} moved out of {prop['type']} in {prop['neighborhood']} — {reason}"})
+
+    def _renew(label, extra_days=0):
+        t["lease_end_day"]   = s["day"] + new_stay + extra_days
+        t["renewal_pending"] = False
+        t.pop("renewal_stay_days", None)
+        t.pop("renewal_odds", None)
+        t["renewals"]   = t.get("renewals", 0) + 1
+        t["pay_chance"] = min(0.99, t.get("pay_chance", 0.9) + 0.01)  # tenure → reliability
+        s["log"].append({"day": s["day"], "type": "rent",
+            "text": f"{t['name']} renewed at {prop['type']} in {prop['neighborhood']} — {label}, {new_stay + extra_days} more days"})
+
+    if action == "renew":
+        t["loyalty"] = min(100, t.get("loyalty", 10) + 15)
+        _renew(f"${t['rent']:,}/wk")
+        outcome = "renewed"
+    elif action == "discount":
+        t["rent"]    = max(1, int(round(t["rent"] * 0.95)))
+        t["morale"]  = min(100, t.get("morale", 50) + 8)
+        t["loyalty"] = min(100, t.get("loyalty", 10) + 25)
+        t["rent_tier"] = rent_tier(t["rent"], calc_fair_weekly_rent(prop))["tier"]
+        _renew(f"${t['rent']:,}/wk (-5% retention)", extra_days=int(new_stay * 0.4))
+        outcome = "discounted"
+    elif action == "raise":
+        pct  = int(data.get("pct", 5))
+        odds = (t.get("renewal_odds") or _renewal_odds(t)).get(str(pct), 0.5)
+        if random.random() < odds:
+            t["rent"]      = int(round(t["rent"] * (1 + pct / 100)))
+            t["rent_tier"] = rent_tier(t["rent"], calc_fair_weekly_rent(prop))["tier"]
+            t["morale"]    = max(0, t.get("morale", 50) - 8)
+            t["loyalty"]   = min(100, t.get("loyalty", 10) + 5)
+            _renew(f"+{pct}% to ${t['rent']:,}/wk")
+            outcome = "raise_accepted"
+        elif t.get("trait") == "penny":
+            # Penny pinchers grumble but won't actually walk over rent
+            t["morale"]  = max(0, t.get("morale", 50) - 5)
+            t["loyalty"] = min(100, t.get("loyalty", 10) + 5)
+            _renew(f"held at ${t['rent']:,}/wk (rejected the raise)")
+            outcome = "raise_rejected_stayed"
+        else:
+            t["renewal_pending"] = False
+            _leave(f"rejected the +{pct}% increase")
+            outcome = "raise_rejected_left"
+    else:  # decline
+        t["renewal_pending"] = False
+        _leave("you chose not to renew")
+        outcome = "declined"
 
     save(s)
-    return jsonify({"success": True})
+    return jsonify({"success": True, "outcome": outcome,
+                    "rent": (prop.get("tenant") or {}).get("rent"),
+                    "tenant_name": t.get("name")})
+
+
+@app.route('/api/storylet/respond', methods=['POST'])
+def api_storylet_respond():
+    s    = load()
+    data = request.json or {}
+    prop = next((p for p in s["properties"] if p["id"] == data.get("prop_id")), None)
+    if not prop or not prop.get("tenant"):
+        return jsonify({"error": "No tenant here"}), 404
+    t  = prop["tenant"]
+    st = t.get("storylet")
+    if not st:
+        return jsonify({"error": "No active storylet"}), 400
+    sl    = STORYLETS.get(st["id"])
+    stage = sl["stages"].get(st["stage"]) if sl else None
+    if not stage or stage.get("auto"):
+        return jsonify({"error": "Not awaiting a choice"}), 400
+    idx = int(data.get("choice_idx", -1))
+    if idx < 0 or idx >= len(stage["choices"]):
+        return jsonify({"error": "Invalid choice"}), 400
+    choice = stage["choices"][idx]
+
+    # Validate + charge any cost
+    cost      = choice.get("cost", {})
+    cash_cost = cost.get("cash", 0) + int(t.get("rent", 0)) * cost.get("cash_weeks", 0)
+    if cash_cost > s["cash"]:
+        return jsonify({"error": f"Need ${cash_cost:,} for that"}), 400
+    s["cash"] -= cash_cost
+
+    st["due_day"] = s["day"]
+    outcome = choice["outcome"]
+    _apply_storylet_outcome(s, prop, t, outcome, s["day"])
+    result = outcome.get("result", "Done.")
+    s["log"].append({"day": s["day"], "type": "info", "text": f"{sl['title']} — {result}"})
+
+    # XP for engaging with a tenant storylet (ported from the old request system).
+    # Scales with the positive impact of the choice; always at least 1 for responding.
+    pos      = max(0, outcome.get("morale", 0)) + max(0, outcome.get("loyalty", 0)) + max(0, outcome.get("condition", 0))
+    xp_gain  = max(1, pos // 5)
+    level_up = add_xp(s, xp_gain)
+
+    save(s)
+    return jsonify({"success": True, "result": result, "left": prop.get("tenant") is None,
+                    "xp_gain": xp_gain, "level_up": level_up, "new_level": s.get("level", 0)})
 
 
 # ── Bank Routes ────────────────────────────────────────────────────────────────
@@ -5112,134 +7009,63 @@ def api_diy_renovate():
                     "market_value": new_val, "weekly_rent": calc_fair_weekly_rent(prop),
                     "energy": s["energy"], "level_up": level_up, "new_level": s.get("level", 0)})
 
-@app.route('/api/repair/fix', methods=['POST'])
-def api_repair_fix():
+@app.route('/api/repair/resolve', methods=['POST'])
+def api_repair_resolve():
+    """Resolve a repair scenario by the player's chosen handling option."""
     data = request.json
     s    = load()
     prop = next((p for p in s["properties"] if p["id"] == data["prop_id"]), None)
     if not prop:
         return jsonify({"error": "Not found"}), 404
-    rt   = next((r for r in REPAIR_TYPES if r["key"] == data["repair_key"]), None)
-    if not rt:
-        return jsonify({"error": "Invalid repair type"}), 400
+    sc = next((r for r in REPAIR_SCENARIOS if r["key"] == data["repair_key"]), None)
+    if not sc:
+        return jsonify({"error": "Invalid repair"}), 400
 
-    method = data["method"]   # 'diy' or a contractor key
-    if method == 'diy':
-        quality   = max(5, min(100, int(data["quality"])))
-        cond_gain = int(rt["cond_fix"] * (quality / 100))
-        cost      = 0
-    else:
-        cont = CONTRACTORS.get(method)
-        if not cont:
-            return jsonify({"error": "Invalid contractor"}), 400
-        cost = int(rt["base_cost"] * cont["cost_mult"])
-        if cost > s["cash"]:
-            return jsonify({"error": "Not enough cash"}), 400
-        quality   = random.randint(cont["q_min"], cont["q_max"])
-        cond_gain = int(rt["cond_fix"] * (quality / 100))
+    choices = _repair_choices(sc)
+    try:
+        idx = int(data["choice_idx"])
+    except (KeyError, TypeError, ValueError):
+        return jsonify({"error": "Invalid choice"}), 400
+    if idx < 0 or idx >= len(choices):
+        return jsonify({"error": "Invalid choice"}), 400
+    choice = choices[idx]
+
+    cost = int(choice.get("cost", 0))
+    if cost > s["cash"]:
+        return jsonify({"error": "Not enough cash"}), 400
+
+    cond_delta   = choice.get("cond", 0)
+    morale_delta = choice.get("morale", 0)
+    loyalty_delta = choice.get("loyalty", 0)
+    result = choice.get("result", "")
+    bad    = False
+    risk   = choice.get("risk")
+    if risk and random.random() < risk.get("chance", 0):
+        cond_delta   += risk.get("cond", 0)
+        morale_delta += risk.get("morale", 0)
+        result        = risk.get("result_bad", result)
+        bad           = True
+
+    if cost:
         s["cash"] -= cost
-        prop["total_repair_costs"] += cost
-
-    prop["condition"] = min(MAX_CONDITION, prop["condition"] + cond_gain)
-    # Tenant morale boost — they appreciate the quick fix
+        prop["total_repair_costs"] = prop.get("total_repair_costs", 0) + cost
+    prop["condition"] = max(0, min(MAX_CONDITION, prop["condition"] + cond_delta))
+    morale_after = None
     if prop.get("tenant"):
-        prop["tenant"]["morale"] = min(100, prop["tenant"].get("morale", 50) + 5)
-    s["log"].append({"day": s["day"], "type": "renovate",
-        "text": f"{rt['name']} fixed at {prop['type']} in {prop['neighborhood']} ({method}, quality {quality}/100)"})
+        morale_after = max(0, min(100, prop["tenant"].get("morale", 50) + morale_delta))
+        prop["tenant"]["morale"] = morale_after
+        if loyalty_delta:
+            prop["tenant"]["loyalty"] = max(0, min(100, prop["tenant"].get("loyalty", 10) + loyalty_delta))
+
+    result = _fmt_sl(result, prop.get("tenant") or {}, prop)
+    log_type = "warning" if choice.get("ignore") else "renovate"
+    s["log"].append({"day": s["day"], "type": log_type,
+        "text": f"{sc['title']} at {prop['type']} in {prop['neighborhood']} — {choice['label']}"
+                + (f" (${cost:,})" if cost else "")})
     save(s)
-    return jsonify({"success": True, "quality": quality, "condition": prop["condition"],
-                    "cost": cost, "cash": s["cash"]})
-
-@app.route('/api/repair/ignore', methods=['POST'])
-def api_repair_ignore():
-    data = request.json
-    s    = load()
-    prop = next((p for p in s["properties"] if p["id"] == data["prop_id"]), None)
-    if not prop:
-        return jsonify({"error": "Not found"}), 404
-    rt        = next((r for r in REPAIR_TYPES if r["key"] == data["repair_key"]), None)
-    cond_loss = rt["cond_loss"] if rt else 3
-    prop["condition"] = max(0, prop["condition"] - cond_loss)
-    # Tenant morale hit — they're not happy about ignored issues
-    morale_before = None
-    if prop.get("tenant"):
-        morale_before = prop["tenant"].get("morale", 50)
-        prop["tenant"]["morale"] = max(0, morale_before - 15)
-    s["log"].append({"day": s["day"], "type": "warning",
-        "text": f"Ignored {rt['name'] if rt else 'repair'} at {prop['type']} in {prop['neighborhood']} — condition -{cond_loss}, tenant morale -{15 if morale_before is not None else 0}"})
-    save(s)
-    return jsonify({"success": True, "condition": prop["condition"], "cash": s["cash"],
-                    "morale": prop["tenant"]["morale"] if prop.get("tenant") else None})
-
-@app.route('/api/tenant_event/respond', methods=['POST'])
-def api_tenant_event_respond():
-    s    = load()
-    data = request.json or {}
-    prop = next((p for p in s["properties"] if p["id"] == data.get("prop_id")), None)
-    if not prop or not prop.get("tenant"):
-        return jsonify({"error": "Property or tenant not found"}), 404
-
-    agree     = bool(data.get("agree"))
-    event_key = data.get("event_key")
-    event_cfg = next((e for e in TENANT_EVENTS if e["key"] == event_key), None)
-    if not event_cfg:
-        return jsonify({"error": "Unknown event"}), 400
-
-    t                = prop["tenant"]
-    condition_change = 0
-    morale_change    = 0
-    cash_awarded     = 0
-    morale_before    = t.get("morale", 50)
-
-    if agree:
-        morale_change = event_cfg["morale_gain"]
-        t["morale"]   = min(100, t.get("morale", 50) + morale_change)
-
-        if event_cfg.get("cond_gain"):
-            # Special: agreement restores condition instead of risking damage
-            condition_change   = event_cfg["cond_gain"]
-            prop["condition"]  = min(MAX_CONDITION, prop["condition"] + condition_change)
-        elif event_cfg.get("damage_chance") and random.random() < event_cfg["damage_chance"]:
-            condition_change   = -event_cfg["damage_pts"]
-            prop["condition"]  = max(0, prop["condition"] + condition_change)
-
-        if event_cfg.get("cash_bonus"):
-            cash_awarded = random.randint(150, 350)
-            s["cash"]   += cash_awarded
-
-        log_suffix = ""
-        if condition_change > 0:
-            log_suffix += f" — condition +{condition_change}"
-        elif condition_change < 0:
-            log_suffix += f" — caused {abs(condition_change)} pts condition damage"
-        if cash_awarded:
-            log_suffix += f" — received ${cash_awarded:,} bonus"
-        s["log"].append({"day": s["day"], "type": "info",
-            "text": f"Agreed to {t['name']}'s {event_cfg['name']} request at {prop['type']} in {prop['neighborhood']}{log_suffix}"})
-    else:
-        morale_change = -random.randint(5, 10)
-        t["morale"]   = max(0, morale_before + morale_change)
-        s["log"].append({"day": s["day"], "type": "info",
-            "text": f"Declined {t['name']}'s {event_cfg['name']} request at {prop['type']} in {prop['neighborhood']} — morale {morale_change}"})
-
-    level_up = None
-    if agree and morale_change > 0:
-        xp_gain  = max(1, morale_change // 5)
-        level_up = add_xp(s, xp_gain)
-
-    save(s)
-    return jsonify({
-        "success":          True,
-        "agree":            agree,
-        "condition":        prop["condition"],
-        "morale":           t.get("morale"),
-        "condition_change": condition_change,
-        "morale_change":    morale_change,
-        "cash":             s["cash"],
-        "cash_awarded":     cash_awarded,
-        "level_up":         level_up,
-        "new_level":        s.get("level", 0),
-    })
+    return jsonify({"success": True, "result": result, "bad": bad,
+                    "condition": prop["condition"], "cost": cost, "cash": s["cash"],
+                    "morale": morale_after})
 
 
 @app.route('/api/jobs/complete', methods=['POST'])
