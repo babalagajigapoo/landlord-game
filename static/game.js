@@ -11461,7 +11461,7 @@ async function redeemCode() {
 
 // ── Stocks ────────────────────────────────────────────────────────────────────
 let stocksData = null;
-let _stocksOpen = { stock: true, index: false, crypto: false };   // collapsible tiers
+let _stocksOpen = { stock: false, index: false, crypto: false };   // collapsible tiers — all closed on open
 function toggleStockTier(key) {
   _stocksOpen[key] = !_stocksOpen[key];
   if (stocksData) _renderStocksInner(stocksData);
@@ -11470,6 +11470,7 @@ function toggleStockTier(key) {
 async function renderStocks() {
   const el = document.getElementById('stocks-list');
   if (!el) return;
+  _stocksOpen = { stock: false, index: false, crypto: false };   // every time you open the menu, all tiers collapsed
   el.innerHTML = `<div class="empty-state"><div class="empty-icon">${pxIcon('💹',48)}</div><div class="empty-text">Loading…</div></div>`;
   const res = await api('/stocks', 'GET');
   if (res.error) { el.innerHTML = `<div class="card">${res.error}</div>`; return; }
