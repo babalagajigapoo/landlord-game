@@ -1910,6 +1910,16 @@ ARCADE_STAFF = {
 # Only two of the same title may sit on the floor at once.
 ARCADE_MAX_PER_TITLE = 2
 
+# Playable mini-games: beating a cabinet's high score makes it run 🔥 HOT — an
+# income boost for a few days. Each cabinet stores its own high_score + hot_until.
+ARCADE_HOT_DAYS = 6      # how long a cabinet stays hot after a new high score
+ARCADE_HOT_MULT = 1.6    # hot cabinets earn 60% more while the streak lasts
+# One playable archetype per genre; cabinet titles are skins of their genre's game.
+ARCADE_GENRE_GAME = {
+    "fighting": "Counter Brawler", "racing": "Lane Dodge", "shooter": "Space Siege",
+    "rhythm": "Beat Tap", "pinball": "Pinball", "prize": "Claw Grab", "retro": "Quarter Muncher",
+}
+
 # ── Prize counter ──────────────────────────────────────────────────────────────
 # Prize stock (bought from CostPro) is an investment: a stocked prize counter
 # boosts cabinet income up to +PRIZE_BOOST_MAX, but prizes get won/handed out
@@ -3753,6 +3763,8 @@ def _migrate_state(s):
             _cab.setdefault("condition", 100)
             _cab.setdefault("status", "working")
             _cab.setdefault("rare", _cab["title"] in ARCADE_RARE_TITLES)
+            _cab.setdefault("high_score", 0)
+            _cab.setdefault("hot_until", 0)
         if not _arc.get("market"):
             _arcade_roll_market(s)
         # Retroactively give existing arcades their on-floor vending machine.
@@ -6863,6 +6875,7 @@ def api_advance():
         decor_income  = sum(ARCADE_DECOR[k].get("income", 0)  for k in decor if decor.get(k) and k in ARCADE_DECOR)
         clean_decay   = max(1, ARCADE_CLEAN_DECAY - decor_clean)
         for _day in range(days):
+            _cur_day = s["day"] + _day + 1   # simulated calendar day for hot-streak decay
             # Foot traffic dirties the floor; the Janitor keeps it clean. Carpet slows it.
             arc["cleanliness"] = max(0, arc.get("cleanliness", 100) - clean_decay)
             if astaff.get("janitor"):
@@ -6902,9 +6915,10 @@ def api_advance():
                     cond_f  = 0.5 + c.get("condition", 100) / 100 * 0.5
                     sat_f   = 1.0 / math.sqrt(gcounts[c.get("genre", "retro")])
                     rare_f  = ARCADE_RARE_INCOME_MULT if c.get("rare") else 1.0
+                    hot_f   = ARCADE_HOT_MULT if c.get("hot_until", 0) > _cur_day else 1.0   # 🔥 high-score streak
                     vol     = 1 + random.uniform(-ARCADE_INCOME_VOLATILITY, ARCADE_INCOME_VOLATILITY)
                     income += round(ARCADE_INCOME_PER_CABINET * cond_f * traffic_f * clean_f
-                                    * sat_f * rare_f * prize_f * (1 + decor_income) * vol)
+                                    * sat_f * rare_f * hot_f * prize_f * (1 + decor_income) * vol)
                 # Money piles up in the machines until you (or the Floor Manager) collect it.
                 cap = max(1000, len(cabs) * ARCADE_TILL_PER_CABINET)
                 arc["uncollected"] = min(cap, arc.get("uncollected", 0) + income)
@@ -8485,7 +8499,8 @@ def api_arcade_buy_cabinet():
     s["cash"] -= price
     new_id = (max((c["id"] for c in cabs), default=-1)) + 1
     cabs.append({"id": new_id, "title": offer["title"], "genre": offer["genre"],
-                 "rare": bool(offer.get("rare")), "condition": 100, "status": "working"})
+                 "rare": bool(offer.get("rare")), "condition": 100, "status": "working",
+                 "high_score": 0, "hot_until": 0})
     arc["cabinets"] = cabs
     # Pull the bought unit off the lineup; mark the market so it re-rolls next day.
     arc["market"]      = [o for o in arc.get("market", []) if o.get("id") != offer_id]
@@ -8645,6 +8660,29 @@ def api_arcade_clean():
     save(s)
     return jsonify({"success": True})
 
+@app.route('/api/arcade/play_result', methods=['POST'])
+def api_arcade_play_result():
+    """Record a mini-game score. A new cabinet high score lights it 🔥 hot."""
+    s    = load()
+    arc  = s.get("arcade")
+    if not (arc and arc.get("unlocked")):
+        return jsonify({"error": "No arcade"}), 400
+    data  = request.json or {}
+    cab   = next((c for c in arc.get("cabinets", []) if c["id"] == data.get("cabinet_id")), None)
+    if not cab:
+        return jsonify({"error": "Cabinet not found"}), 400
+    score = max(0, int(data.get("score", 0)))
+    prev  = int(cab.get("high_score", 0))
+    new_high = score > prev
+    if new_high:
+        cab["high_score"] = score
+        cab["hot_until"]  = s["day"] + ARCADE_HOT_DAYS
+        s["log"].insert(0, {"day": s["day"], "type": "positive",
+            "text": f"🔥 New high score on '{cab['title']}' ({score:,})! It's running hot — +{int((ARCADE_HOT_MULT-1)*100)}% income for {ARCADE_HOT_DAYS} days."})
+    save(s)
+    return jsonify({"success": True, "new_high": new_high, "high_score": cab["high_score"],
+                    "hot_days": ARCADE_HOT_DAYS if new_high else 0, "previous": prev})
+
 @app.route('/api/laundromat/remove_machine', methods=['POST'])
 def api_laundromat_remove_machine():
     s  = load()
@@ -8695,7 +8733,8 @@ def api_laundromat_buy_addon():
             s["arcade"] = {"unlocked": True, "total_earned": 0, "uncollected": 0,
                            "cleanliness": 100, "prizes": 0, "decor": {}, "staff": {},
                            "cabinets": [{"id": 0, "title": g["title"], "genre": g["genre"],
-                                         "rare": False, "condition": 100, "status": "working"}]}
+                                         "rare": False, "condition": 100, "status": "working",
+                                         "high_score": 0, "hot_until": 0}]}
             _arcade_roll_market(s)   # seed the first day's cabinet lineup
             # ...and a vending machine right there on the arcade floor (shows up in Vending).
             vms = s.setdefault("vending_machines", [])
