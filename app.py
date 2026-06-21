@@ -2826,19 +2826,19 @@ COMMERCIAL_TYPES = {
     "strip_mall": {
         "name": "Strip Mall", "icon": "🏪",
         "unit_count": 4, "price": 950_000, "overhead": 2_500, "sqft": 8_000,
-        "superintendent_monthly": 3_500, "emergency_repair_cost": 12_000,
+        "superintendent_monthly": 3_500, "maintenance_monthly": 2_500, "emergency_repair_cost": 12_000,
         "desc": "Four retail-facing storefronts. High traffic, high turnover.",
     },
     "office_building": {
         "name": "Office Building", "icon": "🏢",
         "unit_count": 3, "price": 1_400_000, "overhead": 3_500, "sqft": 12_000,
-        "superintendent_monthly": 4_500, "emergency_repair_cost": 15_000,
+        "superintendent_monthly": 4_500, "maintenance_monthly": 3_200, "emergency_repair_cost": 15_000,
         "desc": "Professional tenants, longer leases, quieter events.",
     },
     "mixed_use": {
         "name": "Mixed-Use Building", "icon": "🏬",
         "unit_count": 5, "price": 1_800_000, "overhead": 4_000, "sqft": 18_000,
-        "superintendent_monthly": 5_500, "emergency_repair_cost": 20_000,
+        "superintendent_monthly": 5_500, "maintenance_monthly": 3_800, "emergency_repair_cost": 20_000,
         "desc": "Three commercial floors and two upper-level office suites.",
     },
 }
@@ -2999,6 +2999,484 @@ BUSINESS_TENANT_TYPES = {
     },
 }
 
+# ── Commercial overhaul: tenant mix, foot traffic, % rent, satisfaction, leasing agent ──
+BUSINESS_TENANT_CAT = {
+    "restaurant": "food", "coffee_shop": "food",
+    "retail": "retail", "pawn_shop": "retail", "auto_parts": "retail", "flooring_express": "retail",
+    "salon": "service", "barber_shop": "service", "nail_salon": "service", "tattoo_studio": "service",
+    "law_office": "professional", "accounting_firm": "professional", "tech_startup": "professional",
+    "gym": "health", "daycare": "health", "medical_clinic": "health",
+    "dental_office": "health", "pharmacy": "health",
+}
+CAT_LABEL = {"food": "Food", "retail": "Retail", "service": "Service",
+             "professional": "Professional", "health": "Health"}
+# Anchor tenants pull in shared foot traffic that lifts every neighbor in the building.
+BUSINESS_ANCHORS = {"restaurant", "coffee_shop", "gym", "pharmacy", "medical_clinic"}
+# Monthly $ upside from percentage (sales) rent at 100 foot traffic. 0 = fixed-rent tenant.
+BUSINESS_PCT_MAX = {
+    "restaurant": 4_000, "coffee_shop": 2_200,
+    "retail": 2_600, "pawn_shop": 1_800, "auto_parts": 1_600,
+    "salon": 1_500, "barber_shop": 900, "nail_salon": 1_000, "tattoo_studio": 1_400,
+    "gym": 2_500,
+}
+COMMERCIAL_LEASING_AGENT_FEE = 7_000  # monthly; auto-fills vacancies + handles routine events
+
+def _commercial_foot_traffic(prop):
+    """Building foot-traffic 0-100 from occupancy, anchors, tenant-mix diversity, condition, upgrades."""
+    units = prop.get("units", [])
+    total = len(units) or 1
+    occ   = [u for u in units if u.get("business_type")]
+    occ_rate = len(occ) / total
+    cats, anchors = {}, 0
+    for u in occ:
+        bt = u["business_type"]
+        c  = BUSINESS_TENANT_CAT.get(bt, "retail")
+        cats[c] = cats.get(c, 0) + 1
+        if bt in BUSINESS_ANCHORS:
+            anchors += 1
+    diversity = len(cats)
+    dup_pen   = sum(max(0, n - 1) for n in cats.values())   # same-category cannibalization
+    ft  = 30 + occ_rate * 28 + min(anchors, 3) * 7 + diversity * 4 - dup_pen * 5
+    ft += (prop.get("condition", 80) / 100 - 0.7) * 12       # a well-kept building draws crowds
+    up  = prop.get("upgrades", {})
+    if up.get("exterior_facelift"):  ft += 6
+    if up.get("renovated_common"):   ft += 5
+    if up.get("parking_expansion"):  ft += 4
+    return max(0, min(100, round(ft)))
+
+def _agent_pick_tenant(prop):
+    """Leasing Agent's pick: favor high rent, fresh categories, low-drama tenants. Returns biz key or None."""
+    cat_counts = {}
+    for u in prop.get("units", []):
+        if u.get("business_type"):
+            c = BUSINESS_TENANT_CAT.get(u["business_type"], "retail")
+            cat_counts[c] = cat_counts.get(c, 0) + 1
+    best, best_score = None, -1e9
+    for bt, btd in BUSINESS_TENANT_TYPES.items():
+        if btd.get("special"):
+            continue
+        c     = BUSINESS_TENANT_CAT.get(bt, "retail")
+        score = btd["monthly_rent"] / 1000.0
+        score -= cat_counts.get(c, 0) * 4               # avoid piling up one category
+        if bt in BUSINESS_ANCHORS and cat_counts.get(c, 0) == 0:
+            score += 5                                  # a fresh anchor is valuable
+        score -= btd["event_chance"] * 10               # prefers reliable, low-drama tenants
+        score += random.uniform(0, 3)                   # a little variety
+        if score > best_score:
+            best, best_score = bt, score
+    return best
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Commercial event engine — data-driven. Each event is "auto" (applies instantly)
+# or "choice" (queued as a card the player resolves; the building's Superintendent
+# auto-resolves it via the option flagged "default").
+#
+# effect dict keys (values are int or [lo,hi] ranges, rolled at fire time):
+#   gain      cash in           cost      cash out (deductible if "deduct": True)
+#   cond      condition delta   sat       satisfaction delta
+#   rent_add  monthly_rent +=   rent_mult monthly_rent *= (float, not rolled)
+#   vacate    True → tenant leaves
+# Text templates may use {tenant}, {biz}, {cost}, {gain}, {cond}.
+# ─────────────────────────────────────────────────────────────────────────────
+from collections import defaultdict as _defaultdict
+
+def _roll_eff_val(v):
+    return random.randint(v[0], v[1]) if isinstance(v, (list, tuple)) else v
+
+def _concrete_effect(eff):
+    out = {}
+    for k, v in (eff or {}).items():
+        out[k] = v if k in ("deduct", "vacate", "rent_mult") else _roll_eff_val(v)
+    return out
+
+def _fmt_comm(tmpl, ctx):
+    return (tmpl or "").format_map(_defaultdict(str, ctx))
+
+def _eff_ctx(base, eff):
+    ctx = dict(base)
+    if eff.get("cost"): ctx["cost"] = f"${eff['cost']:,}"
+    if eff.get("gain"): ctx["gain"] = f"${eff['gain']:,}"
+    if "cond" in eff:   ctx["cond"] = str(abs(eff["cond"]))
+    return ctx
+
+def _apply_commercial_effect(s, prop, unit, eff):
+    """Mutates state for one (already-rolled) effect dict."""
+    if not eff:
+        return
+    if eff.get("gain"):
+        s["cash"] += eff["gain"]
+    if eff.get("cost"):
+        s["cash"] = max(0, s["cash"] - eff["cost"])
+        if eff.get("deduct"):
+            _tax_deduct(s, eff["cost"])
+    if eff.get("cond"):
+        prop["condition"] = max(0, min(MAX_CONDITION, prop.get("condition", 0) + eff["cond"]))
+    if unit:
+        if eff.get("sat"):
+            unit["satisfaction"] = max(0, min(100, unit.get("satisfaction", 70) + eff["sat"]))
+        if eff.get("rent_add"):
+            unit["monthly_rent"] = unit.get("monthly_rent", 0) + eff["rent_add"]
+        if eff.get("rent_mult"):
+            unit["monthly_rent"] = int(unit.get("monthly_rent", 0) * eff["rent_mult"])
+        if eff.get("vacate"):
+            unit["business_type"] = None; unit["tenant_name"] = None
+            unit["lease_days_remaining"] = 0; unit["monthly_rent"] = 0
+            unit["renewal_pending"] = False; unit["satisfaction"] = 70
+            unit["pct_rent_monthly"] = 0
+
+def _build_commercial_event(defn, prop, unit, btype, prop_label):
+    """Roll a definition into a concrete event instance for this tenant."""
+    base = {"tenant": unit.get("tenant_name", "The tenant"), "biz": btype["name"]}
+    inst = {
+        "id": defn["id"], "kind": defn.get("kind", "choice"),
+        "icon": defn.get("icon", "🏢"), "etype": defn.get("etype", "info"),
+        "prop_id": prop["id"], "unit_idx": unit["idx"],
+        "biz_type": unit.get("business_type"), "biz_icon": btype["icon"],
+        "tenant_name": base["tenant"], "prop_label": prop_label,
+        "title": _fmt_comm(defn.get("title", ""), base),
+        "desc":  _fmt_comm(defn.get("desc", ""), base),
+    }
+    if inst["kind"] == "auto":
+        eff = _concrete_effect(defn.get("effect"))
+        inst["auto_effect"] = eff
+        inst["result"] = _fmt_comm(defn.get("result", defn.get("desc", "")), _eff_ctx(base, eff))
+    else:
+        inst["options"] = []
+        for o in defn["options"]:
+            eff = _concrete_effect(o.get("effect"))
+            ctx = _eff_ctx(base, eff)
+            inst["options"].append({
+                "label":  _fmt_comm(o["label"], ctx),
+                "result": _fmt_comm(o.get("result", ""), ctx),
+                "effect": eff, "etype": o.get("etype", "info"),
+                "default": o.get("default", False),
+            })
+    return inst
+
+def _superintendent_resolve(s, prop, unit, inst, events, current_day):
+    """Building's superintendent auto-picks the responsible (default) option."""
+    opt = next((o for o in inst["options"] if o.get("default")), inst["options"][0])
+    _apply_commercial_effect(s, prop, unit, opt["effect"])
+    events.append({"prop": inst["prop_label"], "type": "info", "category": "commercial",
+        "text": f"👷 Superintendent handled it — {opt['result']}"})
+    s["log"].insert(0, {"day": current_day, "type": "info",
+        "text": f"Superintendent resolved “{inst['title']}” at {inst['prop_label']}"})
+
+# Events available to every commercial tenant
+_GENERIC_COMM_EVENTS = [
+    {"id": "boom_season", "kind": "auto", "icon": "💰", "etype": "positive", "weight": 3,
+     "result": "{tenant} had a banner month — bonus {gain}!", "effect": {"gain": [2_000, 5_000], "sat": 3}},
+    {"id": "community_award", "kind": "auto", "icon": "🏆", "etype": "positive", "weight": 2,
+     "result": "{tenant} won a community award — {gain} in extra foot traffic!", "effect": {"gain": [1_500, 3_500], "sat": 2}},
+    {"id": "great_review", "kind": "auto", "icon": "⭐", "etype": "positive", "weight": 2,
+     "result": "{tenant} got a glowing local review — happier tenant, {gain} bump.", "effect": {"gain": [500, 1_800], "sat": 5}},
+    {"id": "utility_spike", "kind": "auto", "icon": "⚡", "etype": "warning", "weight": 3,
+     "result": "Utility spike hit {tenant}'s unit — emergency cost {cost}.", "effect": {"cost": [1_500, 4_000], "deduct": True}},
+    {"id": "inspection_fail", "kind": "choice", "icon": "🚨", "etype": "warning", "weight": 3,
+     "title": "Inspection Failed", "desc": "{biz} {tenant} flunked a surprise health & safety inspection. Cover the repairs or they shut down.",
+     "options": [
+        {"label": "Pay {cost} for repairs", "result": "Violations fixed — {tenant} passed re-inspection and stays.",
+         "effect": {"cost": [3_000, 8_000], "deduct": True}, "default": True},
+        {"label": "Refuse — let them deal with it", "result": "{tenant} couldn't reopen and walked out.",
+         "effect": {"vacate": True}, "etype": "warning"},
+     ]},
+    {"id": "sublet_request", "kind": "choice", "icon": "🤝", "etype": "info", "weight": 2,
+     "title": "Sublet Request", "desc": "{tenant} wants to sublet part of their space to a partner business.",
+     "options": [
+        {"label": "Approve — rent +{gain}/mo", "result": "Sublet approved — rent up {gain}/mo.",
+         "effect": {"rent_add": [300, 800]}, "default": True},
+        {"label": "Deny the sublet", "result": "Sublet denied — {tenant} grumbles a bit.",
+         "effect": {"sat": -3}},
+     ]},
+    {"id": "rent_negotiation", "kind": "choice", "icon": "💬", "etype": "info", "weight": 2,
+     "title": "Rent Negotiation", "desc": "{tenant} says business is slow and asks for a 15% rent cut.",
+     "options": [
+        {"label": "Accept the lower rent", "result": "Rent reduced to keep {tenant} happy.",
+         "effect": {"rent_mult": 0.85, "sat": 6}, "default": True},
+        {"label": "Hold firm on rent", "result": "You held firm — {tenant} stays but isn't thrilled.",
+         "effect": {"sat": -8}},
+     ]},
+    {"id": "early_exit", "kind": "choice", "icon": "🚪", "etype": "warning", "weight": 1,
+     "title": "Early Exit Request", "desc": "{tenant} wants to break their lease early. Either way they're leaving.",
+     "options": [
+        {"label": "Charge the {gain} exit fee", "result": "Collected a {gain} exit fee; the unit is now vacant.",
+         "effect": {"gain": [4_000, 8_000], "vacate": True}, "default": True},
+        {"label": "Waive the fee", "result": "Let {tenant} go without a fee — unit vacant.",
+         "effect": {"vacate": True}},
+     ]},
+    {"id": "equipment_damage", "kind": "choice", "icon": "🔨", "etype": "warning", "weight": 2,
+     "title": "Equipment Damage", "desc": "{tenant} reported damage to shared building equipment.",
+     "options": [
+        {"label": "Pay {cost} to repair", "result": "Equipment repaired — {cost} spent.",
+         "effect": {"cost": [2_500, 6_000], "deduct": True}, "default": True},
+        {"label": "Leave it for now", "result": "Left unrepaired — building condition took a hit.",
+         "effect": {"cond": -20, "sat": -5}},
+     ]},
+    {"id": "pipe_burst", "kind": "choice", "icon": "🚿", "etype": "warning", "weight": 2,
+     "title": "Burst Pipe", "desc": "A pipe burst overnight near {tenant}'s unit.",
+     "options": [
+        {"label": "Call an emergency plumber ({cost})", "result": "Plumber patched it fast — {cost} spent.",
+         "effect": {"cost": [2_000, 5_000], "deduct": True}, "default": True},
+        {"label": "Patch it cheaply yourself", "result": "Your DIY patch held… mostly. Condition slipped.",
+         "effect": {"cond": -12, "sat": -4}},
+     ]},
+    {"id": "noise_complaint", "kind": "choice", "icon": "📢", "etype": "info", "weight": 2,
+     "title": "Noise Complaint", "desc": "Neighboring tenants are complaining about noise from {tenant}.",
+     "options": [
+        {"label": "Mediate & soundproof ({cost})", "result": "You mediated and added soundproofing — peace restored.",
+         "effect": {"cost": [800, 2_500], "deduct": True, "sat": 4}, "default": True},
+        {"label": "Ignore it", "result": "You ignored it — tensions simmer.",
+         "effect": {"sat": -6}},
+     ]},
+    {"id": "vandalism", "kind": "choice", "icon": "🪟", "etype": "warning", "weight": 2,
+     "title": "Vandalism", "desc": "Vandals hit the storefront overnight.",
+     "options": [
+        {"label": "Repair & add cameras ({cost})", "result": "Repaired the damage and added cameras.",
+         "effect": {"cost": [1_500, 4_500], "deduct": True}, "default": True},
+        {"label": "Just board it up", "result": "Boarded it up cheap — condition dropped.",
+         "effect": {"cond": -10, "sat": -3}},
+     ]},
+]
+
+# Business-type-specific events (layered on top of the generic pool)
+BUSINESS_EVENTS = {
+    "restaurant": [
+        {"id": "grease_fire", "kind": "choice", "icon": "🔥", "etype": "warning", "weight": 3,
+         "title": "Kitchen Grease Fire", "desc": "A grease fire scorched {tenant}'s kitchen line.",
+         "options": [
+            {"label": "Fund the cleanup ({cost})", "result": "Kitchen restored — {tenant} reopens.",
+             "effect": {"cost": [3_000, 7_000], "deduct": True}, "default": True},
+            {"label": "Make them handle it", "result": "{tenant} closed for repairs and lost faith.",
+             "effect": {"cond": -10, "sat": -10}}]},
+        {"id": "food_critic", "kind": "auto", "icon": "🍽️", "etype": "positive", "weight": 2,
+         "result": "A food critic raved about {tenant} — packed house, {gain} in the till!",
+         "effect": {"gain": [2_000, 4_500], "sat": 6}},
+    ],
+    "coffee_shop": [
+        {"id": "espresso_down", "kind": "choice", "icon": "☕", "etype": "warning", "weight": 3,
+         "title": "Espresso Machine Down", "desc": "{tenant}'s espresso machine died mid-rush.",
+         "options": [
+            {"label": "Comp a new machine ({cost})", "result": "New machine humming — lattes flowing again.",
+             "effect": {"cost": [1_800, 4_000], "deduct": True, "sat": 4}, "default": True},
+            {"label": "Tell them it's their problem", "result": "{tenant} fumed through a drip-coffee week.",
+             "effect": {"sat": -7}}]},
+        {"id": "latte_viral", "kind": "auto", "icon": "📸", "etype": "positive", "weight": 2,
+         "result": "{tenant}'s latte art went viral — lines out the door, {gain}!",
+         "effect": {"gain": [1_200, 3_000], "sat": 5}},
+    ],
+    "retail": [
+        {"id": "shoplift_ring", "kind": "choice", "icon": "🕵️", "etype": "warning", "weight": 3,
+         "title": "Shoplifting Ring", "desc": "An organized shoplifting ring is hitting {tenant} hard.",
+         "options": [
+            {"label": "Install loss-prevention ({cost})", "result": "Security tightened — losses stopped.",
+             "effect": {"cost": [2_000, 5_000], "deduct": True}, "default": True},
+            {"label": "Let them eat the losses", "result": "{tenant} ate the losses and isn't happy.",
+             "effect": {"sat": -8}}]},
+        {"id": "sale_day", "kind": "auto", "icon": "🛍️", "etype": "positive", "weight": 2,
+         "result": "{tenant}'s clearance event packed the store — {gain}!",
+         "effect": {"gain": [1_000, 2_800], "sat": 3}},
+    ],
+    "gym": [
+        {"id": "injury_claim", "kind": "choice", "icon": "🩹", "etype": "warning", "weight": 3,
+         "title": "Equipment Injury Claim", "desc": "A member hurt themselves on {tenant}'s aging equipment and is threatening to sue.",
+         "options": [
+            {"label": "Settle & re-pad the gear ({cost})", "result": "Settled quietly and upgraded the equipment.",
+             "effect": {"cost": [3_000, 8_000], "deduct": True}, "default": True},
+            {"label": "Fight the claim", "result": "Legal drama dragged on — reputation dinged.",
+             "effect": {"sat": -9, "cond": -5}}]},
+        {"id": "new_year_rush", "kind": "auto", "icon": "🏋️", "etype": "positive", "weight": 2,
+         "result": "New-Year resolution rush packed {tenant} — memberships surged, {gain}!",
+         "effect": {"gain": [2_500, 5_500], "sat": 5}},
+    ],
+    "law_office": [
+        {"id": "big_case", "kind": "auto", "icon": "⚖️", "etype": "positive", "weight": 2,
+         "result": "{tenant} won a high-profile case — prestige and a {gain} referral bonus to the building.",
+         "effect": {"gain": [3_000, 7_000], "sat": 4}},
+        {"id": "data_leak", "kind": "choice", "icon": "🔐", "etype": "warning", "weight": 2,
+         "title": "Confidential Leak", "desc": "{tenant} fears a client-file leak from the building's network.",
+         "options": [
+            {"label": "Upgrade building security ({cost})", "result": "Security hardened — crisis averted.",
+             "effect": {"cost": [2_500, 6_000], "deduct": True, "sat": 3}, "default": True},
+            {"label": "Downplay it", "result": "{tenant} lost trust in the building.",
+             "effect": {"sat": -10}}]},
+    ],
+    "salon": [
+        {"id": "celeb_client", "kind": "auto", "icon": "💃", "etype": "positive", "weight": 2,
+         "result": "A celebrity got styled at {tenant} — buzz and {gain}!", "effect": {"gain": [1_500, 3_500], "sat": 6}},
+        {"id": "dye_spill", "kind": "choice", "icon": "🎨", "etype": "warning", "weight": 2,
+         "title": "Hair Dye Disaster", "desc": "{tenant} spilled industrial hair dye across the floor.",
+         "options": [
+            {"label": "Refinish the floor ({cost})", "result": "Floor refinished — good as new.",
+             "effect": {"cost": [1_200, 3_000], "deduct": True}, "default": True},
+            {"label": "Leave the stain", "result": "A purple floor stain remains. Classy.",
+             "effect": {"cond": -8, "sat": -3}}]},
+    ],
+    "barber_shop": [
+        {"id": "barber_legend", "kind": "auto", "icon": "💈", "etype": "positive", "weight": 2,
+         "result": "{tenant} became the neighborhood's go-to fade — steady crowd, {gain}.",
+         "effect": {"gain": [600, 1_800], "sat": 4}},
+    ],
+    "nail_salon": [
+        {"id": "fume_complaint", "kind": "choice", "icon": "💅", "etype": "warning", "weight": 2,
+         "title": "Ventilation Complaint", "desc": "Neighbors complain about acetone fumes from {tenant}.",
+         "options": [
+            {"label": "Install ventilation ({cost})", "result": "New venting cleared the air.",
+             "effect": {"cost": [1_500, 3_500], "deduct": True, "sat": 4}, "default": True},
+            {"label": "Crack a window and hope", "result": "The smell lingers; neighbors are annoyed.",
+             "effect": {"sat": -6}}]},
+    ],
+    "pawn_shop": [
+        {"id": "stolen_goods", "kind": "choice", "icon": "🚓", "etype": "warning", "weight": 3,
+         "title": "Police Inquiry", "desc": "Police believe stolen goods passed through {tenant}.",
+         "options": [
+            {"label": "Cooperate & audit inventory ({cost})", "result": "Full cooperation cleared {tenant}'s name.",
+             "effect": {"cost": [1_000, 3_000], "deduct": True}, "default": True},
+            {"label": "Stonewall the police", "result": "The standoff scared off customers.",
+             "effect": {"sat": -8}}]},
+        {"id": "rare_find", "kind": "auto", "icon": "💎", "etype": "positive", "weight": 2,
+         "result": "{tenant} flipped a rare find for a fortune — {gain} windfall!",
+         "effect": {"gain": [1_500, 4_000], "sat": 4}},
+    ],
+    "tattoo_studio": [
+        {"id": "viral_tattoo", "kind": "auto", "icon": "🎨", "etype": "positive", "weight": 2,
+         "result": "A {tenant} piece went viral — booked solid for months, {gain}!",
+         "effect": {"gain": [1_200, 3_200], "sat": 6}},
+        {"id": "ink_spill", "kind": "choice", "icon": "🖤", "etype": "warning", "weight": 2,
+         "title": "Ink Catastrophe", "desc": "A gallon of black ink soaked {tenant}'s floor.",
+         "options": [
+            {"label": "Replace the flooring ({cost})", "result": "New floor down — spotless again.",
+             "effect": {"cost": [1_500, 3_500], "deduct": True}, "default": True},
+            {"label": "Embrace the 'art'", "result": "The permanent ink stain stays. Edgy.",
+             "effect": {"cond": -9}}]},
+    ],
+    "auto_parts": [
+        {"id": "forklift_oops", "kind": "choice", "icon": "🚜", "etype": "warning", "weight": 2,
+         "title": "Forklift Mishap", "desc": "{tenant}'s forklift punched a hole in the loading-dock wall.",
+         "options": [
+            {"label": "Repair the dock ({cost})", "result": "Dock wall rebuilt — operations resume.",
+             "effect": {"cost": [2_000, 4_500], "deduct": True}, "default": True},
+            {"label": "Tape it off for now", "result": "A taped-off hole isn't a great look.",
+             "effect": {"cond": -10}}]},
+        {"id": "fleet_order", "kind": "auto", "icon": "🔧", "etype": "positive", "weight": 2,
+         "result": "{tenant} landed a big fleet contract — {gain} bonus!", "effect": {"gain": [1_500, 3_500], "sat": 4}},
+    ],
+    "daycare": [
+        {"id": "licensing", "kind": "choice", "icon": "🧸", "etype": "warning", "weight": 2,
+         "title": "Licensing Inspection", "desc": "{tenant} needs safety upgrades to pass state childcare licensing.",
+         "options": [
+            {"label": "Fund safety upgrades ({cost})", "result": "Upgrades done — license renewed.",
+             "effect": {"cost": [2_000, 5_000], "deduct": True, "sat": 4}, "default": True},
+            {"label": "Skip it", "result": "{tenant} barely scraped by and is stressed.",
+             "effect": {"sat": -9}}]},
+        {"id": "cute_viral", "kind": "auto", "icon": "🧒", "etype": "positive", "weight": 2,
+         "result": "An adorable {tenant} moment went viral — waitlist full, {gain}!",
+         "effect": {"gain": [800, 2_200], "sat": 5}},
+    ],
+    "accounting_firm": [
+        {"id": "tax_surge", "kind": "auto", "icon": "📊", "etype": "positive", "weight": 2,
+         "result": "Tax season swamped {tenant} (in a good way) — {gain} in overflow business.",
+         "effect": {"gain": [2_000, 4_500], "sat": 3}},
+        {"id": "audit_scare", "kind": "choice", "icon": "📋", "etype": "info", "weight": 1,
+         "title": "Building Records Audit", "desc": "{tenant} asks you to produce building compliance records for an audit.",
+         "options": [
+            {"label": "Hire a clerk to compile them ({cost})", "result": "Records produced — audit passed clean.",
+             "effect": {"cost": [800, 2_000], "deduct": True}, "default": True},
+            {"label": "Hand over a shoebox of receipts", "result": "{tenant} was not amused.",
+             "effect": {"sat": -5}}]},
+    ],
+    "pharmacy": [
+        {"id": "flu_rush", "kind": "auto", "icon": "💊", "etype": "positive", "weight": 2,
+         "result": "Flu season drove a vaccine rush at {tenant} — {gain}!", "effect": {"gain": [1_800, 4_000], "sat": 4}},
+        {"id": "controlled_audit", "kind": "choice", "icon": "🔏", "etype": "warning", "weight": 2,
+         "title": "Controlled-Substance Audit", "desc": "{tenant} needs a secure storage upgrade to pass a DEA audit.",
+         "options": [
+            {"label": "Install a secure vault ({cost})", "result": "Vault installed — audit passed.",
+             "effect": {"cost": [3_000, 6_500], "deduct": True, "sat": 3}, "default": True},
+            {"label": "Let them improvise", "result": "{tenant} sweated through the audit.",
+             "effect": {"sat": -8}}]},
+    ],
+    "tech_startup": [
+        {"id": "funding_round", "kind": "auto", "icon": "🚀", "etype": "positive", "weight": 3,
+         "result": "{tenant} closed a funding round — they prepaid rent, {gain} to you!",
+         "effect": {"gain": [3_000, 8_000], "sat": 6}},
+        {"id": "server_meltdown", "kind": "choice", "icon": "💻", "etype": "warning", "weight": 2,
+         "title": "Server Room Meltdown", "desc": "{tenant}'s server room overheated and tripped the building power.",
+         "options": [
+            {"label": "Upgrade cooling & wiring ({cost})", "result": "Cooling upgraded — servers stable.",
+             "effect": {"cost": [3_500, 7_000], "deduct": True}, "default": True},
+            {"label": "Run an extension cord", "result": "A jury-rigged fix strained the building.",
+             "effect": {"cond": -12, "sat": -6}}]},
+        {"id": "pivot", "kind": "choice", "icon": "🔄", "etype": "warning", "weight": 1,
+         "title": "Sudden Pivot", "desc": "{tenant} is pivoting business models and may relocate.",
+         "options": [
+            {"label": "Offer a flexible lease tweak", "result": "A flexible deal kept {tenant} in the building.",
+             "effect": {"rent_mult": 0.92, "sat": 8}, "default": True},
+            {"label": "Hold them to the lease", "result": "{tenant} stayed, but resentfully.",
+             "effect": {"sat": -10}}]},
+    ],
+    "medical_clinic": [
+        {"id": "insurance_windfall", "kind": "auto", "icon": "🏥", "etype": "positive", "weight": 2,
+         "result": "{tenant} cleared a big insurance backlog — {gain} referral to the building.",
+         "effect": {"gain": [2_500, 6_000], "sat": 3}},
+        {"id": "biohazard", "kind": "choice", "icon": "☣️", "etype": "warning", "weight": 2,
+         "title": "Biohazard Incident", "desc": "A medical-waste mishap at {tenant} needs professional remediation.",
+         "options": [
+            {"label": "Hire certified cleanup ({cost})", "result": "Hazmat handled it — all clear.",
+             "effect": {"cost": [3_000, 7_000], "deduct": True}, "default": True},
+            {"label": "Mop it up yourself", "result": "Cutting corners on biohazard? Condition and trust dropped.",
+             "effect": {"cond": -15, "sat": -8}}]},
+    ],
+    "dental_office": [
+        {"id": "smile_feature", "kind": "auto", "icon": "🦷", "etype": "positive", "weight": 2,
+         "result": "{tenant} was featured in a 'best smiles' roundup — new patients, {gain}!",
+         "effect": {"gain": [1_500, 3_500], "sat": 4}},
+        {"id": "water_line", "kind": "choice", "icon": "🚰", "etype": "warning", "weight": 2,
+         "title": "Water Line Contamination", "desc": "{tenant}'s dental water lines failed a safety test.",
+         "options": [
+            {"label": "Replace the lines ({cost})", "result": "New lines installed — {tenant} reopened safely.",
+             "effect": {"cost": [2_000, 4_500], "deduct": True}, "default": True},
+            {"label": "Flush and hope", "result": "A risky shortcut left {tenant} uneasy.",
+             "effect": {"sat": -7}}]},
+    ],
+    # ⭐ Flooring Express — the special tenant. A flooring company that installs flooring.
+    # Their events are funny and lean positive (they keep "fixing" your floors).
+    "flooring_express": [
+        {"id": "fe_lobby_glowup", "kind": "auto", "icon": "✨", "etype": "positive", "weight": 3,
+         "result": "Flooring Express re-tiled the whole lobby overnight 'as a sample.' The building looks incredible. (+{cond} condition)",
+         "effect": {"cond": [10, 18]}},
+        {"id": "fe_moonwalk", "kind": "auto", "icon": "🕺", "etype": "info", "weight": 2,
+         "result": "Their new floor was so glossy a customer moonwalked straight into a wall. No injuries, huge laughs, slight scuff.",
+         "effect": {"cond": -2}},
+        {"id": "fe_floortok", "kind": "auto", "icon": "📱", "etype": "positive", "weight": 2,
+         "result": "Flooring Express's showroom blew up on FloorTok (#satisfyinggrout). Foot traffic everywhere — {gain}!",
+         "effect": {"gain": [2_000, 4_500], "sat": 5}},
+        {"id": "fe_plaque", "kind": "choice", "icon": "🏅", "etype": "info", "weight": 2,
+         "title": "A Heartfelt Request", "desc": "Flooring Express surprise-installed premium hardwood in your hallway for free — and would just love a small commemorative plaque honoring 'the day the floors got good.'",
+         "options": [
+            {"label": "Buy them the plaque ({cost})", "result": "They wept. The plaque is bronze. The floors are immaculate.",
+             "effect": {"cost": [400, 900], "deduct": True, "cond": 6, "sat": 6}, "default": True},
+            {"label": "Politely decline the plaque", "result": "They understood… but you caught the head installer sighing at the floor.",
+             "effect": {"sat": -5}}]},
+        {"id": "fe_floor_feud", "kind": "choice", "icon": "🥚", "etype": "warning", "weight": 2,
+         "title": "Flooring Feud", "desc": "A rival flooring outfit egged Flooring Express's windows after a heated 'best underlayment' debate.",
+         "options": [
+            {"label": "Pay for cleanup & repaint ({cost})", "result": "Windows sparkling again. Flooring Express vows revenge (via superior grout).",
+             "effect": {"cost": [500, 1_500], "deduct": True}, "default": True},
+            {"label": "Let them settle it themselves", "result": "They counter-egged. It escalated. The sidewalk is a mess.",
+             "effect": {"cond": -6}}]},
+        {"id": "fe_overzealous", "kind": "auto", "icon": "🧰", "etype": "positive", "weight": 1,
+         "result": "Flooring Express got bored and 'upgraded' the floors in two of your other units too. You didn't ask. You're not mad. (+{cond} condition)",
+         "effect": {"cond": [6, 12]}},
+    ],
+}
+
+COMMERCIAL_EVENT_RATE = 2.6   # global multiplier — "way more events" across the board
+
+def _commercial_event_chance(btype_key, btype):
+    """Per-tenant seasonal event chance. Flooring Express has no base chance of its own."""
+    base = 0.16 if btype_key == "flooring_express" else btype.get("event_chance", 0.0)
+    return base * COMMERCIAL_EVENT_RATE
+
 def _gen_commercial_market(start_id):
     listings, nid = [], start_id
     types = list(COMMERCIAL_TYPES.keys())
@@ -3007,7 +3485,8 @@ def _gen_commercial_market(start_id):
         street = random.choice(HOOD_STREETS["Commerce Row"])
         addr   = f"{random.randint(10, 99) * 100 + random.randint(1, 99)} {street}"
         units  = [{"idx": i, "business_type": None, "tenant_name": None,
-                   "lease_days_remaining": 0, "monthly_rent": 0, "renewal_pending": False}
+                   "lease_days_remaining": 0, "monthly_rent": 0, "renewal_pending": False,
+                   "satisfaction": 70, "pct_rent_monthly": 0}
                   for i in range(ctype["unit_count"])]
         listings.append({
             "id":               nid,
@@ -3022,6 +3501,7 @@ def _gen_commercial_market(start_id):
             "units":            units,
             "upgrades":         {},
             "superintendent":   False,
+            "maintenance":      False,
             "pending_reno":     None,
             "purchase_day":     None,
         })
@@ -3144,6 +3624,11 @@ ASSISTANTS = {
         "name": "Accountant", "icon": "🧮",
         "unlock_level": 3, "monthly_fee": 2_800,
         "desc": "Auto-files your taxes on time every year and finds 15% more deductible write-offs. The retainer itself is a deductible expense.",
+    },
+    "leasing_agent": {
+        "name": "Commercial Leasing Agent", "icon": "🤝",
+        "unlock_level": COMMERCE_ROW_UNLOCK_LEVEL, "monthly_fee": COMMERCIAL_LEASING_AGENT_FEE,
+        "desc": "Keeps Commerce Row leased — automatically fills vacant units with strong, complementary tenants so you never have to court applicants. (Building events are handled per-building by Superintendents.)",
     },
 }
 
@@ -3963,6 +4448,16 @@ def _migrate_state(s):
     s.setdefault("vending_machines", [])
     s.setdefault("vinny_hired", False)
     s.setdefault("costpro_inventory", {})
+    # ── Commercial overhaul migration: leasing agent + per-unit satisfaction/% rent ──
+    # Leasing Agent moved into the unified assistants system; migrate the old standalone flag.
+    if s.pop("leasing_agent", None):
+        s.setdefault("assistants", {})["leasing_agent"] = True
+    for _p in s.get("properties", []):
+        if _p.get("commercial"):
+            _p.setdefault("foot_traffic", 50)
+            for _u in _p.get("units", []):
+                _u.setdefault("satisfaction", 70)
+                _u.setdefault("pct_rent_monthly", 0)
     # ── Vending Phase-1 migration: old single-tier machines → slot model ──────
     _vm_name_to_key = {v["name"]: k for k, v in VM_LOCATIONS.items()}
     for vm in s.get("vending_machines", []):
@@ -4049,6 +4544,11 @@ def _migrate_state(s):
     for prop in s.get("properties", []):
         if prop.get("commercial"):
             prop.setdefault("superintendent", False)
+            prop.setdefault("maintenance", False)
+            # Bugfix cleanup: squatters used to be able to spawn on commercial buildings.
+            # They only belong in residential homes — evict any that slipped in.
+            if prop.get("squatter"):
+                prop["squatter"] = None
     _bank(s).setdefault("credit_score", CREDIT_START)
     _bank(s).setdefault("cds", [])
     _bank(s).setdefault("next_cd_id", 1)
@@ -6163,8 +6663,8 @@ def api_advance():
             if s.get("assistants", {}).get(asst_key):
                 _fee = int(asst["monthly_fee"] / 28)
                 s["cash"] = max(0, s["cash"] - _fee)
-                if asst_key == "accountant":
-                    _tax_deduct(s, _fee)   # the accountant's retainer is itself deductible
+                if asst_key in ("accountant", "leasing_agent"):
+                    _tax_deduct(s, _fee)   # these retainers are deductible business expenses
 
         for prop in s["properties"]:
             if not prop.get("tenant"):
@@ -6442,6 +6942,10 @@ def api_advance():
             # Daily overhead
             s["cash"] = max(0, s["cash"] - int(ctype["overhead"] / 28))
 
+            # Foot traffic recomputed daily from the current tenant mix
+            ft = _commercial_foot_traffic(prop)
+            prop["foot_traffic"] = ft
+
             for unit in prop.get("units", []):
                 btype_key = unit.get("business_type")
                 if not btype_key:
@@ -6449,151 +6953,90 @@ def api_advance():
                 btype = BUSINESS_TENANT_TYPES.get(btype_key)
                 if not btype:
                     continue
-                # Daily rent
+                # Daily base rent + percentage (sales) rent scaled by foot traffic
                 daily_rent = int(unit["monthly_rent"] / 28)
-                s["cash"] += daily_rent
-                s["tax_year_rent_income"] = s.get("tax_year_rent_income", 0) + daily_rent
+                pct_max    = BUSINESS_PCT_MAX.get(btype_key, 0)
+                pct_month  = int(pct_max * (ft / 100)) if pct_max else 0
+                unit["pct_rent_monthly"] = pct_month                # for UI display
+                gross = daily_rent + int(pct_month / 28)
+                s["cash"] += gross
+                s["tax_year_rent_income"] = s.get("tax_year_rent_income", 0) + gross
+
+                # Tenant satisfaction drifts toward a target set by traffic, condition, upgrades, sales
+                sat_target = 35 + ft * 0.45 + (prop.get("condition", 80) - 70) * 0.30
+                _up = prop.get("upgrades", {})
+                if _up.get("renovated_common"): sat_target += 4
+                if _up.get("security_system"):  sat_target += 3
+                if pct_month > 0:               sat_target += 4     # they're making good money here
+                sat_target = max(0, min(100, sat_target))
+                _cur = unit.get("satisfaction", 70)
+                unit["satisfaction"] = round(_cur + (sat_target - _cur) * 0.10, 1)
 
                 # Lease countdown
                 unit["lease_days_remaining"] = max(0, unit.get("lease_days_remaining", 0) - 1)
 
                 if unit["lease_days_remaining"] <= 0:
-                    # Flooring Express always auto-renews; all others have 80% chance
-                    if btype_key == "flooring_express" or random.random() < 0.80:
+                    sat = unit.get("satisfaction", 70)
+                    # Satisfaction drives renewal odds: ~45% at rock bottom, ~95% when thrilled
+                    renew_chance = 0.45 + (sat / 100) * 0.50
+                    if btype_key == "flooring_express" or random.random() < renew_chance:
                         unit["lease_days_remaining"] = btype["lease_days"]
                         unit["renewal_pending"]      = False
-                        events.append({"prop": prop_label, "type": "info", "category": "commercial",
-                            "text": f"✅ {unit['tenant_name']} renewed their lease."})
+                        # Happy tenants accept a rent bump on renewal (up to +7%)
+                        old = unit["monthly_rent"]
+                        if sat >= 70 and btype_key != "flooring_express":
+                            unit["monthly_rent"] = int(old * (1.0 + min(0.07, (sat - 70) / 100 * 0.20)))
+                        if unit["monthly_rent"] > old:
+                            events.append({"prop": prop_label, "type": "positive", "category": "commercial",
+                                "text": f"✅ {unit['tenant_name']} renewed — rent raised to ${unit['monthly_rent']:,}/mo."})
+                        else:
+                            events.append({"prop": prop_label, "type": "info", "category": "commercial",
+                                "text": f"✅ {unit['tenant_name']} renewed their lease."})
                         s["log"].insert(0, {"day": current_day, "type": "info",
-                            "text": f"{unit['tenant_name']} auto-renewed at {prop_label}"})
+                            "text": f"{unit['tenant_name']} renewed at {prop_label}"})
                     else:
                         name = unit["tenant_name"]
-                        unit["business_type"]       = None
-                        unit["tenant_name"]         = None
+                        unit["business_type"]        = None
+                        unit["tenant_name"]          = None
                         unit["lease_days_remaining"] = 0
-                        unit["monthly_rent"]        = 0
-                        unit["renewal_pending"]     = False
+                        unit["monthly_rent"]         = 0
+                        unit["renewal_pending"]      = False
+                        unit["satisfaction"]         = 70
+                        unit["pct_rent_monthly"]     = 0
+                        msg = "didn't renew (unhappy tenant)" if sat < 55 else "didn't renew their lease"
                         events.append({"prop": prop_label, "type": "warning", "category": "commercial",
-                            "text": f"🚪 {name}'s lease expired — they moved on."})
+                            "text": f"🚪 {name} {msg} — unit now vacant."})
                         s["log"].insert(0, {"day": current_day, "type": "warning",
                             "text": f"{name} vacated after lease expired at {prop_label}"})
                     continue
 
                 # Random event roll (upgrades can reduce event chance)
-                evt_chance = btype["event_chance"] / 28
+                evt_chance = _commercial_event_chance(btype_key, btype) / 28
                 upgrades   = prop.get("upgrades", {})
                 if upgrades.get("security_system"):
                     evt_chance *= 0.40
                 if upgrades.get("parking_expansion") and btype_key in ("restaurant", "gym", "pawn_shop", "tattoo_studio", "auto_parts"):
                     evt_chance *= 0.60
                 if random.random() < evt_chance:
-                    ev_type = random.choices(
-                        ["inspection_fail", "boom_season", "business_closed", "sublet_request",
-                         "utility_spike", "vandalism", "community_award",
-                         "rent_negotiation", "early_exit", "equipment_damage"],
-                        weights=[3, 3, 2, 2,  3, 2, 2,  2, 1, 2]
-                    )[0]
-                    # ── Auto-resolved events ──────────────────────────────────
-                    if ev_type == "boom_season":
-                        bonus = random.randint(2_000, 5_000)
-                        s["cash"] += bonus
-                        events.append({"prop": prop_label, "type": "positive", "category": "commercial",
-                            "text": f"💰 {unit['tenant_name']} had a great month — bonus ${bonus:,}!"})
-                        s["log"].insert(0, {"day": current_day, "type": "positive",
-                            "text": f"{unit['tenant_name']} boom season — +${bonus:,} at {prop_label}"})
-                    elif ev_type == "business_closed":
-                        name = unit["tenant_name"]
-                        unit["business_type"] = None
-                        unit["tenant_name"]   = None
-                        unit["lease_days_remaining"] = 0
-                        unit["monthly_rent"]  = 0
-                        events.append({"prop": prop_label, "type": "warning", "category": "commercial",
-                            "text": f"🚪 {name} closed overnight — unit now vacant."})
-                        s["log"].insert(0, {"day": current_day, "type": "warning",
-                            "text": f"{name} closed at {prop_label} — unit vacant"})
-                    elif ev_type == "utility_spike":
-                        cost = random.randint(1_500, 4_000)
-                        s["cash"] = max(0, s["cash"] - cost)
-                        events.append({"prop": prop_label, "type": "warning", "category": "commercial",
-                            "text": f"⚡ Utility spike at {unit['tenant_name']} — emergency cost ${cost:,}."})
-                        s["log"].insert(0, {"day": current_day, "type": "warning",
-                            "text": f"Utility spike at {prop_label} — ${cost:,} charged"})
-                    elif ev_type == "vandalism":
-                        dmg = random.randint(10, 25)
-                        prop["condition"] = max(0, prop.get("condition", 0) - dmg)
-                        events.append({"prop": prop_label, "type": "warning", "category": "commercial",
-                            "text": f"🪟 Vandalism overnight — building condition −{dmg}."})
-                        s["log"].insert(0, {"day": current_day, "type": "warning",
-                            "text": f"Vandalism at {prop_label} — condition -{dmg}"})
-                    elif ev_type == "community_award":
-                        bonus = random.randint(1_500, 3_500)
-                        s["cash"] += bonus
-                        events.append({"prop": prop_label, "type": "positive", "category": "commercial",
-                            "text": f"🏆 {unit['tenant_name']} won a community award — you got ${bonus:,} in foot traffic!"})
-                        s["log"].insert(0, {"day": current_day, "type": "positive",
-                            "text": f"{unit['tenant_name']} community award — +${bonus:,} at {prop_label}"})
-                    # ── Player-choice modal events ────────────────────────────
-                    elif ev_type == "inspection_fail":
-                        cost = random.randint(3_000, 8_000)
-                        new_commercial_events.append({
-                            "prop_id":     prop["id"],
-                            "unit_idx":    unit["idx"],
-                            "type":        "inspection_fail",
-                            "biz_type":    btype_key,
-                            "biz_icon":    btype["icon"],
-                            "tenant_name": unit["tenant_name"],
-                            "prop_label":  prop_label,
-                            "repair_cost": cost,
-                        })
-                    elif ev_type == "sublet_request":
-                        bonus_mo = random.randint(300, 800)
-                        new_commercial_events.append({
-                            "prop_id":      prop["id"],
-                            "unit_idx":     unit["idx"],
-                            "type":         "sublet_request",
-                            "biz_type":     btype_key,
-                            "biz_icon":     btype["icon"],
-                            "tenant_name":  unit["tenant_name"],
-                            "prop_label":   prop_label,
-                            "bonus_monthly": bonus_mo,
-                        })
-                    elif ev_type == "rent_negotiation":
-                        proposed = int(unit["monthly_rent"] * 0.85)
-                        new_commercial_events.append({
-                            "prop_id":       prop["id"],
-                            "unit_idx":      unit["idx"],
-                            "type":          "rent_negotiation",
-                            "biz_type":      btype_key,
-                            "biz_icon":      btype["icon"],
-                            "tenant_name":   unit["tenant_name"],
-                            "prop_label":    prop_label,
-                            "current_rent":  unit["monthly_rent"],
-                            "proposed_rent": proposed,
-                        })
-                    elif ev_type == "early_exit":
-                        exit_fee = random.randint(4_000, 8_000)
-                        new_commercial_events.append({
-                            "prop_id":     prop["id"],
-                            "unit_idx":    unit["idx"],
-                            "type":        "early_exit",
-                            "biz_type":    btype_key,
-                            "biz_icon":    btype["icon"],
-                            "tenant_name": unit["tenant_name"],
-                            "prop_label":  prop_label,
-                            "exit_fee":    exit_fee,
-                        })
-                    elif ev_type == "equipment_damage":
-                        repair_cost = random.randint(2_500, 6_000)
-                        new_commercial_events.append({
-                            "prop_id":     prop["id"],
-                            "unit_idx":    unit["idx"],
-                            "type":        "equipment_damage",
-                            "biz_type":    btype_key,
-                            "biz_icon":    btype["icon"],
-                            "tenant_name": unit["tenant_name"],
-                            "prop_label":  prop_label,
-                            "repair_cost": repair_cost,
-                        })
+                    # Pool = shared events + this business's signature events
+                    pool = list(_GENERIC_COMM_EVENTS) + BUSINESS_EVENTS.get(btype_key, [])
+                    # Flooring Express is the special tenant — only its own funny events fire.
+                    if btype_key == "flooring_express":
+                        pool = BUSINESS_EVENTS["flooring_express"]
+                    defn = random.choices(pool, weights=[e.get("weight", 2) for e in pool])[0]
+                    inst = _build_commercial_event(defn, prop, unit, btype, prop_label)
+                    if inst["kind"] == "auto":
+                        _apply_commercial_effect(s, prop, unit, inst["auto_effect"])
+                        log_type = inst["etype"] if inst["etype"] in ("positive", "warning", "info", "negative") else "info"
+                        events.append({"prop": prop_label, "type": inst["etype"], "category": "commercial",
+                            "text": f"{inst['icon']} {inst['result']}"})
+                        s["log"].insert(0, {"day": current_day, "type": log_type,
+                            "text": f"{inst['result']} ({prop_label})"})
+                    elif prop.get("superintendent"):
+                        # The building's superintendent handles its own choice-card events
+                        _superintendent_resolve(s, prop, unit, inst, events, current_day)
+                    else:
+                        new_commercial_events.append(inst)
 
             # Condition degradation (per occupied unit type)
             upgrades_      = prop.get("upgrades", {})
@@ -6604,15 +7047,51 @@ def api_advance():
             if upgrades_.get("commercial_hvac"):
                 cond_loss *= 0.65  # HVAC reduces wear by 35%
 
-            # Superintendent: daily fee deducted, 50% less wear, slow auto-heal below 80
+            # Maintenance Man: per-building employee who keeps the building in good shape.
+            # Cuts wear sharply and steadily repairs the building toward a well-kept 92.
+            if prop.get("maintenance"):
+                maint_daily = int(ctype.get("maintenance_monthly", 0) / 28)
+                s["cash"]   = max(0, s["cash"] - maint_daily)
+                _tax_deduct(s, maint_daily)
+                cond_loss  *= 0.40
+                if prop.get("condition", 100) < 92:
+                    prop["condition"] = min(92, prop.get("condition", 0) + 0.8)
+
+            # Superintendent: per-building employee — daily fee; handles this building's
+            # choice-card events (resolved at event time above). No condition role.
             if prop.get("superintendent"):
-                sup_monthly = ctype.get("superintendent_monthly", 0)
-                s["cash"]   = max(0, s["cash"] - int(sup_monthly / 28))
-                cond_loss  *= 0.50
-                if prop.get("condition", 100) < 80:
-                    prop["condition"] = min(80, prop.get("condition", 0) + 0.30)
+                sup_daily = int(ctype.get("superintendent_monthly", 0) / 28)
+                s["cash"] = max(0, s["cash"] - sup_daily)
+                _tax_deduct(s, sup_daily)
 
             prop["condition"] = max(0, prop.get("condition", 100) - cond_loss)
+
+            # Leasing Agent: gradually fills vacant units with a complementary tenant
+            if s.get("assistants", {}).get("leasing_agent"):
+                for unit in prop.get("units", []):
+                    if unit.get("business_type") or random.random() > 0.22:
+                        continue
+                    bt = _agent_pick_tenant(prop)
+                    if not bt:
+                        continue
+                    btd       = BUSINESS_TENANT_TYPES[bt]
+                    base_rent = btd["monthly_rent"]
+                    _ug = prop.get("upgrades", {})
+                    if _ug.get("renovated_common"):  base_rent = int(base_rent * 1.08)
+                    if _ug.get("exterior_facelift"): base_rent += 300
+                    if _ug.get("fiber_internet") and bt in ("law_office", "accounting_firm"): base_rent += 500
+                    unit["business_type"]        = bt
+                    unit["tenant_name"]          = random.choice(btd["names"])
+                    unit["lease_days_remaining"] = btd["lease_days"]
+                    unit["monthly_rent"]         = base_rent
+                    unit["renewal_pending"]      = False
+                    unit["satisfaction"]         = 72
+                    unit["pct_rent_monthly"]     = 0
+                    unit["applicants"]           = []
+                    events.append({"prop": prop_label, "type": "positive", "category": "commercial",
+                        "text": f"🤝 Leasing Agent signed {unit['tenant_name']} ({btd['name']}) — ${base_rent:,}/mo."})
+                    s["log"].insert(0, {"day": current_day, "type": "positive",
+                        "text": f"Leasing Agent filled a unit at {prop_label} with {unit['tenant_name']}"})
 
         # Scheduled renovations — convert to pending when start_day arrives
         for prop in s["properties"]:
@@ -6758,7 +7237,8 @@ def api_advance():
             sq_count      = s.get("squatter_count", 0)
             spawn_chance  = 0.05 if sq_count == 0 else (0.03 if sq_count == 1 else 0.01)
             eligible = [p for p in s["properties"]
-                        if not p.get("tenant") and not p.get("squatter")
+                        if not p.get("commercial")          # squatters only target residential homes
+                        and not p.get("tenant") and not p.get("squatter")
                         and not p.get("pending_reno") and not p.get("pending_premium")
                         and not p.get("reno_payment_owed")
                         and (current_day - p.get("vacant_since", 1)) >= 3
@@ -10009,6 +10489,8 @@ def api_commercial_accept_tenant(pid):
     unit["tenant_name"]          = biz_name or random.choice(btype["names"])
     unit["lease_days_remaining"] = btype["lease_days"]
     unit["renewal_pending"]      = False
+    unit["satisfaction"]         = 72
+    unit["pct_rent_monthly"]     = 0
     unit["applicants"]           = []
     # Apply active upgrade rent bonuses to incoming tenant
     base_rent = btype["monthly_rent"]
@@ -10028,117 +10510,24 @@ def api_commercial_accept_tenant(pid):
 
 @app.route('/api/commercial/event_respond', methods=['POST'])
 def api_commercial_event_respond():
+    """Generic resolver — applies the chosen option's (already-rolled) effect."""
     s    = load()
     data = request.get_json(silent=True) or {}
-    pid      = data.get("prop_id")
-    uidx     = data.get("unit_idx")
-    ev_type  = data.get("event_type")
-    choice   = data.get("choice")   # "accept" / "decline" / "bump"
+    pid    = data.get("prop_id")
+    uidx   = data.get("unit_idx")
+    effect = data.get("effect") or {}
+    result = data.get("result") or "Handled."
     prop = next((p for p in s["properties"] if p["id"] == pid and p.get("commercial")), None)
     if not prop:
         return jsonify({"error": "Property not found"}), 404
     unit = next((u for u in prop["units"] if u["idx"] == uidx), None)
     if not unit:
         return jsonify({"error": "Unit not found"}), 404
-    ctype = COMMERCIAL_TYPES[prop["type"]]
-    btype = BUSINESS_TENANT_TYPES.get(unit.get("business_type", ""))
-    prop_label = f"{ctype['name']} — Commerce Row"
-
-    if ev_type == "lease_renewal":
-        if choice == "accept":
-            unit["lease_days_remaining"] = btype["lease_days"] if btype else 56
-            unit["renewal_pending"]      = False
-            s["log"].insert(0, {"day": s["day"], "type": "positive",
-                "text": f"{unit['tenant_name']} renewed lease at {prop_label} — same rate"})
-        elif choice == "bump":
-            unit["monthly_rent"]         = int(unit["monthly_rent"] * 1.10)
-            unit["lease_days_remaining"] = btype["lease_days"] if btype else 56
-            unit["renewal_pending"]      = False
-            s["log"].insert(0, {"day": s["day"], "type": "positive",
-                "text": f"{unit['tenant_name']} renewed at +10% — now ${unit['monthly_rent']:,}/mo at {prop_label}"})
-        elif choice == "decline":
-            name = unit["tenant_name"]
-            unit["business_type"]        = None
-            unit["tenant_name"]          = None
-            unit["lease_days_remaining"] = 0
-            unit["monthly_rent"]         = 0
-            unit["renewal_pending"]      = False
-            s["log"].insert(0, {"day": s["day"], "type": "warning",
-                "text": f"{name} vacated after lease expired at {prop_label}"})
-
-    elif ev_type == "inspection_fail":
-        cost = data.get("repair_cost", 0)
-        if choice == "pay":
-            if s["cash"] < cost:
-                return jsonify({"error": f"Need ${cost:,}"}), 400
-            s["cash"] -= cost
-            s["log"].insert(0, {"day": s["day"], "type": "info",
-                "text": f"Paid ${cost:,} inspection repair at {prop_label} — {unit['tenant_name']} stays"})
-        elif choice == "ignore":
-            name = unit["tenant_name"]
-            unit["business_type"]        = None
-            unit["tenant_name"]          = None
-            unit["lease_days_remaining"] = 0
-            unit["monthly_rent"]         = 0
-            unit["renewal_pending"]      = False
-            s["log"].insert(0, {"day": s["day"], "type": "warning",
-                "text": f"{name} left after failed inspection at {prop_label}"})
-
-    elif ev_type == "sublet_request":
-        bonus_mo = data.get("bonus_monthly", 0)
-        if choice == "approve":
-            unit["monthly_rent"] = unit.get("monthly_rent", 0) + bonus_mo
-            s["log"].insert(0, {"day": s["day"], "type": "positive",
-                "text": f"Approved sublet at {prop_label} — rent +${bonus_mo:,}/mo"})
-        else:
-            s["log"].insert(0, {"day": s["day"], "type": "info",
-                "text": f"Denied sublet request at {prop_label}"})
-
-    elif ev_type == "rent_negotiation":
-        proposed = data.get("proposed_rent", unit.get("monthly_rent", 0))
-        if choice == "accept":
-            unit["monthly_rent"] = proposed
-            s["log"].insert(0, {"day": s["day"], "type": "info",
-                "text": f"Accepted rent reduction for {unit['tenant_name']} at {prop_label} — now ${proposed:,}/mo"})
-        else:
-            name = unit["tenant_name"]
-            unit["business_type"]        = None
-            unit["tenant_name"]          = None
-            unit["lease_days_remaining"] = 0
-            unit["monthly_rent"]         = 0
-            unit["renewal_pending"]      = False
-            s["log"].insert(0, {"day": s["day"], "type": "warning",
-                "text": f"{name} walked out after rent negotiation declined at {prop_label}"})
-
-    elif ev_type == "early_exit":
-        exit_fee = data.get("exit_fee", 0)
-        name = unit["tenant_name"]
-        if choice == "charge_fee":
-            s["cash"] += exit_fee
-            s["log"].insert(0, {"day": s["day"], "type": "info",
-                "text": f"{name} paid ${exit_fee:,} exit fee and vacated {prop_label}"})
-        else:
-            s["log"].insert(0, {"day": s["day"], "type": "info",
-                "text": f"{name} vacated {prop_label} — exit fee waived"})
-        unit["business_type"]        = None
-        unit["tenant_name"]          = None
-        unit["lease_days_remaining"] = 0
-        unit["monthly_rent"]         = 0
-        unit["renewal_pending"]      = False
-
-    elif ev_type == "equipment_damage":
-        repair_cost = data.get("repair_cost", 0)
-        if choice == "pay":
-            if s["cash"] < repair_cost:
-                return jsonify({"error": f"Need ${repair_cost:,}"}), 400
-            s["cash"] -= repair_cost
-            s["log"].insert(0, {"day": s["day"], "type": "info",
-                "text": f"Repaired equipment damage at {prop_label} — ${repair_cost:,}"})
-        else:
-            prop["condition"] = max(0, prop.get("condition", 0) - 20)
-            s["log"].insert(0, {"day": s["day"], "type": "warning",
-                "text": f"Ignored equipment damage at {prop_label} — condition -20"})
-
+    # Only honor known effect keys (the client owns state, but stay defensive)
+    safe = {k: effect[k] for k in ("cost", "gain", "cond", "sat", "rent_add", "rent_mult", "vacate", "deduct")
+            if k in effect}
+    _apply_commercial_effect(s, prop, unit, safe)
+    s["log"].insert(0, {"day": s["day"], "type": "info", "text": result})
     save(s)
     return jsonify({"success": True, "cash": s["cash"]})
 
@@ -10161,6 +10550,28 @@ def api_commercial_superintendent(pid):
         prop["superintendent"] = False
         s["log"].insert(0, {"day": s["day"], "type": "info",
             "text": f"Building superintendent dismissed from {ctype['name']} on {prop['address']}"})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/commercial/<int:pid>/maintenance', methods=['POST'])
+def api_commercial_maintenance(pid):
+    s      = load()
+    data   = request.get_json(silent=True) or {}
+    action = data.get("action", "hire")
+    prop   = next((p for p in s["properties"] if p["id"] == pid and p.get("commercial")), None)
+    if not prop:
+        return jsonify({"error": "Property not found"}), 404
+    ctype = COMMERCIAL_TYPES.get(prop["type"], {})
+    if action == "hire":
+        if prop.get("maintenance"):
+            return jsonify({"error": "Maintenance man already hired"}), 400
+        prop["maintenance"] = True
+        s["log"].insert(0, {"day": s["day"], "type": "positive",
+            "text": f"Maintenance man hired for {ctype['name']} on {prop['address']} — building upkeep now handled"})
+    else:
+        prop["maintenance"] = False
+        s["log"].insert(0, {"day": s["day"], "type": "info",
+            "text": f"Maintenance man let go from {ctype['name']} on {prop['address']}"})
     save(s)
     return jsonify({"success": True})
 

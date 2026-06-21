@@ -42,14 +42,15 @@ const NEW_BUILDS_UNLOCK_LEVEL    = 9;
 const COMMERCE_ROW_UNLOCK_LEVEL  = 11;
 
 const COMMERCIAL_TYPES_DATA = {
-  strip_mall:      { name: 'Strip Mall',          icon: '🏪', unit_count: 4, price: 950000,   overhead: 2500, sqft: 8000,  superintendent_monthly: 3500, emergency_repair_cost: 12000, desc: 'Four retail-facing storefronts. High traffic, high turnover.' },
-  office_building: { name: 'Office Building',     icon: '🏢', unit_count: 3, price: 1400000,  overhead: 3500, sqft: 12000, superintendent_monthly: 4500, emergency_repair_cost: 15000, desc: 'Professional tenants, longer leases, quieter events.' },
-  mixed_use:       { name: 'Mixed-Use Building',  icon: '🏬', unit_count: 5, price: 1800000,  overhead: 4000, sqft: 18000, superintendent_monthly: 5500, emergency_repair_cost: 20000, desc: 'Three commercial floors and two upper-level office suites.' },
+  strip_mall:      { name: 'Strip Mall',          icon: '🏪', unit_count: 4, price: 950000,   overhead: 2500, sqft: 8000,  superintendent_monthly: 3500, maintenance_monthly: 2500, emergency_repair_cost: 12000, desc: 'Four retail-facing storefronts. High traffic, high turnover.' },
+  office_building: { name: 'Office Building',     icon: '🏢', unit_count: 3, price: 1400000,  overhead: 3500, sqft: 12000, superintendent_monthly: 4500, maintenance_monthly: 3200, emergency_repair_cost: 15000, desc: 'Professional tenants, longer leases, quieter events.' },
+  mixed_use:       { name: 'Mixed-Use Building',  icon: '🏬', unit_count: 5, price: 1800000,  overhead: 4000, sqft: 18000, superintendent_monthly: 5500, maintenance_monthly: 3800, emergency_repair_cost: 20000, desc: 'Three commercial floors and two upper-level office suites.' },
 };
 
 const ASSISTANTS_DATA = {
   manager:    { name: 'Property Manager', icon: '🤝', unlock_level: 11, monthly_fee: 20000, desc: 'Full hands-off management. Automatically handles every tenant issue, repair, story event, and lease renewal across all your rentals — true passive income.' },
   accountant: { name: 'Accountant',       icon: '🧮', unlock_level: 3,  monthly_fee: 2800,  desc: 'Auto-files your taxes on time every year and finds 15% more deductible write-offs. The retainer itself is a deductible expense.' },
+  leasing_agent: { name: 'Commercial Leasing Agent', icon: '🤝', unlock_level: 11, monthly_fee: 7000, desc: 'Keeps Commerce Row leased — automatically fills vacant units with strong, complementary tenants so you never have to court applicants. (Building events are handled per-building by Superintendents.)' },
 };
 
 const COMMERCIAL_UPGRADES_DATA = {
@@ -80,6 +81,22 @@ const BUSINESS_TENANT_DATA = {
   medical_clinic:   { name: 'Medical Clinic',   icon: '🏥', monthly_rent: 12500, lease_days: 224, desc: 'Top-tier rent, longest leases. Nearly zero trouble.' },
   dental_office:    { name: 'Dental Office',    icon: '🦷', monthly_rent: 11000, lease_days: 224, desc: 'Ultra-reliable. Great rent, iron-clad leases.' },
   flooring_express: { name: 'Flooring Express', icon: '🏪', monthly_rent: 20000, lease_days: 224, desc: '⭐ SPECIAL — Pays double. Never any issues.', special: true },
+};
+
+// ── Commercial overhaul mirrors (match app.py) ──────────────────────────────
+const BUSINESS_TENANT_CAT = {
+  restaurant:'food', coffee_shop:'food',
+  retail:'retail', pawn_shop:'retail', auto_parts:'retail', flooring_express:'retail',
+  salon:'service', barber_shop:'service', nail_salon:'service', tattoo_studio:'service',
+  law_office:'professional', accounting_firm:'professional', tech_startup:'professional',
+  gym:'health', daycare:'health', medical_clinic:'health', dental_office:'health', pharmacy:'health',
+};
+const CAT_LABEL = { food:'Food', retail:'Retail', service:'Service', professional:'Professional', health:'Health' };
+const CAT_ICON  = { food:'🍴', retail:'🛍️', service:'✂️', professional:'💼', health:'➕' };
+const BUSINESS_ANCHORS = new Set(['restaurant','coffee_shop','gym','pharmacy','medical_clinic']);
+const BUSINESS_PCT_MAX = {
+  restaurant:4000, coffee_shop:2200, retail:2600, pawn_shop:1800, auto_parts:1600,
+  salon:1500, barber_shop:900, nail_salon:1000, tattoo_studio:1400, gym:2500,
 };
 
 const BUILD_CREWS_DATA = {
@@ -125,6 +142,7 @@ let _currentRepair        = null; // repair being handled right now
 let _pendingJob           = null; // side job being played
 let _pendingSquatter         = null; // squatter event queued after repairs
 let _pendingCommercialEvents = [];   // commercial events (lease renewals, inspections, subletting)
+let _currentCommercialEvent  = null; // the commercial event currently shown in the modal
 let _pendingRenewalOffers = [];   // lease renewal offers queued after advancing
 let _pendingStorylets     = [];   // multi-stage tenant situations queued after advancing
 let _pendingVendingEvents = [];   // vending machine choice-card events queued after advancing
@@ -962,12 +980,49 @@ function toggleCommercialCard(pid) {
   renderCommercial();
 }
 
+// ── Commercial overhaul UI helpers ──────────────────────────────────────────
+function ftColor(ft) { return ft >= 70 ? '#2E7D32' : ft >= 45 ? '#F9A825' : '#C62828'; }
+function ftLabel(ft) { return ft >= 80 ? 'Bustling' : ft >= 60 ? 'Busy' : ft >= 40 ? 'Steady' : ft >= 20 ? 'Quiet' : 'Dead Zone'; }
+function satEmoji(s) { return s >= 75 ? '😀' : s >= 55 ? '🙂' : s >= 35 ? '😐' : '😟'; }
+function satColor(s) { return s >= 70 ? '#2E7D32' : s >= 45 ? '#F9A825' : '#C62828'; }
+
+function tenantMixHtml(p) {
+  const ft       = p.foot_traffic == null ? 50 : p.foot_traffic;
+  const occUnits = p.units.filter(u => u.business_type);
+  const catCounts = {}; let anchorCt = 0;
+  occUnits.forEach(u => {
+    const c = BUSINESS_TENANT_CAT[u.business_type] || 'retail';
+    catCounts[c] = (catCounts[c] || 0) + 1;
+    if (BUSINESS_ANCHORS.has(u.business_type)) anchorCt++;
+  });
+  const dupPen = Object.values(catCounts).reduce((s, n) => s + Math.max(0, n - 1), 0);
+  const chips = Object.entries(catCounts).map(([c, n]) =>
+    `<span style="font-size:10px;font-weight:700;background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:2px 8px">${CAT_ICON[c] || ''} ${CAT_LABEL[c] || c}${n > 1 ? ` ×${n}` : ''}</span>`
+  ).join('');
+  let hint = '';
+  if (occUnits.length === 0)      hint = 'Empty building — no foot traffic. Sign an anchor tenant to get going.';
+  else if (dupPen > 0)            hint = '⚠ Duplicate categories cannibalize each other — diversify the mix for more traffic.';
+  else if (anchorCt === 0)        hint = 'No anchor tenant yet — a restaurant, café, gym, pharmacy, or clinic draws crowds.';
+  else                           hint = `Healthy mix${anchorCt > 1 ? ` with ${anchorCt} anchors` : ' with an anchor'} — traffic lifts every tenant\'s sales rent.`;
+  return `<div style="margin:4px 0 12px;padding:10px;border-radius:8px;background:rgba(0,0,0,0.03);border:1px solid var(--border)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+      <span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted)">Foot Traffic</span>
+      <span style="font-size:12px;font-weight:900;color:${ftColor(ft)}">${ftLabel(ft)} · ${ft}/100</span>
+    </div>
+    <div class="condition-bar" style="margin-bottom:8px"><div class="condition-fill" style="width:${ft}%;background:${ftColor(ft)}"></div></div>
+    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px">${chips || '<span style="font-size:10px;color:var(--text-muted);font-style:italic">No tenants yet</span>'}</div>
+    <div style="font-size:10px;color:var(--text-muted);line-height:1.35">${hint}</div>
+  </div>`;
+}
+
 function commercialPortfolioCardHtml(p) {
   const ct       = COMMERCIAL_TYPES_DATA[p.type] || {};
   const condPct_ = Math.min(100, Math.round((p.condition / 250) * 100));
-  const totalRent = p.units.reduce((s, u) => s + (u.monthly_rent || 0), 0);
-  const occupied  = p.units.filter(u => u.business_type).length;
-  const isOpen    = !!_commercialExpanded[p.id];
+  const totalRent  = p.units.reduce((s, u) => s + (u.monthly_rent || 0), 0);
+  const pctMonthly = p.units.reduce((s, u) => s + (u.pct_rent_monthly || 0), 0);
+  const occupied   = p.units.filter(u => u.business_type).length;
+  const isOpen     = !!_commercialExpanded[p.id];
+  const ft_        = p.foot_traffic == null ? 50 : p.foot_traffic;
 
   // Compact unit pills shown in collapsed view
   const unitPills = p.units.map(u => {
@@ -992,33 +1047,70 @@ function commercialPortfolioCardHtml(p) {
     const leaseLabel = u.lease_days_remaining <= 7
       ? `<span style="color:var(--warning);font-size:10px">⚠ ${u.lease_days_remaining}d left</span>`
       : `<span style="font-size:10px;color:var(--text-muted)">${u.lease_days_remaining}d left</span>`;
+    const sat   = u.satisfaction == null ? 70 : u.satisfaction;
+    const pct   = u.pct_rent_monthly || 0;
+    const total = (u.monthly_rent || 0) + pct;
     return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);gap:8px">
       <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0">
         <span style="font-size:16px">${bt.icon}</span>
         <div style="min-width:0">
           <div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${u.tenant_name}</div>
-          <div style="font-size:10px;color:var(--text-muted)">${bt.name} · ${leaseLabel}</div>
+          <div style="font-size:10px;color:var(--text-muted)">${bt.name} · ${leaseLabel} · <span style="color:${satColor(sat)};font-weight:700" title="Tenant satisfaction">${satEmoji(sat)} ${Math.round(sat)}%</span></div>
         </div>
       </div>
-      <span style="font-size:11px;font-weight:700;color:var(--positive);white-space:nowrap">${fmt(u.monthly_rent)}/mo</span>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:11px;font-weight:700;color:var(--positive);white-space:nowrap">${fmt(total)}/mo</div>
+        ${pct > 0 ? `<div style="font-size:9px;color:var(--text-muted);white-space:nowrap">${fmt(u.monthly_rent)} + ${fmt(pct)} sales</div>` : ''}
+      </div>
     </div>`;
   }).join('');
 
   const expandedHtml = `
     <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
-      <div class="money-row"><span class="mr-label">Monthly Income</span><span class="mr-value green">${fmt(totalRent)}/mo</span></div>
+      ${tenantMixHtml(p)}
+      <div class="money-row"><span class="mr-label">Base Rent</span><span class="mr-value green">${fmt(totalRent)}/mo</span></div>
+      ${pctMonthly > 0 ? `<div class="money-row"><span class="mr-label">Sales Rent (foot traffic)</span><span class="mr-value green">+${fmt(pctMonthly)}/mo</span></div>` : ''}
       <div class="money-row"><span class="mr-label">Monthly Overhead</span><span class="mr-value" style="color:var(--negative)">−${fmt(ct.overhead || 0)}/mo</span></div>
+
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin:10px 0 6px">Building Staff <span style="font-weight:600;text-transform:none;letter-spacing:0">· one of each per building</span></div>
+
+      ${p.maintenance
+        ? `<div class="money-row">
+             <span class="mr-label">🔧 Maintenance Man</span>
+             <span style="display:flex;align-items:center;gap:6px">
+               <span class="mr-value" style="color:var(--negative)">−${fmt(ct.maintenance_monthly || 0)}/mo</span>
+               <button class="btn btn-ghost" style="font-size:9px;padding:2px 7px;line-height:1.4" onclick="manageMaintenance(${p.id},'fire')">Fire</button>
+             </span>
+           </div>
+           <div style="font-size:10px;color:var(--text-muted);line-height:1.4;margin:2px 0 10px;padding:7px 9px;background:rgba(46,125,50,0.06);border:1px solid var(--positive);border-radius:7px">
+             🛠️ On duty — cuts daily wear by 60% and steadily repairs the building back up toward top condition. Keeps you out of the danger zone.
+           </div>`
+        : `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
+             <span style="font-size:11px;color:var(--text-muted)">🔧 No Maintenance Man</span>
+             <button class="btn btn-secondary btn-sm" style="font-size:10px;padding:3px 9px" onclick="manageMaintenance(${p.id},'hire')">Hire (${fmt(ct.maintenance_monthly || 0)}/mo)</button>
+           </div>
+           <div style="font-size:10px;color:var(--text-muted);line-height:1.4;margin:2px 0 10px;padding:7px 9px;background:rgba(0,0,0,0.03);border:1px solid var(--border);border-radius:7px">
+             Hire him to keep this building's <strong>condition</strong> healthy — he cuts wear and steadily repairs it. Without him, condition only drops over time.
+           </div>`
+      }
+
       ${p.superintendent
-        ? `<div class="money-row" style="margin-bottom:10px">
+        ? `<div class="money-row">
              <span class="mr-label">👷 Superintendent</span>
              <span style="display:flex;align-items:center;gap:6px">
                <span class="mr-value" style="color:var(--negative)">−${fmt(ct.superintendent_monthly || 0)}/mo</span>
                <button class="btn btn-ghost" style="font-size:9px;padding:2px 7px;line-height:1.4" onclick="manageSuperintendent(${p.id},'fire')">Fire</button>
              </span>
+           </div>
+           <div style="font-size:10px;color:var(--text-muted);line-height:1.4;margin:2px 0 10px;padding:7px 9px;background:rgba(46,125,50,0.06);border:1px solid var(--positive);border-radius:7px">
+             📋 On duty — <strong>auto-handles this building's choice-card events</strong> (inspections, repairs, disputes, negotiations) so you're never prompted for this building.
            </div>`
-        : `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        : `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
              <span style="font-size:11px;color:var(--text-muted)">👷 No Superintendent</span>
              <button class="btn btn-secondary btn-sm" style="font-size:10px;padding:3px 9px" onclick="manageSuperintendent(${p.id},'hire')">Hire (${fmt(ct.superintendent_monthly || 0)}/mo)</button>
+           </div>
+           <div style="font-size:10px;color:var(--text-muted);line-height:1.4;margin:2px 0 10px;padding:7px 9px;background:rgba(0,0,0,0.03);border:1px solid var(--border);border-radius:7px">
+             Handles this building's <strong>choice-card events</strong> automatically. Without one, this building's events come to you to resolve by hand.
            </div>`
       }
       <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:6px">Units</div>
@@ -1061,12 +1153,15 @@ function commercialPortfolioCardHtml(p) {
     </div>
     <div class="condition-wrap" style="margin-bottom:${isOpen ? '0' : '4px'}">
       <div class="condition-top">
-        <span class="condition-lbl">Building Condition</span>
+        <span class="condition-lbl">Building Condition ${p.maintenance ? '<span style="color:var(--positive);font-weight:800;font-size:10px">🔧 Maintained</span>' : '<span style="color:var(--text-muted);font-weight:700;font-size:10px">⚠ no upkeep</span>'}</span>
         <span class="condition-val" style="color:${tierColor(condTier(p.condition))};font-weight:900">${condTier(p.condition)} Tier</span>
       </div>
       <div class="condition-bar"><div class="condition-fill ${condClass(p.condition)}" style="width:${condPct_}%"></div></div>
     </div>
-    ${!isOpen ? `<div style="display:flex;gap:4px;margin-top:8px;flex-wrap:wrap">${unitPills}</div>` : ''}
+    ${!isOpen ? `<div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <span style="font-size:10px;font-weight:800;color:${ftColor(ft_)};background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:2px 8px" title="Foot traffic">🚶 ${ft_}</span>
+        <div style="display:flex;gap:4px;flex-wrap:wrap">${unitPills}</div>
+      </div>` : ''}
     ${isOpen ? expandedHtml : ''}
   </div>`;
 }
@@ -1125,6 +1220,14 @@ async function manageSuperintendent(pid, action) {
   toast(action === 'hire' ? '👷 Superintendent hired!' : 'Superintendent dismissed.', action === 'hire' ? 'success' : 'info');
 }
 
+async function manageMaintenance(pid, action) {
+  const res = await api(`/commercial/${pid}/maintenance`, 'POST', { action });
+  if (res.error) { toast(res.error, 'error'); return; }
+  await refreshState();
+  renderCommercial();
+  toast(action === 'hire' ? '🔧 Maintenance man hired!' : 'Maintenance man let go.', action === 'hire' ? 'success' : 'info');
+}
+
 async function buyCommercialUpgrade(pid, upgradeKey) {
   const upg = COMMERCIAL_UPGRADES_DATA[upgradeKey];
   if (!upg) return;
@@ -1145,11 +1248,15 @@ async function commercialEmergencyRepair(pid) {
   toast(`🔧 Emergency repairs done! Building restored.`, 'success');
 }
 
-async function commercialEventRespond(pid, unitIdx, evType, choice, extraData) {
-  const payload = { prop_id: pid, unit_idx: unitIdx, event_type: evType, choice, ...extraData };
-  const res = await api('/commercial/event_respond', 'POST', payload);
+async function commercialEventRespond(pid, unitIdx, optIdx) {
+  const ev  = _currentCommercialEvent;
+  const opt = ev && ev.options ? ev.options[optIdx] : null;
+  if (!opt) { drainCommercialEvents(); return; }
+  const res = await api('/commercial/event_respond', 'POST',
+    { prop_id: pid, unit_idx: unitIdx, effect: opt.effect, result: opt.result });
   if (res.error) { toast(res.error, 'error'); return; }
   closeModal();
+  if (opt.result) toast(opt.result, opt.etype === 'warning' || opt.etype === 'negative' ? 'warning' : 'success');
   await refreshState();
   renderProperties();
   drainCommercialEvents();
@@ -10549,68 +10656,19 @@ function drainCommercialEvents() {
 }
 
 function showCommercialEventModal(ev) {
-  const bt = ev.biz_type ? (BUSINESS_TENANT_DATA[ev.biz_type] || {}) : {};
-  const icon = ev.biz_icon || bt.icon || '🏢';
-
-  if (ev.type === 'inspection_fail') {
-    openModal(`
-      <div class="modal-handle"></div>
-      <div class="modal-title">${pxIcon('🚨',18)} Inspection Failed</div>
-      <div class="modal-subtitle">${ev.prop_label}</div>
-      <div style="font-size:13px;margin:12px 0;color:var(--text-muted)">${icon} <strong>${ev.tenant_name}</strong> received a failed health/safety inspection. Pay the repairs or they'll walk.</div>
-      <div class="money-row" style="margin-bottom:14px"><span class="mr-label">Repair Cost</span><span class="mr-value" style="color:var(--negative)">${fmt(ev.repair_cost)}</span></div>
-      <button class="btn btn-primary btn-full" onclick="commercialEventRespond(${ev.prop_id},${ev.unit_idx},'inspection_fail','pay',{repair_cost:${ev.repair_cost}})">Pay ${fmt(ev.repair_cost)} — Keep Tenant</button>
-      <button class="btn btn-ghost btn-full mt-8" onclick="commercialEventRespond(${ev.prop_id},${ev.unit_idx},'inspection_fail','ignore',{repair_cost:${ev.repair_cost}})">Ignore — Lose Tenant</button>
-      ${_pendingCommercialEvents.length > 0 ? `<div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:8px">${_pendingCommercialEvents.length} more event(s) after this</div>` : ''}
-    `);
-  } else if (ev.type === 'sublet_request') {
-    openModal(`
-      <div class="modal-handle"></div>
-      <div class="modal-title">${pxIcon('🤝',18)} Sublet Request</div>
-      <div class="modal-subtitle">${ev.prop_label}</div>
-      <div style="font-size:13px;margin:12px 0;color:var(--text-muted)">${icon} <strong>${ev.tenant_name}</strong> wants to sublet part of their space. Approve for a monthly bonus.</div>
-      <div class="money-row" style="margin-bottom:14px"><span class="mr-label">Monthly Bonus</span><span class="mr-value green">+${fmt(ev.bonus_monthly)}/mo</span></div>
-      <button class="btn btn-primary btn-full" onclick="commercialEventRespond(${ev.prop_id},${ev.unit_idx},'sublet_request','approve',{bonus_monthly:${ev.bonus_monthly}})">Approve Sublet</button>
-      <button class="btn btn-ghost btn-full mt-8" onclick="commercialEventRespond(${ev.prop_id},${ev.unit_idx},'sublet_request','deny',{})">Deny</button>
-      ${_pendingCommercialEvents.length > 0 ? `<div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:8px">${_pendingCommercialEvents.length} more event(s) after this</div>` : ''}
-    `);
-  } else if (ev.type === 'rent_negotiation') {
-    openModal(`
-      <div class="modal-handle"></div>
-      <div class="modal-title">${pxIcon('💬',18)} Rent Negotiation</div>
-      <div class="modal-subtitle">${ev.prop_label}</div>
-      <div style="font-size:13px;margin:12px 0;color:var(--text-muted)">${icon} <strong>${ev.tenant_name}</strong> says business has been slow and is asking for a rent reduction.</div>
-      <div class="money-row"><span class="mr-label">Current Rent</span><span class="mr-value">${fmt(ev.current_rent)}/mo</span></div>
-      <div class="money-row" style="margin-bottom:14px"><span class="mr-label">Proposed Rent (−15%)</span><span class="mr-value" style="color:var(--warning)">${fmt(ev.proposed_rent)}/mo</span></div>
-      <button class="btn btn-primary btn-full" onclick="commercialEventRespond(${ev.prop_id},${ev.unit_idx},'rent_negotiation','accept',{proposed_rent:${ev.proposed_rent}})">Accept New Rate</button>
-      <button class="btn btn-ghost btn-full mt-8" onclick="commercialEventRespond(${ev.prop_id},${ev.unit_idx},'rent_negotiation','decline',{})">Decline — They Walk</button>
-      ${_pendingCommercialEvents.length > 0 ? `<div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:8px">${_pendingCommercialEvents.length} more event(s) after this</div>` : ''}
-    `);
-  } else if (ev.type === 'early_exit') {
-    openModal(`
-      <div class="modal-handle"></div>
-      <div class="modal-title">${pxIcon('🚪',18)} Early Exit Request</div>
-      <div class="modal-subtitle">${ev.prop_label}</div>
-      <div style="font-size:13px;margin:12px 0;color:var(--text-muted)">${icon} <strong>${ev.tenant_name}</strong> wants to break their lease early. Either way, they're leaving.</div>
-      <div class="money-row" style="margin-bottom:14px"><span class="mr-label">Exit Fee</span><span class="mr-value green">+${fmt(ev.exit_fee)}</span></div>
-      <button class="btn btn-primary btn-full" onclick="commercialEventRespond(${ev.prop_id},${ev.unit_idx},'early_exit','charge_fee',{exit_fee:${ev.exit_fee}})">Charge Exit Fee — Collect ${fmt(ev.exit_fee)}</button>
-      <button class="btn btn-ghost btn-full mt-8" onclick="commercialEventRespond(${ev.prop_id},${ev.unit_idx},'early_exit','waive',{exit_fee:${ev.exit_fee}})">Waive Fee — Let Them Go</button>
-      ${_pendingCommercialEvents.length > 0 ? `<div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:8px">${_pendingCommercialEvents.length} more event(s) after this</div>` : ''}
-    `);
-  } else if (ev.type === 'equipment_damage') {
-    openModal(`
-      <div class="modal-handle"></div>
-      <div class="modal-title">${pxIcon('🔨',18)} Equipment Damage</div>
-      <div class="modal-subtitle">${ev.prop_label}</div>
-      <div style="font-size:13px;margin:12px 0;color:var(--text-muted)">${icon} <strong>${ev.tenant_name}</strong> reported damage to building equipment. Fix it now or take a condition hit.</div>
-      <div class="money-row" style="margin-bottom:14px"><span class="mr-label">Repair Cost</span><span class="mr-value" style="color:var(--negative)">${fmt(ev.repair_cost)}</span></div>
-      <button class="btn btn-primary btn-full" onclick="commercialEventRespond(${ev.prop_id},${ev.unit_idx},'equipment_damage','pay',{repair_cost:${ev.repair_cost}})">Pay ${fmt(ev.repair_cost)} — Fix It</button>
-      <button class="btn btn-ghost btn-full mt-8" onclick="commercialEventRespond(${ev.prop_id},${ev.unit_idx},'equipment_damage','ignore',{repair_cost:${ev.repair_cost}})">Ignore — Take −20 Condition</button>
-      ${_pendingCommercialEvents.length > 0 ? `<div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:8px">${_pendingCommercialEvents.length} more event(s) after this</div>` : ''}
-    `);
-  } else {
-    drainCommercialEvents();
-  }
+  _currentCommercialEvent = ev;
+  const icon = ev.icon || ev.biz_icon || '🏢';
+  const opts = (ev.options || []).map((o, i) =>
+    `<button class="btn ${i === 0 ? 'btn-primary' : 'btn-ghost'} btn-full" style="margin-bottom:8px;text-align:left;white-space:normal;line-height:1.35" onclick="commercialEventRespond(${ev.prop_id},${ev.unit_idx},${i})">${o.label}</button>`
+  ).join('');
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">${pxIcon(icon,18)} ${ev.title || 'Commercial Event'}</div>
+    <div class="modal-subtitle">${ev.prop_label || ''}</div>
+    <p style="font-size:13px;margin:12px 0 16px;color:var(--text-muted);line-height:1.5">${ev.desc || ''}</p>
+    ${opts}
+    ${_pendingCommercialEvents.length > 0 ? `<div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:8px">${_pendingCommercialEvents.length} more event(s) after this</div>` : ''}
+  `);
 }
 
 function showNextRepair() {
