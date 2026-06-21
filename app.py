@@ -406,105 +406,6 @@ TENANT_EVENTS = [
     # weight 10 keeps repairs at ~8% of all events across the full list
     {"key": "repair", "weight": 10, "type": "repair", "name": "Repair Needed"},
 
-    # ── Morale-choice events ───────────────────────────────────────────────────
-    # Player sees a prompt and chooses Agree or Decline.
-    # Agree: morale_gain applied; damage_chance to lose damage_pts condition.
-    # Decline: morale drops 5-10 (handled in api_tenant_event_respond).
-    # To add: give unique key, type="morale_choice", fill fields, add message
-    #         logic in the advance loop's morale_choice elif block if needed.
-    {
-        "key": "paint_room", "weight": 6, "type": "morale_choice",
-        "name": "Paint Request", "icon": "🎨",
-        "agree_label": "Sure, go ahead!", "decline_label": "No thanks.",
-        "morale_gain": 8, "damage_chance": 0.30, "damage_pts": 25,
-        "rooms": ["bedroom", "kitchen", "living room", "bathroom", "dining room"],
-    },
-    {
-        "key": "garage_sale", "weight": 6, "type": "morale_choice",
-        "name": "Garage Sale", "icon": "🏷️",
-        "agree_label": "Sure, go ahead!", "decline_label": "Not at my property.",
-        "morale_gain": 8, "damage_chance": 0.15, "damage_pts": 25,
-    },
-    {
-        "key": "party", "weight": 6, "type": "morale_choice",
-        "name": "Party Request", "icon": "🎉",
-        "agree_label": "Sure, have fun!", "decline_label": "No parties.",
-        "morale_gain": 8, "damage_chance": 0.40, "damage_pts": 25,
-        "reasons": ["birthday", "promotion", "holiday", "housewarming", "New Year's Eve"],
-    },
-    {
-        "key": "cat", "weight": 6, "type": "morale_choice",
-        "name": "Cat Request", "icon": "🐱",
-        "agree_label": "Sure, a cat is fine!", "decline_label": "No pets allowed.",
-        "morale_gain": 6, "damage_chance": 0.10, "damage_pts": 15,
-    },
-    {
-        "key": "garden", "weight": 6, "type": "morale_choice",
-        "name": "Garden Request", "icon": "🌱",
-        "agree_label": "Go for it!", "decline_label": "Let's keep the yard as-is.",
-        "morale_gain": 10, "damage_chance": 0.10, "damage_pts": 10,
-    },
-    {
-        "key": "satellite_dish", "weight": 5, "type": "morale_choice",
-        "name": "Satellite Dish", "icon": "📡",
-        "agree_label": "Sure, go ahead.", "decline_label": "No modifications to the roof.",
-        "morale_gain": 7, "damage_chance": 0.25, "damage_pts": 20,
-    },
-    {
-        "key": "band_practice", "weight": 5, "type": "morale_choice",
-        "name": "Band Practice", "icon": "🎸",
-        "agree_label": "As long as it's not too late!", "decline_label": "Not in my property.",
-        "morale_gain": 8, "damage_chance": 0.35, "damage_pts": 20,
-    },
-    {
-        "key": "home_gym", "weight": 5, "type": "morale_choice",
-        "name": "Home Gym", "icon": "🏋️",
-        "agree_label": "Sure, just don't damage the floors.", "decline_label": "No heavy equipment.",
-        "morale_gain": 7, "damage_chance": 0.20, "damage_pts": 15,
-    },
-    {
-        "key": "holiday_decorations", "weight": 5, "type": "morale_choice",
-        "name": "Holiday Decorations", "icon": "🎃",
-        "agree_label": "Sure, just take them down after.", "decline_label": "No exterior modifications.",
-        "morale_gain": 6, "damage_chance": 0.10, "damage_pts": 10,
-    },
-    {
-        "key": "fire_pit", "weight": 5, "type": "morale_choice",
-        "name": "Fire Pit", "icon": "🔥",
-        "agree_label": "Sure, be careful.", "decline_label": "Too much liability.",
-        "morale_gain": 9, "damage_chance": 0.30, "damage_pts": 25,
-    },
-    {
-        "key": "taco_tuesday", "weight": 5, "type": "morale_choice",
-        "name": "Taco Tuesday", "icon": "🌮",
-        "agree_label": "Sounds delicious, go ahead!", "decline_label": "Keep the gatherings small.",
-        "morale_gain": 7, "damage_chance": 0.20, "damage_pts": 15,
-    },
-    {
-        "key": "feng_shui", "weight": 4, "type": "morale_choice",
-        "name": "Feng Shui Rearrangement", "icon": "🔮",
-        "agree_label": "Sure, rearrange whatever you like.", "decline_label": "Please leave the fixtures alone.",
-        "morale_gain": 6, "damage_chance": 0.40, "damage_pts": 20,
-    },
-    {
-        "key": "candles", "weight": 5, "type": "morale_choice",
-        "name": "Candle Obsession", "icon": "🕯️",
-        "agree_label": "Sure, just be careful!", "decline_label": "Too much of a fire risk.",
-        "morale_gain": 5, "damage_chance": 0.35, "damage_pts": 20,
-    },
-    {
-        "key": "bulletin_board", "weight": 4, "type": "morale_choice",
-        "name": "Conspiracy Bulletin Board", "icon": "🛸",
-        "agree_label": "...Sure.", "decline_label": "I'd rather not have holes in my walls.",
-        "morale_gain": 4, "damage_chance": 0.15, "damage_pts": 10,
-    },
-    {
-        "key": "dartboard", "weight": 5, "type": "morale_choice",
-        "name": "Dart Board", "icon": "🎯",
-        "agree_label": "Sure, sounds fun.", "decline_label": "Not on my walls.",
-        "morale_gain": 5, "damage_chance": 0.45, "damage_pts": 15,
-    },
-
     # ── Morale-auto events ─────────────────────────────────────────────────────
     # These fire silently — no modal. The morale change is applied automatically
     # and a note appears in the advance events list.
@@ -539,201 +440,6 @@ TENANT_EVENTS = [
         "morale_delta": -6,
         "message": "mentioned money is tight this month",
     },
-    # ── More funny morale-choice events ───────────────────────────────────────
-    {
-        "key": "es_tarantula", "weight": 4, "type": "morale_choice",
-        "name": "Emotional Support Tarantula", "icon": "🕷️",
-        "agree_label": "...Fine.", "decline_label": "Absolutely not.",
-        "morale_gain": 8, "damage_chance": 0.20, "damage_pts": 15,
-        "message": "Your tenant has acquired an emotional support tarantula. She's very gentle. She's never bitten anyone. That they know of.",
-    },
-    {
-        "key": "circus_skills", "weight": 4, "type": "morale_choice",
-        "name": "Circus Skills Practice", "icon": "🎪",
-        "agree_label": "Try not to break anything.", "decline_label": "Please take that somewhere else.",
-        "morale_gain": 6, "damage_chance": 0.30, "damage_pts": 20,
-        "message": "Your tenant has taken up juggling and unicycle riding. In the hallway.",
-    },
-    {
-        "key": "telescope_hole", "weight": 3, "type": "morale_choice",
-        "name": "Telescope Installation", "icon": "🔭",
-        "agree_label": "That's... a very small hole.", "decline_label": "No modifications to the roof.",
-        "morale_gain": 7, "damage_chance": 0.65, "damage_pts": 40,
-        "message": "Your tenant wants to cut a small hole in the roof for a 'permanent telescope mount.' It's just a small hole.",
-    },
-    {
-        "key": "home_science", "weight": 4, "type": "morale_choice",
-        "name": "Home Science Lab", "icon": "🧪",
-        "agree_label": "I probably don't want to know.", "decline_label": "I definitely don't want to know.",
-        "morale_gain": 6, "damage_chance": 0.40, "damage_pts": 30,
-        "message": "Your tenant is doing 'experiments.' Nothing illegal. They won't say more than that.",
-    },
-    {
-        "key": "accordion", "weight": 4, "type": "morale_choice",
-        "name": "Accordion Lessons", "icon": "🪗",
-        "agree_label": "Sure, maybe they'll get good eventually.", "decline_label": "Not in my property.",
-        "morale_gain": 7, "damage_chance": 0.10, "damage_pts": 10,
-        "message": "Your tenant has started learning accordion. Lessons are every Tuesday and Thursday at 9pm.",
-    },
-    {
-        "key": "tiny_house", "weight": 3, "type": "morale_choice",
-        "name": "Backyard Tiny House", "icon": "🛖",
-        "agree_label": "As long as it's not permanent.", "decline_label": "Please take that down.",
-        "morale_gain": 10, "damage_chance": 0.50, "damage_pts": 35,
-        "message": "Your tenant built a tiny structure in the backyard for their 'creative space.' It has electricity.",
-    },
-    {
-        "key": "carousel_horse", "weight": 3, "type": "morale_choice",
-        "name": "Vintage Carousel Horse", "icon": "🎠",
-        "agree_label": "It's not hurting anyone.", "decline_label": "That has to go.",
-        "morale_gain": 9, "damage_chance": 0.05, "damage_pts": 10,
-        "message": "Your tenant bought a full-size vintage carousel horse from an estate sale. It lives in the living room now. They just want you to know.",
-    },
-    {
-        "key": "outdoor_shower", "weight": 4, "type": "morale_choice",
-        "name": "Outdoor Shower", "icon": "🚿",
-        "agree_label": "Fine, just make sure it drains.", "decline_label": "This isn't a campsite.",
-        "morale_gain": 8, "damage_chance": 0.35, "damage_pts": 25,
-        "message": "Your tenant wants to install an outdoor shower on the back porch. 'For after gardening.'",
-    },
-    {
-        "key": "arcade_cabinet", "weight": 4, "type": "morale_choice",
-        "name": "Arcade Cabinet Project", "icon": "🕹️",
-        "agree_label": "As long as the garage survives.", "decline_label": "Find somewhere else to build it.",
-        "morale_gain": 9, "damage_chance": 0.20, "damage_pts": 15,
-        "message": "Your tenant is building a full-size arcade cabinet. They need the garage for the next 'few weeks.'",
-    },
-    {
-        "key": "cactus_garden", "weight": 4, "type": "morale_choice",
-        "name": "Cactus Garden", "icon": "🌵",
-        "agree_label": "Sure, very low maintenance.", "decline_label": "Let's keep the yard as-is.",
-        "morale_gain": 6, "damage_chance": 0.15, "damage_pts": 10,
-        "message": "Your tenant wants to convert the front yard to a cactus garden. 'Very low maintenance,' they promise.",
-    },
-    {
-        "key": "large_statue", "weight": 3, "type": "morale_choice",
-        "name": "Unsettling Garden Statue", "icon": "🗿",
-        "agree_label": "I'll allow it.", "decline_label": "That needs to go.",
-        "morale_gain": 8, "damage_chance": 0.05, "damage_pts": 5,
-        "message": "Your tenant acquired a very large garden statue from an estate sale. It's a little unsettling but they absolutely love it.",
-    },
-    {
-        "key": "power_washer", "weight": 4, "type": "morale_choice",
-        "name": "Power Washer Purchase", "icon": "💦",
-        "agree_label": "Go for it, but be careful with the siding.", "decline_label": "Please don't.",
-        "morale_gain": 7, "damage_chance": 0.35, "damage_pts": 30,
-        "message": "Your tenant bought a power washer and wants to 'clean everything.' You know how this ends.",
-    },
-    {
-        "key": "es_goat", "weight": 3, "type": "morale_choice",
-        "name": "Emotional Support Goat", "icon": "🐐",
-        "agree_label": "It's basically a dog.", "decline_label": "Absolutely not.",
-        "morale_gain": 10, "damage_chance": 0.55, "damage_pts": 35,
-        "message": "Your tenant insists it's a miniature goat and miniature goats are basically dogs.",
-    },
-    {
-        "key": "clothesline", "weight": 4, "type": "morale_choice",
-        "name": "Permanent Clothesline", "icon": "🧺",
-        "agree_label": "Sure, just keep it tidy.", "decline_label": "It'll just be in the way.",
-        "morale_gain": 5, "damage_chance": 0.10, "damage_pts": 10,
-        "message": "Your tenant wants to run a clothesline across the entire backyard. Permanently.",
-    },
-    {
-        "key": "string_quartet", "weight": 4, "type": "morale_choice",
-        "name": "String Quartet Practice", "icon": "🎻",
-        "agree_label": "Sure, maybe they'll improve.", "decline_label": "Not in my property.",
-        "morale_gain": 8, "damage_chance": 0.05, "damage_pts": 10,
-        "message": "Your tenant joined a string quartet. They practice here now. They are not good yet.",
-    },
-    {
-        "key": "rooster", "weight": 4, "type": "morale_choice",
-        "name": "Surprise Rooster", "icon": "🐓",
-        "agree_label": "It's already here, so...", "decline_label": "That has to go. Now.",
-        "morale_gain": 9, "damage_chance": 0.30, "damage_pts": 20,
-        "message": "Your tenant 'accidentally' got a rooster. Thought it was a hen. It is not a hen.",
-    },
-    {
-        "key": "archery", "weight": 4, "type": "morale_choice",
-        "name": "Backyard Archery Range", "icon": "🏹",
-        "agree_label": "Just aim at the target, not the fence.", "decline_label": "Too much liability.",
-        "morale_gain": 7, "damage_chance": 0.45, "damage_pts": 30,
-        "message": "Your tenant has taken up archery. In the backyard.",
-    },
-    {
-        "key": "open_mic", "weight": 4, "type": "morale_choice",
-        "name": "Monthly Open Mic Night", "icon": "🎤",
-        "agree_label": "Very small crowd though.", "decline_label": "Not at my property.",
-        "morale_gain": 8, "damage_chance": 0.20, "damage_pts": 15,
-        "message": "Your tenant wants to host a monthly open mic night in the living room. 'Very small crowd,' they say.",
-    },
-    {
-        "key": "sublet_request", "weight": 4, "type": "morale_choice",
-        "name": "Couch Sublet", "icon": "🛋️",
-        "agree_label": "Just on weekends.", "decline_label": "Absolutely not.",
-        "morale_gain": 10, "damage_chance": 0.35, "damage_pts": 25,
-        "message": "Your tenant wants to rent out their couch on an app. 'Just on weekends.'",
-    },
-    {
-        "key": "rain_barrels", "weight": 4, "type": "morale_choice",
-        "name": "Rain Collection System", "icon": "🪣",
-        "agree_label": "Sure, very eco-friendly.", "decline_label": "That's a lot of barrels.",
-        "morale_gain": 5, "damage_chance": 0.10, "damage_pts": 10,
-        "message": "Your tenant installed 12 rain barrels in the yard. They want to keep them.",
-    },
-    {
-        "key": "storage_unit", "weight": 4, "type": "morale_choice",
-        "name": "Unofficial Storage Unit", "icon": "📦",
-        "agree_label": "Just temporarily, right?", "decline_label": "This isn't a storage unit.",
-        "morale_gain": 7, "damage_chance": 0.25, "damage_pts": 20,
-        "message": "Your tenant moved their storage unit contents into the property. 'Just temporarily.'",
-    },
-    {
-        "key": "wall_mural", "weight": 4, "type": "morale_choice",
-        "name": "Bedroom Mural", "icon": "🖼️",
-        "agree_label": "Show me the design first.", "decline_label": "Not on my walls.",
-        "morale_gain": 9, "damage_chance": 0.50, "damage_pts": 35,
-        "message": "Your tenant wants to paint a mural on the bedroom wall. 'I'm a pretty good artist,' they say.",
-    },
-    {
-        "key": "crystals", "weight": 4, "type": "morale_choice",
-        "name": "EMF Protection Setup", "icon": "🔮",
-        "agree_label": "Sure, whatever makes you feel safe.", "decline_label": "I'd rather not have copper mesh on all my windows.",
-        "morale_gain": 6, "damage_chance": 0.25, "damage_pts": 20,
-        "message": "Your tenant wants to install copper mesh on all the windows. For EMF protection.",
-    },
-    {
-        "key": "bowling_garage", "weight": 3, "type": "morale_choice",
-        "name": "Garage Bowling Lane", "icon": "🎳",
-        "agree_label": "The garage is a bowling alley now.", "decline_label": "That needs to be undone.",
-        "morale_gain": 8, "damage_chance": 0.40, "damage_pts": 30,
-        "message": "Your tenant rearranged the garage into a 'mini bowling lane.' It's already done. They're asking if that's okay.",
-    },
-
-    # ── Special morale-choice events (cool mechanics) ──────────────────────────
-    # cond_gain: if set and player agrees, restores condition by this amount.
-    # cash_bonus: if True and player agrees, awards $150–$350 random cash.
-    {
-        "key": "tenant_repairs", "weight": 3, "type": "morale_choice",
-        "name": "Tenant Fixed Something", "icon": "🔧",
-        "agree_label": "Nice work, thank you!", "decline_label": "Run it by me first next time.",
-        "morale_gain": 10, "damage_chance": 0, "damage_pts": 0, "cond_gain": 25,
-        "message": "Your tenant fixed something on their own — properly, too. Better than you would have.",
-    },
-    {
-        "key": "energy_audit", "weight": 3, "type": "morale_choice",
-        "name": "DIY Energy Audit", "icon": "💡",
-        "agree_label": "Put it into action!", "decline_label": "Appreciate the effort, but no thanks.",
-        "morale_gain": 8, "damage_chance": 0, "damage_pts": 0, "cond_gain": 12,
-        "message": "Your tenant did a DIY energy audit and left you a detailed report. With a spreadsheet. Color-coded.",
-    },
-    {
-        "key": "rent_bump_offer", "weight": 3, "type": "morale_choice",
-        "name": "Rent Bump Offer", "icon": "💸",
-        "agree_label": "We appreciate it!", "decline_label": "No need, just pay what you owe.",
-        "morale_gain": 5, "damage_chance": 0, "damage_pts": 0, "cash_bonus": True,
-        "message": "Your tenant just got a raise and wants to pay a little extra this month as a thank you.",
-    },
-
     # ── Special auto events: cash ──────────────────────────────────────────────
     # Fires silently; adds cash_min–cash_max to player's cash.
     {
@@ -1018,11 +724,6 @@ TENANT_EVENTS = [
     # ── Add future events below this line ─────────────────────────────────────
 ]
 
-# The old yes/no "tenant request" events (type "morale_choice") were retired in
-# favor of the storylet system. They're filtered out here so they never fire,
-# never queue, and never match the (removed) respond endpoint. Repairs and the
-# ambient auto-flavor events (morale_auto / cash_auto / cond_auto) all remain.
-TENANT_EVENTS = [e for e in TENANT_EVENTS if e.get("type") != "morale_choice"]
 
 def _pick_weighted_event(event_list):
     """Weighted-random pick from a list of events."""
@@ -1573,84 +1274,269 @@ STORE_ITEMS = {
     "music_studio":      {"name": "Music Studio",       "icon": "🎸", "cost": 18_000, "unlock_level": 13, "unlock_home": "mansion", "max_energy_bonus": 0, "recharge_bonus": 3, "desc": "Soundproofed. Pro-grade gear. You play once a month. +3 recharge/day."},
 }
 
-# ── Vending Machine Business ───────────────────────────────────────────────────
-VM_PRICES    = [1_200, 2_000, 3_000, 4_200, 5_800, 8_000]
-VM_LOCATIONS = [
-    "Midtown Grocery Entrance",
-    "Riverside Park",
-    "Northside Community Center",
-    "Westwood Office Lobby",
-    "Newbay Ferry Terminal",
-    "Downtown Bus Station",
-]
-SNACK_REVENUE = {"cheap": 800, "mid": 2_400, "premium": 4_000}
-VINNY_FEE     = 200
+# ── Vending Machine Business (Phase 1 overhaul) ─────────────────────────────────
+# Locations have demand PROFILES (what each spot wants); machines have SLOTS you
+# assign product categories to and keep stocked. Daily income = demand matching,
+# split per category across slots, capped by stock, with perishable spoilage.
+# (Reputation, dynamic pricing, competition, seasons come in later phases.)
+VM_PRICES        = [1_200, 2_000, 3_000, 4_200, 5_800, 8_000]   # machine #1–6 purchase price
+VM_SLOTS         = 6                                            # slots per machine
+VM_SLOT_CAPACITY = 60                                           # base units a filled slot holds (90 with Bigger Capacity)
+VINNY_FEE        = 200                                          # per machine, per day Vinny restocks
 
-# effect types: income_mult (value = extra factor, so 1.0 = 2×),
-#               income_zero, income_bonus (flat $), fine (flat $), drain_fast (extra days drained)
-VM_LOCATION_EVENTS = {
-    "Midtown Grocery Entrance": [
-        {"text": "Weekend shopping rush at Midtown Grocery — Machine #{slot} doubled up!",        "type": "positive", "effect": "income_mult",  "value": 1.0},
-        {"text": "Power outage hit Midtown — Machine #{slot} was offline all day.",               "type": "negative", "effect": "income_zero",  "value": 0},
-        {"text": "Health inspector surprise visit — Machine #{slot} hit with a fine.",            "type": "negative", "effect": "fine",          "value": 150},
-        {"text": "Late-night grocery rush boosted Machine #{slot} sales.",                        "type": "positive", "effect": "income_bonus", "value": 80},
-    ],
-    "Riverside Park": [
-        {"text": "Community 5K finished right by Machine #{slot} — runners cleaned it out early!", "type": "positive", "effect": "drain_fast",   "value": 2},
-        {"text": "Park closed for maintenance — Machine #{slot} had no customers today.",         "type": "negative", "effect": "income_zero",  "value": 0},
-        {"text": "Heat wave brought big crowds to Riverside Park — Machine #{slot} earned extra!", "type": "positive", "effect": "income_mult",  "value": 0.5},
-        {"text": "Vandals rocked Machine #{slot} overnight — repair fee.",                        "type": "negative", "effect": "fine",          "value": 100},
-    ],
-    "Northside Community Center": [
-        {"text": "Youth basketball tournament — Machine #{slot} couldn't be restocked fast enough!", "type": "positive", "effect": "drain_fast",  "value": 2},
-        {"text": "Center closed for deep cleaning — Machine #{slot} offline all day.",             "type": "negative", "effect": "income_zero",  "value": 0},
-        {"text": "Senior bingo night brought an unexpected crowd to Machine #{slot}.",             "type": "positive", "effect": "income_bonus", "value": 75},
-        {"text": "Noise complaint from the building manager — Machine #{slot} fined.",            "type": "negative", "effect": "fine",          "value": 80},
-    ],
-    "Westwood Office Lobby": [
-        {"text": "All-hands company meeting packed the lobby — Machine #{slot} had a great day!", "type": "positive", "effect": "income_mult",  "value": 0.5},
-        {"text": "Office evacuation drill emptied the building — Machine #{slot} earned nothing.", "type": "negative", "effect": "income_zero",  "value": 0},
-        {"text": "Building management slapped Machine #{slot} with a placement fee.",             "type": "negative", "effect": "fine",          "value": 120},
-        {"text": "Company happy hour spilled into the lobby — Machine #{slot} got a late rush.",  "type": "positive", "effect": "income_bonus", "value": 90},
-    ],
-    "Newbay Ferry Terminal": [
-        {"text": "Ferry delays stranded passengers for hours — Machine #{slot} was emptied out!", "type": "positive", "effect": "drain_fast",   "value": 2},
-        {"text": "Ferry service suspended today — empty terminal, Machine #{slot} earned nothing.", "type": "negative", "effect": "income_zero",  "value": 0},
-        {"text": "Tourist group rolled through Newbay — Machine #{slot} got an unexpected windfall!", "type": "positive", "effect": "income_mult",  "value": 1.0},
-        {"text": "Port authority cited Machine #{slot} for an expired permit.",                   "type": "negative", "effect": "fine",          "value": 175},
-    ],
-    "Downtown Bus Station": [
-        {"text": "Big game day — fans flooded the station, Machine #{slot} had a record day!",   "type": "positive", "effect": "income_mult",  "value": 1.0},
-        {"text": "Transit shutdown left the station empty — Machine #{slot} earned nothing.",    "type": "negative", "effect": "income_zero",  "value": 0},
-        {"text": "Homeless person sleeping by Machine #{slot} scared off customers — fine day cut short.", "type": "negative", "effect": "fine", "value": 50},
-        {"text": "Concert let out nearby and fans rushed the station — Machine #{slot} cleaned out early!", "type": "positive", "effect": "drain_fast", "value": 2},
-    ],
+# Phase 2 — dynamic pricing: per-machine price level → (price multiplier, demand multiplier).
+VM_PRICE_LEVELS = {
+    "value":   {"name": "Value",   "icon": "🏷️", "price_mult": 0.85, "demand_mult": 1.20},
+    "normal":  {"name": "Normal",  "icon": "⚖️", "price_mult": 1.00, "demand_mult": 1.00},
+    "premium": {"name": "Premium", "icon": "💎", "price_mult": 1.30, "demand_mult": 0.72},
 }
 
+# Phase 2 — per-machine upgrades (one-time purchase, stored in vm["upgrades"]).
 VM_UPGRADES = {
-    "larger_capacity": {"name": "Larger Capacity", "icon": "📦", "cost": 500,   "desc": "+2 days per restock cycle."},
-    "card_reader":     {"name": "Card Reader",     "icon": "💳", "cost": 800,   "desc": "+$50/day on top of snack income."},
-    "premium_slot":    {"name": "Premium Slot",    "icon": "⭐", "cost": 1_200, "desc": "+25% revenue per cycle."},
+    "capacity":    {"name": "Bigger Capacity",  "icon": "📦", "cost": 1_500, "desc": "Slot capacity 60 → 90. Slots last far longer between restocks."},
+    "fridge":      {"name": "Refrigeration",    "icon": "❄️", "cost": 2_000, "desc": "Perishables last +2 days before spoiling (Fresh 3→5, Hot 6→8)."},
+    "card_reader": {"name": "Card Reader",      "icon": "💳", "cost": 1_200, "desc": "+12% units sold — more customers can pay."},
+    "branding":    {"name": "Branding Wrap",    "icon": "🎨", "cost": 1_000, "desc": "A sharp look. Reputation climbs faster."},
+    "reinforced":  {"name": "Reinforced Build", "icon": "🛡️", "cost": 1_800, "desc": "Halves the odds of bad location events (vandalism, outages)."},
 }
 
-def _vm_income(tier, upgrades):
-    """Return (drain_days, daily_income) for a machine, applying any upgrades."""
-    drain = random.randint(4, 8)
-    if upgrades.get("larger_capacity"):
-        drain += 2
-    revenue = SNACK_REVENUE[tier]
-    if upgrades.get("premium_slot"):
-        revenue = round(revenue * 1.25)
-    income = round(revenue / drain)
-    if upgrades.get("card_reader"):
-        income += 50
-    return drain, income
+# Phase 2 — Grandma the buyer: weekly auto-purchase of product at a convenience markup.
+GRANDMA_MARKUP    = 0.18   # she pays 18% over CostPro case price
+GRANDMA_INTERVAL  = 7      # shops every 7 days
+GRANDMA_BUFFER    = 1.5    # buys ~1.5× the coming week's demand
+
+# Product categories. price = sale price per unit (pure income — wholesale was
+# already paid at CostPro). Perishables spoil `shelf` days after a restock.
+VM_PRODUCTS = {
+    "snacks":    {"name": "Snacks",      "icon": "🍫",  "price": 2.25, "perishable": False, "shelf": None},
+    "cold":      {"name": "Cold Drinks", "icon": "🥤",  "price": 2.75, "perishable": False, "shelf": None},
+    "hot":       {"name": "Hot Drinks",  "icon": "☕",  "price": 3.00, "perishable": True,  "shelf": 6},
+    "energy":    {"name": "Energy",      "icon": "⚡",  "price": 3.75, "perishable": False, "shelf": None},
+    "fresh":     {"name": "Fresh Food",  "icon": "🥗",  "price": 6.50, "perishable": True,  "shelf": 3},
+    "specialty": {"name": "Specialty",   "icon": "🎁",  "price": 4.75, "perishable": False, "shelf": None},
+}
+
+# Machine slot N (1-based purchase order) → location.
+VM_LOCATION_ORDER = ["midtown_grocery", "downtown_bus", "westwood_office",
+                     "northside_center", "newbay_ferry", "riverside_park"]
+VM_LOCATIONS = {
+    "midtown_grocery":  {"name": "Midtown Grocery Entrance",  "traffic": 200, "volatility": 0.10,
+                         "profile": {"snacks": .25, "cold": .25, "fresh": .20, "specialty": .15, "energy": .10, "hot": .05}},
+    "downtown_bus":     {"name": "Downtown Bus Station",       "traffic": 180, "volatility": 0.20,
+                         "profile": {"snacks": .35, "cold": .30, "energy": .20, "hot": .10, "specialty": .05}},
+    "westwood_office":  {"name": "Westwood Office Lobby",      "traffic": 160, "volatility": 0.15,
+                         "profile": {"hot": .30, "energy": .25, "cold": .20, "snacks": .15, "specialty": .10}},
+    "northside_center": {"name": "Northside Community Center", "traffic": 140, "volatility": 0.20,
+                         "profile": {"energy": .30, "snacks": .30, "cold": .20, "hot": .10, "specialty": .10}},
+    "newbay_ferry":     {"name": "Newbay Ferry Terminal",      "traffic": 130, "volatility": 0.35,
+                         "profile": {"cold": .30, "snacks": .25, "specialty": .20, "fresh": .15, "hot": .10}},
+    "riverside_park":   {"name": "Riverside Park",             "traffic": 120, "volatility": 0.30,
+                         "profile": {"cold": .40, "snacks": .30, "energy": .15, "fresh": .10, "specialty": .05}},
+}
+
+# Location flavor events (Phase 1: simple income modifiers applied to one day).
+VM_LOCATION_EVENTS = {
+    "midtown_grocery": [
+        {"text": "Weekend shopping rush at Midtown Grocery — sales doubled!",        "type": "positive", "effect": "income_mult",  "value": 1.0},
+        {"text": "Power outage hit Midtown — the machine was offline all day.",      "type": "negative", "effect": "income_zero",  "value": 0},
+        {"text": "Health inspector surprise visit at Midtown — small fine.",         "type": "negative", "effect": "fine",         "value": 150},
+        {"text": "Late-night grocery rush boosted sales.",                           "type": "positive", "effect": "income_bonus", "value": 80},
+    ],
+    "riverside_park": [
+        {"text": "Community 5K finished by the park machine — runners cleaned it out!", "type": "positive", "effect": "income_mult",  "value": 0.7},
+        {"text": "Park closed for maintenance — no customers today.",                   "type": "negative", "effect": "income_zero",  "value": 0},
+        {"text": "Heat wave brought big crowds to Riverside Park — extra sales!",       "type": "positive", "effect": "income_mult",  "value": 0.5},
+        {"text": "Vandals rocked the park machine overnight — repair fee.",             "type": "negative", "effect": "fine",         "value": 100},
+    ],
+    "northside_center": [
+        {"text": "Youth tournament packed the center — record sales!",  "type": "positive", "effect": "income_mult",  "value": 0.6},
+        {"text": "Center closed for deep cleaning — offline all day.",   "type": "negative", "effect": "income_zero",  "value": 0},
+        {"text": "Senior bingo night brought an unexpected crowd.",      "type": "positive", "effect": "income_bonus", "value": 75},
+        {"text": "Noise complaint from the building manager — fined.",   "type": "negative", "effect": "fine",         "value": 80},
+    ],
+    "westwood_office": [
+        {"text": "All-hands meeting packed the lobby — great day!",            "type": "positive", "effect": "income_mult",  "value": 0.5},
+        {"text": "Office evacuation drill emptied the building — no sales.",   "type": "negative", "effect": "income_zero",  "value": 0},
+        {"text": "Building management slapped on a placement fee.",            "type": "negative", "effect": "fine",         "value": 120},
+        {"text": "Company happy hour spilled into the lobby — late rush.",     "type": "positive", "effect": "income_bonus", "value": 90},
+    ],
+    "newbay_ferry": [
+        {"text": "Ferry delays stranded a captive crowd for hours — emptied out!", "type": "positive", "effect": "income_mult",  "value": 1.0},
+        {"text": "Ferry service suspended — empty terminal, no sales.",            "type": "negative", "effect": "income_zero",  "value": 0},
+        {"text": "Tourist group rolled through Newbay — windfall!",                "type": "positive", "effect": "income_mult",  "value": 0.7},
+        {"text": "Port authority cited the machine for an expired permit.",        "type": "negative", "effect": "fine",         "value": 175},
+    ],
+    "downtown_bus": [
+        {"text": "Big game day — fans flooded the station, record day!",  "type": "positive", "effect": "income_mult",  "value": 1.0},
+        {"text": "Transit shutdown left the station empty — no sales.",    "type": "negative", "effect": "income_zero",  "value": 0},
+        {"text": "Loiterers scared off customers — day cut short.",        "type": "negative", "effect": "fine",         "value": 50},
+        {"text": "Concert let out nearby — fans rushed the station!",      "type": "positive", "effect": "income_mult",  "value": 0.6},
+    ],
+}
+
+def _vm_blank_slots():
+    return [{"category": None, "stock": 0.0, "restock_day": 0} for _ in range(VM_SLOTS)]
+
+def _vm_capacity(vm):
+    """Per-slot capacity, raised by the Bigger Capacity upgrade."""
+    return 90 if vm.get("upgrades", {}).get("capacity") else VM_SLOT_CAPACITY
+
+def _vm_rep_mult(vm):
+    """Reputation → demand multiplier (rep 0 → 0.7×, 70 → 1.05×, 100 → 1.2×)."""
+    return 0.7 + (vm.get("reputation", 70) / 100) * 0.5
+
+def _vm_restock_from_inventory(vm, inv, current_day):
+    """Top every configured slot up to capacity from CostPro inventory.
+    Returns total units moved (0 if nothing happened)."""
+    cap   = _vm_capacity(vm)
+    moved = 0.0
+    for sl in vm.get("slots", []):
+        cat = sl.get("category")
+        if not cat:
+            continue
+        need = cap - sl.get("stock", 0)
+        if need <= 0.5:
+            continue
+        avail = inv.get(cat, 0)
+        take  = min(need, avail)
+        if take > 0:
+            sl["stock"] = sl.get("stock", 0) + take
+            inv[cat]    = avail - take
+            sl["restock_day"] = current_day
+            moved += take
+    return moved
+
+def _vm_sell_day(vm, loc, current_day):
+    """Run one day of sales for a machine. Mutates slot stock.
+    Applies reputation, dynamic pricing, and upgrades.
+    Returns (gross_profit, spoiled_units, stockout_count)."""
+    ups          = vm.get("upgrades", {})
+    shelf_bonus  = 2 if ups.get("fridge") else 0
+    card_mult    = 1.12 if ups.get("card_reader") else 1.0
+    plevel       = VM_PRICE_LEVELS.get(vm.get("price_level", "normal"), VM_PRICE_LEVELS["normal"])
+    price_mult   = plevel["price_mult"]
+    demand_mult  = plevel["demand_mult"] * card_mult * _vm_rep_mult(vm)
+
+    # Spoilage first: perishables past (shelf + fridge bonus) are written off.
+    spoiled = 0.0
+    for sl in vm.get("slots", []):
+        cat = sl.get("category")
+        if not cat or sl.get("stock", 0) <= 0:
+            continue
+        prod = VM_PRODUCTS[cat]
+        if prod["perishable"] and current_day - sl.get("restock_day", current_day) > prod["shelf"] + shelf_bonus:
+            spoiled += sl["stock"]
+            sl["stock"] = 0.0
+    # Group ALL configured slots by category (incl. empty ones, so a drained slot
+    # registers as a stockout). Category demand flows to the slots that have stock.
+    configured = {}
+    for sl in vm.get("slots", []):
+        if sl.get("category"):
+            configured.setdefault(sl["category"], []).append(sl)
+    traffic = loc["traffic"] * (1 + random.uniform(-loc["volatility"], loc["volatility"])) * demand_mult
+    profit, stockouts = 0.0, 0
+    for cat, slot_list in configured.items():
+        cat_demand = traffic * loc["profile"].get(cat, 0)
+        if cat_demand <= 0:
+            continue   # no demand for this here — dead weight, but not a "stockout"
+        stocked = [sl for sl in slot_list if sl.get("stock", 0) > 0]
+        if not stocked:
+            stockouts += 1   # customers wanted it, the slot was empty
+            continue
+        per_slot = cat_demand / len(stocked)
+        price    = VM_PRODUCTS[cat]["price"] * price_mult
+        sold_cat = 0.0
+        for sl in stocked:
+            sold = min(per_slot, sl["stock"])
+            profit      += sold * price
+            sl["stock"] -= sold
+            sold_cat    += sold
+        if cat_demand - sold_cat > 0.5:   # couldn't fully meet demand
+            stockouts += 1
+    return profit, spoiled, stockouts
+
+def _vm_update_reputation(vm, spoiled, stockouts):
+    """Daily reputation drift from service quality + pricing + branding."""
+    configured = [sl for sl in vm.get("slots", []) if sl.get("category")]
+    if not configured:
+        return   # idle machine — reputation holds
+    delta = 0
+    delta -= min(stockouts, 3)
+    if spoiled >= 1:
+        delta -= 2
+    if stockouts == 0 and spoiled < 1:
+        delta += 2
+    plevel = vm.get("price_level", "normal")
+    if plevel == "premium":
+        delta -= 1
+    elif plevel == "value":
+        delta += 1
+    if vm.get("upgrades", {}).get("branding"):
+        delta += 1
+    delta = max(-5, min(4, delta))
+    vm["reputation"] = max(0, min(100, vm.get("reputation", 70) + delta))
+
+def _grandma_shop(s, current_day, events):
+    """Grandma's weekly run: buys cases (at a markup) to cover the coming week's
+    demand for whatever categories your slots are configured to use."""
+    vms = s.get("vending_machines", [])
+    inv = s.setdefault("costpro_inventory", {})
+    # Weekly demand per category across all machines that stock it.
+    weekly = {}
+    for vm in vms:
+        loc = VM_LOCATIONS.get(vm.get("location_key"))
+        if not loc:
+            continue
+        cats = {sl["category"] for sl in vm.get("slots", []) if sl.get("category")}
+        for cat in cats:
+            weekly[cat] = weekly.get(cat, 0) + loc["traffic"] * loc["profile"].get(cat, 0) * 7
+    if not weekly:
+        return
+    budget   = s.get("grandma_budget", 0)   # 0 = uncapped
+    spent, cases_bought = 0, 0
+    bought_lines = []
+    for cat, wk in sorted(weekly.items(), key=lambda kv: -kv[1]):
+        item   = COSTPRO_ITEMS.get(cat)
+        if not item:
+            continue
+        target = wk * GRANDMA_BUFFER
+        need   = target - inv.get(cat, 0)
+        if need <= 0:
+            continue
+        cases  = int(need // item["units"]) + (1 if need % item["units"] else 0)
+        case_cost = int(round(item["price"] * (1 + GRANDMA_MARKUP)))
+        for _ in range(cases):
+            if s["cash"] < case_cost:
+                break
+            if budget and spent + case_cost > budget:
+                break
+            s["cash"]  -= case_cost
+            inv[cat]    = inv.get(cat, 0) + item["units"]
+            spent      += case_cost
+            cases_bought += 1
+            bought_lines.append(cat)
+    # Quirky variance: occasional free sale find.
+    if cases_bought and random.random() < 0.15:
+        cat  = random.choice(bought_lines)
+        item = COSTPRO_ITEMS[cat]
+        inv[cat] = inv.get(cat, 0) + item["units"]
+        events.append({"prop": "Grandma's Shop", "type": "positive", "category": "business",
+                       "text": f"🧺 Grandma found {VM_PRODUCTS[cat]['name']} on sale — grabbed a free extra case!"})
+    if cases_bought:
+        s["log"].insert(0, {"day": current_day, "type": "info",
+            "text": f"🧺 Grandma's weekly shop — {cases_bought} cases for ${spent:,} (incl. her markup)"})
+        events.append({"prop": "Grandma's Shop", "type": "neutral", "category": "business",
+                       "text": f"🧺 Grandma did the weekly shop — {cases_bought} cases, ${spent:,} (with her 18% markup)"})
+    s["grandma_last_shop"] = current_day
 
 # ── CostPro Wholesale — inventory items ───────────────────────────────────────
 COSTPRO_ITEMS = {
-    "snacks_cheap":   {"name": "Generic Brand Snacks",  "icon": "🍬", "price": 400,   "desc": "Budget snacks. They sell, barely.",             "category": "vending",     "revenue": 800},
-    "snacks_mid":     {"name": "Name Brand Snacks",     "icon": "🍫", "price": 800,   "desc": "Popular brands. Solid margins.",                "category": "vending",     "revenue": 2_400},
-    "snacks_premium": {"name": "Artisan Snack Pack",    "icon": "🧁", "price": 1_200, "desc": "Fancy stuff. Customers pay a premium for it.",  "category": "vending",     "revenue": 4_000},
+    "snacks":    {"name": "Snacks (case)",      "icon": "🍫", "price":  45, "units": 40, "category": "vending", "desc": "Candy & chips. Steady sellers everywhere. 40 units/case."},
+    "cold":      {"name": "Cold Drinks (case)", "icon": "🥤", "price":  58, "units": 40, "category": "vending", "desc": "Soda & water. Big at parks, stations, summer. 40 units/case."},
+    "hot":       {"name": "Hot Drinks (case)",  "icon": "☕", "price":  48, "units": 30, "category": "vending", "desc": "Coffee & cocoa. Office gold. Perishable — sells fast or spoils. 30 units/case."},
+    "energy":    {"name": "Energy (case)",      "icon": "⚡", "price":  62, "units": 30, "category": "vending", "desc": "Energy drinks & bars. High margin, gyms & offices love them. 30 units/case."},
+    "fresh":     {"name": "Fresh Food (case)",  "icon": "🥗", "price":  72, "units": 20, "category": "vending", "desc": "Sandwiches & salads. Best margin, but spoils in 3 days. 20 units/case."},
+    "specialty": {"name": "Specialty (case)",   "icon": "🎁", "price":  62, "units": 24, "category": "vending", "desc": "Novelty & local goods. Niche but lucrative at the right spot. 24 units/case."},
     "soap":           {"name": "Laundry Soap",          "icon": "🧼", "price": 300,   "desc": "Required to operate. Each case lasts 7 days.",  "category": "laundromat"},
     "softener":       {"name": "Fabric Softener",       "icon": "🌸", "price": 500,   "desc": "+20% daily income. Lasts 10 days per case.",    "category": "laundromat"},
     "sheets":         {"name": "Dryer Sheets",          "icon": "🌬️", "price": 400,   "desc": "+15% daily income. Lasts 10 days per case.",   "category": "laundromat"},
@@ -2857,6 +2743,25 @@ TENANT_PROFILES = [
      "desc": "Barely home. Pays 2 months upfront. You will never hear from them."},
     {"name": "Empty Nesters",       "icon": "🪑",  "pay_chance": 0.99, "damage_chance": 0.01, "stay_min": 120, "stay_max": 365, "tiers": ["premium"],
      "desc": "Kids are grown. They want peace, quiet, and the same parking spot every time."},
+    # ── Risky tier (genuinely flaky — low reliability, real screening stakes) ────
+    {"name": "Chase Dillard",       "icon": "🎲",  "pay_chance": 0.62, "damage_chance": 0.13, "stay_min": 30,  "stay_max": 90,  "tiers": ["budget"],         "unique": True,
+     "desc": "Always 'between gigs.' Rent shows up eventually. Sometimes. The stories are genuinely great, though."},
+    {"name": "Brandi Cole",         "icon": "💅",  "pay_chance": 0.68, "damage_chance": 0.10, "stay_min": 30,  "stay_max": 90,  "tiers": ["budget", "mid"],  "unique": True,
+     "desc": "Lovely, scattered, perpetually 'so sorry, payday moved.' She means it every single time."},
+    {"name": "Tevin Marsh",         "icon": "🃏",  "pay_chance": 0.58, "damage_chance": 0.09, "stay_min": 30,  "stay_max": 75,  "tiers": ["budget"],         "unique": True,
+     "desc": "Swears he's good for it. Has sworn this four times now. Weirdly, impossibly likable."},
+    {"name": "The Rourke Boys",     "icon": "🍻",  "pay_chance": 0.60, "damage_chance": 0.16, "stay_min": 30,  "stay_max": 90,  "tiers": ["budget"],         "unique": True,
+     "desc": "Three roommates, one lease, zero communication. The recycling bin tells a harrowing story."},
+    {"name": "Dot Kessler",         "icon": "🪙",  "pay_chance": 0.66, "damage_chance": 0.05, "stay_min": 45,  "stay_max": 120, "tiers": ["budget", "mid"],  "unique": True,
+     "desc": "Counts rent out in exact change and disputes every cent. Eventually pays. Eventually."},
+    {"name": "Sly Benedetto",       "icon": "🎰",  "pay_chance": 0.55, "damage_chance": 0.12, "stay_min": 30,  "stay_max": 60,  "tiers": ["budget"],         "unique": True,
+     "desc": "Cash business, vague hours, pays big or not at all. A coin-flip in tenant form."},
+    {"name": "Margie Flint",        "icon": "🐈",  "pay_chance": 0.70, "damage_chance": 0.11, "stay_min": 45,  "stay_max": 120, "tiers": ["budget", "mid"],  "unique": True,
+     "desc": "Wonderful woman. Six cats she 'doesn't have.' Rent is more of an afterthought to her."},
+    {"name": "Deke Valentine",      "icon": "🎸",  "pay_chance": 0.64, "damage_chance": 0.15, "stay_min": 30,  "stay_max": 90,  "tiers": ["budget"],         "unique": True,
+     "desc": "Touring musician. Home unpredictably, pays equally unpredictably. The amp is staying, apparently."},
+    {"name": "Pru Hatcher",         "icon": "📺",  "pay_chance": 0.72, "damage_chance": 0.07, "stay_min": 45,  "stay_max": 120, "tiers": ["budget", "mid"],  "unique": True,
+     "desc": "Means well, forgets everything — rent, trash day, your name. Pays double to apologize, then forgets again."},
 ]
 
 # ── Tenant traits ──────────────────────────────────────────────────────────────
@@ -2920,6 +2825,10 @@ PROFILE_TRAITS = {
     "Quentin Ash": "quiet", "The Mwangi Family": "big_family", "Lorne Pickett": "creative", "Yusuf Demir": "handy",
     "Cordelia Vance": "creative", "The Abernathys": "big_family", "Sunny Adeyemi": "green_thumb", "Roman Petrov": "quiet",
     "Delphine Marchetti": "reliable", "Judge Edwin Cho": "reliable", "Saoirse Byrne": "homebody", "Magnus Holt": "quiet",
+    # Risky tier
+    "Chase Dillard": "rowdy", "Brandi Cole": "creative", "Tevin Marsh": "subletter", "The Rourke Boys": "rowdy",
+    "Dot Kessler": "penny", "Sly Benedetto": "subletter", "Margie Flint": "homebody", "Deke Valentine": "rowdy",
+    "Pru Hatcher": "creative",
 }
 
 def trait_for(profile):
@@ -3255,6 +3164,33 @@ def _migrate_state(s):
     s.setdefault("vending_machines", [])
     s.setdefault("vinny_hired", False)
     s.setdefault("costpro_inventory", {})
+    # ── Vending Phase-1 migration: old single-tier machines → slot model ──────
+    _vm_name_to_key = {v["name"]: k for k, v in VM_LOCATIONS.items()}
+    for vm in s.get("vending_machines", []):
+        if "slots" in vm:
+            continue   # already new-model
+        loc_key = vm.get("location_key") or _vm_name_to_key.get(vm.get("location", "")) \
+                  or VM_LOCATION_ORDER[(vm.get("slot", 1) - 1) % len(VM_LOCATION_ORDER)]
+        vm["location_key"] = loc_key
+        slots = _vm_blank_slots()
+        # Grandfather their old stock into slot 0 as Snacks, filled.
+        slots[0].update({"category": "snacks", "stock": float(VM_SLOT_CAPACITY), "restock_day": s.get("day", 0)})
+        vm["slots"] = slots
+        for k in ("snack_tier", "drain_days", "days_remaining", "daily_income", "status", "location", "upgrades"):
+            vm.pop(k, None)
+    # Old per-tier snack inventory → unified "snacks" units (1 old case ≈ 30 units).
+    _inv = s.get("costpro_inventory", {})
+    _old_snacks = sum(_inv.pop(f"snacks_{t}", 0) for t in ("cheap", "mid", "premium"))
+    if _old_snacks:
+        _inv["snacks"] = _inv.get("snacks", 0) + _old_snacks * 30
+    # ── Vending Phase-2 fields: reputation, pricing, upgrades + Grandma ───────
+    for vm in s.get("vending_machines", []):
+        vm.setdefault("reputation", 70)
+        vm.setdefault("price_level", "normal")
+        vm.setdefault("upgrades", {})
+    s.setdefault("grandma_hired", False)
+    s.setdefault("grandma_last_shop", 0)
+    s.setdefault("grandma_budget", 0)   # 0 = uncapped
     s.setdefault("laundromat", None)
     s.setdefault("pole_studio", None)
     s.setdefault("car_wash", None)
@@ -3272,6 +3208,7 @@ def _migrate_state(s):
             prop.setdefault("superintendent", False)
     s.setdefault("tax_year_flip_income", 0)
     s.setdefault("tax_year_rent_income", 0)
+    s.setdefault("tax_year_biz_income", {})
     s.setdefault("tax_extension_filed", False)
     s.setdefault("tax_owed", 0)
     if "stocks" not in s:
@@ -3298,8 +3235,14 @@ def load():
 
 def save(state):
     """Store state on Flask's per-request g — injected into the response automatically."""
-    state["log"] = state["log"][-300:]   # cap log so state doesn't grow unbounded
+    state["log"] = state.get("log", [])[-300:]   # cap log so state doesn't grow unbounded
     g.game_state = state
+
+def _biz_income(s, key, amt):
+    """Tally a business's operating income for the current tax year (display only)."""
+    if amt:
+        b = s.setdefault("tax_year_biz_income", {})
+        b[key] = b.get(key, 0) + int(round(amt))
 
 # ── Inject saved state into every JSON response ───────────────────────────────
 @app.after_request
@@ -3318,7 +3261,14 @@ def inject_state(response):
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    # Cache-busting version from asset mtimes, so browsers always load fresh
+    # game.js / style.css after an update (no more stale-cache "missing feature" bugs).
+    try:
+        base = os.path.join(os.path.dirname(__file__), "static")
+        ver  = int(max(os.path.getmtime(os.path.join(base, f)) for f in ("game.js", "style.css")))
+    except OSError:
+        ver = 1
+    return render_template('index.html', asset_v=ver)
 
 @app.route('/api/state', methods=['GET', 'POST'])
 def api_state():
@@ -3350,6 +3300,9 @@ def api_state():
         "intro_seen":             s.get("intro_seen", True),
         "vending_machines":       s.get("vending_machines", []),
         "vinny_hired":            s.get("vinny_hired", False),
+        "grandma_hired":          s.get("grandma_hired", False),
+        "grandma_last_shop":      s.get("grandma_last_shop", 0),
+        "grandma_budget":         s.get("grandma_budget", 0),
         "costpro_inventory":      s.get("costpro_inventory", {}),
         "laundromat":             s.get("laundromat"),
         "pole_studio":            s.get("pole_studio"),
@@ -5990,6 +5943,7 @@ def api_advance():
             s["tax_extension_filed"]  = False
             s["tax_year_flip_income"] = 0
             s["tax_year_rent_income"] = 0
+            s["tax_year_biz_income"]  = {}
             s["tax_owed"]             = 0
             events.append({
                 "prop": "IRS",
@@ -6010,75 +5964,62 @@ def api_advance():
     s["jobs"]   = generate_jobs()
 
 
-    # ── Vending machine income + location events + Vinny auto-restock ──────────
+    # ── Vending: demand-matched sales, reputation, pricing, upgrades, Vinny ────
     vms      = s.get("vending_machines", [])
     vinny_on = s.get("vinny_hired", False)
-    inv      = s.get("costpro_inventory", {})
+    inv      = s.setdefault("costpro_inventory", {})
     for vm in vms:
+        loc = VM_LOCATIONS.get(vm.get("location_key"))
+        if not loc:
+            continue
+        reinforced    = vm.get("upgrades", {}).get("reinforced")
         had_loc_event = False   # max 1 location event per machine per advance
-        for _ in range(days):
-            upgrades = vm.setdefault("upgrades", {})
-            if vm["status"] == "empty":
-                if vinny_on:
-                    chosen_tier = next(
-                        (t for t in ("premium", "mid", "cheap") if inv.get(f"snacks_{t}", 0) > 0),
-                        None
-                    )
-                    if chosen_tier:
-                        inv[f"snacks_{chosen_tier}"] -= 1
-                        s["cash"] = max(0, s["cash"] - VINNY_FEE)
-                        drain, income = _vm_income(chosen_tier, upgrades)
-                        vm["snack_tier"]      = chosen_tier
-                        vm["drain_days"]      = drain
-                        vm["days_remaining"]  = drain
-                        vm["daily_income"]    = income
-                        vm["status"]          = "running"
-                        tier_names = {"premium": "Artisan", "mid": "Name Brand", "cheap": "Generic"}
-                        events.append({
-                            "prop": f"Machine #{vm['slot']} — {vm['location']}",
-                            "text": f"Cousin Vinny restocked with {tier_names[chosen_tier]} snacks (−${VINNY_FEE} fee)",
-                            "type": "neutral", "category": "business",
-                        })
-                continue
+        for d2 in range(days):
+            cur = s["day"] + d2 + 1
+            # Grandma's weekly shop (runs once across the portfolio, not per machine).
+            if s.get("grandma_hired") and cur - s.get("grandma_last_shop", -GRANDMA_INTERVAL) >= GRANDMA_INTERVAL:
+                _grandma_shop(s, cur, events)
+            # Vinny tops the route up each morning, for a fee if he moved anything.
+            if vinny_on and _vm_restock_from_inventory(vm, inv, cur) > 0:
+                s["cash"] = max(0, s["cash"] - VINNY_FEE)
 
-            day_income = vm.get("daily_income", 0)
+            day_profit, spoiled, stockouts = _vm_sell_day(vm, loc, cur)
+            _vm_update_reputation(vm, spoiled, stockouts)
 
-            # 5% location event per machine per advance
+            # 5% location event per machine per advance.
             if not had_loc_event and random.random() < 0.05:
                 had_loc_event = True
-                loc_pool = VM_LOCATION_EVENTS.get(vm["location"], [])
+                loc_pool = VM_LOCATION_EVENTS.get(vm.get("location_key"), [])
                 if loc_pool:
-                    evt    = random.choice(loc_pool)
-                    effect = evt["effect"]
-                    val    = evt["value"]
-                    txt    = evt["text"].format(slot=vm["slot"])
-                    if effect == "income_zero":
-                        day_income = 0
-                    elif effect == "income_mult":
-                        day_income = round(day_income * (1 + val))
-                    elif effect == "income_bonus":
-                        s["cash"] += val
-                    elif effect == "fine":
-                        s["cash"] = max(0, s["cash"] - val)
-                    elif effect == "drain_fast":
-                        extra = min(val, max(0, vm["days_remaining"] - 1))
-                        s["cash"] += day_income * extra
-                        vm["days_remaining"] = max(0, vm["days_remaining"] - extra)
-                    events.append({
-                        "prop":     f"Machine #{vm['slot']} — {vm['location']}",
-                        "text":     txt,
-                        "type":     evt["type"],
-                        "category": "business",
-                    })
+                    evt = random.choice(loc_pool)
+                    # Reinforced builds shrug off half of the bad events.
+                    if not (evt["type"] == "negative" and reinforced and random.random() < 0.5):
+                        effect = evt["effect"]
+                        val    = evt["value"]
+                        if effect == "income_zero":
+                            day_profit = 0
+                        elif effect == "income_mult":
+                            day_profit = day_profit * (1 + val)
+                        elif effect == "income_bonus":
+                            s["cash"] += val
+                        elif effect == "fine":
+                            s["cash"] = max(0, s["cash"] - val)
+                        events.append({
+                            "prop":     f"Machine #{vm['slot']} — {loc['name']}",
+                            "text":     evt["text"],
+                            "type":     evt["type"],
+                            "category": "business",
+                        })
 
-            s["cash"] += day_income
-            vm["days_remaining"] = max(0, vm["days_remaining"] - 1)
-            if vm["days_remaining"] == 0:
-                vm["status"] = "empty"
-            elif vm["days_remaining"] <= 2:
-                vm["status"] = "low"
-            else:
-                vm["status"] = "running"
+            s["cash"] += round(day_profit)
+            _biz_income(s, "vending", round(day_profit))
+
+            if spoiled >= 1:
+                events.append({
+                    "prop":     f"Machine #{vm['slot']} — {loc['name']}",
+                    "text":     f"{int(round(spoiled))} units of perishable stock spoiled before selling.",
+                    "type":     "negative", "category": "business",
+                })
     s["vending_machines"]  = vms
     s["costpro_inventory"] = inv
 
@@ -6203,6 +6144,7 @@ def api_advance():
 
             s["cash"]         += income
             lm["total_earned"] = lm.get("total_earned", 0) + income
+            _biz_income(s, "laundromat", income)
 
         s["laundromat"] = lm
 
@@ -6384,6 +6326,7 @@ def api_advance():
 
             s["cash"]          += income
             ps["total_earned"]  = ps.get("total_earned", 0) + income
+            _biz_income(s, "pole_studio", income)
 
         s["pole_studio"] = ps
 
@@ -6541,6 +6484,7 @@ def api_advance():
 
             s["cash"]         += income
             cw["total_earned"] = cw.get("total_earned", 0) + income
+            _biz_income(s, "car_wash", income)
 
         s["car_wash"] = cw
 
@@ -6724,6 +6668,7 @@ def api_pay_taxes():
     s["cash"]  -= tax_owed
     s["tax_year_flip_income"] = 0
     s["tax_year_rent_income"] = 0
+    s["tax_year_biz_income"]  = {}
     s["tax_extension_filed"]  = False
     s["tax_owed"]             = 0
     s["log"].insert(0, {"day": s["day"], "type": "warning",
@@ -7320,66 +7265,77 @@ def api_stocks_sell():
 @app.route('/api/vending/buy', methods=['POST'])
 def api_vending_buy():
     s    = load()
-    data = request.json or {}
-    tier = data.get("snack_tier", "cheap")
-    if tier not in SNACK_REVENUE:
-        return jsonify({"error": "Unknown snack tier"}), 400
-    vms = s.setdefault("vending_machines", [])
+    vms  = s.setdefault("vending_machines", [])
     if len(vms) >= 6:
         return jsonify({"error": "You already own the maximum of 6 machines"}), 400
-    slot  = len(vms) + 1
-    price = VM_PRICES[slot - 1]
+    slot     = len(vms) + 1
+    price    = VM_PRICES[slot - 1]
+    loc_key  = VM_LOCATION_ORDER[slot - 1]
     if s["cash"] < price:
         return jsonify({"error": f"Not enough cash — need ${price:,}"}), 400
-    inv     = s.setdefault("costpro_inventory", {})
-    inv_key = f"snacks_{tier}"
-    if inv.get(inv_key, 0) < 1:
-        return jsonify({"error": f"No {tier} snacks in inventory — visit CostPro first"}), 400
-    inv[inv_key] -= 1
     s["cash"] -= price
-    drain, income = _vm_income(tier, {})
-    vm = {
-        "id":             int(s["day"] * 1000 + slot),
-        "slot":           slot,
-        "location":       VM_LOCATIONS[slot - 1],
-        "snack_tier":     tier,
-        "drain_days":     drain,
-        "days_remaining": drain,
-        "daily_income":   income,
-        "status":         "running",
-        "upgrades":       {},
-    }
-    vms.append(vm)
+    vms.append({
+        "id":           int(s["day"] * 1000 + slot),
+        "slot":         slot,
+        "location_key": loc_key,
+        "slots":        _vm_blank_slots(),
+        "reputation":   70,
+        "price_level":  "normal",
+        "upgrades":     {},
+    })
     s["log"].insert(0, {"day": s["day"], "type": "positive",
-        "text": f"Bought Vending Machine #{slot} at {vm['location']} for ${price:,}!"})
+        "text": f"Bought Vending Machine #{slot} at {VM_LOCATIONS[loc_key]['name']} for ${price:,}!"})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/vending/configure', methods=['POST'])
+def api_vending_configure():
+    """Assign a product category to a slot (or clear it), then fill from inventory."""
+    s    = load()
+    data = request.json or {}
+    vm   = next((v for v in s.get("vending_machines", []) if v["id"] == data.get("vm_id")), None)
+    if not vm:
+        return jsonify({"error": "Machine not found"}), 400
+    idx = int(data.get("slot_idx", -1))
+    if idx < 0 or idx >= len(vm.get("slots", [])):
+        return jsonify({"error": "Invalid slot"}), 400
+    cat = data.get("category")
+    sl  = vm["slots"][idx]
+    if cat in (None, "", "none"):
+        sl.update({"category": None, "stock": 0.0, "restock_day": 0})
+        save(s); return jsonify({"success": True})
+    if cat not in VM_PRODUCTS:
+        return jsonify({"error": "Unknown product"}), 400
+    cur = sl.get("category")
+    # Can't swap product while stock remains — must clear it first (avoids accidental loss).
+    if cur and cur != cat and sl.get("stock", 0) > 0.5:
+        return jsonify({"error": "Clear the slot first — switching would dump the current product."}), 400
+    if cur != cat:
+        sl.update({"category": cat, "stock": 0.0})
+    inv  = s.setdefault("costpro_inventory", {})
+    need = _vm_capacity(vm) - sl.get("stock", 0)
+    take = min(need, inv.get(cat, 0))
+    if take > 0:
+        sl["stock"] = sl.get("stock", 0) + take
+        inv[cat]    = inv.get(cat, 0) - take
+        sl["restock_day"] = s["day"]
     save(s)
     return jsonify({"success": True})
 
 @app.route('/api/vending/restock', methods=['POST'])
 def api_vending_restock():
+    """Top every configured slot on a machine up to capacity from your inventory (free — your own labor)."""
     s    = load()
     data = request.json or {}
-    vm_id = data.get("vm_id")
-    tier  = data.get("snack_tier", "cheap")
-    if tier not in SNACK_REVENUE:
-        return jsonify({"error": "Unknown snack tier"}), 400
-    vms = s.get("vending_machines", [])
-    vm  = next((v for v in vms if v["id"] == vm_id), None)
+    vm   = next((v for v in s.get("vending_machines", []) if v["id"] == data.get("vm_id")), None)
     if not vm:
         return jsonify({"error": "Machine not found"}), 400
-    inv     = s.setdefault("costpro_inventory", {})
-    inv_key = f"snacks_{tier}"
-    if inv.get(inv_key, 0) < 1:
-        return jsonify({"error": f"No {tier} snacks in inventory — visit CostPro first"}), 400
-    inv[inv_key] -= 1
-    drain, income = _vm_income(tier, vm.get("upgrades", {}))
-    vm["snack_tier"]      = tier
-    vm["drain_days"]      = drain
-    vm["days_remaining"]  = drain
-    vm["daily_income"]    = income
-    vm["status"]          = "running"
+    inv   = s.setdefault("costpro_inventory", {})
+    moved = _vm_restock_from_inventory(vm, inv, s["day"])
+    if moved <= 0:
+        return jsonify({"error": "Nothing to restock — slots are full, unassigned, or you're out of stock."}), 400
     s["log"].insert(0, {"day": s["day"], "type": "positive",
-        "text": f"Restocked Machine #{vm['slot']} at {vm['location']} with {tier} snacks."})
+        "text": f"Restocked Machine #{vm['slot']} — {int(round(moved))} units topped up."})
     save(s)
     return jsonify({"success": True})
 
@@ -7389,6 +7345,61 @@ def api_vending_toggle_vinny():
     s["vinny_hired"] = not s.get("vinny_hired", False)
     save(s)
     return jsonify({"success": True, "vinny_hired": s["vinny_hired"]})
+
+@app.route('/api/vending/set_price', methods=['POST'])
+def api_vending_set_price():
+    s    = load()
+    data = request.json or {}
+    vm   = next((v for v in s.get("vending_machines", []) if v["id"] == data.get("vm_id")), None)
+    if not vm:
+        return jsonify({"error": "Machine not found"}), 400
+    level = data.get("level")
+    if level not in VM_PRICE_LEVELS:
+        return jsonify({"error": "Invalid price level"}), 400
+    vm["price_level"] = level
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/vending/upgrade', methods=['POST'])
+def api_vending_upgrade():
+    s    = load()
+    data = request.json or {}
+    vm   = next((v for v in s.get("vending_machines", []) if v["id"] == data.get("vm_id")), None)
+    if not vm:
+        return jsonify({"error": "Machine not found"}), 400
+    key = data.get("upgrade_key")
+    up  = VM_UPGRADES.get(key)
+    if not up:
+        return jsonify({"error": "Unknown upgrade"}), 400
+    ups = vm.setdefault("upgrades", {})
+    if ups.get(key):
+        return jsonify({"error": "Already installed"}), 400
+    if s["cash"] < up["cost"]:
+        return jsonify({"error": f"Not enough cash — need ${up['cost']:,}"}), 400
+    s["cash"] -= up["cost"]
+    ups[key]   = True
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"Installed {up['name']} on Vending Machine #{vm['slot']} for ${up['cost']:,}."})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/vending/toggle_grandma', methods=['POST'])
+def api_vending_toggle_grandma():
+    s = load()
+    s["grandma_hired"] = not s.get("grandma_hired", False)
+    if s["grandma_hired"]:
+        # First shop happens on the next advance (last_shop far enough back).
+        s["grandma_last_shop"] = s["day"] - GRANDMA_INTERVAL
+    save(s)
+    return jsonify({"success": True, "grandma_hired": s["grandma_hired"]})
+
+@app.route('/api/vending/set_grandma_budget', methods=['POST'])
+def api_vending_set_grandma_budget():
+    s    = load()
+    data = request.json or {}
+    s["grandma_budget"] = max(0, int(data.get("budget", 0)))
+    save(s)
+    return jsonify({"success": True, "grandma_budget": s["grandma_budget"]})
 
 @app.route('/api/costpro/buy', methods=['POST'])
 def api_costpro_buy():
@@ -7444,42 +7455,11 @@ def api_costpro_buy():
         sup[key] = sup.get(key, 0) + days_map.get(key, 7) * qty
         s["car_wash"] = cw
     else:
-        inv     = s.setdefault("costpro_inventory", {})
-        inv[key] = inv.get(key, 0) + qty
+        # Vending supplies: each "case" adds `units` to the category's inventory.
+        inv      = s.setdefault("costpro_inventory", {})
+        inv[key] = inv.get(key, 0) + item.get("units", 1) * qty
     s["log"].insert(0, {"day": s["day"], "type": "positive",
         "text": f"Bought ×{qty} {item['name']} from CostPro for ${total:,}."})
-    save(s)
-    return jsonify({"success": True})
-
-@app.route('/api/vending/upgrade', methods=['POST'])
-def api_vending_upgrade():
-    s    = load()
-    data = request.json or {}
-    vm_id       = data.get("vm_id")
-    upgrade_key = data.get("upgrade_key")
-    upgrade     = VM_UPGRADES.get(upgrade_key)
-    if not upgrade:
-        return jsonify({"error": "Unknown upgrade"}), 400
-    vms = s.get("vending_machines", [])
-    vm  = next((v for v in vms if v["id"] == vm_id), None)
-    if not vm:
-        return jsonify({"error": "Machine not found"}), 400
-    upgrades = vm.setdefault("upgrades", {})
-    if upgrades.get(upgrade_key):
-        return jsonify({"error": "Already installed on this machine"}), 400
-    if s["cash"] < upgrade["cost"]:
-        return jsonify({"error": f"Not enough cash — need ${upgrade['cost']:,}"}), 400
-    s["cash"] -= upgrade["cost"]
-    upgrades[upgrade_key] = True
-    if upgrade_key == "larger_capacity":
-        vm["days_remaining"] = vm.get("days_remaining", 0) + 2
-        vm["drain_days"]     = vm.get("drain_days", 6) + 2
-    elif upgrade_key == "card_reader":
-        vm["daily_income"] = vm.get("daily_income", 0) + 25
-    elif upgrade_key == "premium_slot":
-        vm["daily_income"] = round(vm.get("daily_income", 0) * 1.25)
-    s["log"].insert(0, {"day": s["day"], "type": "positive",
-        "text": f"Installed {upgrade['name']} on Machine #{vm['slot']} for ${upgrade['cost']:,}!"})
     save(s)
     return jsonify({"success": True})
 
