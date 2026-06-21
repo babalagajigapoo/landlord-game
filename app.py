@@ -1846,7 +1846,7 @@ LAUNDROMAT_MACHINE_TYPES = {
     "dryer":  {"name": "Dryer",  "icon": "💨", "wash": 0,  "dry": 12, "price": 15_000},
     "combo":  {"name": "Combo Unit", "icon": "🔄", "wash": 16, "dry": 16, "price": 40_000},
 }
-LAUNDROMAT_REV_PER_LOAD     = 50     # before cleanliness/supply multipliers
+LAUNDROMAT_REV_PER_LOAD     = 22     # before cleanliness/supply multipliers
 LAUNDROMAT_BASE_DEMAND      = 16     # loads/day floor
 LAUNDROMAT_DEMAND_PER_REG   = 0.40   # + per regular
 LAUNDROMAT_DEMAND_PER_MEMBER= 0.50   # + per member
@@ -7572,7 +7572,9 @@ def api_advance():
                 if akey == "atm":
                     income += a["income"] + round(loads * 0.5)
                 elif akey == "wash_fold":
-                    income += round(max(0, throughput - demand) * 9)   # monetize idle capacity
+                    # A wash-&-fold service bonus on loads actually run — NOT a reward for
+                    # over-building idle machines (which it used to be).
+                    income += round(loads * 2)
                 else:
                     income += a.get("income", 0)
                 if akey == "arcade" and random.random() < 0.5:
