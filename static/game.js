@@ -131,6 +131,10 @@ let _pendingVendingEvents = [];   // vending machine choice-card events queued a
 let _currentVendingEvent  = null; // vending event being decided right now
 let _pendingArcadeEvents  = [];   // arcade choice-card events queued after advancing
 let _currentArcadeEvent   = null; // arcade event being decided right now
+let _pendingPoleEvents    = [];   // pole-studio choice-card events queued after advancing
+let _currentPoleEvent     = null; // pole-studio event being decided right now
+let _pendingCarWashEvents = [];   // car-wash choice-card events queued after advancing
+let _currentCarWashEvent  = null; // car-wash event being decided right now
 let _pendingTaxEvent      = null; // tax-due event queued after advancing
 
 // ── Tenant window cache ───────────────────────────────────────────────────────
@@ -5068,6 +5072,98 @@ async function resolveArcadeEvent(choiceIdx) {
 
 function afterArcadeEvent() { showNextArcadeEvent(); }
 
+function showNextPoleEvent() {
+  if (_pendingPoleEvents.length === 0) { continueFromEvents(); return; }
+  _currentPoleEvent = _pendingPoleEvents.shift();
+  showPoleEventModal(_currentPoleEvent);
+}
+
+function showPoleEventModal(ev) {
+  const cards = ev.choices.map((c, i) => {
+    const tag = c.gain > 0 ? `<span class="contractor-cost" style="color:var(--positive)">+${fmt(c.gain)}</span>`
+              : c.cost > 0 ? `<span class="contractor-cost">${fmt(c.cost)}</span>`
+              : `<span class="contractor-cost" style="color:var(--text-muted)">free</span>`;
+    const tooPoor = c.cost > (state.cash || 0);
+    return `<div class="contractor-card" style="margin-bottom:8px${tooPoor ? ';opacity:0.45' : ''}" ${tooPoor ? '' : `onclick="resolvePoleEvent(${i})"`}>
+      <div class="contractor-header">
+        <span class="contractor-name">${c.label}</span>
+        ${tooPoor ? `<span class="contractor-cost" style="color:var(--negative)">Need ${fmt(c.cost)}</span>` : tag}
+      </div>
+    </div>`;
+  }).join('');
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">${pxIcon(ev.icon)} ${ev.title}</div>
+    <div class="modal-subtitle">Brass Pole Fitness Studio</div>
+    <p style="font-size:13px;color:var(--text-2);margin:8px 0 14px;line-height:1.5">${ev.text}</p>
+    ${cards}
+    ${_pendingPoleEvents.length > 0 ? `<div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:8px">${_pendingPoleEvents.length} more after this</div>` : ''}`);
+}
+
+async function resolvePoleEvent(choiceIdx) {
+  const ev = _currentPoleEvent;
+  if (!ev) return;
+  const res = await api('/pole_studio/event_resolve', 'POST', { event_key: ev.key, choice_idx: choiceIdx });
+  if (res.error) { toast(res.error, 'error'); return; }
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">${pxIcon(ev.icon, 20)} ${ev.title}</div>
+    <p style="font-size:14px;color:var(--text-1);margin:10px 4px 16px;line-height:1.55">${res.result}</p>
+    <button class="btn btn-primary btn-full" onclick="afterPoleEvent()">
+      ${_pendingPoleEvents.length > 0 ? `Next (${_pendingPoleEvents.length})` : 'Done'}
+    </button>`);
+  await refreshState();
+  renderAll();
+}
+
+function afterPoleEvent() { showNextPoleEvent(); }
+
+function showNextCarWashEvent() {
+  if (_pendingCarWashEvents.length === 0) { continueFromEvents(); return; }
+  _currentCarWashEvent = _pendingCarWashEvents.shift();
+  showCarWashEventModal(_currentCarWashEvent);
+}
+
+function showCarWashEventModal(ev) {
+  const cards = ev.choices.map((c, i) => {
+    const tag = c.gain > 0 ? `<span class="contractor-cost" style="color:var(--positive)">+${fmt(c.gain)}</span>`
+              : c.cost > 0 ? `<span class="contractor-cost">${fmt(c.cost)}</span>`
+              : `<span class="contractor-cost" style="color:var(--text-muted)">free</span>`;
+    const tooPoor = c.cost > (state.cash || 0);
+    return `<div class="contractor-card" style="margin-bottom:8px${tooPoor ? ';opacity:0.45' : ''}" ${tooPoor ? '' : `onclick="resolveCarWashEvent(${i})"`}>
+      <div class="contractor-header">
+        <span class="contractor-name">${c.label}</span>
+        ${tooPoor ? `<span class="contractor-cost" style="color:var(--negative)">Need ${fmt(c.cost)}</span>` : tag}
+      </div>
+    </div>`;
+  }).join('');
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">${pxIcon(ev.icon)} ${ev.title}</div>
+    <div class="modal-subtitle">Slippery When Washed</div>
+    <p style="font-size:13px;color:var(--text-2);margin:8px 0 14px;line-height:1.5">${ev.text}</p>
+    ${cards}
+    ${_pendingCarWashEvents.length > 0 ? `<div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:8px">${_pendingCarWashEvents.length} more after this</div>` : ''}`);
+}
+
+async function resolveCarWashEvent(choiceIdx) {
+  const ev = _currentCarWashEvent;
+  if (!ev) return;
+  const res = await api('/car_wash/event_resolve', 'POST', { event_key: ev.key, choice_idx: choiceIdx });
+  if (res.error) { toast(res.error, 'error'); return; }
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">${pxIcon(ev.icon, 20)} ${ev.title}</div>
+    <p style="font-size:14px;color:var(--text-1);margin:10px 4px 16px;line-height:1.55">${res.result}</p>
+    <button class="btn btn-primary btn-full" onclick="afterCarWashEvent()">
+      ${_pendingCarWashEvents.length > 0 ? `Next (${_pendingCarWashEvents.length})` : 'Done'}
+    </button>`);
+  await refreshState();
+  renderAll();
+}
+
+function afterCarWashEvent() { showNextCarWashEvent(); }
+
 async function setVmPrice(vmId, level) {
   const res = await api('/vending/set_price', 'POST', { vm_id: vmId, level });
   if (res.error) { toast(res.error, 'error'); return; }
@@ -5166,9 +5262,32 @@ const PS_UPGRADES = {
 };
 
 const PS_STAFF = {
-  vibe_manager:   { name: 'Vibe Manager',   icon: '🎶', cost: 200, desc: 'Auto-maintains atmosphere above 75%.' },
-  studio_cleaner: { name: 'Studio Cleaner', icon: '🧹', cost: 175, desc: 'Auto-cleans when cleanliness drops below 70%.' },
+  vibe_manager:   { name: 'Vibe Manager',   icon: '🎶', cost: 200, desc: 'Keeps the music & lighting going so Atmosphere never tanks (atmosphere boosts class income + satisfaction).' },
+  studio_cleaner: { name: 'Studio Cleaner', icon: '🧹', cost: 175, desc: 'Auto-cleans the studio so Cleanliness stays high.' },
+  manager:        { name: 'Studio Manager', icon: '📋', cost: 225, desc: 'Auto-handles demands, fills empty class slots, and restocks the Kombucha Bar — fully hands-off.' },
+  host:           { name: 'Front Desk Host', icon: '🛎️', cost: 160, desc: 'Greets & checks members in — lifts satisfaction and cuts member churn.' },
+  bartender:      { name: 'Bartender',       icon: '🍸', cost: 170, desc: 'Works the Kombucha Bar. No bartender = the bar earns nothing.' },
 };
+// Class types: seats (capacity), pop (demand pull), rev ($/head), equip needed, and the parody flavor.
+const PS_CLASSES = {
+  intro:   { name: 'Intro Pole',           icon: '🌱', seats: 14, pop: 1.4, rev: 7,  equip: 'pole',  desc: 'Packed beginner classes. High volume, low $/head.' },
+  levels:  { name: 'Pole Levels',          icon: '🔥', seats: 10, pop: 1.0, rev: 11, equip: 'pole',  desc: 'The bread & butter. Steady, solid earners.' },
+  silks:   { name: 'Aerial Silks',         icon: '🎀', seats: 8,  pop: 0.7, rev: 16, equip: 'silks', desc: 'Niche but premium. Needs the Aerial Silks Rig.' },
+  flex:    { name: 'Flexibility & Stretch',icon: '🧘', seats: 16, pop: 1.1, rev: 6,  equip: 'floor', desc: 'Popular, low equipment. Fills easily.' },
+  private: { name: 'Private Session',       icon: '🥂', seats: 2,  pop: 0.5, rev: 70, equip: 'vip',   desc: 'The "private dance." Tiny class, huge $/head. Needs the VIP Suite & VIP members.' },
+  open:    { name: 'Open Practice',         icon: '🕒', seats: 12, pop: 0.6, rev: 5,  equip: 'floor', desc: 'Low-key open floor. Modest, easy income.' },
+};
+const PS_SPECIALTY_CLASS = { sunshine: 'intro', celestia: 'levels', raven: 'silks', mercedes: 'private', diamond: 'flex', gary: 'open' };
+const PS_FACILITIES = {
+  silks_rig:    { name: 'Aerial Silks Rig',  icon: '🎀', cost: 30000, desc: 'Unlocks Aerial Silks classes.' },
+  vip_suite:    { name: 'VIP Suite',          icon: '🥂', cost: 55000, desc: 'The "Champagne Room." Unlocks Private Sessions + VIP memberships.' },
+  stage:        { name: 'Performance Stage',  icon: '🎤', cost: 40000, desc: 'Host Theme Nights for big one-off payouts.' },
+  lobby:        { name: 'Comfy Lobby Lounge', icon: '🛋️', cost: 22000, desc: '+satisfaction & retention.' },
+  dj_booth:     { name: 'Resident DJ Booth',  icon: '🪩', cost: 26000, desc: 'Mood lighting + sound — keeps Atmosphere high automatically.' },
+  kombucha_bar: { name: 'Kombucha Bar',       icon: '🥂', cost: 24000, desc: 'The "bar." Hire a bartender & stock kombucha from CostPro for extra income.' },
+};
+const PS_KOMBUCHA = ['kb_ginger', 'kb_hibiscus', 'kb_charcoal', 'kb_cbd', 'kb_sparkle'];
+const COSTPRO_KOMBUCHA_ICON = { kb_ginger: '🫚', kb_hibiscus: '🌺', kb_charcoal: '🖤', kb_cbd: '😌', kb_sparkle: '🥂' };
 
 const PS_DEMAND_TEXT = {
   cel_warmup:     "I'd like a warm-up area near my pole. A yoga mat and a foam roller.",
@@ -5281,212 +5400,191 @@ function renderPoleStudioContent() {
       </div>`;
   }
 
-  const dancers   = ps.dancers || {};
-  const poles     = ps.poles || [];
-  const staff     = ps.staff || {};
-  const demands   = ps.active_demands || [];
-  const repTier   = _psRepTier(ps.reputation || 0);
-  const gripDays  = ps.grip_spray_days || 0;
-  const shakeDays = ps.protein_shake_days || 0;
-  const merchDays = ps.merch_days || 0;
+  const dancers = ps.dancers || {};
+  const poles   = ps.poles || [];
+  const staff   = ps.staff || {};
+  const facs    = ps.facilities || {};
+  const kb      = ps.kombucha || {};
+  const demands = ps.active_demands || [];
+  const repTier = _psRepTier(ps.reputation || 0);
+  const currentDay = state.day || 0;
+  const members = Math.round(ps.members || 0);
+  const vip     = Math.round(ps.vip_members || 0);
+  const sat     = Math.round(ps.satisfaction || 0);
+  const PURP = '#BB86FC', GREEN = '#4CAF50', AMBER = '#FF9800', RED = '#FF5252';
 
-  // ── Meter helper
   function meter(label, val, color, warn) {
     const pct = Math.round(val);
-    const barColor = pct < (warn || 30) ? '#e74c3c' : color;
-    return `
-      <div style="margin-bottom:8px">
-        <div style="display:flex;justify-content:space-between;font-size:11px;color:#C4A8E0;margin-bottom:2px">
-          <span>${label}</span><span>${pct}%</span>
-        </div>
-        <div style="background:#3A1A4A;height:8px;border-radius:4px;overflow:hidden">
-          <div style="width:${pct}%;height:100%;background:${barColor};border-radius:4px;transition:width 0.3s"></div>
-        </div>
-      </div>`;
+    const barColor = pct < (warn || 0) ? '#e74c3c' : color;
+    return `<div style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:#C4A8E0;margin-bottom:2px"><span>${label}</span><span>${pct}%</span></div>
+      <div style="background:#3A1A4A;height:8px;border-radius:4px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${barColor};border-radius:4px"></div></div></div>`;
   }
+  function hdr(t) { return `<div style="font-size:11px;font-weight:700;color:${PURP};text-transform:uppercase;letter-spacing:1px;margin:14px 0 8px">${t}</div>`; }
+  function equipOk(eq) { return eq === 'silks' ? !!facs.silks_rig : eq === 'vip' ? !!facs.vip_suite : true; }
 
-  // ── Active demands banner
-  let demandsHtml = '';
-  if (demands.length > 0) {
-    demandsHtml = demands.map(d => {
-      const dk  = d.dancer;
-      const dan = PS_DANCERS[dk] || {};
-      const urgColor = d.days_left <= 2 ? '#FF5252' : d.days_left <= 4 ? '#FF9800' : '#BB86FC';
-      return `
-        <div style="background:#3A1A4A;border:1px solid ${urgColor};padding:10px;margin-bottom:8px;border-radius:4px">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-            <span>${dan.icon || '👤'}</span>
-            <span style="font-weight:700;color:#E8D5F5;font-size:12px">${dan.name || dk}</span>
-            <span style="margin-left:auto;font-size:10px;color:${urgColor}">⏰ ${d.days_left}d left</span>
-          </div>
-          <div style="font-size:11px;color:#C4A8E0;margin-bottom:8px">${PS_DEMAND_TEXT[d.key] || '...'}</div>
-          <div style="display:flex;gap:6px">
-            <button onclick="psResolveDemand('${d.key}','accept')" style="flex:1;background:#7B2D8B;border:none;color:#E8D5F5;padding:5px;font-size:11px;cursor:pointer">✅ Accept</button>
-            <button onclick="psResolveDemand('${d.key}','reject')" style="flex:1;background:#3A1A4A;border:1px solid #7B2D8B;color:#C4A8E0;padding:5px;font-size:11px;cursor:pointer">❌ Reject</button>
-          </div>
-        </div>`;
-    }).join('');
-  }
+  // ── Dancer requests are answered by tapping the flagged instructor below ──
+  const demandByDancer = {};
+  demands.forEach(d => { demandByDancer[d.dancer] = d; });
+  const demandNote = demands.length
+    ? `<div style="background:#3A1A4A;border:1px solid ${AMBER};border-radius:6px;padding:9px;margin-bottom:10px;font-size:11px;color:#E8D5F5">💬 ${demands.length} instructor${demands.length > 1 ? 's have' : ' has'} a request — tap the flagged instructor below to answer.</div>`
+    : '';
 
-  // ── Poles + dancers section
-  const hiredCount    = Object.values(dancers).filter(d => d.hired).length;
-  const maxPoles      = 6;
-  const polePrices    = [20000,25000,30000,35000,45000,55000];
-  const freePoles     = poles.length - hiredCount;   // empty pole slots
-  const canBuildPole  = poles.length < maxPoles && hiredCount >= poles.length;
-  const nextPolePrice = polePrices[poles.length] || 0;
-  const currentDay    = state.day || 0;
-  const lastCoffeeDay = ps.last_coffee_day || -999;
-  const coffeeCooldownLeft = Math.max(0, 7 - (currentDay - lastCoffeeDay));
-
-  const dancerKeys = Object.keys(PS_DANCERS);
-  const dancerCards = dancerKeys.map(dk => {
-    const dd     = dancers[dk] || {};
-    const dmeta  = PS_DANCERS[dk];
-    const isGary = dk === 'gary';
-    const moodPct   = isGary ? 72 : Math.round(dd.mood || 0);
-    const moodColor = moodPct < 30 ? '#e74c3c' : moodPct < 60 ? '#FF9800' : '#4CAF50';
-    const hired   = dd.hired;
-    const poleIdx = dancerKeys.indexOf(dk);
-    const myPole  = poles[poleIdx] || null;
-    const poleBroken = myPole && myPole.broken;
-
-    // Hide unhired dancers if no free pole slot for them
-    if (!hired) {
-      if (freePoles <= 0) return '';   // no open pole — hide
-      return `
-        <div style="background:#2A1035;border:1px solid #5A2D7A;padding:10px;margin-bottom:6px">
-          <div style="display:flex;align-items:center;gap:8px">
-            ${dancerPixelArt(dk, false)}
-            <div style="flex:1">
-              <div style="font-weight:700;color:#E8D5F5;font-size:12px">${dmeta.name} <span style="font-size:10px;color:#C4A8E0">— ${dmeta.specialty}</span></div>
-              <div style="font-size:10px;color:#C4A8E0;font-style:italic">${dmeta.desc}</div>
-            </div>
-            <button onclick="psHireDancer('${dk}')" style="background:#A855F7;border:none;color:#fff;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;border-radius:3px">Hire</button>
-          </div>
-        </div>`;
+  // ── Class schedule (live, explained) ──
+  const slotCap = ps.slot_count || 2;
+  const slots   = (ps.slots || []);
+  slots.forEach(sl => {
+    const ct = PS_CLASSES[sl.type], dd = dancers[sl.instructor];
+    sl._ok = !!ct && dd && dd.hired && equipOk(ct.equip) && (dd.energy == null || dd.energy >= 12);
+  });
+  const dailyDemand = (members + vip) * 0.5;
+  const popTotal = slots.filter(s => s._ok && s.type !== 'private').reduce((a, s) => a + PS_CLASSES[s.type].pop, 0) || 1;
+  const slotCards = slots.slice(0, slotCap).map((sl, i) => {
+    const ct = PS_CLASSES[sl.type] || PS_CLASSES.open;
+    const dm = sl.instructor ? PS_DANCERS[sl.instructor] : null;
+    const seats = ct.seats;
+    let status, scol, sub = '';
+    if (!sl.instructor) { status = 'Empty — tap to assign an instructor'; scol = '#9B7BB8'; }
+    else if (!sl._ok) {
+      if (ct.equip === 'silks' && !facs.silks_rig) { status = '⚠ Needs Aerial Silks Rig'; scol = RED; }
+      else if (ct.equip === 'vip' && !facs.vip_suite) { status = '⚠ Needs VIP Suite'; scol = RED; }
+      else if (dancers[sl.instructor] && (dancers[sl.instructor].energy || 0) < 12) { status = '😴 Instructor exhausted — class cancelled'; scol = RED; }
+      else { status = '⚠ Not running'; scol = RED; }
+    } else {
+      const onSpec = PS_SPECIALTY_CLASS[sl.instructor] === sl.type;
+      const want = sl.type === 'private' ? vip * 0.7 : dailyDemand * (ct.pop / popTotal);
+      const fill = Math.min(seats, want);
+      const est  = Math.round(fill * ct.rev * (onSpec ? 1.4 : 0.75));
+      status = onSpec ? `★ ${dm.name}'s specialty — +40% income` : `${dm.name} is off her lane — −25% income`;
+      scol = onSpec ? GREEN : AMBER;
+      sub = `~${Math.round(fill)}/${seats} attending${want > seats ? ' · waitlist!' : ''} · ~$${est}/day`;
     }
-
-    const pepUsedToday = dd.pep_day === currentDay;
-    return `
-      <div style="background:#2A1035;border:1px solid ${poleBroken ? '#e74c3c' : '#7B2D8B'};padding:10px;margin-bottom:6px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-          ${dancerPixelArt(dk, true)}
-          <div style="flex:1">
-            <div style="font-weight:700;color:#E8D5F5;font-size:12px">${dmeta.name}</div>
-            <div style="font-size:10px;color:#9B7BB8">${dmeta.specialty}</div>
-          </div>
-          ${poleBroken ? `<button onclick="psRepairPole(${poleIdx})" style="background:#e74c3c;border:none;color:white;padding:4px 8px;font-size:10px;cursor:pointer">🔧 Repair $200</button>` : ''}
-          ${!isGary ? (pepUsedToday
-            ? `<span style="font-size:10px;color:#9B7BB8;padding:4px 8px">💬 Done today</span>`
-            : `<button onclick="psPepTalk('${dk}')" style="background:#5A2D7A;border:none;color:#E8D5F5;padding:4px 8px;font-size:10px;cursor:pointer">💬 Pep Talk ⚡3</button>`) : ''}
-          <button onclick="psFireDancer('${dk}')" style="background:none;border:1px solid #5A2D7A;color:#9B7BB8;padding:4px 8px;font-size:10px;cursor:pointer">✕</button>
+    return `<div onclick="showPsSlotConfig(${i})" style="background:#2A1035;border:1px solid #7B2D8B;border-radius:6px;padding:9px 10px;margin-bottom:6px;cursor:pointer">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:18px">${ct.icon}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:12px">${ct.name}${dm ? ` · ${dm.icon} ${dm.name}` : ''}</div>
+          <div style="font-size:10px;color:${scol};margin-top:1px">${status}</div>
+          ${sub ? `<div style="font-size:10px;color:#C4A8E0">${sub}</div>` : ''}
         </div>
-        ${!isGary ? `
-        <div style="margin-bottom:4px">
-          <div style="display:flex;justify-content:space-between;font-size:10px;color:#C4A8E0;margin-bottom:2px">
-            <span>Mood</span><span style="color:${moodColor}">${moodPct}%</span>
-          </div>
-          <div style="background:#3A1A4A;height:6px;border-radius:3px;overflow:hidden">
-            <div style="width:${moodPct}%;height:100%;background:${moodColor};border-radius:3px"></div>
-          </div>
-        </div>` : `<div style="font-size:10px;color:#9B7BB8;font-style:italic">Mood: 72% (permanent)</div>`}
-        ${myPole ? (() => {
-          const installedTags = ['chrome_polish','led_halo','grip_coating']
-            .filter(u => myPole.upgrades && myPole.upgrades[u])
-            .map(u => `<span style="background:#5A2D7A;color:#E8D5F5;padding:2px 7px;font-size:9px;border-radius:2px">${PS_UPGRADES[u].icon} ${PS_UPGRADES[u].name}</span>`)
-            .join('');
-          const allInstalled = ['chrome_polish','led_halo','grip_coating'].every(u => myPole.upgrades && myPole.upgrades[u]);
-          return `<div style="margin-top:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-            ${installedTags}
-            ${!allInstalled ? `<button onclick="psPoleUpgradeMenu(${poleIdx})" style="background:#3A1A4A;border:1px solid #7B2D8B;color:#BB86FC;padding:3px 9px;font-size:10px;cursor:pointer;border-radius:2px">✨ Upgrades</button>` : ''}
-          </div>`;
-        })() : ''}
-      </div>`;
+        <span style="color:#9B7BB8;font-size:13px">›</span>
+      </div></div>`;
   }).join('');
 
-  // ── Staff section
+  // ── Instructors roster ──
+  const dancerKeys = Object.keys(PS_DANCERS);
+  const hiredCount = dancerKeys.filter(k => (dancers[k] || {}).hired).length;
+  const assignedTo = {};
+  slots.slice(0, slotCap).forEach(sl => { if (sl.instructor) assignedTo[sl.instructor] = PS_CLASSES[sl.type]; });
+  const dancerCards = dancerKeys.filter(dk => (dancers[dk] || {}).hired).map(dk => {
+    const dd = dancers[dk] || {}, dm = PS_DANCERS[dk], isGary = dk === 'gary';
+    const starOf = PS_CLASSES[PS_SPECIALTY_CLASS[dk]];
+    const energy = Math.round(dd.energy != null ? dd.energy : 100);
+    const eCol = energy < 25 ? RED : energy < 55 ? AMBER : GREEN;
+    const moodPct = isGary ? 72 : Math.round(dd.mood || 0);
+    const mCol = moodPct < 30 ? RED : moodPct < 60 ? AMBER : GREEN;
+    const teaching = assignedTo[dk];
+    const pepUsed = dd.pep_day === currentDay;
+    const dem = demandByDancer[dk];
+    const demColor = dem ? (dem.days_left <= 2 ? RED : AMBER) : '#7B2D8B';
+    return `<div style="background:#2A1035;border:1px solid ${demColor};padding:9px;margin-bottom:6px;border-radius:6px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        ${dancerPixelArt(dk, true)}
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:12px">${dm.name}</div>
+          <div style="font-size:10px;color:#9B7BB8">★ ${starOf.icon} ${starOf.name}${teaching ? ` · now: ${teaching.icon} ${teaching.name}` : ' · unassigned'}</div>
+        </div>
+        ${!isGary && !pepUsed ? `<button onclick="psPepTalk('${dk}')" style="background:#5A2D7A;border:none;color:#E8D5F5;padding:4px 8px;font-size:10px;cursor:pointer;border-radius:3px">💬 Pep ⚡3</button>` : ''}
+        <button onclick="psFireDancer('${dk}')" style="background:none;border:1px solid #5A2D7A;color:#9B7BB8;padding:4px 8px;font-size:10px;cursor:pointer;border-radius:3px">✕</button>
+      </div>
+      ${dem ? `<button onclick="showPsDemand('${dk}')" style="width:100%;background:${demColor};border:none;color:#1A0826;font-weight:700;padding:7px;font-size:11px;cursor:pointer;border-radius:4px;margin-bottom:6px">💬 ${dm.name} has a request — tap to answer (${dem.days_left}d left)</button>` : ''}
+      <div style="display:flex;gap:10px">
+        <div style="flex:1"><div style="display:flex;justify-content:space-between;font-size:9px;color:#C4A8E0"><span>Energy</span><span style="color:${eCol}">${energy}%</span></div>
+          <div style="background:#3A1A4A;height:5px;border-radius:3px;overflow:hidden"><div style="width:${energy}%;height:100%;background:${eCol}"></div></div></div>
+        <div style="flex:1"><div style="display:flex;justify-content:space-between;font-size:9px;color:#C4A8E0"><span>Mood</span><span style="color:${mCol}">${moodPct}%</span></div>
+          <div style="background:#3A1A4A;height:5px;border-radius:3px;overflow:hidden"><div style="width:${moodPct}%;height:100%;background:${mCol}"></div></div></div>
+      </div></div>`;
+  }).join('') || `<div style="font-size:11px;color:#9B7BB8;text-align:center;padding:8px 0">No instructors hired yet — tap "Hire Instructors" below.</div>`;
+
+  // ── Kombucha bar ──
+  let barHtml = '';
+  if (facs.kombucha_bar) {
+    const hasBartender = !!staff.bartender;
+    const stocked = PS_KOMBUCHA.filter(k => (kb[k] || 0) > 0);
+    barHtml = hdr('🥂 Kombucha Bar') + `<div style="background:#2A1035;border:1px solid #7B2D8B;border-radius:6px;padding:10px;margin-bottom:6px">
+      <div style="font-size:11px;color:${hasBartender ? GREEN : RED};margin-bottom:6px">${hasBartender ? '🍸 Bartender on duty — bar is open.' : '⚠ Hire a Bartender (Staff) — the bar is closed without one.'}</div>
+      <div style="font-size:11px;color:#C4A8E0;margin-bottom:8px">Stocked: ${stocked.length ? stocked.map(k => COSTPRO_KOMBUCHA_ICON[k] + ' ' + (kb[k]) + 'd').join('  ') : '<span style="color:'+AMBER+'">nothing — bar earns $0</span>'}</div>
+      <button onclick="navTo('store')" style="background:#7B2D8B;border:none;color:#E8D5F5;padding:6px 12px;font-size:11px;cursor:pointer;border-radius:3px">🛒 Stock kombucha at CostPro</button>
+    </div>`;
+  }
+
+  // ── Upgrades / facilities ──
+  const facHtml = Object.entries(PS_FACILITIES).map(([key, f]) => {
+    const owned = !!facs[key];
+    return `<div style="display:flex;align-items:center;gap:8px;padding:8px;background:#2A1035;border:1px solid ${owned ? GREEN : '#5A2D7A'};margin-bottom:6px;border-radius:6px${owned ? ';opacity:0.7' : ''}">
+      <span style="font-size:18px">${f.icon}</span>
+      <div style="flex:1;font-size:11px"><div style="font-weight:700">${f.name}</div><div style="color:#9B7BB8">${f.desc}</div></div>
+      ${owned ? `<span style="font-size:10px;color:${GREEN};font-weight:700">✓ Installed</span>`
+              : `<button onclick="psBuyFacility('${key}')" style="background:#7B2D8B;border:none;color:#E8D5F5;padding:5px 9px;font-size:11px;cursor:pointer;border-radius:3px;white-space:nowrap">$${f.cost.toLocaleString()}</button>`}
+    </div>`;
+  }).join('');
+
+  // ── Staff ──
   const staffHtml = Object.entries(PS_STAFF).map(([role, meta]) => {
     const hired = staff[role];
-    return `
-      <div style="display:flex;align-items:center;gap:8px;padding:8px;background:#2A1035;border:1px solid #5A2D7A;margin-bottom:6px">
-        ${pxIcon(meta.icon, 20)}
-        <div style="flex:1;font-size:11px">
-          <div style="font-weight:700;color:#E8D5F5">${meta.name}</div>
-          <div style="color:#9B7BB8">${meta.desc}</div>
-        </div>
-        ${hired
-          ? `<button onclick="psFireStaff('${role}')" style="background:none;border:1px solid #5A2D7A;color:#9B7BB8;padding:4px 8px;font-size:10px;cursor:pointer">Let Go</button>`
-          : `<button onclick="psHireStaff('${role}')" style="background:#7B2D8B;border:none;color:#E8D5F5;padding:4px 8px;font-size:11px;cursor:pointer">Hire $${meta.cost}/day</button>`}
-      </div>`;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:8px;background:#2A1035;border:1px solid #5A2D7A;margin-bottom:6px;border-radius:6px">
+      <span style="font-size:18px">${meta.icon}</span>
+      <div style="flex:1;font-size:11px"><div style="font-weight:700">${meta.name}${hired ? ' <span style="color:'+GREEN+'">🟢</span>' : ''}</div><div style="color:#9B7BB8">${meta.desc}</div></div>
+      ${hired ? `<button onclick="psFireStaff('${role}')" style="background:none;border:1px solid #5A2D7A;color:#9B7BB8;padding:4px 8px;font-size:10px;cursor:pointer;border-radius:3px">Let Go</button>`
+              : `<button onclick="psHireStaff('${role}')" style="background:#7B2D8B;border:none;color:#E8D5F5;padding:4px 8px;font-size:11px;cursor:pointer;border-radius:3px;white-space:nowrap">$${meta.cost}/day</button>`}
+    </div>`;
   }).join('');
 
-  const insBtn = `<button onclick="psToggleInsurance()" style="background:${ps.insurance ? '#5A2D7A' : '#2A1035'};border:1px solid ${ps.insurance ? '#9B7BB8' : '#5A2D7A'};color:${ps.insurance ? '#E8D5F5' : '#9B7BB8'};padding:6px 12px;font-size:11px;cursor:pointer">
-    ${ps.insurance ? '✅ Insurance Active ($500/wk)' : '🛡️ Get Insurance ($500/wk)'}
-  </button>`;
-
-  // ── Supplies status
-  const suppliesHtml = `
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
-      <span style="background:${gripDays > 0 ? '#3A1A4A' : '#4A0000'};border:1px solid ${gripDays > 0 ? '#7B2D8B' : '#e74c3c'};color:${gripDays > 0 ? '#E8D5F5' : '#FF5252'};padding:4px 8px;font-size:11px">${pxIcon('💦', 14)} Grip Spray: ${gripDays > 0 ? gripDays+'d' : 'OUT'}</span>
-      ${shakeDays > 0 ? `<span style="background:#3A1A4A;border:1px solid #7B2D8B;color:#E8D5F5;padding:4px 8px;font-size:11px">${pxIcon('🍹', 14)} Health Drinks: ${shakeDays}d</span>` : ''}
-      ${merchDays > 0 ? `<span style="background:#3A1A4A;border:1px solid #7B2D8B;color:#E8D5F5;padding:4px 8px;font-size:11px">${pxIcon('🍗', 14)} Chicken Wings: ${merchDays}d</span>` : ''}
-      ${gripDays === 0 ? `<button onclick="navTo('store')" style="background:#7B2D8B;border:none;color:#E8D5F5;padding:4px 10px;font-size:11px;cursor:pointer">🛒 Buy Grip Spray</button>` : ''}
-    </div>`;
+  const SLOT_PRICES = [16000, 24000, 33000, 44000, 57000, 72000];
+  const themeReady = (ps.theme_until || 0) <= currentDay;
+  const buySlotBtn = slotCap < 8
+    ? `<button onclick="psBuySlot()" style="width:100%;background:#3A1A4A;border:2px dashed #7B2D8B;color:${PURP};padding:9px;font-size:12px;cursor:pointer;margin:2px 0 6px;border-radius:6px">➕ Build New Pole — $${(SLOT_PRICES[slotCap - 2] || SLOT_PRICES[SLOT_PRICES.length - 1]).toLocaleString()}</button>`
+    : `<div style="font-size:11px;color:#9B7BB8;text-align:center;margin-bottom:6px">Max 8 poles reached.</div>`;
 
   return `<div style="background:#1A0826;color:#E8D5F5;padding:12px;margin:-14px -14px 0;border-bottom:2px solid #5A2D7A">
+    ${demandNote}
 
-    ${demands.length > 0 ? `
-    <div style="margin-bottom:12px">
-      <div style="font-size:11px;font-weight:700;color:#FF9800;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">⚠️ Dancer Demands</div>
-      ${demandsHtml}
-    </div>` : ''}
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-      <div>
-        ${meter('Atmosphere',  ps.atmosphere  || 0, '#BB86FC', 25)}
-        ${meter('Cleanliness', ps.cleanliness || 0, '#4CAF50', 25)}
-      </div>
-      <div>
-        ${meter('Reputation', ps.reputation || 0, '#FF9800', 0)}
-        ${meter('Members',    ps.members    || 0, '#2196F3', 0)}
-      </div>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <div style="flex:1;background:#2A1035;border:1px solid #5A2D7A;border-radius:6px;padding:8px;text-align:center">
+        <div style="font-size:20px;font-weight:800;color:#2196F3">${members}</div><div style="font-size:10px;color:#9B7BB8">Members</div></div>
+      ${facs.vip_suite ? `<div style="flex:1;background:#2A1035;border:1px solid #5A2D7A;border-radius:6px;padding:8px;text-align:center">
+        <div style="font-size:20px;font-weight:800;color:#FFD24A">${vip}</div><div style="font-size:10px;color:#9B7BB8">VIP</div></div>` : ''}
+      <div style="flex:1;background:#2A1035;border:1px solid #5A2D7A;border-radius:6px;padding:8px;text-align:center">
+        <div style="font-size:20px;font-weight:800;color:${sat < 40 ? RED : GREEN}">${sat}%</div><div style="font-size:10px;color:#9B7BB8">Satisfaction</div></div>
     </div>
-    <div style="display:flex;justify-content:space-between;font-size:11px;color:#C4A8E0;margin-bottom:12px">
-      <span>🎭 Reputation Tier: <span style="color:${repTier.color};font-weight:700">${repTier.label}</span></span>
-      <span>💰 Total Earned: $${(ps.total_earned || 0).toLocaleString()}</span>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;margin-bottom:8px">
+      <div>${meter('Atmosphere', ps.atmosphere || 0, PURP, 45)}${meter('Cleanliness', ps.cleanliness || 0, GREEN, 50)}</div>
+      <div>${meter('Reputation', ps.reputation || 0, AMBER, 0)}
+        <div style="font-size:10px;color:#C4A8E0;margin-top:6px">🎭 <span style="color:${repTier.color};font-weight:700">${repTier.label}</span> · 💰 $${(ps.total_earned || 0).toLocaleString()} earned</div></div>
     </div>
 
-    ${suppliesHtml}
-
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
-      <button onclick="psClean()" style="background:#5A2D7A;border:none;color:#E8D5F5;padding:6px 12px;font-size:11px;cursor:pointer">🧹 Deep Clean ($100, ⚡4)</button>
-      ${coffeeCooldownLeft > 0
-        ? `<span style="padding:6px 12px;font-size:11px;color:#9B7BB8;background:#2A1035;border:1px solid #5A2D7A">☕ Coffee in ${coffeeCooldownLeft}d</span>`
-        : `<button onclick="psTeamCoffee()" style="background:#5A2D7A;border:none;color:#E8D5F5;padding:6px 12px;font-size:11px;cursor:pointer">☕ Team Coffee ($300)</button>`}
-      ${insBtn}
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+      <button onclick="psClean()" style="background:#5A2D7A;border:none;color:#E8D5F5;padding:6px 11px;font-size:11px;cursor:pointer;border-radius:3px">🧹 Clean ($100·⚡4)</button>
+      <button onclick="psHype()" style="background:#5A2D7A;border:none;color:#E8D5F5;padding:6px 11px;font-size:11px;cursor:pointer;border-radius:3px">🪩 Hype Vibe ($120·⚡3)</button>
+      <button onclick="psMarketing()" style="background:#5A2D7A;border:none;color:#E8D5F5;padding:6px 11px;font-size:11px;cursor:pointer;border-radius:3px">📣 Marketing ($2.5k)</button>
+      ${facs.stage ? (themeReady
+        ? `<button onclick="psThemeNight()" style="background:#A855F7;border:none;color:#fff;padding:6px 11px;font-size:11px;cursor:pointer;border-radius:3px">🎤 Theme Night ($1.2k·⚡4)</button>`
+        : `<span style="padding:6px 11px;font-size:11px;color:#9B7BB8;background:#2A1035;border:1px solid #5A2D7A;border-radius:3px">🎤 Stage resets in ${(ps.theme_until||0)-currentDay}d</span>`) : ''}
+      <button onclick="psToggleInsurance()" style="background:${ps.insurance ? '#5A2D7A' : '#2A1035'};border:1px solid #5A2D7A;color:${ps.insurance ? '#E8D5F5' : '#9B7BB8'};padding:6px 11px;font-size:11px;cursor:pointer;border-radius:3px">🛡️ Insurance ${ps.insurance ? 'On' : 'Off'}</button>
     </div>
 
-    <div style="font-size:11px;font-weight:700;color:#BB86FC;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">🎪 Poles & Dancers (${hiredCount}/${poles.length})</div>
-    ${gripDays === 0 ? `<div style="font-size:11px;color:#FF5252;background:#4A0000;padding:6px;margin-bottom:8px;border:1px solid #e74c3c">⚠️ Out of grip spray — studio is not earning income!</div>` : ''}
+    ${hdr(`📅 Class Schedule (${slots.slice(0, slotCap).filter(s => s._ok).length}/${slotCap} running)`)}
+    <div style="font-size:10px;color:#9B7BB8;margin-bottom:8px">Tap a slot to set its class & instructor. Matching an instructor to her specialty (★) earns the most; demand fills the seats.</div>
+    ${slotCards}${buySlotBtn}
+
+    ${hdr(`🧍 Instructors (${hiredCount} hired)`)}
     ${dancerCards}
-    ${poles.length >= maxPoles
-      ? `<div style="font-size:11px;color:#9B7BB8;text-align:center;margin-bottom:8px">All 6 poles installed.</div>`
-      : canBuildPole
-        ? `<button onclick="psBuyPole()" style="width:100%;background:#3A1A4A;border:2px dashed #7B2D8B;color:#BB86FC;padding:10px;font-size:12px;cursor:pointer;margin-bottom:8px">
-            ➕ Build New Pole — $${nextPolePrice.toLocaleString()}
-           </button>`
-        : `<div style="font-size:11px;color:#BB86FC;background:#2A1035;border:2px dashed #5A2D7A;padding:10px;text-align:center;margin-bottom:8px">Hire a dancer for the open pole first.</div>`}
+    <button onclick="showHireInstructors()" style="width:100%;background:#A855F7;border:none;color:#fff;padding:10px;font-size:13px;font-weight:700;cursor:pointer;margin:4px 0 6px;border-radius:6px">➕ Hire Instructors</button>
 
-    <div style="font-size:11px;font-weight:700;color:#BB86FC;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;margin-top:4px">👔 Staff</div>
-    ${staffHtml}
+    ${barHtml}
+    ${hdr('🏗️ Upgrades')}${facHtml}
+    ${hdr('👔 Staff')}${staffHtml}
   </div>`;
-}
-
-// load demand text into rendered demand cards after DOM insert
-function _psFillDemandText() {
-  // we need server demand text; store it client-side from the PS_DEMANDS_TEXT map
-  // (populated from POLE_STUDIO_DEMANDS keys via hidden JSON)
 }
 
 async function psBuy() {
@@ -5498,13 +5596,36 @@ async function psBuy() {
   toast('Brass Pole Fitness Studio acquired! 🎪', 'success');
 }
 
-async function psBuyPole() {
-  const r = await api('/pole_studio/buy_pole', 'POST');
+async function psBuySlot() {
+  const r = await api('/pole_studio/buy_slot', 'POST');
   if (r.error) { toast(r.error, 'error'); return; }
-  sfx.construct();
+  sfx.purchase();
   await refreshState();
   renderBusiness();
-  toast('New pole installed!', 'success');
+  toast('New class slot added — schedule a class!', 'success');
+}
+
+function showHireInstructors() {
+  const ps = state.pole_studio; if (!ps) return;
+  const dancers = ps.dancers || {};
+  const rows = Object.keys(PS_DANCERS).map(dk => {
+    const dm = PS_DANCERS[dk], hired = (dancers[dk] || {}).hired;
+    const starOf = PS_CLASSES[PS_SPECIALTY_CLASS[dk]];
+    return `<div style="background:${hired ? '#241036' : '#2A1035'};border:1px solid ${hired ? '#4CAF50' : '#5A2D7A'};border-radius:6px;padding:9px;margin-bottom:6px;display:flex;align-items:center;gap:8px${hired ? ';opacity:0.75' : ''}">
+      ${dancerPixelArt(dk, hired)}
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:12px;color:#E8D5F5">${dm.name} <span style="font-size:10px;color:#C4A8E0">★ ${starOf.icon} ${starOf.name}</span></div>
+        <div style="font-size:10px;color:#9B7BB8;font-style:italic">${dm.desc}</div>
+      </div>
+      ${hired ? `<span style="font-size:11px;color:#4CAF50;font-weight:700;white-space:nowrap">✓ On staff</span>`
+              : `<button onclick="psHireDancer('${dk}')" style="background:#A855F7;border:none;color:#fff;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;border-radius:3px">Hire</button>`}
+    </div>`;
+  }).join('');
+  openModal(`<div class="modal-handle"></div>
+    <div style="font-weight:800;font-size:15px;color:#E8D5F5">Hire Instructors</div>
+    <div style="font-size:11px;color:#C4A8E0;margin-bottom:10px">Hire as many as you like — they only earn once you schedule them into a class. Each is the ★ star of one class type.</div>
+    ${rows}
+    <button class="btn btn-ghost btn-sm btn-full" style="margin-top:4px" onclick="closeModal()">Done</button>`);
 }
 
 async function psHireDancer(dk) {
@@ -5513,6 +5634,7 @@ async function psHireDancer(dk) {
   sfx.hire();
   await refreshState();
   renderBusiness();
+  showHireInstructors();   // refresh the hire list in place
   toast(`${PS_DANCERS[dk].name} ${PS_DANCERS[dk].icon} joins the studio!`, 'success');
 }
 
@@ -5523,7 +5645,7 @@ function psFireDancer(dk) {
     <div style="background:#1A0826;padding:16px">
       <div style="font-size:22px;text-align:center;margin-bottom:8px">${d.icon}</div>
       <div style="font-size:14px;font-weight:700;color:#E8D5F5;text-align:center;margin-bottom:6px">Let ${d.name} go?</div>
-      <div style="font-size:12px;color:#C4A8E0;text-align:center;margin-bottom:16px">Their pole will be open for a new hire.</div>
+      <div style="font-size:12px;color:#C4A8E0;text-align:center;margin-bottom:16px">Any class they teach will be left unassigned.</div>
       <div style="display:flex;gap:8px">
         <button onclick="closeModal()" style="flex:1;background:#3A1A4A;border:1px solid #5A2D7A;color:#9B7BB8;padding:10px;font-size:13px;cursor:pointer;border-radius:3px">Keep</button>
         <button onclick="_psFireDancerConfirmed('${dk}')" style="flex:1;background:#e74c3c;border:none;color:white;padding:10px;font-size:13px;font-weight:700;cursor:pointer;border-radius:3px">Let Go</button>
@@ -5565,12 +5687,31 @@ async function psTeamCoffee() {
   toast('Team coffee! Everyone feels appreciated. ☕', 'success');
 }
 
+function showPsDemand(dk) {
+  const ps = state.pole_studio; if (!ps) return;
+  const dem = (ps.active_demands || []).find(d => d.dancer === dk);
+  const dm = PS_DANCERS[dk] || {};
+  if (!dem) { renderBusiness(); return; }
+  openModal(`<div class="modal-handle"></div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <span style="font-size:22px">${dm.icon || '👤'}</span>
+      <div><div style="font-weight:800;font-size:15px;color:#E8D5F5">${dm.name}</div>
+        <div style="font-size:11px;color:#FF9800">⏰ ${dem.days_left} day(s) to answer — ignore it and she gets upset</div></div>
+    </div>
+    <p style="font-size:14px;color:#C4A8E0;line-height:1.55;font-style:italic;margin:8px 4px 16px">"${PS_DEMAND_TEXT[dem.key] || '...'}"</p>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary" style="flex:1" onclick="psResolveDemand('${dem.key}','accept')">✅ Grant it</button>
+      <button class="btn btn-ghost" style="flex:1" onclick="psResolveDemand('${dem.key}','reject')">❌ Turn it down</button>
+    </div>`);
+}
+
 async function psResolveDemand(key, action) {
   const r = await api('/pole_studio/resolve_demand', 'POST', { key, action });
   if (r.error) { toast(r.error, 'error'); return; }
+  closeModal();
   await refreshState();
   renderBusiness();
-  toast(r.msg || (action === 'accept' ? 'Demand accepted.' : 'Demand rejected.'), action === 'accept' ? 'success' : 'info');
+  toast(r.msg || (action === 'accept' ? 'Request granted.' : 'Request turned down.'), action === 'accept' ? 'success' : 'info');
 }
 
 function psPoleUpgradeMenu(poleIdx) {
@@ -5624,6 +5765,92 @@ async function psRepairPole(poleIdx) {
   toast('Pole repaired!', 'success');
 }
 
+function showPsSlotConfig(idx) {
+  const ps = state.pole_studio; if (!ps) return;
+  const slot = (ps.slots || [])[idx]; if (!slot) return;
+  const dancers = ps.dancers || {}, facs = ps.facilities || {};
+  const equipOk = eq => eq === 'silks' ? !!facs.silks_rig : eq === 'vip' ? !!facs.vip_suite : true;
+  // class type options with info + lock state
+  const classRows = Object.entries(PS_CLASSES).map(([ck, ct]) => {
+    const locked = !equipOk(ct.equip);
+    const sel = slot.type === ck;
+    const star = Object.keys(PS_SPECIALTY_CLASS).find(k => PS_SPECIALTY_CLASS[k] === ck);
+    const starName = star ? PS_DANCERS[star].name : '';
+    return `<div onclick="${locked ? '' : `psSetSlot(${idx},'${ck}',undefined)`}" style="background:${sel ? '#5A2D7A' : '#2A1035'};border:1px solid ${sel ? '#BB86FC' : '#5A2D7A'};border-radius:6px;padding:8px;margin-bottom:5px;${locked ? 'opacity:0.5' : 'cursor:pointer'}">
+      <div style="display:flex;align-items:center;gap:7px"><span style="font-size:16px">${ct.icon}</span>
+        <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:12px;color:#E8D5F5">${ct.name} <span style="font-size:9px;color:#9B7BB8">${ct.seats} seats · $${ct.rev}/head</span></div>
+          <div style="font-size:10px;color:#C4A8E0">${ct.desc}${starName ? ` <span style="color:#4CAF50">★ ${starName}</span>` : ''}</div></div>
+        ${locked ? `<span style="font-size:9px;color:#FF5252">🔒</span>` : sel ? `<span style="color:#BB86FC">✓</span>` : ''}</div></div>`;
+  }).join('');
+  // instructor options
+  const instrRows = Object.keys(PS_DANCERS).filter(k => (dancers[k] || {}).hired).map(k => {
+    const dm = PS_DANCERS[k], dd = dancers[k];
+    const onSpec = PS_SPECIALTY_CLASS[k] === slot.type;
+    const sel = slot.instructor === k;
+    const energy = Math.round(dd.energy != null ? dd.energy : 100);
+    return `<div onclick="psSetSlot(${idx},undefined,'${k}')" style="background:${sel ? '#5A2D7A' : '#2A1035'};border:1px solid ${sel ? '#BB86FC' : '#5A2D7A'};border-radius:6px;padding:8px;margin-bottom:5px;cursor:pointer;display:flex;align-items:center;gap:7px">
+      <span style="font-size:16px">${dm.icon}</span>
+      <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:12px;color:#E8D5F5">${dm.name} <span style="font-size:9px;color:${onSpec ? '#4CAF50' : '#FF9800'}">${onSpec ? '★ specialty (+40%)' : 'off-lane (−25%)'}</span></div>
+        <div style="font-size:10px;color:#9B7BB8">energy ${energy}%</div></div>
+      ${sel ? `<span style="color:#BB86FC">✓</span>` : ''}</div>`;
+  }).join('') || `<div style="font-size:11px;color:#9B7BB8;padding:6px">No instructors hired yet.</div>`;
+  openModal(`<div class="modal-handle"></div>
+    <div style="font-weight:800;font-size:15px;color:#E8D5F5">Class Slot ${idx + 1}</div>
+    <div style="font-size:11px;color:#C4A8E0;margin-bottom:10px">Pick what to teach, then who teaches it. Match an instructor to her ★ specialty for the biggest payout.</div>
+    <div style="font-size:11px;font-weight:700;color:#BB86FC;margin-bottom:6px">CLASS TYPE</div>${classRows}
+    <div style="font-size:11px;font-weight:700;color:#BB86FC;margin:10px 0 6px">INSTRUCTOR</div>${instrRows}
+    <button onclick="psSetSlot(${idx},undefined,null)" style="width:100%;margin-top:6px;background:#3A1A4A;border:1px solid #5A2D7A;color:#9B7BB8;padding:7px;font-size:11px;cursor:pointer;border-radius:4px">Clear instructor (close this class)</button>
+    <button class="btn btn-ghost btn-sm btn-full" style="margin-top:6px" onclick="closeModal()">Done</button>`);
+}
+
+async function psSetSlot(idx, classType, instructor) {
+  const body = { slot_idx: idx };
+  if (classType !== undefined) body.class_type = classType;
+  if (instructor !== undefined) body.instructor = instructor;   // null clears
+  const r = await api('/pole_studio/set_slot', 'POST', body);
+  if (r.error) { toast(r.error, 'error'); return; }
+  sfx.toggle?.();
+  await refreshState();
+  renderBusiness();
+  showPsSlotConfig(idx);   // re-open with updated state
+}
+
+async function psBuyFacility(key) {
+  const r = await api('/pole_studio/buy_facility', 'POST', { key });
+  if (r.error) { toast(r.error, 'error'); return; }
+  sfx.purchase();
+  await refreshState();
+  renderBusiness();
+  toast(`${PS_FACILITIES[key].name} installed!`, 'success');
+}
+
+async function psMarketing() {
+  const r = await api('/pole_studio/marketing', 'POST');
+  if (r.error) { toast(r.error, 'error'); return; }
+  sfx.purchase();
+  await refreshState();
+  renderBusiness();
+  toast('Marketing push live — new members incoming!', 'success');
+}
+
+async function psThemeNight() {
+  const r = await api('/pole_studio/theme_night', 'POST');
+  if (r.error) { toast(r.error, 'error'); return; }
+  sfx.purchase();
+  await refreshState();
+  renderBusiness();
+  toast(`Theme Night was a hit! +${fmt(r.payout)}`, 'success');
+}
+
+async function psHype() {
+  const r = await api('/pole_studio/hype', 'POST');
+  if (r.error) { toast(r.error, 'error'); return; }
+  sfx.toggle?.();
+  await refreshState();
+  renderBusiness();
+  toast('Vibe freshened — atmosphere up.', 'success');
+}
+
 async function psHireStaff(role) {
   const r = await api('/pole_studio/hire_staff', 'POST', { role });
   if (r.error) { toast(r.error, 'error'); return; }
@@ -5657,6 +5884,7 @@ const CW_STAFF = {
   dave:          { name: 'Dave',              icon: '🌀', cost: 120, desc: 'The Vacuum Guy. Only does vacuums. Refuses any other task. 47 five-star Yelp reviews. Dave does not know what Yelp is.' },
   rhonda:        { name: 'Rhonda',            icon: '✨', cost: 250, desc: 'Detailer. Takes 3 hours per car. They look incredible. Rhonda is very slow. She knows. She is unbothered. Unlocks Premium Full Detail.' },
   manny:         { name: 'Manny',             icon: '🔧', cost: 160, desc: 'On-site Repairman. Always has the right tool, usually in his back pocket. Restores +5 condition/day per bay. Broken bays fix themselves overnight. He hums while he works.' },
+  carlos:        { name: 'Carlos',            icon: '📦', cost: 150, desc: 'Supply Manager. Knows a guy for everything. Auto-orders soap & wax from CostPro to a buffer — you never run dry.' },
 };
 
 const CW_BAY_UPGRADES = {
@@ -5667,10 +5895,12 @@ const CW_BAY_UPGRADES = {
 };
 
 const CW_GLOBAL_UPGRADES = {
-  waiting_room_tv: { name: 'Waiting Room TV',       icon: '📺', cost:  8000, desc: 'Reduces regulars drain from wait events.' },
-  loyalty_machine: { name: 'Loyalty Card Machine',  icon: '💳', cost: 12000, desc: 'Doubles regulars build rate.' },
-  water_tank:      { name: 'Industrial Water Tank',  icon: '🛢️', cost: 25000, desc: 'Water pressure decays 60% slower.' },
-  dryer_arch:      { name: 'Automated Dryer Arch',   icon: '🌬️', cost: 30000, desc: 'Required for Deluxe Wax & Shine package.' },
+  waiting_room_tv:  { name: 'Waiting Room TV',       icon: '📺', cost:  8000, desc: 'Reduces regulars drain from wait events.' },
+  loyalty_machine:  { name: 'Loyalty Card Machine',  icon: '💳', cost: 12000, desc: 'Doubles regulars build rate.' },
+  water_tank:       { name: 'Industrial Water Tank',  icon: '🛢️', cost: 25000, desc: 'Water pressure decays 60% slower.' },
+  dryer_arch:       { name: 'Automated Dryer Arch',   icon: '🌬️', cost: 30000, desc: 'Required for Deluxe Wax & Shine package.' },
+  membership_kiosk: { name: 'Wash Club Kiosk',       icon: '🎟️', cost: 28000, desc: 'Launch the Unlimited Wash Club — recurring members who come rain or shine.' },
+  upsell_menu:      { name: 'Digital Upsell Menu',   icon: '🖥️', cost: 16000, desc: 'Pushes more cars into pricier washes (higher $/car).' },
 };
 
 const CW_PACKAGES = {
@@ -5679,27 +5909,57 @@ const CW_PACKAGES = {
   deluxe:   { name: 'Deluxe Wax & Shine', icon: '✨' },
   premium:  { name: 'Premium Detail',     icon: '💎' },
 };
+const CW_PKG_MULT = { basic: 1.0, standard: 1.75, deluxe: 3.0, premium: 5.0 };
+const CW_BASE_PER_CAR = 11;
+const CW_WEATHER = {
+  clear:    { name: 'Clear & Dusty',    icon: '☀️', good: true  },
+  dusty:    { name: 'Dry Dusty Spell',  icon: '🌵', good: true  },
+  pollen:   { name: 'Pollen Storm',     icon: '🌼', good: true  },
+  hot:      { name: 'Hot & Hazy',       icon: '🥵', good: true  },
+  overcast: { name: 'Overcast',         icon: '☁️', good: false },
+  rain:     { name: 'Rainy',            icon: '🌧️', good: false },
+  storm:    { name: 'Storm',            icon: '⛈️', good: false },
+  road_salt:{ name: 'Road-Salt Season', icon: '❄️', good: true  },
+};
 
 const CW_BAY_PRICES   = [100000, 175000, 275000, 400000];
 const CW_MAX_BAYS     = 5;
 const CW_WASH_PRICE   = 600000;
 const CW_UNLOCK_LEVEL = 10;
 
+function cwCarSvg(broken) {
+  // Clean side-profile car (vector, scales crisply — no emoji).
+  return `<svg viewBox="0 0 96 48" width="88" height="44" style="display:block;margin:0 auto;filter:${broken ? 'grayscale(1) brightness(0.6)' : 'drop-shadow(0 2px 2px rgba(0,0,0,0.3))'}">
+    <ellipse cx="48" cy="43.5" rx="37" ry="3.2" fill="rgba(0,0,0,0.28)"/>
+    <path d="M7 33 Q7 26 14 25 L25 24 Q31 15 41 14 L59 14 Q70 15 76 24 L85 26 Q91 27.5 91 33 L91 36 Q91 38 89 38 L9 38 Q7 38 7 36 Z" fill="#E53935"/>
+    <path d="M29 24 Q34 16 42 15 L57 15 Q65 16 70 24 Z" fill="#C62828"/>
+    <path d="M33 23 Q37 17.5 43 17 L49 17 L49 23 Z" fill="#BBDEFB"/>
+    <path d="M51 17 L56 17 Q62 17.5 66 23 L51 23 Z" fill="#BBDEFB"/>
+    <path d="M14 30.5 Q48 27.5 86 30.5" stroke="rgba(255,255,255,0.55)" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+    <circle cx="88" cy="31" r="2.3" fill="#FFF59D"/>
+    <circle cx="27" cy="38" r="7.6" fill="#1c1c1c"/><circle cx="27" cy="38" r="3.2" fill="#B0BEC5"/>
+    <circle cx="70" cy="38" r="7.6" fill="#1c1c1c"/><circle cx="70" cy="38" r="3.2" fill="#B0BEC5"/>
+  </svg>`;
+}
+
 function cwAnimatedCar(bayIdx, broken) {
-  const bubbleCount = 6;
-  const bubbles = Array.from({length: bubbleCount}, (_, i) => {
-    const left  = 8 + (i * 14) % 78;
-    const delay = (i * 0.7).toFixed(1);
-    const size  = 4 + (i % 3) * 2;
-    const dur   = (2.5 + (i % 3) * 0.8).toFixed(1);
-    return `<div style="position:absolute;left:${left}%;bottom:${8 + (i%2)*10}%;width:${size}px;height:${size}px;background:rgba(180,230,255,0.7);animation:cwBubble ${dur}s ${delay}s ease-in infinite;pointer-events:none"></div>`;
+  const bubbles = Array.from({ length: 9 }, (_, i) => {
+    const left  = 6 + (i * 11) % 84;
+    const size  = 7 + (i * 7 % 9);             // 7–15px, varied
+    const dur   = 2.4 + (i % 4) * 0.7;
+    const delay = (-(dur * (i / 9))).toFixed(2);   // negative: each starts already mid-rise (no bottom row)
+    const bottom = 3 + (i * 5 % 16);               // varied start heights
+    return `<div style="position:absolute;left:${left}%;bottom:${bottom}%;width:${size}px;height:${size}px;border-radius:50%;
+      background:radial-gradient(circle at 34% 30%, rgba(255,255,255,0.95) 0%, rgba(214,240,255,0.5) 38%, rgba(150,205,250,0.22) 72%, rgba(150,205,250,0.05) 100%);
+      box-shadow:inset 0 0 3px rgba(255,255,255,0.55), 0 0 3px rgba(200,235,255,0.35);
+      animation:cwBubble ${dur.toFixed(1)}s ${delay}s ease-in infinite;pointer-events:none"></div>`;
   }).join('');
 
   return `
-    <div style="position:relative;width:90px;height:60px;margin:4px auto;text-align:center">
+    <div style="position:relative;width:96px;height:56px;margin:4px auto;text-align:center">
       <div style="animation:cwCarBob 2.4s ease-in-out infinite;position:relative;display:inline-block">
-        <span style="font-size:52px;line-height:1;display:block;filter:${broken ? 'grayscale(1) brightness(0.6)' : 'none'}">🚗</span>
-        ${broken ? '<div style="position:absolute;top:-6px;right:-6px;font-size:16px">💨</div>' : ''}
+        ${cwCarSvg(broken)}
+        ${broken ? '<div style="position:absolute;top:-4px;right:2px;font-size:15px">💨</div>' : ''}
       </div>
       ${broken ? '' : bubbles}
     </div>`;
@@ -5728,17 +5988,27 @@ function renderCarWashContent() {
   const sup      = cw.supplies || {};
   const currentDay = state.day || 0;
 
-  // Determine active package
+  // Offered package tiers + average $/car (the customer mix; upsell shifts it up)
   const hasSoap   = (sup.cw_basic_soap    || 0) > 0;
   const hasStdSoap= (sup.cw_standard_soap || 0) > 0;
   const hasWax    = (sup.cw_premium_wax   || 0) > 0;
   const hasRhonda = staff.rhonda;
   const hasDryer  = gUpgs.dryer_arch;
-  let pkgKey = 'basic';
-  if (hasRhonda && hasStdSoap && hasWax && hasDryer) pkgKey = 'premium';
-  else if (hasWax && hasDryer) pkgKey = 'deluxe';
-  else if (hasStdSoap) pkgKey = 'standard';
-  const pkg = CW_PACKAGES[pkgKey];
+  const offered = ['basic'];
+  if (hasStdSoap) offered.push('standard');
+  if (hasWax && hasDryer) offered.push('deluxe');
+  if (hasRhonda && hasStdSoap && hasWax && hasDryer) offered.push('premium');
+  const upsellOn = !!gUpgs.upsell_menu;
+  const _W = upsellOn ? { basic: 2, standard: 4, deluxe: 4, premium: 3 } : { basic: 5, standard: 4, deluxe: 2, premium: 1 };
+  const _tw = offered.reduce((a, t) => a + _W[t], 0) || 1;
+  const avgPrice = offered.reduce((a, t) => a + _W[t] * CW_BASE_PER_CAR * CW_PKG_MULT[t], 0) / _tw;
+
+  // Weather, demand readout, members
+  const wx = CW_WEATHER[cw.weather] || CW_WEATHER.clear;
+  const fx = cw.forecast ? CW_WEATHER[cw.forecast] : null;
+  const lastCars = Math.round(cw.last_cars || 0), lastTA = Math.round(cw.last_turnaways || 0);
+  const members  = Math.round(cw.members || 0);
+  const hasKiosk = !!gUpgs.membership_kiosk;
 
   // Meters
   const waterPct  = Math.round(cw.water_pressure || 0);
@@ -5837,6 +6107,15 @@ function renderCarWashContent() {
   return `
     <div style="background:#071525;padding:12px;border-radius:4px">
 
+      <div style="display:flex;align-items:center;gap:10px;background:#0D1E2E;border:1px solid ${wx.good ? '#2E7D32' : '#FF9800'};border-radius:6px;padding:9px 11px;margin-bottom:10px">
+        <div style="font-size:26px">${wx.icon}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700;color:#E3F2FD">${wx.name} <span style="font-size:10px;color:${wx.good ? '#81C784' : '#FFB74D'}">${wx.good ? 'busy day' : 'slow day'}</span></div>
+          <div style="font-size:10px;color:#64B5F6">🚗 ${lastCars} cars washed/day${lastTA > 0 ? ` · <span style="color:#FF9800">⚠ ${lastTA} turned away — build more bays!</span>` : ''}</div>
+        </div>
+        ${fx ? `<div style="text-align:right;flex-shrink:0"><div style="font-size:9px;color:#546E7A">tomorrow</div><div style="font-size:13px">${fx.icon}</div></div>` : ''}
+      </div>
+
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
         ${meter('💧 Water Pressure', waterPct, wColor, waterPct < 40 ? ' ⚠️':'')}
         ${meter('😊 Staff Morale',   moralePct, mColor)}
@@ -5844,12 +6123,16 @@ function renderCarWashContent() {
         ${meter('👥 Regulars',       regPct, '#4CAF50')}
       </div>
 
+      ${hasKiosk ? `<div style="display:flex;align-items:center;gap:8px;background:#0D1E2E;border:1px solid #1E88E5;border-radius:6px;padding:8px 11px;margin-bottom:10px">
+        <span style="font-size:18px">🎟️</span><div style="flex:1"><div style="font-size:12px;font-weight:700;color:#90CAF9">Wash Club</div><div style="font-size:10px;color:#64B5F6">comes rain or shine</div></div>
+        <div style="text-align:right"><div style="font-size:17px;font-weight:800;color:#FFD24A">${members}</div><div style="font-size:9px;color:#546E7A">members · $${members * 6}/day</div></div></div>` : ''}
+
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px">
-        <div style="font-size:11px;color:#546E7A">Active Package: <span style="color:#90CAF9;font-weight:700">${pkg.icon} ${pkg.name}</span></div>
-        <div style="font-size:11px;color:#546E7A">Total Earned: <span style="color:#4CAF50">$${(cw.total_earned||0).toLocaleString()}</span></div>
+        <div style="font-size:11px;color:#546E7A">Offering: ${offered.map(t => CW_PACKAGES[t].icon).join('')} · <span style="color:#90CAF9;font-weight:700">~$${avgPrice.toFixed(1)}/car</span>${upsellOn ? ' <span style="color:#81C784;font-size:9px">▲ upsell</span>' : ''}</div>
+        <div style="font-size:11px;color:#546E7A">Earned: <span style="color:#4CAF50">$${(cw.total_earned||0).toLocaleString()}</span></div>
       </div>
 
-      ${!hasSoap ? `<div style="background:#4A0000;border:1px solid #e74c3c;color:#FF5252;padding:6px;font-size:11px;margin-bottom:8px;border-radius:3px">⚠️ Out of Basic Soap — no income!</div>` : ''}
+      ${!hasSoap ? `<div style="background:#4A0000;border:1px solid #e74c3c;color:#FF5252;padding:6px;font-size:11px;margin-bottom:8px;border-radius:3px">⚠️ Out of Basic Soap — closed! (Buy at CostPro or hire Carlos.)</div>` : ''}
       ${waterPct < 30 ? `<div style="background:#1a2000;border:1px solid #FF9800;color:#FF9800;padding:6px;font-size:11px;margin-bottom:8px;border-radius:3px">⚠️ Water pressure critical — <button onclick="cwRepressurize()" style="background:#FF9800;border:none;color:#000;padding:2px 8px;font-size:10px;font-weight:700;cursor:pointer;border-radius:2px">Repressurize $400</button></div>` : ''}
 
       ${supplyBadges ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px">${supplyBadges}</div>` : ''}
@@ -5958,13 +6241,12 @@ const COSTPRO_LAUNDRY = [
   { key: 'sheets',   name: 'Dryer Sheets',    icon: '🌬️', price: 400, desc: '+15% daily income. Lasts 10 days per case.' },
 ];
 
-const COSTPRO_POLE = [
-  { key: 'grip_spray',     name: 'Grip Spray',    icon: '💦', price: 400, desc: 'Required to run classes. Lasts 7 days per case (10 with Grip Coating upgrade).',
-    daysKey: 'grip_spray_days', warnText: '⚠️ OUT — studio is not earning!' },
-  { key: 'protein_shakes', name: 'Health Drinks',  icon: '🍹', price: 600, desc: '+25% daily income. Lasts 10 days per case.',
-    daysKey: 'protein_shake_days', warnText: 'None stocked' },
-  { key: 'branded_merch',  name: 'Chicken Wings',  icon: '🍗', price: 500, desc: '+20% daily income. Lasts 10 days per case.',
-    daysKey: 'merch_days', warnText: 'None stocked' },
+const COSTPRO_KOMBUCHA = [
+  { key: 'kb_ginger',   name: "Ginger 'Mule' Kombucha",   icon: '🫚', price: 380, desc: 'House pour. Zingy. 10 days per keg.' },
+  { key: 'kb_hibiscus', name: "Hibiscus 'Cosmo' Kombucha", icon: '🌺', price: 520, desc: 'Pink, fancy, photogenic. 10 days per keg.' },
+  { key: 'kb_charcoal', name: "Charcoal 'Detox' Shots",   icon: '🖤', price: 460, desc: 'Tastes like punishment. People love it. 10 days/keg.' },
+  { key: 'kb_cbd',      name: "CBD 'Sleepytime' Brew",    icon: '😌', price: 640, desc: 'The nightcap. Mellow. 10 days per keg.' },
+  { key: 'kb_sparkle',  name: 'Sparkling Reserve',        icon: '🥂', price: 900, desc: 'The "champagne." Premium VIP pour. 10 days/keg.' },
 ];
 
 const STORE_UNLOCK_LEVEL = 3;
@@ -6052,12 +6334,13 @@ function renderStore() {
     </div>`;
   }).join('');
 
-  // Pole studio supplies — only shown when studio is owned
+  // Kombucha bar supplies — only shown when the studio's Kombucha Bar is installed
   let poleSection = '';
   const pst = state.pole_studio;
-  if (pst && pst.owned) {
-    const poleCards = COSTPRO_POLE.map(item => {
-      const currentDays = pst[item.daysKey] || 0;
+  if (pst && pst.owned && (pst.facilities || {}).kombucha_bar) {
+    const kbStock = pst.kombucha || {};
+    poleSection = COSTPRO_KOMBUCHA.map(item => {
+      const days = kbStock[item.key] || 0;
       return `
       <div class="card" style="margin-bottom:10px">
         <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
@@ -6065,20 +6348,19 @@ function renderStore() {
           <div style="flex:1;min-width:0">
             <div style="font-weight:800;font-size:13px">${item.name}</div>
             <div style="font-size:11px;color:var(--text-muted);margin-top:1px">${item.desc}</div>
-            <div style="font-size:11px;margin-top:3px;color:${currentDays > 0 ? 'var(--positive)' : 'var(--warning)'}">
-              ${currentDays > 0 ? `${currentDays} days remaining` : item.warnText}
+            <div style="font-size:11px;margin-top:3px;color:${days > 0 ? 'var(--positive)' : 'var(--text-muted)'}">
+              ${days > 0 ? `${days} days on tap` : 'Not stocked'}
             </div>
           </div>
-          <div style="font-size:15px;font-weight:800;color:var(--primary);flex-shrink:0">${fmt(item.price)}<div style="font-size:10px;font-weight:400;color:var(--text-muted);text-align:right">each</div></div>
+          <div style="font-size:15px;font-weight:800;color:var(--primary);flex-shrink:0">${fmt(item.price)}<div style="font-size:10px;font-weight:400;color:var(--text-muted);text-align:right">keg</div></div>
         </div>
         <div style="display:flex;gap:6px">
           <button class="btn btn-sm btn-primary" style="flex:1" onclick="buySnacks('${item.key}',1)">Buy 1</button>
-          <button class="btn btn-sm btn-primary" style="flex:1" onclick="buySnacks('${item.key}',3)">Buy 3 · ${fmt(item.price*3)}</button>
-          <button class="btn btn-sm btn-primary" style="flex:1" onclick="buySnacks('${item.key}',5)">Buy 5 · ${fmt(item.price*5)}</button>
+          <button class="btn btn-sm btn-primary" style="flex:1" onclick="buySnacks('${item.key}',3)">×3 · ${fmt(item.price*3)}</button>
+          <button class="btn btn-sm btn-primary" style="flex:1" onclick="buySnacks('${item.key}',5)">×5 · ${fmt(item.price*5)}</button>
         </div>
       </div>`;
     }).join('');
-    poleSection = poleCards;
   }
 
   // Laundry supplies — only shown when laundromat is owned
@@ -6178,7 +6460,7 @@ function renderStore() {
     costproGroup('vending', '🍬', 'Vending Supplies', COSTPRO_SNACKS.length, snackCards),
     laundrySection ? costproGroup('laundry', '🧺', 'Laundromat Supplies', COSTPRO_LAUNDRY.length, laundrySection) : '',
     arcadeSection  ? costproGroup('arcade',  '🕹️', 'Arcade Prizes', 1, arcadeSection) : '',
-    poleSection    ? costproGroup('pole',    '💃', 'Studio Supplies', COSTPRO_POLE.length, poleSection) : '',
+    poleSection    ? costproGroup('pole',    '🥂', 'Kombucha Bar', COSTPRO_KOMBUCHA.length, poleSection) : '',
     cwSection      ? costproGroup('carwash', '🚗', 'Car Wash Supplies', 5, cwSection) : '',
   ].join('');
 
@@ -9931,11 +10213,13 @@ async function advanceDays(days) {
   _pendingStorylets        = res.storylet_events   || [];
   _pendingVendingEvents    = res.vending_events     || [];
   _pendingArcadeEvents     = res.arcade_events      || [];
+  _pendingPoleEvents       = res.pole_events        || [];
+  _pendingCarWashEvents    = res.car_wash_events    || [];
   _pendingRenewalOffers    = res.renewal_offers    || [];
   _pendingCommercialEvents = res.commercial_events || [];
   _pendingSquatter      = (res.events || []).find(e => e.type === 'squatter') || null;
   _pendingTaxEvent      = (res.tax_event && res.tax_event.total >= 0) ? res.tax_event : null;
-  const totalPending    = _pendingRepairs.length + _pendingStorylets.length + _pendingVendingEvents.length + _pendingArcadeEvents.length + _pendingRenewalOffers.length + _pendingCommercialEvents.length;
+  const totalPending    = _pendingRepairs.length + _pendingStorylets.length + _pendingVendingEvents.length + _pendingArcadeEvents.length + _pendingPoleEvents.length + _pendingCarWashEvents.length + _pendingRenewalOffers.length + _pendingCommercialEvents.length;
   const repairNote = _pendingRepairs.length > 0
     ? `<div style="background:#FFF8E1;color:#7A4A00;border:2px solid var(--warning);border-radius:var(--radius-sm);padding:10px 12px;margin-top:12px;font-size:13px;font-weight:700">
         ${pxIcon('🔧',16)} ${_pendingRepairs.length} repair${_pendingRepairs.length > 1 ? 's' : ''} need${_pendingRepairs.length === 1 ? 's' : ''} attention!</div>`
@@ -9951,6 +10235,14 @@ async function advanceDays(days) {
   const arcadeNote = _pendingArcadeEvents.length > 0
     ? `<div style="background:#EDE7F6;color:#4527A0;border:2px solid #9575CD;border-radius:var(--radius-sm);padding:10px 12px;margin-top:8px;font-size:13px;font-weight:700">
         ${pxIcon('🕹️',16)} ${_pendingArcadeEvents.length} arcade decision${_pendingArcadeEvents.length > 1 ? 's' : ''} to make!</div>`
+    : '';
+  const poleNote = _pendingPoleEvents.length > 0
+    ? `<div style="background:#F3E5F5;color:#6A1B9A;border:2px solid #BA68C8;border-radius:var(--radius-sm);padding:10px 12px;margin-top:8px;font-size:13px;font-weight:700">
+        ${pxIcon('💃',16)} ${_pendingPoleEvents.length} studio decision${_pendingPoleEvents.length > 1 ? 's' : ''} to make!</div>`
+    : '';
+  const carWashNote = _pendingCarWashEvents.length > 0
+    ? `<div style="background:#E3F2FD;color:#0D47A1;border:2px solid #64B5F6;border-radius:var(--radius-sm);padding:10px 12px;margin-top:8px;font-size:13px;font-weight:700">
+        ${pxIcon('🚗',16)} ${_pendingCarWashEvents.length} car wash decision${_pendingCarWashEvents.length > 1 ? 's' : ''} to make!</div>`
     : '';
   const renewalNote = _pendingRenewalOffers.length > 0
     ? `<div style="background:#E8F5E9;color:#1B5E20;border:2px solid #66BB6A;border-radius:var(--radius-sm);padding:10px 12px;margin-top:8px;font-size:13px;font-weight:700">
@@ -9969,6 +10261,10 @@ async function advanceDays(days) {
         ? `Vending Decisions (${_pendingVendingEvents.length})`
       : _pendingArcadeEvents.length > 0
         ? `Arcade Decisions (${_pendingArcadeEvents.length})`
+      : _pendingPoleEvents.length > 0
+        ? `Studio Decisions (${_pendingPoleEvents.length})`
+      : _pendingCarWashEvents.length > 0
+        ? `Car Wash Decisions (${_pendingCarWashEvents.length})`
       : _pendingRenewalOffers.length > 0
         ? `Review Leases (${_pendingRenewalOffers.length})`
         : _pendingCommercialEvents.length > 0
@@ -9988,6 +10284,8 @@ async function advanceDays(days) {
     ${storyletNote}
     ${vendingNote}
     ${arcadeNote}
+    ${poleNote}
+    ${carWashNote}
     ${renewalNote}
     ${taxNote}
     <button class="btn btn-primary btn-full mt-8" onclick="continueFromEvents()">${btnLabel}</button>`);
@@ -10006,6 +10304,10 @@ function continueFromEvents() {
     showNextVendingEvent();
   } else if (_pendingArcadeEvents.length > 0) {
     showNextArcadeEvent();
+  } else if (_pendingPoleEvents.length > 0) {
+    showNextPoleEvent();
+  } else if (_pendingCarWashEvents.length > 0) {
+    showNextCarWashEvent();
   } else if (_pendingRenewalOffers.length > 0) {
     showNextRenewalOffer();
   } else if (_pendingCommercialEvents.length > 0) {

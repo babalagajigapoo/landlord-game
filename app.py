@@ -1768,9 +1768,11 @@ COSTPRO_ITEMS = {
     "soap":           {"name": "Laundry Soap",          "icon": "🧼", "price": 300,   "desc": "Required to operate. Each case lasts 7 days.",  "category": "laundromat"},
     "softener":       {"name": "Fabric Softener",       "icon": "🌸", "price": 500,   "desc": "+20% daily income. Lasts 10 days per case.",    "category": "laundromat"},
     "sheets":         {"name": "Dryer Sheets",          "icon": "🌬️", "price": 400,   "desc": "+15% daily income. Lasts 10 days per case.",   "category": "laundromat"},
-    "grip_spray":     {"name": "Grip Spray",            "icon": "💦", "price": 400,   "desc": "Required to run classes. Lasts 7 days per case.", "category": "pole_studio"},
-    "protein_shakes": {"name": "Health Drinks",         "icon": "🍹", "price": 600,   "desc": "+25% daily income. Lasts 10 days per case.",   "category": "pole_studio"},
-    "branded_merch":  {"name": "Chicken Wings",         "icon": "🍗", "price": 500,   "desc": "+20% daily income. Lasts 10 days per case.",   "category": "pole_studio"},
+    "kb_ginger":   {"name": "Ginger 'Mule' Kombucha",  "icon": "🫚", "price": 380, "desc": "House pour. Zingy. Lasts 10 days per keg. (Kombucha Bar)", "category": "studio_bar", "kb_income": 0.6, "kb_sat": 2},
+    "kb_hibiscus": {"name": "Hibiscus 'Cosmo' Kombucha","icon": "🌺", "price": 520, "desc": "Pink, fancy, photogenic. 10 days per keg. (Kombucha Bar)", "category": "studio_bar", "kb_income": 0.9, "kb_sat": 3},
+    "kb_charcoal": {"name": "Charcoal 'Detox' Shots",  "icon": "🖤", "price": 460, "desc": "Tastes like punishment. People love it. 10 days/keg.", "category": "studio_bar", "kb_income": 0.8, "kb_sat": 2},
+    "kb_cbd":      {"name": "CBD 'Sleepytime' Brew",   "icon": "😌", "price": 640, "desc": "The nightcap. Mellow vibes. 10 days per keg.", "category": "studio_bar", "kb_income": 1.0, "kb_sat": 4},
+    "kb_sparkle":  {"name": "Sparkling Reserve",       "icon": "🥂", "price": 900, "desc": "The 'champagne.' Premium pour for VIPs. 10 days/keg.", "category": "studio_bar", "kb_income": 1.6, "kb_sat": 5},
     "cw_basic_soap":    {"name": "Basic Soap",           "icon": "🧼", "price": 350,   "desc": "Required to operate. 7 days per case.",               "category": "car_wash"},
     "cw_standard_soap": {"name": "Standard Soap",        "icon": "🫧", "price": 500,   "desc": "Required for Standard Wash+. 10 days per case.",      "category": "car_wash"},
     "cw_premium_wax":   {"name": "Premium Wax",          "icon": "✨", "price": 700,   "desc": "Required for Deluxe+. +30% income on Deluxe tier. 8 days per case.", "category": "car_wash"},
@@ -2093,6 +2095,11 @@ POLE_STUDIO_UNLOCK_LEVEL     = 8
 POLE_STUDIO_START_POLES      = 0
 POLE_STUDIO_MAX_POLES        = 6
 POLE_STUDIO_POLE_PRICES      = [20_000, 25_000, 30_000, 35_000, 45_000, 55_000]
+# Class slots are the purchasable capacity now (poles retired). Start with 2; buy
+# up to 8 (more than the 6 instructors, so you can double up popular classes).
+STUDIO_START_SLOTS = 2
+STUDIO_MAX_SLOTS   = 8
+STUDIO_SLOT_PRICES = [16_000, 24_000, 33_000, 44_000, 57_000, 72_000]  # slots 3..8
 POLE_STUDIO_ATM_DECAY        = 6
 POLE_STUDIO_CLEAN_DECAY      = 7
 POLE_STUDIO_BREAKDOWN_PCT    = 0.05
@@ -2405,11 +2412,138 @@ POLE_STUDIO_UPGRADES = {
 POLE_STUDIO_STAFF = {
     "vibe_manager":   {"name": "Vibe Manager",   "icon": "🎶", "cost": 200, "desc": "Auto-maintains atmosphere above 75%."},
     "studio_cleaner": {"name": "Studio Cleaner", "icon": "🧹", "cost": 175, "desc": "Auto-cleans when cleanliness drops below 70%. Shows up early. Asks no questions."},
+    "manager":        {"name": "Studio Manager", "icon": "📋", "cost": 225, "desc": "Auto-handles dancer demands, fills empty class slots, AND keeps the Kombucha Bar stocked."},
+    "host":           {"name": "Front Desk Host", "icon": "🛎️", "cost": 160, "desc": "Greets & checks members in — lifts satisfaction and cuts churn."},
+    "bartender":      {"name": "Bartender",        "icon": "🍸", "cost": 170, "desc": "Works the Kombucha Bar. Without one, the bar sits dark and earns nothing."},
 }
+
+# ── REVAMP: a membership-driven "totally legit aerial-fitness studio" ──────────
+# (a wink-wink parody). Core loop: grow members → schedule classes to match their
+# demand → keep members & instructors happy → expand. No consumable fuel gate.
+STUDIO_DUES_PER_MEMBER    = 3.0    # recurring $/member/day
+STUDIO_VIP_DUES           = 14.0   # recurring $/VIP member/day
+STUDIO_AVG_VISITS         = 0.5    # member-visits demanded per member per day
+STUDIO_BASE_SLOTS         = 4      # configurable class slots at start (+ from facilities)
+STUDIO_INSTR_ENERGY_COST  = 22     # energy a class burns from its instructor per day
+STUDIO_INSTR_ENERGY_REGEN = 30     # energy recovered each day (so 1 class/day nets +8; 2+ drains)
+STUDIO_GRATUITY_RATE      = 0.14   # tips as fraction of class income at full satisfaction (if enabled)
+
+# Class types: each fills from member demand (popularity), seats it can hold, $/head,
+# and the equipment it needs. `private` is the VIP "private dance" parody.
+POLE_STUDIO_CLASSES = {
+    "intro":   {"name": "Intro Pole",          "icon": "🌱", "seats": 14, "popularity": 1.4, "rev": 7,  "equip": "pole"},
+    "levels":  {"name": "Pole Levels",         "icon": "🔥", "seats": 10, "popularity": 1.0, "rev": 11, "equip": "pole"},
+    "silks":   {"name": "Aerial Silks",        "icon": "🎀", "seats": 8,  "popularity": 0.7, "rev": 16, "equip": "silks"},
+    "flex":    {"name": "Flexibility & Stretch","icon": "🧘", "seats": 16, "popularity": 1.1, "rev": 6,  "equip": "floor"},
+    "private": {"name": "Private Session",      "icon": "🥂", "seats": 2,  "popularity": 0.5, "rev": 70, "equip": "vip"},
+    "open":    {"name": "Open Practice",        "icon": "🕒", "seats": 12, "popularity": 0.6, "rev": 5,  "equip": "floor"},
+}
+# Each instructor is the natural star of exactly one class type.
+POLE_STUDIO_SPECIALTY_CLASS = {
+    "sunshine": "intro", "celestia": "levels", "raven": "silks",
+    "mercedes": "private", "diamond": "flex", "gary": "open",
+}
+POLE_STUDIO_SPECIALTY_FIT = 1.4   # teaching her specialty
+POLE_STUDIO_OFFSPEC_FIT   = 0.75  # teaching outside her lane
+
+# Facilities — one-time upgrades that add capacity / unlock class types / amenities.
+POLE_STUDIO_FACILITIES = {
+    "silks_rig":  {"name": "Aerial Silks Rig",  "icon": "🎀", "cost": 30_000, "desc": "Unlocks Aerial Silks classes.",            "unlock": "silks"},
+    "vip_suite":  {"name": "VIP Suite",          "icon": "🥂", "cost": 55_000, "desc": "The 'Champagne Room.' Unlocks Private Sessions + VIP memberships.", "unlock": "vip"},
+    "stage":      {"name": "Performance Stage",  "icon": "🎤", "cost": 40_000, "desc": "Host Theme & Showcase Nights for big one-off payouts.",            "feature": "stage"},
+    "lobby":      {"name": "Comfy Lobby Lounge", "icon": "🛋️", "cost": 22_000, "desc": "+satisfaction & retention. People linger.",  "feature": "lobby"},
+    "dj_booth":   {"name": "Resident DJ Booth",  "icon": "🪩", "cost": 26_000, "desc": "Mood lighting + sound. Big atmosphere boost.", "feature": "dj"},
+    "kombucha_bar":{"name": "Kombucha Bar",      "icon": "🥂", "cost": 24_000, "desc": "The 'bar.' Stock kombucha from CostPro for extra income + satisfaction.", "feature": "bar"},
+}
+# Marketing campaign (active member growth).
+STUDIO_MARKETING_COST = 2_500
+STUDIO_MARKETING_REP  = 12
+# Theme night (needs the stage) — a big one-off, on a cooldown.
+STUDIO_THEME_COST     = 1_200
+STUDIO_THEME_COOLDOWN = 5
+
+# ── Events as choice cards (one may fire per advance, low chance) ──────────────
+# Choice effect keys: cost (cash out), cash (cash in), members/reputation/
+# atmosphere/cleanliness (0–100 deltas), mood_all (all hired dancers), break_pole,
+# plus optional risk {chance, cost, break_pole, result_bad}.
+POLE_STUDIO_EVENT_CHANCE = 0.11
+POLE_STUDIO_EVENT_CARDS = [
+    {"key": "magazine", "title": "Magazine Feature", "icon": "📸",
+     "text": "A wellness magazine wants to feature the studio — if you comp them a free private session.", "choices": [
+        {"label": "Comp the shoot", "cost": 0, "reputation": 14, "members": 6, "result": "The spread looks incredible — inquiries all week."},
+        {"label": "Charge full price", "cost": 0, "cash": 400, "reputation": -3, "result": "They paid, but the feature got... smaller."},
+        {"label": "Decline", "cost": 0, "result": "You pass. No harm done."}]},
+    {"key": "corporate", "title": "Corporate Booking", "icon": "💼",
+     "text": "A tech company wants a team-building session — full budget, lots of demands.", "choices": [
+        {"label": "Full custom package", "cost": 300, "cash": 3800, "members": 4, "result": "HR called it 'transformative.' Big check."},
+        {"label": "Standard group class", "cost": 0, "cash": 1500, "result": "Tidy, low-effort money."}]},
+    {"key": "inspector", "title": "Surprise Inspection", "icon": "📋",
+     "text": "A health inspector arrives unannounced, mid-class.", "choices": [
+        {"label": "Give the full tour", "cost": 120, "reputation": 8, "cleanliness": 10, "result": "Passed clean — he signed up for beginner class."},
+        {"label": "Rush him through", "cost": 0, "result": "He left satisfied.", "risk": {"chance": 0.4, "cost": 500, "result_bad": "He cited two issues — fines plus a re-inspection fee."}}]},
+    {"key": "bachelorette", "title": "Bachelorette Party", "icon": "🎉",
+     "text": "A loud, fun bachelorette party wants to book the whole studio Saturday night.", "choices": [
+        {"label": "Book it out", "cost": 0, "cash": 4500, "cleanliness": -15, "result": "A very good Saturday. The floor needs a mop."},
+        {"label": "Politely decline", "cost": 0, "result": "Not tonight. The regulars appreciate the calm."}]},
+    {"key": "pole_bend", "title": "Equipment Scare", "icon": "🛠️",
+     "text": "A pole groaned ominously during an advanced class.", "choices": [
+        {"label": "Pull it for inspection", "cost": 250, "result": "Tightened and certified safe. Nobody got hurt."},
+        {"label": "'It's fine, keep going'", "cost": 0, "result": "Class continued.", "risk": {"chance": 0.5, "break_pole": 1, "result_bad": "It bent mid-spin. The instructor called it 'interpretive movement.'"}}]},
+    {"key": "influencer", "title": "Influencer Class", "icon": "🤳",
+     "text": "A local influencer wants a free class in exchange for a post.", "choices": [
+        {"label": "Comp the class", "cost": 0, "members": 10, "mood_all": -4, "result": "Her post hit 200k views. The dancers found her exhausting."},
+        {"label": "Offer a discount", "cost": 0, "members": 4, "result": "A modest shoutout. Every bit helps."},
+        {"label": "Decline", "cost": 0, "result": "Not interested in freebies-for-clout."}]},
+    {"key": "rival", "title": "Rival Promo", "icon": "🥊",
+     "text": "Chromatic Fitness down the street launched an aggressive promo.", "choices": [
+        {"label": "Counter with your own deal", "cost": 600, "members": 8, "result": "You held the line and poached a few of theirs."},
+        {"label": "Ride it out", "cost": 0, "members": -6, "result": "A few members drifted off to try the new place."}]},
+    {"key": "recital", "title": "Student Showcase", "icon": "🏆",
+     "text": "Your students want to put on a showcase for friends and family.", "choices": [
+        {"label": "Fund the full production", "cost": 700, "reputation": 18, "members": 7, "mood_all": 6, "result": "A packed house — everyone's glowing, dancers included."},
+        {"label": "Keep it small & free", "cost": 0, "reputation": 6, "mood_all": 3, "result": "A sweet little show in the studio."}]},
+    {"key": "heatwave", "title": "Heat Wave", "icon": "🥵",
+     "text": "The AC is struggling in a brutal heat wave. Classes are sweaty.", "choices": [
+        {"label": "Rent a portable AC", "cost": 350, "result": "Cool and comfortable — classes stayed full."},
+        {"label": "Tough it out", "cost": 0, "atmosphere": -18, "result": "'Character-building,' someone said. Attendance dipped."}]},
+]
+
+def _pole_queue_event(s):
+    ps = s.get("pole_studio")
+    if not (ps and ps.get("owned")):
+        return None
+    ev = random.choice(POLE_STUDIO_EVENT_CARDS)
+    return {"key": ev["key"], "title": ev["title"], "icon": ev["icon"], "text": ev["text"],
+            "choices": [{"label": c["label"], "cost": c.get("cost", 0), "gain": c.get("cash", 0)} for c in ev["choices"]]}
+
+def _pole_apply_event_choice(s, choice):
+    ps = s.get("pole_studio") or {}
+    result, bad, extra_cost = choice.get("result", "Done."), False, 0
+    risk = choice.get("risk")
+    if risk and random.random() < risk.get("chance", 0):
+        bad, extra_cost = True, risk.get("cost", 0)
+        result = risk.get("result_bad", result)
+        if risk.get("break_pole"):
+            wp = [p for p in ps.get("poles", []) if not p.get("broken")]
+            if wp: random.choice(wp)["broken"] = True
+    cost = choice.get("cost", 0) + extra_cost
+    if cost: s["cash"] = max(0, s["cash"] - cost)
+    if choice.get("cash"): s["cash"] += choice["cash"]
+    for k in ("members", "reputation", "atmosphere", "cleanliness"):
+        if choice.get(k): ps[k] = max(0, min(100, ps.get(k, 0) + choice[k]))
+    if choice.get("mood_all"):
+        for dk, dd in ps.get("dancers", {}).items():
+            if dd.get("hired") and dk != "gary":
+                dd["mood"] = max(0, min(100, dd.get("mood", 72) + choice["mood_all"]))
+    if choice.get("break_pole"):
+        wp = [p for p in ps.get("poles", []) if not p.get("broken")]
+        if wp: random.choice(wp)["broken"] = True
+    return result, bad
 
 def _pole_studio_dancer_state(key):
     d = POLE_STUDIO_DANCERS[key]
-    return {"hired": False, "mood": d["mood_start"], "demands_fulfilled": 0, "salary_delta": 0}
+    return {"hired": False, "mood": d["mood_start"], "demands_fulfilled": 0, "salary_delta": 0,
+            "class": POLE_STUDIO_SPECIALTY_CLASS.get(key, "open")}
 
 def _apply_demand_effects(s, ps, effects, dancer_key):
     """Apply a demand's effect dict to state."""
@@ -2510,6 +2644,12 @@ CAR_WASH_STAFF = {
                 "Restores +5 condition/day per bay. Broken bays fix themselves overnight. He hums while he works.",
         "effect": "auto_repair",
     },
+    "carlos": {
+        "name": "Carlos", "icon": "📦", "cost": 150,
+        "desc": "Supply Manager. Knows a guy for everything. Auto-orders soap & wax from CostPro, "
+                "balanced to a buffer — you'll never run dry. Keeps receipts. So many receipts.",
+        "effect": "auto_supply",
+    },
 }
 
 CAR_WASH_BAY_UPGRADES = {
@@ -2532,7 +2672,109 @@ CAR_WASH_GLOBAL_UPGRADES = {
                          "desc": "Water pressure decays 60% slower."},
     "dryer_arch":       {"name": "Automated Dryer Arch", "icon": "🌬️", "cost": 30_000,
                          "desc": "Required to offer Deluxe Wax & Shine package."},
+    "membership_kiosk": {"name": "Wash Club Kiosk",      "icon": "🎟️", "cost": 28_000,
+                         "desc": "Launch the Unlimited Wash Club — recurring monthly members who come rain or shine."},
+    "upsell_menu":      {"name": "Digital Upsell Menu",  "icon": "🖥️", "cost": 16_000,
+                         "desc": "Bright menu boards + suggestive selling push more cars into pricier washes."},
 }
+
+# ── Weather: the heartbeat of a car wash. Drives daily demand. Biased by season. ──
+CAR_WASH_WEATHER = {
+    "clear":    {"name": "Clear & Dusty",  "icon": "☀️", "demand": 1.15, "desc": "Dust settling on every car. Steady business."},
+    "dusty":    {"name": "Dry Dusty Spell", "icon": "🌵", "demand": 1.45, "desc": "Everything's filthy. The line's out the door."},
+    "pollen":   {"name": "Pollen Storm",   "icon": "🌼", "demand": 1.55, "desc": "Yellow film on every windshield. Mayhem (the good kind)."},
+    "hot":      {"name": "Hot & Hazy",     "icon": "🥵", "demand": 1.2,  "desc": "Bugs on the grille. Decent walk-in traffic."},
+    "overcast": {"name": "Overcast",       "icon": "☁️", "demand": 0.9,  "desc": "Meh weather, meh crowds."},
+    "rain":     {"name": "Rainy",          "icon": "🌧️", "demand": 0.4,  "desc": "Why wash it now? Walk-ins dry up."},
+    "storm":    {"name": "Storm",          "icon": "⛈️", "demand": 0.25, "desc": "Nobody's coming. The regulars maybe."},
+    "road_salt":{"name": "Road-Salt Season","icon": "❄️", "demand": 1.75, "desc": "Salt eats cars. Everyone's panicking. Jackpot."},
+}
+# Seasonal weather weights (season index 0=Spring,1=Summer,2=Fall,3=Winter).
+CAR_WASH_WEATHER_WEIGHTS = {
+    0: {"clear": 3, "pollen": 4, "rain": 3, "overcast": 2, "dusty": 2, "storm": 1},
+    1: {"clear": 4, "hot": 4, "dusty": 3, "overcast": 2, "rain": 2, "storm": 1},
+    2: {"clear": 4, "dusty": 3, "overcast": 3, "rain": 3, "pollen": 1},
+    3: {"road_salt": 5, "overcast": 3, "clear": 2, "storm": 2, "rain": 2},
+}
+def _roll_car_wash_weather(season_idx):
+    w = CAR_WASH_WEATHER_WEIGHTS.get(season_idx, CAR_WASH_WEATHER_WEIGHTS[0])
+    pool = [k for k, n in w.items() for _ in range(n)]
+    return random.choice(pool)
+
+CAR_WASH_BAY_CAPACITY  = 22     # cars/day a bay can handle (throughput)
+CAR_WASH_BASE_PER_CAR  = 11     # $/car before package tier & multipliers
+CAR_WASH_BASE_DEMAND   = 30     # baseline cars/day at neutral weather, no regulars/members
+CAR_WASH_MEMBER_DUES   = 6.0    # recurring $/member/day
+CAR_WASH_MEMBER_VISITS = 0.7    # guaranteed car-visits per member per day (come rain or shine)
+
+# Choice-card events (one may fire per advance at a low rate; player decides).
+CAR_WASH_EVENT_CHANCE = 0.12
+CAR_WASH_EVENT_CARDS = [
+    {"key": "fleet", "title": "Fleet Contract Offer", "icon": "🚐",
+     "text": "A delivery company wants a standing contract to wash their van fleet weekly.", "choices": [
+        {"label": "Sign the contract", "cost": 0, "cash": 3000, "regulars": 6, "result": "Steady fleet money — and the vans are always filthy."},
+        {"label": "Stay walk-in only", "cost": 0, "result": "You keep the bays open for the public."}]},
+    {"key": "scratch", "title": "Scratch Complaint", "icon": "😠",
+     "text": "A customer insists your wash scratched their (already scratched) bumper.", "choices": [
+        {"label": "Comp them a free detail", "cost": 200, "reputation": 5, "result": "They left happy and posted a glowing review."},
+        {"label": "Stand your ground", "cost": 0, "result": "You pull the footage and they back off.",
+         "risk": {"chance": 0.4, "reputation": -10, "result_bad": "They blasted you online before you found the footage."}}]},
+    {"key": "influencer_detail", "title": "Influencer's Supercar", "icon": "🏎️",
+     "text": "A car influencer wants the full premium treatment filmed for their channel.", "choices": [
+        {"label": "Roll out the red carpet", "cost": 150, "cash": 1200, "reputation": 12, "result": "The clip hit 300k views. Phones ringing all week."},
+        {"label": "Treat it like any car", "cost": 0, "cash": 600, "result": "A solid wash, a modest tip, no fuss."}]},
+    {"key": "water_bill", "title": "Surprise Water Bill", "icon": "💧",
+     "text": "The city sent a 'usage adjustment.' It is not in your favor.", "choices": [
+        {"label": "Just pay it", "cost": 700, "result": "Paid. The taps keep running."},
+        {"label": "Dispute it", "cost": 0, "result": "They waived it after a long phone call.",
+         "risk": {"chance": 0.45, "cost": 1100, "result_bad": "The meter was right — bigger bill plus a late fee."}}]},
+    {"key": "heat_wave_rush", "title": "Bug-Splatter Rush", "icon": "🦟",
+     "text": "A massive bug hatch has coated every windshield in town.", "choices": [
+        {"label": "Run an all-hands bug special", "cost": 100, "cash": 2200, "morale": -6, "result": "Crushing day. The crew is wiped but the till is full."},
+        {"label": "Business as usual", "cost": 0, "cash": 900, "result": "A nice bump without burning out the crew."}]},
+    {"key": "competitor", "title": "Competitor Promo", "icon": "🥊",
+     "text": "The wash across town launched a $5 'Grand Reopening' special.", "choices": [
+        {"label": "Match it with a loyalty deal", "cost": 500, "regulars": 8, "result": "You held your regulars and poached a few of theirs."},
+        {"label": "Compete on quality", "cost": 0, "reputation": 6, "regulars": -4, "result": "You lost a few price-shoppers but kept your name clean."}]},
+    {"key": "charity", "title": "Charity Wash Day", "icon": "🎗️",
+     "text": "The high school booster club wants to run a fundraiser car wash in your lot.", "choices": [
+        {"label": "Host it for free", "cost": 0, "reputation": 14, "regulars": 5, "result": "Great publicity — the neighborhood loves you."},
+        {"label": "Rent them the space", "cost": 0, "cash": 500, "result": "A tidy rental fee; the kids still had fun."},
+        {"label": "Decline", "cost": 0, "result": "You keep the bays running for paying customers."}]},
+    {"key": "equipment_recall", "title": "Equipment Recall", "icon": "🛠️",
+     "text": "The maker of your wash arches issued a safety recall.", "choices": [
+        {"label": "Schedule the fix", "cost": 400, "result": "All bays serviced and certified safe."},
+        {"label": "Ignore it for now", "cost": 0, "result": "You keep washing.",
+         "risk": {"chance": 0.5, "break_bay": 1, "result_bad": "An arch seized mid-wash — a bay's down."}}]},
+]
+def _car_wash_queue_event(s):
+    cw = s.get("car_wash")
+    if not (cw and cw.get("owned")):
+        return None
+    ev = random.choice(CAR_WASH_EVENT_CARDS)
+    return {"key": ev["key"], "title": ev["title"], "icon": ev["icon"], "text": ev["text"],
+            "choices": [{"label": c["label"], "cost": c.get("cost", 0), "gain": c.get("cash", 0)} for c in ev["choices"]]}
+
+def _car_wash_apply_event_choice(s, choice):
+    cw = s.get("car_wash") or {}
+    result, bad, extra_cost = choice.get("result", "Done."), False, 0
+    risk = choice.get("risk")
+    if risk and random.random() < risk.get("chance", 0):
+        bad, extra_cost = True, risk.get("cost", 0)
+        result = risk.get("result_bad", result)
+        if risk.get("reputation"): cw["reputation"] = max(0, min(100, cw.get("reputation", 0) + risk["reputation"]))
+        if risk.get("break_bay"):
+            wb = [b for b in cw.get("bays", []) if not b.get("broken")]
+            if wb: random.choice(wb)["broken"] = True
+    cost = choice.get("cost", 0) + extra_cost
+    if cost: s["cash"] = max(0, s["cash"] - cost)
+    if choice.get("cash"): s["cash"] += choice["cash"]
+    for k in ("reputation", "regulars", "morale"):
+        if choice.get(k): cw[k] = max(0, min(100, cw.get(k, 0) + choice[k]))
+    if choice.get("break_bay"):
+        wb = [b for b in cw.get("bays", []) if not b.get("broken")]
+        if wb: random.choice(wb)["broken"] = True
+    return result, bad
 
 CAR_WASH_EVENTS = [
     {"text": "Bird migration season. Every car in town is a crime scene. Business is booming.",                       "type": "positive",  "effect": "income",     "value":  2000},
@@ -2855,6 +3097,28 @@ def _get_car_wash_package(cw):
     if inv.get("cw_standard_soap", 0) > 0:
         return "standard"
     return "basic"
+
+def _car_wash_offered_packages(cw):
+    """Which wash tiers you can currently offer (basic always, others gated by supply/upgrade/staff)."""
+    staff = cw.get("staff", {}); inv = cw.get("supplies", {}); g = cw.get("global_upgrades", {})
+    tiers = ["basic"]
+    if inv.get("cw_standard_soap", 0) > 0:
+        tiers.append("standard")
+    if inv.get("cw_premium_wax", 0) > 0 and g.get("dryer_arch"):
+        tiers.append("deluxe")
+    if staff.get("rhonda") and inv.get("cw_standard_soap", 0) > 0 and inv.get("cw_premium_wax", 0) > 0 and g.get("dryer_arch"):
+        tiers.append("premium")
+    return tiers
+
+def _car_wash_avg_price(cw):
+    """Average $/car from the customer package mix. The Upsell Menu shifts the mix toward pricier washes."""
+    tiers   = _car_wash_offered_packages(cw)
+    upsell  = bool(cw.get("global_upgrades", {}).get("upsell_menu"))
+    base_w  = {"basic": 5, "standard": 4, "deluxe": 2, "premium": 1}
+    up_w    = {"basic": 2, "standard": 4, "deluxe": 4, "premium": 3}
+    weights = up_w if upsell else base_w
+    tw = sum(weights[t] for t in tiers) or 1
+    return sum(weights[t] * CAR_WASH_BASE_PER_CAR * CAR_WASH_PACKAGES[t]["mult"] for t in tiers) / tw
 
 def generate_jobs():
     """TEST MODE: all job types available, zero energy cost."""
@@ -5883,6 +6147,8 @@ def api_advance():
     new_storylet_events    = []
     new_vending_events     = []
     new_arcade_events      = []
+    new_pole_events        = []
+    new_car_wash_events    = []
     rent_log               = {}   # prop_id -> summary dict
     squatter_spawned       = False
 
@@ -6963,185 +7229,203 @@ def api_advance():
     # ── Brass Pole Fitness Studio advance ─────────────────────────────────────
     ps = s.get("pole_studio")
     if ps and ps.get("owned"):
-        staff         = ps.setdefault("staff",       {"vibe_manager": False, "studio_cleaner": False})
-        ps.setdefault("dancers",     {k: _pole_studio_dancer_state(k) for k in POLE_STUDIO_DANCERS})
-        ps.setdefault("poles",       [{"id": i, "upgrades": {}, "broken": False}
-                                      for i in range(ps.get("pole_count", POLE_STUDIO_START_POLES))])
+        staff   = ps.setdefault("staff", {})
+        facs    = ps.setdefault("facilities", {})
+        ps.setdefault("dancers", {k: _pole_studio_dancer_state(k) for k in POLE_STUDIO_DANCERS})
+        for _dk, _dd in ps["dancers"].items():
+            _dd.setdefault("class", POLE_STUDIO_SPECIALTY_CLASS.get(_dk, "open"))
+            _dd.setdefault("energy", 100)
         ps.setdefault("active_demands", [])
-        poles = ps["poles"]
+        ps.setdefault("slots", [])
+        ps.setdefault("slot_count", ps.get("pole_count", STUDIO_START_SLOTS) or STUDIO_START_SLOTS)
+        ps.setdefault("members", 0); ps.setdefault("vip_members", 0); ps.setdefault("satisfaction", 70)
+        ps.setdefault("kombucha", {})
+        dancers = ps["dancers"]
+        slot_cap = ps.get("slot_count", STUDIO_START_SLOTS)
+        while len(ps["slots"]) < slot_cap:   # ensure a slot object exists for every available class slot
+            ps["slots"].append({"type": "intro", "instructor": None})
+        def _equip_ok(eq):
+            if eq == "silks": return bool(facs.get("silks_rig"))
+            if eq == "vip":   return bool(facs.get("vip_suite"))
+            return True
 
         for _day in range(days):
-            # Insurance weekly charge
+            # ── Insurance weekly charge ──
             if ps.get("insurance"):
                 ps["insurance_days"] = ps.get("insurance_days", 7) - 1
                 if ps["insurance_days"] <= 0:
                     ps["insurance_days"] = 7
                     s["cash"] = max(0, s["cash"] - POLE_STUDIO_INSURANCE_WEEKLY)
 
-            # Atmosphere + cleanliness natural decay
+            # ── Ambiance & cleanliness decay; staff upkeep ──
             ps["atmosphere"]  = max(0, ps.get("atmosphere", 100)  - POLE_STUDIO_ATM_DECAY)
             ps["cleanliness"] = max(0, ps.get("cleanliness", 100) - POLE_STUDIO_CLEAN_DECAY)
-
-            # Vibe manager: auto-maintain atmosphere
+            if facs.get("dj_booth"):
+                ps["atmosphere"] = min(100, ps["atmosphere"] + 14)   # resident DJ keeps the vibe up
             if staff.get("vibe_manager"):
-                s["cash"] = max(0, s["cash"] - POLE_STUDIO_STAFF["vibe_manager"]["cost"])
-                _tax_deduct(s, POLE_STUDIO_STAFF["vibe_manager"]["cost"])
-                if ps["atmosphere"] < 75:
-                    ps["atmosphere"] = min(100, ps["atmosphere"] + 20)
-
-            # Studio cleaner: auto-clean
+                s["cash"] = max(0, s["cash"] - POLE_STUDIO_STAFF["vibe_manager"]["cost"]); _tax_deduct(s, POLE_STUDIO_STAFF["vibe_manager"]["cost"])
+                if ps["atmosphere"] < 75: ps["atmosphere"] = min(100, ps["atmosphere"] + 20)
             if staff.get("studio_cleaner"):
-                s["cash"] = max(0, s["cash"] - POLE_STUDIO_STAFF["studio_cleaner"]["cost"])
-                _tax_deduct(s, POLE_STUDIO_STAFF["studio_cleaner"]["cost"])
-                if ps["cleanliness"] < 70:
-                    ps["cleanliness"] = min(100, ps["cleanliness"] + 25)
+                s["cash"] = max(0, s["cash"] - POLE_STUDIO_STAFF["studio_cleaner"]["cost"]); _tax_deduct(s, POLE_STUDIO_STAFF["studio_cleaner"]["cost"])
+                if ps["cleanliness"] < 70: ps["cleanliness"] = min(100, ps["cleanliness"] + 25)
+            host_on = bool(staff.get("host"))
+            if host_on:
+                s["cash"] = max(0, s["cash"] - POLE_STUDIO_STAFF["host"]["cost"]); _tax_deduct(s, POLE_STUDIO_STAFF["host"]["cost"])
+            bartender_on = bool(staff.get("bartender"))
+            if bartender_on:
+                s["cash"] = max(0, s["cash"] - POLE_STUDIO_STAFF["bartender"]["cost"]); _tax_deduct(s, POLE_STUDIO_STAFF["bartender"]["cost"])
 
-            # Pole breakdowns (random unless chrome polish upgrade)
-            for pole in poles:
-                if not pole.get("broken"):
-                    bd = 0.025 if not pole.get("upgrades", {}).get("chrome_polish") else 0.01
-                    if random.random() < bd:
-                        pole["broken"] = True
+            # ── Studio Manager: salary + auto-handle demands + auto-fill empty slots ──
+            if staff.get("manager"):
+                s["cash"] = max(0, s["cash"] - POLE_STUDIO_STAFF["manager"]["cost"]); _tax_deduct(s, POLE_STUDIO_STAFF["manager"]["cost"])
+                for dem in list(ps.get("active_demands", [])):
+                    spec = next((d for d in POLE_STUDIO_DEMANDS if d["key"] == dem["key"]), None)
+                    if not spec: continue
+                    dk2 = spec["dancer"]; eff = spec["accept"] if s["cash"] >= spec["accept"].get("cash_cost", 0) else spec["reject"]
+                    _apply_demand_effects(s, ps, eff, dk2)
+                    if eff.get("quit") and ps["dancers"].get(dk2, {}).get("hired"): ps["dancers"][dk2]["hired"] = False
+                    ps.setdefault("fulfilled_demands", []).append(dem["key"])
+                ps["active_demands"] = []
+                _assigned = {sl.get("instructor") for sl in ps["slots"][:slot_cap] if sl.get("instructor")}
+                for sl in ps["slots"][:slot_cap]:
+                    if not sl.get("instructor"):
+                        cand = next((k for k, dd in dancers.items() if dd.get("hired") and k not in _assigned), None)
+                        if cand:
+                            sl["instructor"] = cand; sl["type"] = POLE_STUDIO_SPECIALTY_CLASS.get(cand, sl.get("type", "open")); _assigned.add(cand)
+                # Keep the Kombucha Bar stocked (only worthwhile with a bartender on).
+                if facs.get("kombucha_bar") and staff.get("bartender"):
+                    kb = ps.setdefault("kombucha", {})
+                    _types = [k for k in COSTPRO_ITEMS if COSTPRO_ITEMS[k].get("category") == "studio_bar" and kb.get(k, 0) > 0] or ["kb_ginger"]
+                    for _kk in _types:
+                        if kb.get(_kk, 0) < 7:   # ~7-day buffer per stocked drink
+                            _kitem = COSTPRO_ITEMS.get(_kk)
+                            if _kitem and s["cash"] >= _kitem["price"]:
+                                s["cash"] -= _kitem["price"]; _tax_deduct(s, _kitem["price"])
+                                kb[_kk] = kb.get(_kk, 0) + 10
 
-            # Demand countdown and auto-expiry
+            # ── Dancer demands: countdown/expiry + spawn ──
             new_demands = []
             for dem in ps.get("active_demands", []):
                 dem["days_left"] = dem.get("days_left", 5) - 1
                 if dem["days_left"] > 0:
                     new_demands.append(dem)
                 else:
-                    # Demand expired — apply reject effects and mark dancer unhappy
                     spec = next((d for d in POLE_STUDIO_DEMANDS if d["key"] == dem["key"]), None)
                     if spec:
-                        dk = spec["dancer"]
-                        _apply_demand_effects(s, ps, spec["reject"], dk)
+                        dk = spec["dancer"]; _apply_demand_effects(s, ps, spec["reject"], dk)
                         if spec["reject"].get("quit") and ps["dancers"].get(dk, {}).get("hired"):
                             ps["dancers"][dk]["hired"] = False
-                            events.append({"prop": "Brass Pole Fitness Studio",
-                                           "text": f"{POLE_STUDIO_DANCERS[dk]['name']} quit. The demand expired.",
-                                           "type": "negative", "category": "business"})
-                    events.append({"prop": "Brass Pole Fitness Studio",
-                                   "text": f"A dancer demand expired unresolved.",
-                                   "type": "warning", "category": "business"})
+                            events.append({"prop": "Brass Pole Fitness Studio", "text": f"{POLE_STUDIO_DANCERS[dk]['name']} quit. The demand expired.", "type": "negative", "category": "business"})
+                    events.append({"prop": "Brass Pole Fitness Studio", "text": "A dancer demand expired unresolved.", "type": "warning", "category": "business"})
             ps["active_demands"] = new_demands
-
-            # Possibly spawn a new demand (6% chance per day, one at a time)
             if len(ps["active_demands"]) < 2 and random.random() < 0.06:
-                hired_keys = [k for k, dd in ps["dancers"].items() if dd.get("hired")]
+                hired_keys = [k for k, dd in dancers.items() if dd.get("hired")]
                 if hired_keys:
                     dk = random.choice(hired_keys)
-                    eligible = [d for d in POLE_STUDIO_DEMANDS
-                                if d["dancer"] == dk
-                                and d["key"] not in [ad["key"] for ad in ps["active_demands"]]
-                                and d["key"] not in ps.get("fulfilled_demands", [])]
+                    eligible = [d for d in POLE_STUDIO_DEMANDS if d["dancer"] == dk and d["key"] not in [ad["key"] for ad in ps["active_demands"]] and d["key"] not in ps.get("fulfilled_demands", [])]
                     if eligible:
                         spec = random.choice(eligible)
-                        ps["active_demands"].append({
-                            "key": spec["key"],
-                            "dancer": dk,
-                            "days_left": spec["deadline"],
-                        })
-                        events.append({"prop": "Brass Pole Fitness Studio",
-                                       "text": f"{POLE_STUDIO_DANCERS[dk]['name']} has a new demand.",
-                                       "type": "warning", "category": "business"})
+                        ps["active_demands"].append({"key": spec["key"], "dancer": dk, "days_left": spec["deadline"]})
+                        events.append({"prop": "Brass Pole Fitness Studio", "text": f"{POLE_STUDIO_DANCERS[dk]['name']} has a new demand.", "type": "warning", "category": "business"})
 
-            # Grip spray required to run
-            if ps.get("grip_spray_days", 0) <= 0:
-                ps["atmosphere"] = max(0, ps.get("atmosphere", 50) - 10)
-                continue
-            ps["grip_spray_days"] -= 1
+            # ── Members + class schedule ──
+            members = ps.get("members", 0); vip = ps.get("vip_members", 0)
+            daily_demand = (members + vip) * STUDIO_AVG_VISITS * (1 + random.uniform(-0.12, 0.12))
+            active_slots = ps["slots"][:slot_cap]
+            for sl in active_slots:
+                ik = sl.get("instructor"); dd = dancers.get(ik) if ik else None
+                ct = POLE_STUDIO_CLASSES.get(sl.get("type"))
+                ok = bool(ct) and dd and dd.get("hired") and _equip_ok(ct["equip"]) and dd.get("energy", 100) >= 12
+                sl["_valid"] = bool(ok)
+            valid = [sl for sl in active_slots if sl.get("_valid")]
+            pop_total = sum(POLE_STUDIO_CLASSES[sl["type"]]["popularity"] for sl in valid) or 1
+            teaching = set()
+            capacity = 0.0; attendance = 0.0; class_income = 0.0; cancelled = 0
+            for sl in active_slots:
+                if not sl.get("_valid"):
+                    if sl.get("instructor"): cancelled += 1
+                    continue
+                ct = POLE_STUDIO_CLASSES[sl["type"]]; ik = sl["instructor"]; dd = dancers[ik]
+                seats = ct["seats"]
+                capacity += seats
+                if sl["type"] == "private":
+                    want = vip * 0.7 * (1 + random.uniform(-0.1, 0.1))
+                else:
+                    want = daily_demand * (ct["popularity"] / pop_total)
+                fill = max(0.0, min(seats, want))
+                attendance += fill
+                fit_m    = POLE_STUDIO_SPECIALTY_FIT if POLE_STUDIO_SPECIALTY_CLASS.get(ik) == sl["type"] else POLE_STUDIO_OFFSPEC_FIT
+                energy_f = 0.6 + dd.get("energy", 100) / 100 * 0.4
+                mood_f   = 1.0 if ik == "gary" else (0.6 + dd.get("mood", 72) / 100 * 0.5)
+                class_income += fill * ct["rev"] * fit_m * energy_f * mood_f
+                teaching.add(ik)
+                dd["energy"] = max(0, dd.get("energy", 100) - STUDIO_INSTR_ENERGY_COST)
+                if ik != "gary": dd["mood"] = max(0, dd.get("mood", 72) - POLE_STUDIO_DANCERS[ik]["mood_decay"])
+            for ik, dd in dancers.items():   # everyone rests overnight; one class/day is sustainable
+                if dd.get("hired"):
+                    dd["energy"] = min(100, dd.get("energy", 100) + STUDIO_INSTR_ENERGY_REGEN)
 
-            # Mood decay per dancer
-            for dk, dd in ps["dancers"].items():
-                if dd.get("hired") and dk != "gary":
-                    dd["mood"] = max(0, dd.get("mood", 72) - POLE_STUDIO_DANCERS[dk]["mood_decay"])
-
-            # Count active working poles with hired dancers
-            working_poles = [
-                pole for i, pole in enumerate(poles)
-                if not pole.get("broken")
-                and list(ps["dancers"].values())[i if i < len(ps["dancers"]) else 0].get("hired", False)
-            ]
-            hired_dancers = [dd for dd in ps["dancers"].values() if dd.get("hired")]
-            active_count  = min(len(working_poles), len(hired_dancers))
-            if active_count == 0:
-                continue
-
-            # Base income per active dancer-pole pair
-            income = 0
-            for i, dd in enumerate([dd for dd in ps["dancers"].values() if dd.get("hired")]):
-                dk_key = [k for k, v in ps["dancers"].items() if v is dd][0]
-                base   = POLE_STUDIO_DANCERS[dk_key]["base_income"]
-                # Mood multiplier: 0.5 at 0% → 1.3 at 100%
-                mood_m = 0.5 + dd.get("mood", 50) / 100 * 0.8
-                # LED halo upgrade on matched pole
-                pole_i = list(ps["dancers"].keys()).index(dk_key)
-                led_m  = 1.2 if (pole_i < len(poles) and poles[pole_i].get("upgrades", {}).get("led_halo")) else 1.0
-                grip_m = 1.1 if (pole_i < len(poles) and poles[pole_i].get("upgrades", {}).get("grip_coating")) else 1.0
-                income += round(base * mood_m * led_m * grip_m)
-
-            # Atmosphere + cleanliness multipliers
-            atm_m = 0.5 + ps.get("atmosphere", 100) / 100 * 0.7
+            # ── Multipliers ──
             cln_m = 0.6 + ps.get("cleanliness", 100) / 100 * 0.5
-            income = round(income * atm_m * cln_m)
+            atm_m = 0.7 + ps.get("atmosphere", 100) / 100 * 0.5
+            rep_m = 0.7 + ps.get("reputation", 0) / 100 * 0.6
+            sat_m = 0.7 + ps.get("satisfaction", 70) / 100 * 0.5
+            class_income *= cln_m * atm_m * rep_m * sat_m
 
-            # Reputation multiplier (0-100 → 0.7x–1.5x)
-            rep_m  = 0.7 + ps.get("reputation", 0) / 100 * 0.8
-            income = round(income * rep_m)
+            # ── Kombucha bar (needs the facility, a bartender, and stock) ──
+            bar_income = 0.0
+            if facs.get("kombucha_bar") and bartender_on:
+                kb = ps.setdefault("kombucha", {})
+                stocked = [k for k in list(kb) if kb.get(k, 0) > 0]
+                if stocked:
+                    avg_inc = sum(COSTPRO_ITEMS[k].get("kb_income", 0.6) for k in stocked if k in COSTPRO_ITEMS) / len(stocked)
+                    bar_income = attendance * avg_inc
+                    for k in stocked: kb[k] -= 1
+                    ps["satisfaction"] = min(100, ps.get("satisfaction", 70) + min(4, len(stocked)))
 
-            # Members multiplier
-            mem_m  = 1.0 + ps.get("members", 0) / 100 * 0.5
-            income = round(income * mem_m)
+            # ── Gratuities (tips), recurring dues, total ──
+            tips = class_income * STUDIO_GRATUITY_RATE * (ps.get("satisfaction", 70) / 100)
+            dues = members * STUDIO_DUES_PER_MEMBER + vip * STUDIO_VIP_DUES
+            income = round(dues + class_income + bar_income + tips)
 
-            # CostPro supply bonuses
-            if ps.get("protein_shake_days", 0) > 0:
-                income = round(income * 1.25)
-                ps["protein_shake_days"] -= 1
-            if ps.get("merch_days", 0) > 0:
-                income = round(income * 1.20)
-                ps["merch_days"] -= 1
-
-            # Random event (5% per day)
-            if random.random() < 0.05:
-                evt    = random.choice(POLE_STUDIO_EVENTS)
-                effect = evt["effect"]
-                val    = evt["value"]
-                if effect == "members":
-                    ps["members"] = max(0, min(100, ps.get("members", 0) + int(val)))
-                elif effect == "reputation":
-                    ps["reputation"] = max(0, min(100, ps.get("reputation", 0) + int(val)))
-                elif effect == "income":
-                    income = max(0, income + int(val))
-                elif effect == "income_mult":
-                    income = max(0, round(income * (1 + val)))
-                elif effect == "atmosphere":
-                    ps["atmosphere"] = max(0, min(100, ps.get("atmosphere", 100) + int(val)))
-                elif effect == "cleanliness":
-                    ps["cleanliness"] = max(0, min(100, ps.get("cleanliness", 100) + int(val)))
-                elif effect == "break_pole":
-                    working_ps = [p for p in poles if not p.get("broken")]
-                    if working_ps:
-                        random.choice(working_ps)["broken"] = True
-                events.append({
-                    "prop":     "Brass Pole Fitness Studio",
-                    "text":     evt["text"],
-                    "type":     evt["type"],
-                    "category": "business",
-                })
-
-            # Reputation and members slow drift
-            if random.random() < 0.30:
-                ps["reputation"] = min(100, ps.get("reputation", 0) + 1)
-            if random.random() < 0.25:
-                ps["members"] = min(100, ps.get("members", 0) + 1)
-            # Small decay when reputation is high (harder to maintain)
-            if ps.get("reputation", 0) > 70 and random.random() < 0.20:
-                ps["reputation"] = max(0, ps["reputation"] - 1)
+            # ── Member dynamics: satisfaction, signups, churn, VIP, reputation ──
+            overbook = daily_demand - capacity
+            ds = 0
+            if capacity <= 0: ds -= 3
+            elif overbook > capacity * 0.15: ds -= 4
+            if ps.get("cleanliness", 100) < 50: ds -= 3
+            if ps.get("atmosphere", 100) < 45:  ds -= 1
+            if facs.get("lobby"): ds += 1
+            if host_on: ds += 2
+            ds -= cancelled
+            if cancelled == 0 and overbook <= 0 and ps.get("cleanliness", 100) >= 55 and ps.get("atmosphere", 100) >= 50:
+                ds += 2   # a clean, well-run, roomy studio earns goodwill
+            ps["satisfaction"] = max(0, min(100, ps.get("satisfaction", 70) + ds))
+            spare   = max(0.0, capacity - daily_demand)
+            signups = (0.6 + ps.get("reputation", 0) / 100 * 2.5) * (0.5 + min(1.0, spare / 8) * 0.7)
+            signups += ps.pop("marketing_boost", 0)
+            churn_rate = 0.008
+            if ps.get("satisfaction", 70) < 40: churn_rate += 0.03
+            if overbook > capacity * 0.15:       churn_rate += 0.025
+            if ps.get("cleanliness", 100) < 40:  churn_rate += 0.015
+            if host_on: churn_rate *= 0.6
+            members = max(0.0, members + signups - members * churn_rate)
+            ps["members"] = members
+            if facs.get("vip_suite") and any(sl.get("type") == "private" and sl.get("_valid") for sl in active_slots):
+                ps["vip_members"] = vip + max(0.0, (members * 0.03 - vip) * 0.1) + 0.2
+            else:
+                ps["vip_members"] = max(0.0, vip * 0.97)
+            tgt = ps.get("satisfaction", 70)
+            if ps.get("reputation", 0) < tgt and random.random() < 0.5:   ps["reputation"] = min(100, ps.get("reputation", 0) + 1)
+            elif ps.get("reputation", 0) > tgt and random.random() < 0.3: ps["reputation"] = max(0, ps.get("reputation", 0) - 1)
 
             s["cash"]          += income
             ps["total_earned"]  = ps.get("total_earned", 0) + income
             _biz_income(s, "pole_studio", income)
 
+        if random.random() < POLE_STUDIO_EVENT_CHANCE:
+            _qpe = _pole_queue_event(s)
+            if _qpe: new_pole_events.append(_qpe)
         s["pole_studio"] = ps
 
     # ── Slippery When Washed advance ──────────────────────────────────────────
@@ -7152,8 +7436,25 @@ def api_advance():
         staff     = cw.setdefault("staff", {k: False for k in CAR_WASH_STAFF})
         g_upgs    = cw.setdefault("global_upgrades", {})
         sup       = cw.setdefault("supplies", {})
+        cw.setdefault("members", 0)
 
         for _day in range(days):
+            _cur = s["day"] + _day + 1
+            # Weather drives the day's demand; carry a 1-day forecast for the UI.
+            cw["weather"]  = cw.get("forecast") or _roll_car_wash_weather(_season_info(_cur)[0])
+            cw["forecast"] = _roll_car_wash_weather(_season_info(_cur + 1)[0])
+            wx = CAR_WASH_WEATHER[cw["weather"]]
+
+            # Supply Manager (Carlos) auto-orders soap & wax to a buffer.
+            if staff.get("carlos"):
+                for _key, _buf, _price, _days, _needarch in [
+                        ("cw_basic_soap", 12, 350, 7, False), ("cw_standard_soap", 10, 500, 10, False),
+                        ("cw_premium_wax", 8, 700, 8, True)]:
+                    if _needarch and not g_upgs.get("dryer_arch"):
+                        continue
+                    if sup.get(_key, 0) < _buf and s["cash"] >= _price:
+                        s["cash"] -= _price; _tax_deduct(s, _price); sup[_key] = sup.get(_key, 0) + _days
+
             # Insurance weekly charge
             if cw.get("insurance"):
                 cw["insurance_days"] = cw.get("insurance_days", 7) - 1
@@ -7192,115 +7493,85 @@ def api_advance():
                     s["cash"] = max(0, s["cash"] - CAR_WASH_STAFF[role]["cost"])
                     _tax_deduct(s, CAR_WASH_STAFF[role]["cost"])
 
-            # No basic soap = no income
+            # No basic soap = closed (regulars drift off)
             if sup.get("cw_basic_soap", 0) <= 0:
                 cw["regulars"] = max(0, cw.get("regulars", 0) - 3)
                 continue
             sup["cw_basic_soap"] -= 1
 
-            # Determine active package
-            pkg_key = _get_car_wash_package(cw)
-            pkg_mult = CAR_WASH_PACKAGES[pkg_key]["mult"]
+            members  = cw.get("members", 0)
+            regulars = cw.get("regulars", 0)
+            has_kiosk = bool(g_upgs.get("membership_kiosk"))
 
-            # Consume package-specific supplies
-            if pkg_key in ("standard", "deluxe", "premium") and sup.get("cw_standard_soap", 0) > 0:
-                sup["cw_standard_soap"] = max(0, sup["cw_standard_soap"] - 1)
-            if pkg_key in ("deluxe", "premium") and sup.get("cw_premium_wax", 0) > 0:
-                sup["cw_premium_wax"] = max(0, sup["cw_premium_wax"] - 1)
+            # ── Demand (weather-driven walk-ins + members) vs. throughput (bays) ──
+            walk_in = (CAR_WASH_BASE_DEMAND + regulars * 0.6) * wx["demand"] * (1 + random.uniform(-0.1, 0.1))
+            member_visits = (members * CAR_WASH_MEMBER_VISITS) if has_kiosk else 0
+            demand = walk_in + member_visits
 
-            # Income per working bay
             working_bays = [b for b in bays if not b.get("broken")]
-            income = 0
+            cap = 0.0
             for bay in working_bays:
-                upgs    = bay.get("upgrades", {})
-                base    = CAR_WASH_BASE_INCOME
-                bay_m   = 1.0
-                if upgs.get("nozzles"):  bay_m *= 1.25
-                if upgs.get("foam"):     bay_m *= 1.20
-                if upgs.get("led_sign"): bay_m *= 1.15
-                if upgs.get("conveyor"): bay_m *= 1.30
-                # Condition penalty: 0.6 at 0% → 1.0 at 100%
-                cond_m  = 0.6 + bay.get("condition", 100) / 100 * 0.4
-                income += round(base * bay_m * cond_m)
+                u = bay.get("upgrades", {})
+                speed = 1.0 + (0.5 if u.get("conveyor") else 0) + (0.15 if u.get("nozzles") else 0)
+                cap += CAR_WASH_BAY_CAPACITY * speed
+            if staff.get("brianna"): cap *= 1.2          # flow optimization
+            if staff.get("squeegee_kid") and random.random() >= 0.65 \
+               and not any(b.get("upgrades", {}).get("conveyor") for b in working_bays):
+                cap *= 0.85                              # the Kid no-showed
+            cap *= 0.5 + cw.get("water_pressure", 100) / 100 * 0.5   # low water = slower
 
-            # Global multipliers
-            income = round(income * pkg_mult)
+            cars       = min(demand, cap)
+            turn_aways = max(0, demand - cap)
 
-            # Brianna output boost
-            if staff.get("brianna"): income = round(income * 1.20)
-
-            # Squeegee Kid: 35% chance of not showing up when hired
-            if staff.get("squeegee_kid"):
-                showed_up = random.random() < 0.65
-                if not showed_up:
-                    # no-show penalty only if no conveyor belt on any bay
-                    has_conveyor = any(b.get("upgrades", {}).get("conveyor") for b in working_bays)
-                    if not has_conveyor:
-                        income = round(income * 0.85)
-
-            # Dave vacuum bonus
-            if staff.get("dave"): income = round(income * 1.12)
-
-            # Water pressure multiplier: 0.5 at 0% → 1.0 at 100%
-            water_m = 0.5 + cw.get("water_pressure", 100) / 100 * 0.5
-            income  = round(income * water_m)
-
-            # Morale multiplier: 0.6 at 0% → 1.1 at 100%
-            morale_m = 0.6 + cw.get("morale", 80) / 100 * 0.5
-            income   = round(income * morale_m)
-
-            # Supply bonuses
+            # ── Revenue: cars × avg price from the package mix, then quality mults ──
+            avg_price = _car_wash_avg_price(cw)
+            income = cars * avg_price
+            # consume one unit of each offered upper-tier supply per operating day
+            if sup.get("cw_standard_soap", 0) > 0: sup["cw_standard_soap"] -= 1
+            if sup.get("cw_premium_wax", 0) > 0 and g_upgs.get("dryer_arch"): sup["cw_premium_wax"] -= 1
+            avg_cond = (sum(b.get("condition", 100) for b in working_bays) / len(working_bays)) if working_bays else 0
+            income *= 0.6 + avg_cond / 100 * 0.4                       # equipment condition
+            income *= 0.6 + cw.get("morale", 80) / 100 * 0.5          # crew morale
+            if staff.get("dave"): income *= 1.12                      # Dave's vacuums
             if sup.get("cw_tire_shine", 0) > 0:
-                income = round(income * 1.15)
-                sup["cw_tire_shine"] = max(0, sup["cw_tire_shine"] - 1)
+                income *= 1.15; sup["cw_tire_shine"] = max(0, sup["cw_tire_shine"] - 1)
             if sup.get("cw_air_freshener", 0) > 0:
                 cw["regulars"] = min(100, cw.get("regulars", 0) + 0.1)
+            income *= 0.7 + cw.get("reputation", 0) / 100 * 0.8       # reputation
+            income = round(income)
+            if has_kiosk:
+                income += round(members * CAR_WASH_MEMBER_DUES)       # recurring dues
 
-            # Reputation + regulars multipliers
-            rep_m = 0.7 + cw.get("reputation", 0) / 100 * 0.8
-            reg_m = 1.0 + cw.get("regulars",   0) / 100 * 0.5
-            income = round(income * rep_m * reg_m)
+            # ── Turn-aways hurt: long lines bleed regulars & reputation ──
+            if cap > 0 and turn_aways > cap * 0.15:
+                cw["regulars"] = max(0, cw.get("regulars", 0) - 1)
+                if random.random() < 0.3:
+                    cw["reputation"] = max(0, cw.get("reputation", 0) - 1)
 
-            # Random event 5% per day
-            if random.random() < 0.05:
-                evt    = random.choice(CAR_WASH_EVENTS)
-                effect = evt["effect"]
-                val    = evt["value"]
-                if effect == "income":
-                    income = max(0, income + int(val))
-                elif effect == "reputation":
-                    cw["reputation"] = max(0, min(100, cw.get("reputation", 0) + int(val)))
-                elif effect == "regulars":
-                    cw["regulars"] = max(0, min(100, cw.get("regulars", 0) + int(val)))
-                elif effect == "morale":
-                    cw["morale"] = max(0, min(100, cw.get("morale", 80) + int(val)))
-                elif effect == "water":
-                    cw["water_pressure"] = max(0, min(100, cw.get("water_pressure", 100) + int(val)))
-                elif effect == "equip":
-                    for b in bays:
-                        b["condition"] = max(0, b.get("condition", 100) + int(val))
-                elif effect == "equip_all":
-                    for b in bays:
-                        b["condition"] = max(0, b.get("condition", 100) + int(val))
-                elif effect == "break_bay":
-                    working = [b for b in bays if not b.get("broken")]
-                    if working:
-                        random.choice(working)["broken"] = True
-                events.append({"prop": "Slippery When Washed", "text": evt["text"],
-                                "type": evt["type"], "category": "business"})
+            # ── Membership growth/churn (Wash Club) ──
+            if has_kiosk:
+                grow  = (cw.get("reputation", 0) / 100) * 1.6 * (1.0 if turn_aways < cap * 0.15 else 0.3)
+                churn = members * (0.01 + (0.03 if (cap > 0 and turn_aways > cap * 0.15) else 0))
+                cw["members"] = max(0, members + grow - churn)
 
-            # Regulars slow build
-            if random.random() < 0.35:
+            # ── Regulars slow build + reputation drift ──
+            if turn_aways < cap * 0.1 and random.random() < 0.35:
                 cw["regulars"] = min(100, cw.get("regulars", 0) + 2)
             if random.random() < 0.25 and g_upgs.get("loyalty_machine"):
                 cw["regulars"] = min(100, cw.get("regulars", 0) + 2)
             if cw.get("reputation", 0) > 60 and random.random() < 0.15:
                 cw["reputation"] = max(0, cw["reputation"] - 1)
 
+            cw["last_cars"] = round(cars); cw["last_turnaways"] = round(turn_aways)   # for the UI
             s["cash"]         += income
             cw["total_earned"] = cw.get("total_earned", 0) + income
             _biz_income(s, "car_wash", income)
 
+        # One car-wash choice-card event may fire per advance, at a low chance.
+        if random.random() < CAR_WASH_EVENT_CHANCE:
+            _qcw = _car_wash_queue_event(s)
+            if _qcw:
+                new_car_wash_events.append(_qcw)
         s["car_wash"] = cw
 
     # Build rent summary events
@@ -7454,6 +7725,8 @@ def api_advance():
         "storylet_events":    new_storylet_events,
         "vending_events":     new_vending_events,
         "arcade_events":      new_arcade_events,
+        "pole_events":        new_pole_events,
+        "car_wash_events":    new_car_wash_events,
         "renewal_offers":     new_renewal_offers,
         "commercial_events":  new_commercial_events,
         "tax_event":          tax_event,
@@ -8378,19 +8651,16 @@ def api_costpro_buy():
         elif key == "sheets":
             lm["sheets_days"] = lm.get("sheets_days", 0) + 10 * qty
         s["laundromat"] = lm
-    elif item.get("category") == "pole_studio":
+    elif item.get("category") == "studio_bar":
         ps = s.get("pole_studio")
         if not ps:
             s["cash"] += total
-            return jsonify({"error": "You don't own the Brass Pole Fitness Studio yet!"}), 400
-        has_grip_coat = any(p.get("upgrades", {}).get("grip_coating") for p in ps.get("poles", []))
-        if key == "grip_spray":
-            days_per_case = 10 if has_grip_coat else 7
-            ps["grip_spray_days"] = ps.get("grip_spray_days", 0) + days_per_case * qty
-        elif key == "protein_shakes":
-            ps["protein_shake_days"] = ps.get("protein_shake_days", 0) + 10 * qty
-        elif key == "branded_merch":
-            ps["merch_days"] = ps.get("merch_days", 0) + 10 * qty
+            return jsonify({"error": "You don't own the studio yet!"}), 400
+        if not ps.get("facilities", {}).get("kombucha_bar"):
+            s["cash"] += total
+            return jsonify({"error": "Install the Kombucha Bar first (Facilities)."}), 400
+        kb = ps.setdefault("kombucha", {})
+        kb[key] = kb.get(key, 0) + 10 * qty   # 10 days per keg
         s["pole_studio"] = ps
     elif item.get("category") == "car_wash":
         cw = s.get("car_wash")
@@ -8861,43 +9131,159 @@ def api_pole_studio_buy():
     if s["cash"] < POLE_STUDIO_PRICE:
         return jsonify({"error": "Not enough cash"}), 400
     s["cash"] -= POLE_STUDIO_PRICE
+    # Starts with a small member base and 2 class slots; buy more slots & hire instructors.
     s["pole_studio"] = {
-        "owned": True, "pole_count": POLE_STUDIO_START_POLES,
-        "poles": [{"id": i, "upgrades": {}, "broken": False}
-                  for i in range(POLE_STUDIO_START_POLES)],
+        "owned": True, "slot_count": STUDIO_START_SLOTS,
         "dancers": {k: _pole_studio_dancer_state(k) for k in POLE_STUDIO_DANCERS},
-        "staff": {"vibe_manager": False, "studio_cleaner": False},
-        "atmosphere": 80, "cleanliness": 90, "reputation": 10, "members": 0,
-        "grip_spray_days": 0, "protein_shake_days": 0, "merch_days": 0,
+        "staff": {}, "facilities": {}, "kombucha": {},
+        "atmosphere": 80, "cleanliness": 90, "reputation": 15,
+        "members": 18, "vip_members": 0, "satisfaction": 72,
+        "slots": [{"type": "intro", "instructor": None}, {"type": "levels", "instructor": None}],
         "insurance": False, "insurance_days": 7,
         "active_demands": [], "fulfilled_demands": [], "total_earned": 0,
     }
     s["log"].insert(0, {"day": s["day"], "type": "positive",
-        "text": "Brass Pole Fitness Studio acquired. The poles are chrome. The vibe is immaculate."})
+        "text": "Brass Pole Fitness Studio acquired. Totally a legit fitness studio. The vibe is immaculate."})
     save(s)
     return jsonify({"success": True})
 
-@app.route('/api/pole_studio/buy_pole', methods=['POST'])
-def api_pole_studio_buy_pole():
+@app.route('/api/pole_studio/set_slot', methods=['POST'])
+def api_pole_studio_set_slot():
+    s    = load()
+    ps   = s.get("pole_studio")
+    data = request.get_json(silent=True) or {}
+    if not (ps and ps.get("owned")):
+        return jsonify({"error": "No studio"}), 400
+    idx  = int(data.get("slot_idx", -1))
+    ct   = data.get("class_type")
+    ik   = data.get("instructor")   # may be None to clear
+    slots = ps.setdefault("slots", [])
+    if idx < 0 or idx >= len(slots):
+        return jsonify({"error": "Invalid slot"}), 400
+    if ct is not None:
+        if ct not in POLE_STUDIO_CLASSES:
+            return jsonify({"error": "Unknown class type"}), 400
+        slots[idx]["type"] = ct
+    if "instructor" in data:
+        if ik and ik not in ps.get("dancers", {}):
+            return jsonify({"error": "Unknown instructor"}), 400
+        slots[idx]["instructor"] = ik or None
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/pole_studio/buy_facility', methods=['POST'])
+def api_pole_studio_buy_facility():
+    s    = load()
+    ps   = s.get("pole_studio")
+    data = request.get_json(silent=True) or {}
+    if not (ps and ps.get("owned")):
+        return jsonify({"error": "No studio"}), 400
+    key = data.get("key")
+    f   = POLE_STUDIO_FACILITIES.get(key)
+    if not f:
+        return jsonify({"error": "Unknown facility"}), 400
+    facs = ps.setdefault("facilities", {})
+    if facs.get(key):
+        return jsonify({"error": "Already installed"}), 400
+    if s["cash"] < f["cost"]:
+        return jsonify({"error": f"Need ${f['cost']:,}"}), 400
+    s["cash"] -= f["cost"]
+    _tax_deduct(s, f["cost"])
+    facs[key] = True
+    if f.get("slots"):   # a pole rack also adds a configurable slot
+        ps.setdefault("slots", []).append({"type": "intro", "instructor": None})
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"Installed {f['name']} at the studio (${f['cost']:,})."})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/pole_studio/hype', methods=['POST'])
+def api_pole_studio_hype():
+    s  = load()
+    ps = s.get("pole_studio")
+    if not (ps and ps.get("owned")):
+        return jsonify({"error": "No studio"}), 400
+    if ps.get("atmosphere", 0) >= 99:
+        return jsonify({"error": "The vibe is already immaculate."}), 400
+    if s.get("energy", 0) < 3:
+        return jsonify({"error": "Not enough energy — need 3 ⚡ (or hire a Vibe Manager)"}), 400
+    if s["cash"] < 120:
+        return jsonify({"error": "Need $120"}), 400
+    s["energy"] -= 3
+    s["cash"]   -= 120
+    _tax_deduct(s, 120)
+    ps["atmosphere"] = min(100, ps.get("atmosphere", 0) + 30)
+    s["log"].insert(0, {"day": s["day"], "type": "info",
+        "text": "Freshened the vibe — new playlist, dimmed the lights. Atmosphere up."})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/pole_studio/marketing', methods=['POST'])
+def api_pole_studio_marketing():
+    s  = load()
+    ps = s.get("pole_studio")
+    if not (ps and ps.get("owned")):
+        return jsonify({"error": "No studio"}), 400
+    if s["cash"] < STUDIO_MARKETING_COST:
+        return jsonify({"error": f"Need ${STUDIO_MARKETING_COST:,}"}), 400
+    s["cash"] -= STUDIO_MARKETING_COST
+    _tax_deduct(s, STUDIO_MARKETING_COST)
+    ps["reputation"]      = min(100, ps.get("reputation", 0) + STUDIO_MARKETING_REP)
+    ps["members"]         = ps.get("members", 0) + 5                       # immediate signups
+    ps["marketing_boost"] = ps.get("marketing_boost", 0) + 5              # lingering buzz next advance
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"Ran a marketing push (${STUDIO_MARKETING_COST:,}) — reputation +{STUDIO_MARKETING_REP}, new faces in the door."})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/pole_studio/theme_night', methods=['POST'])
+def api_pole_studio_theme_night():
+    s  = load()
+    ps = s.get("pole_studio")
+    if not (ps and ps.get("owned")):
+        return jsonify({"error": "No studio"}), 400
+    if not ps.get("facilities", {}).get("stage"):
+        return jsonify({"error": "Build the Performance Stage first."}), 400
+    if s["day"] < ps.get("theme_until", 0):
+        return jsonify({"error": f"The stage needs {ps['theme_until'] - s['day']} more day(s) to reset."}), 400
+    if s["cash"] < STUDIO_THEME_COST:
+        return jsonify({"error": f"Need ${STUDIO_THEME_COST:,}"}), 400
+    if s.get("energy", 0) < 4:
+        return jsonify({"error": "Not enough energy — need 4 ⚡"}), 400
+    s["energy"] -= 4
+    s["cash"]   -= STUDIO_THEME_COST
+    _tax_deduct(s, STUDIO_THEME_COST)
+    payout = int(round(1500 + ps.get("members", 0) * 22 * (0.6 + ps.get("reputation", 0) / 100 * 0.8)))
+    s["cash"] += payout
+    ps["total_earned"]  = ps.get("total_earned", 0) + payout
+    _biz_income(s, "pole_studio", payout)
+    ps["reputation"]    = min(100, ps.get("reputation", 0) + 6)
+    ps["members"]       = ps.get("members", 0) + 4
+    ps["satisfaction"]  = min(100, ps.get("satisfaction", 70) + 5)
+    ps["theme_until"]   = s["day"] + STUDIO_THEME_COOLDOWN
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"Hosted a Theme Night! Packed house — +${payout:,}, reputation up, new members."})
+    save(s)
+    return jsonify({"success": True, "payout": payout})
+
+@app.route('/api/pole_studio/buy_slot', methods=['POST'])
+def api_pole_studio_buy_slot():
     s  = load()
     ps = s.get("pole_studio")
     if not ps or not ps.get("owned"):
         return jsonify({"error": "No studio"}), 400
-    pc = ps.get("pole_count", POLE_STUDIO_START_POLES)
-    if pc >= POLE_STUDIO_MAX_POLES:
-        return jsonify({"error": "Max poles reached"}), 400
-    dancers     = ps.get("dancers", {})
-    hired_count = sum(1 for dd in dancers.values() if dd.get("hired"))
-    if hired_count < pc:
-        return jsonify({"error": "Hire a dancer for the current pole before building another."}), 400
-    price = POLE_STUDIO_POLE_PRICES[pc]
+    sc = ps.get("slot_count", STUDIO_START_SLOTS)
+    if sc >= STUDIO_MAX_SLOTS:
+        return jsonify({"error": f"Already at the max of {STUDIO_MAX_SLOTS} class slots."}), 400
+    price = STUDIO_SLOT_PRICES[sc - STUDIO_START_SLOTS] if (sc - STUDIO_START_SLOTS) < len(STUDIO_SLOT_PRICES) else STUDIO_SLOT_PRICES[-1]
     if s["cash"] < price:
-        return jsonify({"error": "Not enough cash"}), 400
+        return jsonify({"error": f"Need ${price:,}"}), 400
     s["cash"] -= price
-    ps["pole_count"] = pc + 1
-    ps.setdefault("poles", []).append({"id": pc, "upgrades": {}, "broken": False})
-    s["log"].insert(0, {"day": s["day"], "type": "neutral",
-        "text": f"New pole installed (#{pc + 1}). Ready for a dancer."})
+    _tax_deduct(s, price)
+    ps["slot_count"] = sc + 1
+    ps.setdefault("slots", []).append({"type": "intro", "instructor": None})
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"Added a class slot (now {sc + 1}). Schedule another class!"})
     save(s)
     return jsonify({"success": True})
 
@@ -8914,9 +9300,6 @@ def api_pole_studio_hire_dancer():
     dancers = ps.setdefault("dancers", {k: _pole_studio_dancer_state(k) for k in POLE_STUDIO_DANCERS})
     if dancers[dk].get("hired"):
         return jsonify({"error": "Already hired"}), 400
-    hired_count = sum(1 for dd in dancers.values() if dd.get("hired"))
-    if hired_count >= ps.get("pole_count", POLE_STUDIO_START_POLES):
-        return jsonify({"error": "Build another pole first"}), 400
     dancers[dk]["hired"] = True
     dancers[dk]["mood"]  = POLE_STUDIO_DANCERS[dk]["mood_start"]
     s["log"].insert(0, {"day": s["day"], "type": "positive",
@@ -9010,6 +9393,42 @@ def api_pole_studio_team_coffee():
         "text": f"Team coffee! {boosted} dancer(s) felt the appreciation."})
     save(s)
     return jsonify({"success": True})
+
+@app.route('/api/pole_studio/set_class', methods=['POST'])
+def api_pole_studio_set_class():
+    s    = load()
+    ps   = s.get("pole_studio")
+    data = request.get_json(silent=True) or {}
+    if not ps or not ps.get("owned"):
+        return jsonify({"error": "No studio"}), 400
+    dk = data.get("dancer_key"); ck = data.get("class_key")
+    if dk not in ps.get("dancers", {}) or ck not in POLE_STUDIO_CLASSES:
+        return jsonify({"error": "Invalid class assignment"}), 400
+    ps["dancers"][dk]["class"] = ck
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/pole_studio/event_resolve', methods=['POST'])
+def api_pole_studio_event_resolve():
+    s    = load()
+    ps   = s.get("pole_studio")
+    if not (ps and ps.get("owned")):
+        return jsonify({"error": "No studio"}), 400
+    data = request.json or {}
+    ev = next((e for e in POLE_STUDIO_EVENT_CARDS if e["key"] == data.get("event_key")), None)
+    if not ev:
+        return jsonify({"error": "Unknown event"}), 400
+    idx = int(data.get("choice_idx", -1))
+    if idx < 0 or idx >= len(ev["choices"]):
+        return jsonify({"error": "Invalid choice"}), 400
+    choice = ev["choices"][idx]
+    if choice.get("cost", 0) > s["cash"]:
+        return jsonify({"error": "Not enough cash for that"}), 400
+    result, bad = _pole_apply_event_choice(s, choice)
+    s["log"].insert(0, {"day": s["day"], "type": "warning" if bad else "info",
+        "text": f"Studio · {ev['title']} — {choice['label']}"})
+    save(s)
+    return jsonify({"success": True, "result": result, "bad": bad, "cash": s["cash"]})
 
 @app.route('/api/pole_studio/resolve_demand', methods=['POST'])
 def api_pole_studio_resolve_demand():
@@ -9155,7 +9574,8 @@ def api_car_wash_buy():
         "global_upgrades": {},
         "supplies": {},
         "water_pressure": 100, "morale": 80,
-        "reputation": 5, "regulars": 0,
+        "reputation": 5, "regulars": 0, "members": 0,
+        "weather": "clear", "forecast": _roll_car_wash_weather(_season_info(s["day"] + 1)[0]),
         "insurance": False, "insurance_days": 7,
         "total_earned": 0,
     }
@@ -9356,6 +9776,28 @@ def api_car_wash_insurance():
         "text": f"Car wash insurance {'activated ($600/week)' if cw['insurance'] else 'cancelled'}."})
     save(s)
     return jsonify({"success": True, "insurance": cw["insurance"]})
+
+@app.route('/api/car_wash/event_resolve', methods=['POST'])
+def api_car_wash_event_resolve():
+    s  = load()
+    cw = s.get("car_wash")
+    if not (cw and cw.get("owned")):
+        return jsonify({"error": "No car wash"}), 400
+    data = request.json or {}
+    ev = next((e for e in CAR_WASH_EVENT_CARDS if e["key"] == data.get("event_key")), None)
+    if not ev:
+        return jsonify({"error": "Unknown event"}), 400
+    idx = int(data.get("choice_idx", -1))
+    if idx < 0 or idx >= len(ev["choices"]):
+        return jsonify({"error": "Invalid choice"}), 400
+    choice = ev["choices"][idx]
+    if choice.get("cost", 0) > s["cash"]:
+        return jsonify({"error": "Not enough cash for that"}), 400
+    result, bad = _car_wash_apply_event_choice(s, choice)
+    s["log"].insert(0, {"day": s["day"], "type": "warning" if bad else "info",
+        "text": f"Car Wash · {ev['title']} — {choice['label']}"})
+    save(s)
+    return jsonify({"success": True, "result": result, "bad": bad, "cash": s["cash"]})
 
 # ── New Builds routes ─────────────────────────────────────────────────────────
 
