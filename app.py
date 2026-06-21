@@ -2412,7 +2412,7 @@ POLE_STUDIO_UPGRADES = {
 POLE_STUDIO_STAFF = {
     "vibe_manager":   {"name": "Vibe Manager",   "icon": "🎶", "cost": 200, "desc": "Auto-maintains atmosphere above 75%."},
     "studio_cleaner": {"name": "Studio Cleaner", "icon": "🧹", "cost": 175, "desc": "Auto-cleans when cleanliness drops below 70%. Shows up early. Asks no questions."},
-    "manager":        {"name": "Studio Manager", "icon": "📋", "cost": 225, "desc": "Auto-handles dancer demands, fills empty class slots, AND keeps the Kombucha Bar stocked."},
+    "manager":        {"name": "Studio Manager", "icon": "📋", "cost": 225, "desc": "Auto-handles dancer demands, fills empty class slots, keeps the Kombucha Bar stocked, AND resolves studio events (bookings, inspections, drama) for you."},
     "host":           {"name": "Front Desk Host", "icon": "🛎️", "cost": 160, "desc": "Greets & checks members in — lifts satisfaction and cuts churn."},
     "bartender":      {"name": "Bartender",        "icon": "🍸", "cost": 170, "desc": "Works the Kombucha Bar. Without one, the bar sits dark and earns nothing."},
 }
@@ -2572,6 +2572,25 @@ def _apply_demand_effects(s, ps, effects, dancer_key):
     if effects.get("cleanliness"):
         ps["cleanliness"] = max(0, min(100, ps.get("cleanliness", 0) + effects["cleanliness"]))
 
+def _pole_manager_sweep_demands(s, ps):
+    """Studio Manager auto-resolves every active dancer demand (accepts if affordable, else rejects).
+    Returns the number handled. Called both before and after demand spawning so nothing ever leaks
+    to the player while a manager is on staff."""
+    handled = 0
+    for dem in list(ps.get("active_demands", [])):
+        spec = next((d for d in POLE_STUDIO_DEMANDS if d["key"] == dem["key"]), None)
+        if not spec:
+            continue
+        dk  = spec["dancer"]
+        eff = spec["accept"] if s["cash"] >= spec["accept"].get("cash_cost", 0) else spec["reject"]
+        _apply_demand_effects(s, ps, eff, dk)
+        if eff.get("quit") and ps["dancers"].get(dk, {}).get("hired"):
+            ps["dancers"][dk]["hired"] = False
+        ps.setdefault("fulfilled_demands", []).append(dem["key"])
+        handled += 1
+    ps["active_demands"] = []
+    return handled
+
 # ── Slippery When Washed Car Wash ─────────────────────────────────────────────
 CAR_WASH_PRICE            = 600_000
 CAR_WASH_UNLOCK_LEVEL     = 10
@@ -2641,7 +2660,8 @@ CAR_WASH_STAFF = {
     "manny": {
         "name": "Manny", "icon": "🔧", "cost": 160,
         "desc": "On-site Repairman. Always has the right tool, usually in his back pocket. "
-                "Restores +5 condition/day per bay. Broken bays fix themselves overnight. He hums while he works.",
+                "Restores +5 condition/day per bay, fixes broken bays overnight, AND keeps the water "
+                "pressure pegged near 100 — no more sad trickle. He hums while he works.",
         "effect": "auto_repair",
     },
     "carlos": {
@@ -2649,6 +2669,12 @@ CAR_WASH_STAFF = {
         "desc": "Supply Manager. Knows a guy for everything. Auto-orders soap & wax from CostPro, "
                 "balanced to a buffer — you'll never run dry. Keeps receipts. So many receipts.",
         "effect": "auto_supply",
+    },
+    "diane": {
+        "name": "Diane", "icon": "🗂️", "cost": 240,
+        "desc": "General Manager. Handles every dispute, contract offer, and curveball before it reaches "
+                "you — always picks the sensible option. Keeps a binder. The binder has tabs.",
+        "effect": "auto_events",
     },
 }
 
@@ -3470,7 +3496,7 @@ BUSINESS_EVENTS = {
     ],
 }
 
-COMMERCIAL_EVENT_RATE = 2.6   # global multiplier — "way more events" across the board
+COMMERCIAL_EVENT_RATE = 10.0  # global multiplier — events should be a regular, visible part of play
 
 def _commercial_event_chance(btype_key, btype):
     """Per-tenant seasonal event chance. Flooring Express has no base chance of its own."""
@@ -7758,14 +7784,11 @@ def api_advance():
             # ── Studio Manager: salary + auto-handle demands + auto-fill empty slots ──
             if staff.get("manager"):
                 s["cash"] = max(0, s["cash"] - POLE_STUDIO_STAFF["manager"]["cost"]); _tax_deduct(s, POLE_STUDIO_STAFF["manager"]["cost"])
-                for dem in list(ps.get("active_demands", [])):
-                    spec = next((d for d in POLE_STUDIO_DEMANDS if d["key"] == dem["key"]), None)
-                    if not spec: continue
-                    dk2 = spec["dancer"]; eff = spec["accept"] if s["cash"] >= spec["accept"].get("cash_cost", 0) else spec["reject"]
-                    _apply_demand_effects(s, ps, eff, dk2)
-                    if eff.get("quit") and ps["dancers"].get(dk2, {}).get("hired"): ps["dancers"][dk2]["hired"] = False
-                    ps.setdefault("fulfilled_demands", []).append(dem["key"])
-                ps["active_demands"] = []
+                # Clear any demands carried in before they can count down / expire.
+                _carry = _pole_manager_sweep_demands(s, ps)
+                if _carry:
+                    events.append({"prop": "Brass Pole Fitness Studio", "type": "info", "category": "business",
+                        "text": f"📋 Studio Manager handled {_carry} dancer demand{'s' if _carry > 1 else ''}."})
                 _assigned = {sl.get("instructor") for sl in ps["slots"][:slot_cap] if sl.get("instructor")}
                 for sl in ps["slots"][:slot_cap]:
                     if not sl.get("instructor"):
@@ -7806,7 +7829,15 @@ def api_advance():
                     if eligible:
                         spec = random.choice(eligible)
                         ps["active_demands"].append({"key": spec["key"], "dancer": dk, "days_left": spec["deadline"]})
-                        events.append({"prop": "Brass Pole Fitness Studio", "text": f"{POLE_STUDIO_DANCERS[dk]['name']} has a new demand.", "type": "warning", "category": "business"})
+                        if not staff.get("manager"):   # with a manager it's handled instantly below — no alert
+                            events.append({"prop": "Brass Pole Fitness Studio", "text": f"{POLE_STUDIO_DANCERS[dk]['name']} has a new demand.", "type": "warning", "category": "business"})
+
+            # Studio Manager resolves demands the same day they appear — including any just spawned.
+            if staff.get("manager"):
+                _swept = _pole_manager_sweep_demands(s, ps)
+                if _swept:
+                    events.append({"prop": "Brass Pole Fitness Studio", "type": "info", "category": "business",
+                        "text": f"📋 Studio Manager handled {_swept} dancer demand{'s' if _swept > 1 else ''}."})
 
             # ── Members + class schedule ──
             members = ps.get("members", 0); vip = ps.get("vip_members", 0)
@@ -7904,8 +7935,18 @@ def api_advance():
             _biz_income(s, "pole_studio", income)
 
         if random.random() < POLE_STUDIO_EVENT_CHANCE:
-            _qpe = _pole_queue_event(s)
-            if _qpe: new_pole_events.append(_qpe)
+            if staff.get("manager"):
+                # Studio Manager handles it — picks the sensible (first) option.
+                _pcard   = random.choice(POLE_STUDIO_EVENT_CARDS)
+                _pchoice = _pcard["choices"][0]
+                _pres, _pbad = _pole_apply_event_choice(s, _pchoice)
+                events.append({"prop": "The Studio", "type": "warning" if _pbad else "info",
+                    "category": "pole_studio", "text": f"📋 Studio Manager handled “{_pcard['title']}” — {_pres}"})
+                s["log"].insert(0, {"day": s["day"], "type": "info",
+                    "text": f"Studio Manager resolved: {_pcard['title']}"})
+            else:
+                _qpe = _pole_queue_event(s)
+                if _qpe: new_pole_events.append(_qpe)
         s["pole_studio"] = ps
 
     # ── Slippery When Washed advance ──────────────────────────────────────────
@@ -7945,6 +7986,9 @@ def api_advance():
             # Water pressure decay (slower with industrial tank)
             water_decay = CAR_WASH_WATER_DECAY * (0.4 if g_upgs.get("water_tank") else 1.0)
             cw["water_pressure"] = max(0, cw.get("water_pressure", 100) - water_decay)
+            # Manny keeps the pumps primed — water pressure stays pegged near 100.
+            if staff.get("manny"):
+                cw["water_pressure"] = min(100, cw.get("water_pressure", 100) + 25)
 
             # Equipment decay per bay
             for bay in bays:
@@ -8049,9 +8093,19 @@ def api_advance():
 
         # One car-wash choice-card event may fire per advance, at a low chance.
         if random.random() < CAR_WASH_EVENT_CHANCE:
-            _qcw = _car_wash_queue_event(s)
-            if _qcw:
-                new_car_wash_events.append(_qcw)
+            if staff.get("diane"):
+                # General Manager handles it — picks the sensible (first) option.
+                _card   = random.choice(CAR_WASH_EVENT_CARDS)
+                _choice = _card["choices"][0]
+                _res, _bad = _car_wash_apply_event_choice(s, _choice)
+                events.append({"prop": "Slippery When Washed", "type": "warning" if _bad else "info",
+                    "category": "car_wash", "text": f"🗂️ Diane handled “{_card['title']}” — {_res}"})
+                s["log"].insert(0, {"day": s["day"], "type": "info",
+                    "text": f"Car wash GM resolved: {_card['title']}"})
+            else:
+                _qcw = _car_wash_queue_event(s)
+                if _qcw:
+                    new_car_wash_events.append(_qcw)
         s["car_wash"] = cw
 
     # Build rent summary events

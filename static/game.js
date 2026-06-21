@@ -5371,7 +5371,7 @@ const PS_UPGRADES = {
 const PS_STAFF = {
   vibe_manager:   { name: 'Vibe Manager',   icon: '🎶', cost: 200, desc: 'Keeps the music & lighting going so Atmosphere never tanks (atmosphere boosts class income + satisfaction).' },
   studio_cleaner: { name: 'Studio Cleaner', icon: '🧹', cost: 175, desc: 'Auto-cleans the studio so Cleanliness stays high.' },
-  manager:        { name: 'Studio Manager', icon: '📋', cost: 225, desc: 'Auto-handles demands, fills empty class slots, and restocks the Kombucha Bar — fully hands-off.' },
+  manager:        { name: 'Studio Manager', icon: '📋', cost: 225, desc: 'Auto-handles demands, fills empty class slots, restocks the Kombucha Bar, AND resolves studio events (bookings, inspections, drama) — fully hands-off.' },
   host:           { name: 'Front Desk Host', icon: '🛎️', cost: 160, desc: 'Greets & checks members in — lifts satisfaction and cuts member churn.' },
   bartender:      { name: 'Bartender',       icon: '🍸', cost: 170, desc: 'Works the Kombucha Bar. No bartender = the bar earns nothing.' },
 };
@@ -5990,8 +5990,9 @@ const CW_STAFF = {
   squeegee_kid:  { name: 'The Squeegee Kid', icon: '🪟', cost:  80, desc: 'Name unknown. Shows up 65% of days. On the days he shows up, he is excellent. He has three other jobs. They are all similar.' },
   dave:          { name: 'Dave',              icon: '🌀', cost: 120, desc: 'The Vacuum Guy. Only does vacuums. Refuses any other task. 47 five-star Yelp reviews. Dave does not know what Yelp is.' },
   rhonda:        { name: 'Rhonda',            icon: '✨', cost: 250, desc: 'Detailer. Takes 3 hours per car. They look incredible. Rhonda is very slow. She knows. She is unbothered. Unlocks Premium Full Detail.' },
-  manny:         { name: 'Manny',             icon: '🔧', cost: 160, desc: 'On-site Repairman. Always has the right tool, usually in his back pocket. Restores +5 condition/day per bay. Broken bays fix themselves overnight. He hums while he works.' },
+  manny:         { name: 'Manny',             icon: '🔧', cost: 160, desc: 'On-site Repairman. Always has the right tool, usually in his back pocket. Restores +5 condition/day per bay, fixes broken bays overnight, AND keeps water pressure pegged near 100. He hums while he works.' },
   carlos:        { name: 'Carlos',            icon: '📦', cost: 150, desc: 'Supply Manager. Knows a guy for everything. Auto-orders soap & wax from CostPro to a buffer — you never run dry.' },
+  diane:         { name: 'Diane',             icon: '🗂️', cost: 240, desc: 'General Manager. Handles every dispute, contract offer, and curveball before it reaches you — always picks the sensible option. Keeps a binder. The binder has tabs.' },
 };
 
 const CW_BAY_UPGRADES = {
