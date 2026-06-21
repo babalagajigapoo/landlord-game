@@ -126,6 +126,10 @@ let _pendingSquatter         = null; // squatter event queued after repairs
 let _pendingCommercialEvents = [];   // commercial events (lease renewals, inspections, subletting)
 let _pendingRenewalOffers = [];   // lease renewal offers queued after advancing
 let _pendingStorylets     = [];   // multi-stage tenant situations queued after advancing
+let _pendingVendingEvents = [];   // vending machine choice-card events queued after advancing
+let _currentVendingEvent  = null; // vending event being decided right now
+let _pendingArcadeEvents  = [];   // arcade choice-card events queued after advancing
+let _currentArcadeEvent   = null; // arcade event being decided right now
 let _pendingTaxEvent      = null; // tax-due event queued after advancing
 
 // ── Tenant window cache ───────────────────────────────────────────────────────
@@ -596,7 +600,7 @@ function navTo(page) {
   if (page === 'settings')   renderSettings();
   if (page === 'personal')   renderPersonal();
   if (page === 'business')   renderBusiness();
-  if (page === 'store')      renderStore();
+  if (page === 'store')      { _costproOpen = {}; renderStore(); }
   if (page === 'properties') { renderProperties(); if (_currentPropTab === 'newbuilds') renderNewBuilds(); if (_currentPropTab === 'commercial') renderCommercial(); }
 }
 
@@ -3534,6 +3538,8 @@ const VM_LOCATIONS = {
   northside_center: { name: 'Northside Community Center', profile: { energy:.30, snacks:.30, cold:.20, hot:.10, specialty:.10 } },
   newbay_ferry:     { name: 'Newbay Ferry Terminal',      profile: { cold:.30, snacks:.25, specialty:.20, fresh:.15, hot:.10 } },
   riverside_park:   { name: 'Riverside Park',             profile: { cold:.40, snacks:.30, energy:.15, fresh:.10, specialty:.05 } },
+  laundromat:       { name: 'Your Laundromat',            profile: { snacks:.35, cold:.30, energy:.15, hot:.10, specialty:.10 } },
+  arcade:           { name: 'The Arcade Floor',           profile: { energy:.35, cold:.25, snacks:.25, specialty:.10, hot:.05 } },
 };
 const VM_CAT_COLOR = {
   snacks: '#D98E3C', cold: '#3FA7D6', hot: '#B5651D',
@@ -3554,7 +3560,7 @@ const VM_UPGRADES_META = [
 function vmCapacity(vm) { return (vm.upgrades && vm.upgrades.capacity) ? 90 : 60; }
 function repColor(r) { return r >= 75 ? 'var(--positive)' : r >= 45 ? 'var(--warning)' : 'var(--negative)'; }
 
-let _bizOpen = { vending: true };
+let _bizOpen = {};   // all business windows start closed
 
 function toggleBiz(id) {
   sfx.accordion();
@@ -3572,14 +3578,19 @@ function renderBusiness() {
   const bizDefs = [
     { id: 'vending',      name: 'Vending Machine Entrepreneur', unlockLevel: 3,  icon: 'svg:business-vending', content: renderVendingContent     },
     { id: 'laundromat',   name: 'Dirty Money Laundromat',       unlockLevel: 5,  icon: 'svg:business-laundromat', content: renderLaundromContent    },
+    { id: 'arcade',       name: 'The Back-Room Arcade',         secret: true,    icon: '🕹️',              content: renderArcadeContent, tagline: 'Behind the laundromat' },
     { id: 'pole_studio',  name: 'Brass Pole Fitness Studio',    unlockLevel: 8,  icon: '💃',              content: renderPoleStudioContent  },
     { id: 'car_wash',     name: 'Slippery When Washed',         unlockLevel: 10, icon: '🚗',              content: renderCarWashContent     },
   ];
 
   const cards = bizDefs.map(biz => {
-    const unlocked = level >= biz.unlockLevel;
-    if (!unlocked) {
-      return `
+    // Secret businesses stay completely hidden until unlocked (no locked placeholder).
+    if (biz.secret) {
+      if (!(state.arcade && state.arcade.unlocked)) return '';
+    } else {
+      const unlocked = level >= biz.unlockLevel;
+      if (!unlocked) {
+        return `
         <div style="display:flex;align-items:center;gap:12px;padding:14px;opacity:0.4;background:var(--surface);border:2px solid var(--border);margin-bottom:10px">
           <div style="font-size:18px">🔒</div>
           <div>
@@ -3587,6 +3598,7 @@ function renderBusiness() {
             <div style="font-size:11px;color:var(--text-muted)">Unlocks at Level ${biz.unlockLevel}</div>
           </div>
         </div>`;
+      }
     }
     const isOpen  = !!_bizOpen[biz.id];
     const iconImg = biz.icon
@@ -3604,7 +3616,7 @@ function renderBusiness() {
           ${iconImg}
           <div style="flex:1">
             <div style="font-weight:800;font-size:13px">${biz.name}</div>
-            <div style="font-size:11px;color:${mutedColor}">Level ${biz.unlockLevel} Business</div>
+            <div style="font-size:11px;color:${mutedColor}">${biz.tagline || `Level ${biz.unlockLevel} Business`}</div>
           </div>
           <div style="font-size:11px;color:${mutedColor}">${isOpen ? '▲' : '▼'}</div>
         </div>
@@ -3716,8 +3728,8 @@ function renderVendingContent() {
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:9px">
           <img src="/static/icons/business-vending.svg" width="32" height="32" style="flex-shrink:0;image-rendering:pixelated">
           <div style="flex:1;min-width:0">
-            <div style="font-weight:800;font-size:13px">Vending Machine #${vm.slot}${upIcons ? ` <span style="font-size:11px">${upIcons}</span>` : ''}</div>
-            <div style="font-size:11px;color:var(--text-muted)">📍 ${loc.name}</div>
+            <div style="font-weight:800;font-size:13px">${loc.name}${upIcons ? ` <span style="font-size:11px">${upIcons}</span>` : ''}</div>
+            <div style="font-size:11px;color:var(--text-muted)">📍 Machine #${vm.slot}</div>
           </div>
           <span style="font-size:10px;font-weight:700;color:var(--text-muted);background:var(--surface,var(--card-bg));border:1px solid var(--border);border-radius:10px;padding:2px 9px;white-space:nowrap">${stockedCount}/6 slots</span>
         </div>
@@ -3740,12 +3752,13 @@ function renderVendingContent() {
       </div>`;
   }).join('');
 
-  const nextSlot  = vms.length + 1;
+  const marketCount = vms.filter(v => VM_LOCATION_ORDER.includes(v.location_key)).length;
+  const nextSlot  = marketCount + 1;
   const buyBtn    = nextSlot <= 6
     ? `<button class="btn btn-primary btn-full" style="margin-top:14px" onclick="showBuyVendingModal()">
          Buy Vending Machine #${nextSlot} — ${fmt(VM_PRICES[nextSlot - 1])}
        </button>`
-    : `<div style="text-align:center;font-size:12px;color:var(--text-muted);margin-top:12px;opacity:0.6">All 6 machine slots owned!</div>`;
+    : `<div style="text-align:center;font-size:12px;color:var(--text-muted);margin-top:12px;opacity:0.6">All 6 market machines owned!</div>`;
 
   const vinnyCard = vms.length > 0 ? `
     <div style="display:flex;align-items:flex-start;gap:12px;padding:12px;border:1px solid var(--border);margin-top:14px">
@@ -3790,8 +3803,26 @@ function renderVendingContent() {
 }
 
 // ── Dirty Money Laundromat ────────────────────────────────────────────────────
-const LAUNDROMAT_MAX_MACHINES    = 12;
-const LAUNDROMAT_MACHINE_PRICES  = [15_000, 20_000, 25_000, 30_000, 35_000, 40_000, 45_000, 50_000, 55_000]; // machines 4–12
+const LAUNDROMAT_MAX_MACHINES    = 16;
+const LAUNDROMAT_MACHINE_STEP    = 2500;   // price escalation per machine past the starters
+const LAUNDROMAT_MACHINE_TYPES = {
+  washer: { name: 'Washer', icon: '🌀', wash: 12, dry: 0,  price: 15000 },
+  dryer:  { name: 'Dryer',  icon: '💨', wash: 0,  dry: 12, price: 15000 },
+  combo:  { name: 'Combo Unit', icon: '🔄', wash: 16, dry: 16, price: 40000 },
+};
+const LM_BASE_DEMAND = 16, LM_DEM_REG = 0.40, LM_DEM_MEM = 0.50;
+const LAUNDROMAT_ADDONS_META = [
+  { key: 'vending',   name: 'In-House Vending',    icon: '🥤', cost: 4000, desc: 'Adds a 7th vending machine you stock from the Vending tab.' },
+  { key: 'arcade',    name: 'Back-Room Arcade',    icon: '🕹️', cost: 20000, desc: 'Open the back room to the public — unlocks a whole new Arcade business.' },
+  { key: 'atm',       name: 'ATM',                 icon: '🏧', cost: 3500, desc: 'Fee income that scales with traffic.' },
+  { key: 'detergent', name: 'Detergent Vending',   icon: '🧴', cost: 3000, desc: '+$50/day selling supplies on-site.' },
+  { key: 'wash_fold', name: 'Wash & Fold Service', icon: '🧺', cost: 6500, desc: 'Monetizes spare machine capacity.' },
+  { key: 'loyalty',   name: 'Loyalty Program',     icon: '💳', cost: 4500, desc: 'Turns regulars into paying members.' },
+];
+function lmCapacity(machines, stage) {
+  return (machines || []).filter(m => m.status === 'working').reduce((a, m) =>
+    a + (LAUNDROMAT_MACHINE_TYPES[m.type || 'combo']?.[stage] || 0) * (m.upgrades?.card_reader ? 1.2 : 1), 0);
+}
 
 const LAUNDROMAT_UPGRADES_META = [
   { key: 'heavy_duty',       name: 'Heavy-Duty Motor',  icon: '⚙️',  cost: 2000, desc: 'Breakdown chance 6% → 2%.' },
@@ -3802,68 +3833,81 @@ const LAUNDROMAT_UPGRADES_META = [
 const LAUNDROMAT_STAFF_META = {
   janitor:   { name: 'Janitor',   icon: '🧹', cost: 175, desc: 'Auto-cleans when cleanliness drops below 75%.' },
   repairman: { name: 'Repairman', icon: '🔧', cost: 225, desc: 'Auto-fixes broken machines every day.' },
+  manager:   { name: 'Supply Manager', icon: '📦', cost: 200, desc: 'Auto-orders soap, softener & dryer sheets — keeps you stocked to a buffer.' },
 };
+const LAUNDROMAT_START_MACHINES = 4;
 
-function laundryMachineIcon(isBroken, isRunning, id) {
-  const clipId   = `lm-clip-${id}`;
-  const ledColor = isBroken ? '#F44336' : isRunning ? '#4CAF50' : '#607D8B';
-  if (isBroken) {
-    return `<svg viewBox="0 0 20 26" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" width="38" height="50" style="display:block;margin:0 auto">
-      <rect x="0" y="0" width="20" height="5" fill="#607D8B"/>
-      <circle cx="2.5" cy="2.5" r="1.2" fill="#F44336"/>
-      <rect x="5" y="1.5" width="1.5" height="2" fill="#455A64"/>
-      <rect x="7.5" y="1.5" width="1.5" height="2" fill="#455A64"/>
-      <rect x="10" y="1.5" width="1.5" height="2" fill="#455A64"/>
-      <circle cx="15" cy="2.5" r="1.8" fill="#455A64"/>
-      <rect x="14.6" y="0.8" width="0.8" height="1" fill="#B0BEC5"/>
-      <rect x="0" y="5" width="20" height="16" fill="#FAFAFA"/>
-      <rect x="0" y="5" width="1" height="16" fill="#CFD8DC"/>
-      <rect x="19" y="5" width="1" height="16" fill="#CFD8DC"/>
-      <circle cx="10" cy="12" r="6.5" fill="#546E7A"/>
-      <circle cx="10" cy="12" r="5.5" fill="#1A1A1A"/>
-      <circle cx="10" cy="12" r="3.5" fill="none" stroke="#292929" stroke-width="0.8"/>
-      <circle cx="10" cy="12" r="1.3" fill="#111"/>
-      <rect x="3.5" y="17.5" width="1.2" height="1.5" fill="#37474F"/>
-      <rect x="15.3" y="17.5" width="1.2" height="1.5" fill="#37474F"/>
-      <ellipse cx="10" cy="21" rx="5.5" ry="2" fill="#546E7A"/>
-      <ellipse cx="10" cy="21" rx="4.5" ry="1.3" fill="#78909C"/>
-      <circle cx="10" cy="21.2" r="0.8" fill="#546E7A"/>
-      <rect x="0" y="23" width="20" height="3" fill="#607D8B"/>
-      <rect x="3" y="24" width="2" height="1" fill="#455A64"/>
-      <rect x="8" y="24" width="2" height="1" fill="#455A64"/>
-    </svg>`;
-  }
-  const glassColor = isRunning ? '#81D4FA' : '#ECEFF1';
-  const drumContents = isRunning
-    ? `<defs><clipPath id="${clipId}"><circle cx="10" cy="12" r="5"/></clipPath></defs>
-       <g clip-path="url(#${clipId})"><animateTransform attributeName="transform" type="rotate" from="0 10 12" to="360 10 12" dur="1.8s" repeatCount="indefinite"/>
-         <rect x="7" y="9.5" width="2.8" height="2.2" rx="0.4" fill="#FF7043"/>
-         <rect x="10.5" y="11.5" width="2.8" height="2" rx="0.4" fill="#26A69A"/>
-         <rect x="7.5" y="13.5" width="2.2" height="2.2" rx="0.4" fill="#FFF176"/>
-       </g>`
-    : `<circle cx="10" cy="12" r="2.5" fill="#CFD8DC" opacity="0.6"/>`;
-  return `<svg viewBox="0 0 20 24" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" width="38" height="46" style="display:block;margin:0 auto">
+function laundryMachineIcon(type, isBroken, isRunning, id) {
+  type = type || 'combo';
+  const led = isBroken ? '#F44336' : isRunning ? '#4CAF50' : '#607D8B';
+  const run = isRunning && !isBroken;
+  const panel = `
     <rect x="0" y="0" width="20" height="5" fill="#607D8B"/>
-    <circle cx="2.5" cy="2.5" r="1.2" fill="${ledColor}"/>
+    <circle cx="2.5" cy="2.5" r="1.2" fill="${led}"/>
     <rect x="5" y="1.5" width="1.5" height="2" fill="#455A64"/>
     <rect x="7.5" y="1.5" width="1.5" height="2" fill="#455A64"/>
     <rect x="10" y="1.5" width="1.5" height="2" fill="#455A64"/>
     <circle cx="15" cy="2.5" r="1.8" fill="#455A64"/>
-    <rect x="14.6" y="0.8" width="0.8" height="1" fill="#B0BEC5"/>
+    <rect x="14.6" y="0.8" width="0.8" height="1" fill="#B0BEC5"/>`;
+  const body = `
     <rect x="0" y="5" width="20" height="16" fill="#FAFAFA"/>
     <rect x="0" y="5" width="1" height="16" fill="#CFD8DC"/>
-    <rect x="19" y="5" width="1" height="16" fill="#CFD8DC"/>
-    <circle cx="10" cy="12" r="6.5" fill="#546E7A"/>
-    <circle cx="10" cy="12" r="5.8" fill="#37474F"/>
-    <circle cx="10" cy="12" r="5" fill="${glassColor}"/>
-    ${drumContents}
-    <circle cx="8" cy="10" r="1.3" fill="white" opacity="0.35"/>
-    <rect x="15.5" y="11.5" width="1" height="1" fill="#B0BEC5"/>
-    <rect x="15.5" y="13" width="1" height="1" fill="#B0BEC5"/>
+    <rect x="19" y="5" width="1" height="16" fill="#CFD8DC"/>`;
+  const feet = `
     <rect x="0" y="21" width="20" height="3" fill="#607D8B"/>
     <rect x="3" y="22" width="2" height="1" fill="#455A64"/>
-    <rect x="8" y="22" width="2" height="1" fill="#455A64"/>
-  </svg>`;
+    <rect x="8" y="22" width="2" height="1" fill="#455A64"/>`;
+  const wrap = inner => `<svg viewBox="0 0 20 24" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" width="38" height="46" style="display:block;margin:0 auto">${panel}${body}${inner}${feet}</svg>`;
+
+  if (type === 'dryer') {
+    // Warm brass door, heat coil, tumbling, lint vent grille at the bottom.
+    const glass = isBroken ? '#1A1A1A' : run ? '#FFB74D' : '#ECEFF1';
+    const tumble = run
+      ? `<defs><clipPath id="lm-d-${id}"><circle cx="10" cy="11" r="4.4"/></clipPath></defs>
+         <g clip-path="url(#lm-d-${id})"><animateTransform attributeName="transform" type="rotate" from="0 10 11" to="360 10 11" dur="2.4s" repeatCount="indefinite"/>
+           <rect x="7.6" y="9" width="2.5" height="2" rx="0.4" fill="#EF5350"/><rect x="10.2" y="10.8" width="2.3" height="1.7" rx="0.4" fill="#42A5F5"/><rect x="8" y="12.4" width="1.9" height="1.9" rx="0.4" fill="#FFEE58"/></g>`
+      : `<circle cx="10" cy="11" r="2.2" fill="#CFD8DC" opacity="0.6"/>`;
+    return wrap(`
+      <circle cx="10" cy="11" r="6" fill="#8D6E63"/>
+      <circle cx="10" cy="11" r="5.2" fill="#4E342E"/>
+      <circle cx="10" cy="11" r="4.4" fill="${glass}"/>
+      ${tumble}
+      <path d="M5.8 11 A4.2 4.2 0 0 1 14.2 11" fill="none" stroke="#FF8A65" stroke-width="0.6" opacity="${run ? '0.85' : '0'}"/>
+      <circle cx="7.8" cy="9.2" r="1" fill="white" opacity="0.3"/>
+      <rect x="3" y="17.3" width="14" height="2.7" rx="0.5" fill="#ECEFF1"/>
+      <rect x="4" y="18" width="12" height="0.6" fill="#B0BEC5"/><rect x="4" y="19" width="12" height="0.6" fill="#B0BEC5"/>`);
+  }
+  if (type === 'combo') {
+    // Stacked unit: small warm dryer on top, blue washer below.
+    const top = isBroken ? '#1A1A1A' : run ? '#FFB74D' : '#ECEFF1';
+    const bot = isBroken ? '#1A1A1A' : run ? '#81D4FA' : '#ECEFF1';
+    const spin = run
+      ? `<defs><clipPath id="lm-c-${id}"><circle cx="10" cy="16" r="2.6"/></clipPath></defs>
+         <g clip-path="url(#lm-c-${id})"><animateTransform attributeName="transform" type="rotate" from="0 10 16" to="360 10 16" dur="1.8s" repeatCount="indefinite"/>
+           <rect x="8.2" y="14.6" width="1.8" height="1.5" rx="0.3" fill="#FF7043"/><rect x="10" y="16" width="1.7" height="1.3" rx="0.3" fill="#26A69A"/></g>`
+      : '';
+    return wrap(`
+      <rect x="2.5" y="6.4" width="15" height="0.5" fill="#CFD8DC"/>
+      <circle cx="10" cy="9.6" r="3.3" fill="#8D6E63"/><circle cx="10" cy="9.6" r="2.6" fill="#4E342E"/><circle cx="10" cy="9.6" r="2.1" fill="${top}"/>
+      <rect x="3" y="12.7" width="14" height="0.5" fill="#CFD8DC"/>
+      <circle cx="10" cy="16" r="3.5" fill="#546E7A"/><circle cx="10" cy="16" r="2.8" fill="#37474F"/><circle cx="10" cy="16" r="2.3" fill="${bot}"/>
+      ${spin}
+      <circle cx="8.8" cy="8.7" r="0.6" fill="white" opacity="0.3"/>`);
+  }
+  // washer (default): round steel door, blue glass, spinning clothes.
+  const glass = isBroken ? '#1A1A1A' : run ? '#81D4FA' : '#ECEFF1';
+  const spin = run
+    ? `<defs><clipPath id="lm-w-${id}"><circle cx="10" cy="12" r="5"/></clipPath></defs>
+       <g clip-path="url(#lm-w-${id})"><animateTransform attributeName="transform" type="rotate" from="0 10 12" to="360 10 12" dur="1.8s" repeatCount="indefinite"/>
+         <rect x="7" y="9.5" width="2.8" height="2.2" rx="0.4" fill="#FF7043"/><rect x="10.5" y="11.5" width="2.8" height="2" rx="0.4" fill="#26A69A"/><rect x="7.5" y="13.5" width="2.2" height="2.2" rx="0.4" fill="#FFF176"/></g>`
+    : `<circle cx="10" cy="12" r="2.5" fill="#CFD8DC" opacity="0.6"/>`;
+  return wrap(`
+    <circle cx="10" cy="12" r="6.5" fill="#546E7A"/>
+    <circle cx="10" cy="12" r="5.8" fill="#37474F"/>
+    <circle cx="10" cy="12" r="5" fill="${glass}"/>
+    ${spin}
+    <circle cx="8" cy="10" r="1.3" fill="white" opacity="0.35"/>
+    <rect x="15.5" y="11.5" width="1" height="1" fill="#B0BEC5"/><rect x="15.5" y="13" width="1" height="1" fill="#B0BEC5"/>`);
 }
 
 function renderLaundromContent() {
@@ -3876,8 +3920,8 @@ function renderLaundromContent() {
         <div style="font-size:52px;line-height:1;margin-bottom:10px">🌀</div>
         <div style="font-weight:800;font-size:14px;margin-bottom:6px">Dirty Money Laundromat</div>
         <div style="font-size:11px;color:var(--text-muted);margin-bottom:14px;line-height:1.6">
-          8 machines · daily income · supplies from CostPro<br>
-          Hire staff, buy upgrades, get insurance
+          Balance washers & dryers against demand · grow loyal regulars<br>
+          Loyalty program, add-ons (vending, ATM, wash & fold), staff & insurance
         </div>
         <div class="money-row"><span class="mr-label">Purchase Price</span><span class="mr-value" style="color:var(--negative)">${fmt(250000)}</span></div>
         <div class="money-row" style="margin-bottom:14px"><span class="mr-label">Your Cash</span><span class="mr-value">${fmt(state.cash)}</span></div>
@@ -3908,17 +3952,40 @@ function renderLaundromContent() {
       </div>
     </div>`;
 
-  // Regulars bar
-  const regBonus = Math.round(lm.regulars * 0.25);
+  // Regulars bar (regulars now drive DEMAND, not a flat income bonus)
+  const members  = Math.round(lm.members || 0);
   const regColor = lm.regulars > 60 ? 'var(--positive)' : lm.regulars > 20 ? 'var(--warning)' : 'var(--text-muted)';
   const regBar   = `
-    <div style="margin:6px 0 12px">
+    <div style="margin:6px 0 10px">
       <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-bottom:3px">
-        <span>Regulars</span><span style="color:${regColor}">${lm.regulars}/100 (+${regBonus}% income)</span>
+        <span>Regulars (drive demand)</span><span style="color:${regColor}">${lm.regulars}/100${(lm.addons||{}).loyalty ? ` · 💳 ${members} members` : ''}</span>
       </div>
       <div style="background:var(--border);height:6px">
         <div style="background:${regColor};height:6px;width:${lm.regulars}%"></div>
       </div>
+    </div>`;
+
+  // Capacity vs. demand — the heart of the new model
+  const wcap = Math.round(lmCapacity(lm.machines, 'wash'));
+  const dcap = Math.round(lmCapacity(lm.machines, 'dry'));
+  const thru = Math.min(wcap, dcap);
+  const demand = Math.round(LM_BASE_DEMAND + (lm.regulars || 0) * LM_DEM_REG + (lm.members || 0) * LM_DEM_MEM);
+  const shortBy = Math.max(0, demand - thru);
+  const bottleneck = wcap < dcap ? 'washers' : dcap < wcap ? 'dryers' : 'machines';
+  const capColor = shortBy > 0 ? 'var(--negative)' : 'var(--positive)';
+  const capPanel = `
+    <div style="border:1px solid ${shortBy > 0 ? 'var(--negative)' : 'var(--border)'};border-radius:10px;padding:10px 12px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted)">Demand vs. Capacity</span>
+        <span style="font-size:13px;font-weight:800;color:${capColor}">${demand} / ${thru} loads/day</span>
+      </div>
+      <div style="display:flex;gap:8px;font-size:11px;color:var(--text-muted)">
+        <span>🌀 Wash cap <strong style="color:var(--text-1)">${wcap}</strong></span>
+        <span>💨 Dry cap <strong style="color:var(--text-1)">${dcap}</strong></span>
+      </div>
+      ${shortBy > 0
+        ? `<div style="font-size:11px;color:var(--negative);margin-top:6px;font-weight:700">⚠️ Turning away ~${shortBy} loads/day — add ${bottleneck} to capture it.</div>`
+        : `<div style="font-size:11px;color:var(--text-muted);margin-top:6px">Capacity covers demand. Grow regulars to fill it.</div>`}
     </div>`;
 
   // Status summary
@@ -3956,9 +4023,10 @@ function renderLaundromContent() {
     const onclick   = isBroken
       ? `showLaundroRepairModal(${m.id})`
       : `showLaundroMachineUpgradesModal(${m.id})`;
+    const tmeta = LAUNDROMAT_MACHINE_TYPES[m.type || 'combo'];
     return `<div onclick="${onclick}" style="border:1px solid ${border};padding:7px 4px;text-align:center;cursor:pointer;background:${bgColor}">
-      <div class="${animClass}">${laundryMachineIcon(isBroken, isRunning, m.id)}</div>
-      <div style="font-size:9px;color:var(--text-muted);margin-top:2px">#${m.id + 1}</div>
+      <div class="${animClass}">${laundryMachineIcon(m.type || 'combo', isBroken, isRunning, m.id)}</div>
+      <div style="font-size:9px;color:var(--text-muted);margin-top:2px">${tmeta.name}</div>
       ${isBroken
         ? `<div style="font-size:9px;color:var(--negative);font-weight:800">⚡3</div>`
         : upgCount > 0
@@ -3967,19 +4035,17 @@ function renderLaundromContent() {
     </div>`;
   });
   if (canBuyMore) {
-    const priceIdx   = machineCount - 3;  // 3 = start machines
-    const nextPrice  = LAUNDROMAT_MACHINE_PRICES[priceIdx] ?? LAUNDROMAT_MACHINE_PRICES[LAUNDROMAT_MACHINE_PRICES.length - 1];
-    const affordable = state.cash >= nextPrice;
+    const step = Math.max(0, machineCount - LAUNDROMAT_START_MACHINES) * LAUNDROMAT_MACHINE_STEP;
     machineCells.push(`
-      <div onclick="${affordable ? 'buyLaundroMachine()' : ''}"
-        style="border:1px dashed var(--border);padding:7px 4px;text-align:center;cursor:${affordable ? 'pointer' : 'default'};opacity:${affordable ? '1' : '0.5'}">
+      <div onclick="showBuyLaundroMachine()"
+        style="border:1px dashed var(--border);padding:7px 4px;text-align:center;cursor:pointer">
         <div style="font-size:20px;line-height:1;margin-bottom:2px">＋</div>
-        <div style="font-size:8px;color:var(--text-muted)">${fmt(nextPrice)}</div>
-        <div style="font-size:8px;color:var(--text-muted)">#${machineCount + 1}</div>
+        <div style="font-size:8px;color:var(--text-muted)">Add machine</div>
+        <div style="font-size:8px;color:var(--text-muted)">from ${fmt(15000 + step)}</div>
       </div>`);
   }
   const machineGrid = `
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:12px">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:12px">
       ${machineCells.join('')}
     </div>`;
 
@@ -4013,11 +4079,49 @@ function renderLaundromContent() {
       </div>`;
   }).join('');
 
-  const footer = `<div style="font-size:11px;color:var(--text-muted);margin-top:8px;text-align:right">Total Earned: ${fmt(lm.total_earned || 0)}</div>`;
+  // Add-ons
+  const addons    = lm.addons || {};
+  const addonCards = LAUNDROMAT_ADDONS_META.map(a => {
+    const owned     = !!addons[a.key];
+    const canAfford = state.cash >= a.cost;
+    return `
+      <div style="display:flex;align-items:center;gap:10px;padding:9px;border:1px solid var(--border);border-radius:9px;margin-bottom:6px${owned ? ';opacity:0.7' : ''}">
+        <div style="font-size:20px">${a.icon}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:800;font-size:12px">${a.name}</div>
+          <div style="font-size:10px;color:var(--text-muted)">${a.desc}</div>
+        </div>
+        ${owned
+          ? `<span style="font-size:11px;color:var(--positive);flex-shrink:0">✓ Installed</span>`
+          : `<button class="btn btn-sm btn-primary" style="flex-shrink:0" ${canAfford ? `onclick="buyLaundroAddon('${a.key}')"` : 'disabled'}>${canAfford ? fmt(a.cost) : 'Need cash'}</button>`}
+      </div>`;
+  }).join('');
 
-  return `${cleanBar}${regBar}${statusRow}${supRow}${machineGrid}${actionRow}
-    <div style="font-size:11px;font-weight:800;margin-bottom:8px">👷 Staff</div>
-    ${staffCards}${footer}`;
+  // ── Polished layout: header band + section cards ──
+  const card = (title, body) => `
+    <div style="border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:8px">${title}</div>
+      ${body}
+    </div>`;
+  const headerBand = `
+    <div style="display:flex;align-items:center;gap:11px;padding:12px;border-radius:12px;margin-bottom:10px;background:linear-gradient(135deg,rgba(21,101,192,0.16),transparent 70%);border:1px solid var(--border)">
+      <div style="font-size:30px;flex-shrink:0">🌀</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:800;font-size:14px">Dirty Money Laundromat</div>
+        <div style="font-size:14px;color:${starColor}">${starStr}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:10px;color:var(--text-muted)">Total earned</div>
+        <div style="font-weight:800;color:var(--positive)">${fmt(lm.total_earned || 0)}</div>
+      </div>
+    </div>`;
+
+  return `${headerBand}
+    ${capPanel}
+    ${card('Health & Loyalty', `${cleanBar}${regBar}<div style="font-size:11px;margin-bottom:4px"><span style="color:${soapColor};font-weight:700">${pxIcon('🧼',13)} ${soapLabel}</span></div>${supRow}`)}
+    ${card(`Machines · ${working}/${machineCount} running${broken > 0 ? ` · <span style="color:var(--negative)">${broken} broken</span>` : ''}`, machineGrid + actionRow)}
+    ${card('🛍️ Add-Ons', addonCards)}
+    ${card('👷 Staff', staffCards)}`;
 }
 
 async function buyLaundromat() {
@@ -4084,6 +4188,7 @@ function showLaundroRepairModal(machineId) {
     <button class="btn btn-primary btn-full" ${hasEnergy ? `onclick="doLaundroRepair(${machineId})"` : 'disabled'}>
       ${hasEnergy ? 'Repair — ⚡3' : 'Not Enough Energy'}
     </button>
+    <button class="btn btn-ghost btn-sm btn-full" style="margin-top:6px;color:var(--negative)" onclick="showLaundroRemoveConfirm(${machineId})">🗑️ Scrap it instead (no refund)</button>
     <button class="btn btn-ghost btn-sm btn-full" style="margin-top:6px" onclick="closeModal()">Cancel</button>`);
 }
 
@@ -4122,17 +4227,42 @@ function showLaundroMachineUpgradesModal(machineId) {
         </div>
       </div>`;
   }).join('');
+  const tmeta = LAUNDROMAT_MACHINE_TYPES[machine.type || 'combo'];
   openModal(`
     <div class="modal-handle"></div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-      <div style="font-size:28px">⚙️</div>
+      <div style="font-size:28px">${tmeta.icon}</div>
       <div>
-        <div style="font-weight:800;font-size:15px">Machine #${machineId + 1} Upgrades</div>
+        <div style="font-weight:800;font-size:15px">${tmeta.name} · Upgrades</div>
         <div style="font-size:11px;color:var(--text-muted)">Dirty Money Laundromat</div>
       </div>
     </div>
     ${rows}
-    <button class="btn btn-ghost btn-sm btn-full" style="margin-top:4px" onclick="closeModal()">Close</button>`);
+    <button class="btn btn-ghost btn-sm btn-full" style="margin-top:8px;color:var(--negative)" onclick="showLaundroRemoveConfirm(${machineId})">🗑️ Remove this machine</button>
+    <button class="btn btn-ghost btn-sm btn-full" style="margin-top:6px" onclick="closeModal()">Close</button>`);
+}
+
+function showLaundroRemoveConfirm(machineId) {
+  const lm = state.laundromat;
+  const m  = lm && lm.machines.find(x => x.id === machineId);
+  if (!m) return;
+  const tmeta = LAUNDROMAT_MACHINE_TYPES[m.type || 'combo'];
+  openModal(`
+    <div class="modal-handle"></div>
+    <div style="font-weight:800;font-size:15px;color:var(--negative)">⚠️ Remove this ${tmeta.name}?</div>
+    <p style="font-size:13px;color:var(--text-2);margin:10px 2px 16px;line-height:1.55">It'll be hauled away for good — <strong>no refund</strong>. Your wash/dry capacity drops by what this machine provided, so watch your demand-vs-capacity balance.</p>
+    <button class="btn btn-danger btn-full" onclick="removeLaundroMachine(${machineId})">Remove it — no refund</button>
+    <button class="btn btn-ghost btn-sm btn-full" style="margin-top:6px" onclick="showLaundroMachineUpgradesModal(${machineId})">Keep it</button>`);
+}
+
+async function removeLaundroMachine(machineId) {
+  const res = await api('/laundromat/remove_machine', 'POST', { machine_id: machineId });
+  if (res.error) { toast(res.error, 'error'); return; }
+  sfx.toggle?.();
+  closeModal();
+  await refreshState();
+  renderBusiness();
+  toast('Machine removed.', 'info');
 }
 
 async function doLaundroUpgrade(machineId, upgradeKey) {
@@ -4165,19 +4295,426 @@ async function toggleLaundroStaff(role) {
   toast(hired ? `${name} is on the job!` : `${name} let go.`, 'info');
 }
 
-async function buyLaundroMachine() {
-  const res = await api('/laundromat/buy_machine', 'POST', {});
+// ── The Back-Room Arcade (secret business, unlocked via the laundromat) ───────
+const ARCADE_SERVICE_COST = 250;
+const ARCADE_CLEAN_COST   = 120;
+const ARCADE_STAFF_META = {
+  tech:      { name: 'Repair Tech',   icon: '🔧', cost: 200, desc: 'Auto-fixes & maintains cabinets.' },
+  collector: { name: 'Arcade Manager', icon: '💰', cost: 220, desc: 'Banks the cash daily & keeps the prize counter stocked.' },
+  janitor:   { name: 'Janitor',       icon: '🧹', cost: 150, desc: 'Keeps the floor clean automatically.' },
+};
+const ARCADE_DECOR_META = {
+  neon:         { name: 'Neon Lights',   icon: '🌈', cost: 6000, effect: '+8% foot traffic' },
+  sign:         { name: 'Marquee Sign',  icon: '🪧', cost: 5500, effect: '+6% foot traffic' },
+  themed_walls: { name: 'Themed Murals', icon: '🎨', cost: 7500, effect: '+10% foot traffic' },
+  carpet:       { name: 'Arcade Carpet', icon: '🟪', cost: 4500, effect: 'Floor dirties slower' },
+  snack_nook:   { name: 'Snack Nook',    icon: '🍿', cost: 8000, effect: '+8% cabinet income' },
+};
+const ARCADE_PRIZES_PER_CASE = 60;
+const ARCADE_PRIZE_CASE_COST = 320;
+const ARCADE_GENRES = {
+  fighting: { name: 'Fighting', icon: '🥊' }, racing: { name: 'Racing', icon: '🏎️' },
+  shooter:  { name: 'Shooter',  icon: '👾' }, rhythm: { name: 'Rhythm', icon: '🕺' },
+  pinball:  { name: 'Pinball',  icon: '🎰' }, prize:  { name: 'Prize / Claw', icon: '🎁' },
+  retro:    { name: 'Retro',    icon: '🕹️' },
+};
+const ARCADE_GAMES = [
+  { title: 'Street Brawler', genre: 'fighting' }, { title: 'Kung-Fu Alley', genre: 'fighting' },
+  { title: 'Neon Drift', genre: 'racing' },       { title: 'Retro Racer', genre: 'racing' },
+  { title: 'Galaxy Siege', genre: 'shooter' },    { title: 'Pixel Blaster', genre: 'shooter' },
+  { title: 'Laser Tag Lords', genre: 'shooter' }, { title: 'Dance Fever', genre: 'rhythm' },
+  { title: 'Beat Pulse', genre: 'rhythm' },       { title: 'Pinball Wizard', genre: 'pinball' },
+  { title: 'Crane Grab', genre: 'prize' },        { title: 'Ticket Tornado', genre: 'prize' },
+  { title: 'Zombie Dunk', genre: 'prize' },       { title: 'Quarter Muncher', genre: 'retro' },
+];
+function arcadeCabinetIcon(genre, rare) {
+  genre = genre || 'retro';
+  // Per-genre cabinet: distinct marquee/body colors + unique screen art (same pixel style).
+  const C = rare
+    ? { dark: '#B8860B', body: '#FFC107', btn: '#FFF59D' }   // rare imports wear gold
+    : {
+    fighting: { dark: '#7F0000', body: '#C62828', btn: '#FF5252' },
+    racing:   { dark: '#1B5E20', body: '#2E7D32', btn: '#66BB6A' },
+    shooter:  { dark: '#311B92', body: '#5E35B1', btn: '#B388FF' },
+    rhythm:   { dark: '#880E4F', body: '#C2185B', btn: '#FF80AB' },
+    pinball:  { dark: '#BF360C', body: '#E65100', btn: '#FFB74D' },
+    prize:    { dark: '#006064', body: '#00838F', btn: '#4DD0E1' },
+    retro:    { dark: '#1A237E', body: '#3949AB', btn: '#FFD740' },
+  }[genre] || { dark: '#1A237E', body: '#3949AB', btn: '#FFD740' };
+  // Screen contents (region ~x4.5–15.5, y9–16 on the black screen).
+  const SCREEN = {
+    fighting: `<rect x="5.5" y="11" width="2.4" height="4" rx="0.4" fill="#FF5252"/><circle cx="6.7" cy="10.3" r="1" fill="#FF5252"/>
+               <rect x="12" y="11" width="2.4" height="4" rx="0.4" fill="#42A5F5"/><circle cx="13.2" cy="10.3" r="1" fill="#42A5F5"/>
+               <path d="M9.4 11.8 l1 -1 l0.3 1.4 l1 -0.4 l-1 1.5 l-0.3 -1.2 z" fill="#FFEB3B"/>`,
+    racing:   `<path d="M6.2 16 L8.6 9.6 L11.4 9.6 L13.8 16 Z" fill="#455A64"/>
+               <rect x="9.7" y="10.2" width="0.6" height="1.1" fill="#FFF59D"/><rect x="9.7" y="12.4" width="0.6" height="1.1" fill="#FFF59D"/>
+               <rect x="8.8" y="13.8" width="2.4" height="1.8" rx="0.4" fill="#FF5252"/><rect x="9" y="13.4" width="2" height="0.7" fill="#B0BEC5"/>`,
+    shooter:  `<rect x="5" y="9.8" width="1.8" height="1.3" fill="#69F0AE"/><rect x="9.1" y="9.8" width="1.8" height="1.3" fill="#69F0AE"/><rect x="13.2" y="9.8" width="1.8" height="1.3" fill="#69F0AE"/>
+               <rect x="5.4" y="11.1" width="0.6" height="0.6" fill="#69F0AE"/><rect x="6" y="11.1" width="0.6" height="0.6" fill="#69F0AE"/>
+               <rect x="9.6" y="12.6" width="0.6" height="1.1" fill="#FFEB3B"/>
+               <path d="M8.7 15.6 l1.3 -1.1 l1.3 1.1 z" fill="#FFFFFF"/>`,
+    rhythm:   `<path d="M6.4 13 l1.3 -1.6 l1.3 1.6 z" fill="#E040FB"/>
+               <path d="M9.4 11.4 l1.6 1.3 l-1.6 1.3 z" fill="#18FFFF"/>
+               <path d="M14 11.4 l-1.6 1.3 l1.6 1.3 z" fill="#FFEB3B"/>
+               <rect x="6.5" y="14.4" width="7" height="0.7" fill="#76FF03"/>`,
+    pinball:  `<circle cx="10" cy="9.9" r="0.9" fill="#FFFFFF"/>
+               <circle cx="6.6" cy="11.6" r="1.1" fill="#FF4081"/><circle cx="13.4" cy="11.6" r="1.1" fill="#18FFFF"/><circle cx="10" cy="13" r="0.9" fill="#FFD740"/>
+               <path d="M6.8 15.4 L9.4 14.2" stroke="#ECEFF1" stroke-width="1" stroke-linecap="round"/><path d="M13.2 15.4 L10.6 14.2" stroke="#ECEFF1" stroke-width="1" stroke-linecap="round"/>`,
+    prize:    `<rect x="9.4" y="9" width="1.2" height="1.8" fill="#90A4AE"/><path d="M9 10.6 l1 1.2 l1 -1.2" fill="none" stroke="#CFD8DC" stroke-width="0.8"/>
+               <circle cx="6.5" cy="14.5" r="1.2" fill="#FF5252"/><circle cx="9.2" cy="15" r="1.3" fill="#FFD740"/><circle cx="12" cy="14.4" r="1.1" fill="#69F0AE"/><circle cx="14" cy="15" r="1" fill="#40C4FF"/>`,
+    retro:    `<circle cx="7.3" cy="12.6" r="2.3" fill="#FFEB3B"/><path d="M7.3 12.6 L9.8 11 L9.8 14.2 Z" fill="#0B0B1A"/>
+               <rect x="11" y="12.1" width="0.9" height="0.9" fill="#FFFFFF"/><rect x="12.8" y="12.1" width="0.9" height="0.9" fill="#FFFFFF"/><rect x="14.6" y="12.1" width="0.9" height="0.9" fill="#FFFFFF"/>`,
+  }[genre] || '';
+  return `<svg viewBox="0 0 20 26" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" width="40" height="52" style="display:block;margin:0 auto">
+    ${rare ? `<rect x="1.2" y="0.4" width="17.6" height="25.2" rx="1.4" fill="none" stroke="#FFD700" stroke-width="0.8"/>` : ''}
+    <rect x="3" y="1" width="14" height="6" rx="1" fill="${C.dark}"/>
+    <rect x="4" y="2" width="12" height="4" fill="${C.body}"/>
+    ${rare ? `<path d="M10 1.6 l0.5 1.1 l1.2 0.1 l-0.9 0.8 l0.3 1.2 l-1.1 -0.7 l-1.1 0.7 l0.3 -1.2 l-0.9 -0.8 l1.2 -0.1 z" fill="#FFF8E1"/>` : ''}
+    <rect x="2" y="7" width="16" height="13" fill="${C.body}"/>
+    <rect x="3.5" y="8.5" width="13" height="8" fill="#0B0B1A"/>
+    ${SCREEN}
+    <rect x="4" y="17" width="12" height="3" fill="${C.dark}"/>
+    <circle cx="7" cy="18.5" r="0.9" fill="${C.btn}"/><circle cx="10" cy="18.5" r="0.9" fill="#FFD740"/><rect x="12.3" y="18" width="1.6" height="1.2" fill="#40C4FF"/>
+    <rect x="2" y="20" width="16" height="6" fill="${C.body}"/>
+    <rect x="5" y="21.5" width="10" height="2" fill="${C.dark}"/>
+  </svg>`;
+}
+
+function renderArcadeContent() {
+  const arc = state.arcade;
+  if (!arc || !arc.unlocked) return `<div style="font-size:12px;color:var(--text-muted);padding:10px 0">Locked.</div>`;
+  const cabs    = arc.cabinets || [];
+  const working = cabs.filter(c => c.status !== 'broken');
+  const lm      = state.laundromat || {};
+  const traffic = Math.round((0.6 + Math.min(1, ((lm.regulars || 0) + (lm.members || 0)) / 100) * 0.8) * 100);
+  // genre counts (working) for the saturation hint
+  const gc = {};
+  working.forEach(c => { gc[c.genre] = (gc[c.genre] || 0) + 1; });
+  const distinct = Object.keys(gc).length;
+  const header = `
+    <div style="display:flex;align-items:center;gap:11px;padding:12px;border-radius:12px;margin:4px 0 10px;background:linear-gradient(135deg,rgba(57,73,171,0.22),transparent 70%);border:1px solid var(--border)">
+      <div style="font-size:30px">🕹️</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:800;font-size:14px">The Back-Room Arcade</div>
+        <div style="font-size:11px;color:var(--text-muted)">${cabs.length} cabinet${cabs.length === 1 ? '' : 's'} · ${distinct} genre${distinct === 1 ? '' : 's'} on the floor</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:10px;color:var(--text-muted)">Total earned</div>
+        <div style="font-weight:800;color:var(--positive)">${fmt(arc.total_earned || 0)}</div>
+      </div>
+    </div>`;
+  // The till: coins pile up in the machines until collected.
+  const till      = Math.round(arc.uncollected || 0);
+  const tillCap   = Math.max(1000, cabs.length * 1200);
+  const tillPct   = Math.min(100, Math.round(till / tillCap * 100));
+  const hasCollector = !!(arc.staff && arc.staff.collector);
+  const tillNearFull = tillPct >= 85 && !hasCollector;
+  const tillCard = `
+    <div style="border:1.5px solid ${tillNearFull ? 'var(--warning)' : 'var(--border)'};border-radius:10px;padding:11px 12px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="font-size:22px">🪙</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:10px;color:var(--text-muted)">In the machines</div>
+          <div style="font-weight:800;font-size:17px;color:${till > 0 ? 'var(--positive)' : 'var(--text-muted)'}">${fmt(till)}</div>
+        </div>
+        ${hasCollector
+          ? `<div style="font-size:10px;color:var(--positive);text-align:right;flex-shrink:0">Arcade Manager<br>banks it daily 🟢</div>`
+          : `<button class="btn btn-sm btn-primary" style="flex-shrink:0" ${till > 0 && (state.energy || 0) >= 4 ? 'onclick="collectArcade()"' : 'disabled'}>Collect · 4⚡</button>`}
+      </div>
+      <div style="background:var(--border);height:5px;border-radius:3px;margin-top:8px"><div style="background:${tillNearFull ? 'var(--warning)' : 'var(--positive)'};height:5px;border-radius:3px;width:${tillPct}%"></div></div>
+      ${tillNearFull ? `<div style="font-size:10px;color:var(--warning);margin-top:5px">⚠️ Machines almost full — coins past the limit are lost. Collect, or hire an Arcade Manager.</div>` : ''}
+    </div>`;
+  // Cleanliness: foot traffic dirties the floor; a janitor or a deep clean fixes it.
+  const clean     = Math.round(arc.cleanliness != null ? arc.cleanliness : 100);
+  const hasJanitor = !!(arc.staff && arc.staff.janitor);
+  const cleanCol  = clean > 60 ? 'var(--positive)' : clean > 30 ? 'var(--warning)' : 'var(--negative)';
+  const cleanCard = `
+    <div style="border:1px solid var(--border);border-radius:10px;padding:11px 12px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="font-size:20px">${clean > 60 ? '✨' : clean > 30 ? '🧽' : '🤢'}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:10px;color:var(--text-muted)">Cleanliness</div>
+          <div style="font-weight:800;font-size:13px;color:${cleanCol}">${clean}%${clean <= 60 ? ' — grimy floors scare off players' : ''}</div>
+          <div style="background:var(--border);height:5px;border-radius:3px;margin-top:5px"><div style="background:${cleanCol};height:5px;border-radius:3px;width:${clean}%"></div></div>
+        </div>
+        ${hasJanitor
+          ? `<div style="font-size:10px;color:var(--positive);text-align:right;flex-shrink:0">Janitor<br>on duty 🟢</div>`
+          : `<button class="btn btn-sm ${clean < 99 ? 'btn-primary' : 'btn-ghost'}" style="flex-shrink:0" ${clean < 99 && state.cash >= ARCADE_CLEAN_COST && (state.energy || 0) >= 6 ? 'onclick="cleanArcade()"' : 'disabled'}>Clean ${fmt(ARCADE_CLEAN_COST)} · 6⚡</button>`}
+      </div>
+    </div>`;
+  // Prize counter: stock from CostPro to boost income; prizes get won daily.
+  const prizes    = Math.round(arc.prizes || 0);
+  const prizeUse  = Math.max(1, Math.round(working.length * (traffic / 100) * 1.6));
+  const coverage  = Math.min(1, prizes / prizeUse);
+  const boostPct  = Math.round(30 * coverage);
+  const prizeCard = `
+    <div style="border:1px solid var(--border);border-radius:10px;padding:11px 12px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="font-size:20px">🧸</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:10px;color:var(--text-muted)">Prize counter</div>
+          <div style="font-weight:800;font-size:13px">${prizes} prizes in stock
+            <span style="font-size:11px;color:${boostPct >= 20 ? 'var(--positive)' : boostPct > 0 ? 'var(--warning)' : 'var(--text-muted)'}">· +${boostPct}% income</span></div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:1px">~${prizeUse} won/day · a full counter = +30%</div>
+        </div>
+        ${hasCollector
+          ? `<div style="font-size:10px;color:var(--positive);text-align:right;flex-shrink:0">Arcade Manager<br>restocks these 🟢</div>`
+          : `<button class="btn btn-sm btn-primary" style="flex-shrink:0" onclick="navTo('store')">🛒 CostPro</button>`}
+      </div>
+      ${prizes === 0 && !hasCollector ? `<div style="font-size:10px;color:var(--text-muted);margin-top:5px">Empty — buy Prize Stock at the CostPro store to boost every cabinet's take. An investment that pays for itself.</div>` : ''}
+    </div>`;
+  // Floor info: traffic from laundromat + variety tip
+  const dupGenres = Object.entries(gc).filter(([, n]) => n >= 3).map(([g]) => ARCADE_GENRES[g].name);
+  const floorInfo = `
+    <div style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:11px;color:var(--text-muted);line-height:1.6">
+      🚶 Foot traffic from the laundromat: <strong style="color:${traffic >= 110 ? 'var(--positive)' : traffic >= 80 ? 'var(--warning)' : 'var(--negative)'}">${traffic}%</strong> — busier laundromat, busier arcade.<br>
+      🎮 ${distinct >= 4 ? 'Nice variety — a mixed floor pulls bigger crowds.' : 'Mix up your genres — a varied floor out-earns duplicates.'}${dupGenres.length ? ` <span style="color:var(--warning)">Saturated: ${dupGenres.join(', ')}.</span>` : ''}
+    </div>`;
+  // Stack cabinets by title (×N), surfacing how many of a stack are broken. You
+  // can own at most two of any title, so a tile shows ×1 or ×2. Rares get their
+  // own gold row beneath the standard floor.
+  const stacks = {};
+  cabs.forEach(c => {
+    if (!stacks[c.title]) stacks[c.title] = { title: c.title, genre: c.genre, rare: !!c.rare, cabs: [] };
+    stacks[c.title].cabs.push(c);
+  });
+  const stackTile = (stk) => {
+    const n      = stk.cabs.length;
+    const broken = stk.cabs.filter(c => c.status === 'broken').length;
+    const worst  = Math.min(...stk.cabs.map(c => c.status === 'broken' ? 0 : Math.round(c.condition != null ? c.condition : 100)));
+    const col    = broken ? 'var(--negative)' : worst > 50 ? 'var(--positive)' : worst > 25 ? 'var(--warning)' : 'var(--negative)';
+    const gmeta  = ARCADE_GENRES[stk.genre] || ARCADE_GENRES.retro;
+    const border = stk.rare ? '#FFD700' : broken ? 'var(--negative)' : 'var(--border)';
+    const status = broken ? `${broken}/${n} 🔧` : worst + '%';
+    return `<div onclick="showArcadeStack(${stk.cabs[0].id})" style="position:relative;border:1.5px solid ${border};border-radius:9px;padding:7px 4px 6px;text-align:center;cursor:pointer${stk.rare ? ';background:linear-gradient(160deg,rgba(255,215,0,0.12),transparent 70%)' : ''}">
+      ${n > 1 ? `<div style="position:absolute;top:3px;right:3px;background:var(--primary);color:#fff;font-size:9px;font-weight:800;border-radius:8px;padding:0 5px;line-height:15px">×${n}</div>` : ''}
+      ${arcadeCabinetIcon(stk.genre, stk.rare)}
+      <div style="font-size:9px;font-weight:700;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${stk.rare ? '🌟' : gmeta.icon} ${stk.title}</div>
+      <div style="background:var(--border);height:4px;border-radius:2px;margin:4px 2px 0"><div style="background:${col};height:4px;border-radius:2px;width:${broken ? 100 : worst}%"></div></div>
+      <div style="font-size:8px;color:${col};margin-top:1px">${status}</div>
+    </div>`;
+  };
+  const allStacks  = Object.values(stacks);
+  const normStacks = allStacks.filter(x => !x.rare).sort((a, b) => a.genre.localeCompare(b.genre) || a.title.localeCompare(b.title));
+  const rareStacks = allStacks.filter(x => x.rare).sort((a, b) => a.title.localeCompare(b.title));
+  const gridStyle  = 'display:grid;grid-template-columns:repeat(4,1fr);gap:6px';
+  const normalGrid = normStacks.length
+    ? `<div style="${gridStyle}">${normStacks.map(stackTile).join('')}</div>`
+    : `<div style="text-align:center;font-size:12px;color:var(--text-muted);padding:14px 0">No cabinets yet — hit the market below.</div>`;
+  const rareGrid   = rareStacks.length
+    ? `<div style="font-size:11px;font-weight:800;color:#C99700;margin:13px 0 6px;letter-spacing:0.5px">🌟 RARE IMPORTS</div><div style="${gridStyle}">${rareStacks.map(stackTile).join('')}</div>`
+    : '';
+  const floorHtml  = `${normalGrid}${rareGrid}`;
+  const buyBtn = `<button class="btn btn-primary btn-full" style="margin-top:10px" onclick="showBuyArcadeCabinet()">🛒 Today's Cabinet Market</button>`;
+  // Decor / theming — one-time cosmetic upgrades with real effects.
+  const decor = arc.decor || {};
+  const decorCards = Object.entries(ARCADE_DECOR_META).map(([key, m]) => {
+    const owned = !!decor[key];
+    return `
+    <div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid ${owned ? 'var(--positive)' : 'var(--border)'};border-radius:9px;margin-top:8px${owned ? ';opacity:0.75' : ''}">
+      <div style="font-size:20px">${m.icon}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:800;font-size:12px">${m.name}</div>
+        <div style="font-size:10px;color:var(--text-muted)">${m.effect}</div>
+      </div>
+      ${owned
+        ? `<span style="font-size:11px;color:var(--positive);font-weight:700;flex-shrink:0">✓ Installed</span>`
+        : `<button class="btn btn-sm btn-primary" style="flex-shrink:0" ${state.cash >= m.cost ? `onclick="buyArcadeDecor('${key}')"` : 'disabled'}>${fmt(m.cost)}</button>`}
+    </div>`;
+  }).join('');
+  const decorSection = `<div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-top:14px">DECOR & THEMING</div>${decorCards}`;
+  // Staff — tech, floor manager, janitor.
+  const staffCards = ['tech', 'collector', 'janitor'].map(role => {
+    const m   = ARCADE_STAFF_META[role];
+    const on  = !!(arc.staff && arc.staff[role]);
+    return `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);border-radius:9px;margin-top:8px">
+      <div style="font-size:20px">${m.icon}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:800;font-size:12px">${m.name}</div>
+        <div style="font-size:10px;color:var(--text-muted)">${m.desc}</div>
+        <div style="font-size:10px;margin-top:2px;color:${on ? 'var(--positive)' : 'var(--text-muted)'}">${on ? `🟢 On the job — $${m.cost}/day` : '⚫ Not hired'}</div>
+      </div>
+      <button class="btn btn-sm ${on ? 'btn-ghost' : 'btn-primary'}" onclick="toggleArcadeStaff('${role}')">${on ? 'Fire' : `Hire — $${m.cost}/day`}</button>
+    </div>`;
+  }).join('');
+  const staffSection = `<div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-top:14px">STAFF</div>${staffCards}`;
+  return `${header}${tillCard}${cleanCard}${prizeCard}${floorInfo}
+    ${floorHtml}
+    ${buyBtn}${decorSection}${staffSection}
+    <div style="font-size:11px;color:var(--text-muted);margin-top:12px;line-height:1.5">🕹️ Coming next: <strong>play your cabinets yourself</strong> — set the high score and make a machine go 🔥 hot. (Plus tournaments.)</div>`;
+}
+
+function showBuyArcadeCabinet() {
+  const arc = state.arcade; if (!arc) return;
+  const market = arc.market || [];
+  const owned  = arc.cabinets || [];
+  const rows = market.length === 0
+    ? `<div style="text-align:center;font-size:12px;color:var(--text-muted);padding:18px 0">Sold out for today.<br>Advance a day for a fresh lineup.</div>`
+    : market.map(o => {
+        const gm     = ARCADE_GENRES[o.genre] || ARCADE_GENRES.retro;
+        const atCap  = owned.filter(c => c.title === o.title).length >= 2;
+        const tooPoor = state.cash < o.price;
+        const dis    = atCap || tooPoor;
+        return `
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border:1.5px solid ${o.rare ? '#FFD700' : 'var(--border)'};border-radius:10px;margin-bottom:8px${o.rare ? ';background:linear-gradient(150deg,rgba(255,215,0,0.14),transparent 75%)' : ''}">
+        <div style="flex-shrink:0">${arcadeCabinetIcon(o.genre, o.rare)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:800;font-size:13px">${o.rare ? '🌟 ' : ''}${o.title}</div>
+          <div style="font-size:10px;color:var(--text-muted)">${gm.name}${o.rare ? ' · RARE IMPORT — earns ~80% more' : ''}</div>
+          <div style="font-weight:800;font-size:13px;color:${o.rare ? '#C99700' : 'var(--text-1)'};margin-top:2px">${fmt(o.price)}</div>
+          ${atCap ? `<div style="font-size:10px;color:var(--warning)">You already run two of these</div>` : ''}
+        </div>
+        <button class="btn btn-sm ${o.rare ? 'btn-primary' : 'btn-primary'}" style="flex-shrink:0" ${dis ? 'disabled' : `onclick="buyArcadeCabinet(${o.id})"`}>${atCap ? 'Max' : tooPoor ? 'Need $' : 'Buy'}</button>
+      </div>`;
+      }).join('');
+  openModal(`
+    <div class="modal-handle"></div>
+    <div style="font-weight:800;font-size:15px">🛒 Today's Cabinet Market</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px">Three machines on offer today. The lineup only refreshes once you buy one — and there's always a chance a 🌟 rare import shows up.</div>
+    ${rows}
+    <button class="btn btn-ghost btn-sm btn-full" style="margin-top:4px" onclick="closeModal()">Close</button>`);
+}
+
+async function buyArcadeCabinet(offerId) {
+  const res = await api('/arcade/buy_cabinet', 'POST', { offer_id: offerId });
+  if (res.error) { toast(res.error, 'error'); return; }
+  sfx.purchase();
+  closeModal();
+  await refreshState();
+  renderBusiness();
+  toast(res.rare ? '🌟 Rare import on the floor!' : 'New cabinet on the floor!', 'success');
+}
+
+async function buyArcadeDecor(key) {
+  const res = await api('/arcade/buy_decor', 'POST', { key });
   if (res.error) { toast(res.error, 'error'); return; }
   sfx.purchase();
   await refreshState();
   renderBusiness();
-  const count = state.laundromat?.machines?.length || 0;
-  toast(`Machine #${count} added to the laundromat!`, 'success');
+  toast('Looking sharp!', 'success');
+}
+
+function showArcadeStack(anchorId) {
+  const arc = state.arcade; if (!arc) return;
+  const anchor = (arc.cabinets || []).find(x => x.id === anchorId); if (!anchor) return;
+  const copies = (arc.cabinets || []).filter(x => x.title === anchor.title);
+  const gm = ARCADE_GENRES[anchor.genre] || ARCADE_GENRES.retro;
+  const rows = copies.map((c, i) => {
+    const broken = c.status === 'broken';
+    const cond   = Math.round(c.condition != null ? c.condition : 100);
+    const needs  = broken || cond < 99;
+    const stCol  = broken ? 'var(--negative)' : cond > 50 ? 'var(--positive)' : 'var(--warning)';
+    return `
+      <div style="border:1px solid var(--border);border-radius:9px;padding:10px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:${needs ? '8px' : '0'}">
+          <div style="flex:1;font-weight:700;font-size:12px">${copies.length > 1 ? `Cabinet #${i + 1}` : 'Cabinet'}</div>
+          <div style="font-size:11px;font-weight:700;color:${stCol}">${broken ? '🔧 Broken' : `${cond}%`}</div>
+        </div>
+        ${needs
+          ? `<div style="display:flex;gap:6px">
+               <button class="btn btn-sm btn-primary" style="flex:1" ${state.cash >= ARCADE_SERVICE_COST ? `onclick="serviceArcadeCabinet(${c.id})"` : 'disabled'}>${broken ? 'Repair' : 'Service'} — ${fmt(ARCADE_SERVICE_COST)}</button>
+               <button class="btn btn-sm btn-ghost" style="flex-shrink:0;color:var(--negative)" onclick="removeArcadeCabinet(${c.id})">🗑️</button>
+             </div>`
+          : `<button class="btn btn-sm btn-ghost btn-full" style="color:var(--negative)" onclick="removeArcadeCabinet(${c.id})">🗑️ Remove (no refund)</button>`}
+      </div>`;
+  }).join('');
+  openModal(`
+    <div class="modal-handle"></div>
+    <div style="font-weight:800;font-size:15px">${anchor.rare ? '🌟 ' : gm.icon + ' '}${anchor.title}</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px">${gm.name}${anchor.rare ? ' · rare import' : ''} · ${copies.length} on the floor</div>
+    ${rows}
+    <button class="btn btn-ghost btn-sm btn-full" style="margin-top:4px" onclick="closeModal()">Close</button>`);
+}
+
+async function serviceArcadeCabinet(cid) {
+  const res = await api('/arcade/service_cabinet', 'POST', { cabinet_id: cid });
+  if (res.error) { toast(res.error, 'error'); return; }
+  sfx.toggle?.();
+  closeModal(); await refreshState(); renderBusiness();
+  toast('Cabinet serviced.', 'success');
+}
+
+async function removeArcadeCabinet(cid) {
+  const res = await api('/arcade/remove_cabinet', 'POST', { cabinet_id: cid });
+  if (res.error) { toast(res.error, 'error'); return; }
+  closeModal(); await refreshState(); renderBusiness();
+  toast('Cabinet removed.', 'info');
+}
+
+async function toggleArcadeStaff(role) {
+  const res = await api('/arcade/hire_staff', 'POST', { role });
+  if (res.error) { toast(res.error, 'error'); return; }
+  sfx.toggle?.();
+  await refreshState(); renderBusiness();
+}
+
+async function collectArcade() {
+  const res = await api('/arcade/collect', 'POST', {});
+  if (res.error) { toast(res.error, 'error'); return; }
+  sfx.purchase?.();
+  await refreshState(); renderBusiness();
+  toast(`Collected ${fmt(res.collected)} from the machines!`, 'success');
+}
+
+async function cleanArcade() {
+  const res = await api('/arcade/clean', 'POST', {});
+  if (res.error) { toast(res.error, 'error'); return; }
+  sfx.toggle?.();
+  await refreshState(); renderBusiness();
+  toast('Floor sparkling again.', 'success');
+}
+
+function showBuyLaundroMachine() {
+  const lm    = state.laundromat;
+  if (!lm) return;
+  const step  = Math.max(0, lm.machines.length - LAUNDROMAT_START_MACHINES) * LAUNDROMAT_MACHINE_STEP;
+  const wcap  = Math.round(lmCapacity(lm.machines, 'wash'));
+  const dcap  = Math.round(lmCapacity(lm.machines, 'dry'));
+  const rows = Object.entries(LAUNDROMAT_MACHINE_TYPES).map(([key, t]) => {
+    const price = t.price + step;
+    const canAfford = state.cash >= price;
+    const adds = key === 'combo' ? '+16 wash & +16 dry' : key === 'washer' ? '+12 wash capacity' : '+12 dry capacity';
+    return `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);border-radius:9px;margin-bottom:8px">
+        <div style="font-size:24px">${t.icon}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:800;font-size:13px">${t.name}</div>
+          <div style="font-size:10px;color:var(--text-muted)">${adds}</div>
+        </div>
+        <button class="btn btn-sm btn-primary" style="flex-shrink:0" ${canAfford ? `onclick="buyLaundroMachine('${key}')"` : 'disabled'}>${canAfford ? fmt(price) : 'Need cash'}</button>
+      </div>`;
+  }).join('');
+  openModal(`
+    <div class="modal-handle"></div>
+    <div style="font-weight:800;font-size:15px">Add a Machine</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px">Current capacity — 🌀 ${wcap} wash · 💨 ${dcap} dry. A load needs both; balance them.</div>
+    ${rows}
+    <button class="btn btn-ghost btn-sm btn-full" style="margin-top:4px" onclick="closeModal()">Cancel</button>`);
+}
+
+async function buyLaundroMachine(machineType) {
+  const res = await api('/laundromat/buy_machine', 'POST', { machine_type: machineType });
+  if (res.error) { toast(res.error, 'error'); return; }
+  sfx.purchase();
+  closeModal();
+  await refreshState();
+  renderBusiness();
+  toast(`${LAUNDROMAT_MACHINE_TYPES[machineType]?.name || 'Machine'} added!`, 'success');
+}
+
+async function buyLaundroAddon(key) {
+  const res = await api('/laundromat/buy_addon', 'POST', { addon_key: key });
+  if (res.error) { toast(res.error, 'error'); return; }
+  sfx.purchase();
+  await refreshState();
+  renderBusiness();
+  toast('Add-on installed!', 'success');
 }
 
 function showBuyVendingModal() {
   const vms     = state.vending_machines || [];
-  const slot    = vms.length + 1;
+  const slot    = vms.filter(v => VM_LOCATION_ORDER.includes(v.location_key)).length + 1;
   if (slot > 6) return;
   const price   = VM_PRICES[slot - 1];
   const locKey  = VM_LOCATION_ORDER[slot - 1];
@@ -4296,6 +4833,98 @@ async function restockVending(vmId) {
   renderBusiness();
   toast('Machine topped up from your inventory.', 'success');
 }
+
+function showNextVendingEvent() {
+  if (_pendingVendingEvents.length === 0) { continueFromEvents(); return; }
+  _currentVendingEvent = _pendingVendingEvents.shift();
+  showVendingEventModal(_currentVendingEvent);
+}
+
+function showVendingEventModal(ev) {
+  const cards = ev.choices.map((c, i) => {
+    const tag = c.gain > 0 ? `<span class="contractor-cost" style="color:var(--positive)">+${fmt(c.gain)}</span>`
+              : c.cost > 0 ? `<span class="contractor-cost">${fmt(c.cost)}</span>`
+              : `<span class="contractor-cost" style="color:var(--text-muted)">free</span>`;
+    const tooPoor = c.cost > (state.cash || 0);
+    return `<div class="contractor-card" style="margin-bottom:8px${tooPoor ? ';opacity:0.45' : ''}" ${tooPoor ? '' : `onclick="resolveVendingEvent(${i})"`}>
+      <div class="contractor-header">
+        <span class="contractor-name">${c.label}</span>
+        ${tooPoor ? `<span class="contractor-cost" style="color:var(--negative)">Need ${fmt(c.cost)}</span>` : tag}
+      </div>
+    </div>`;
+  }).join('');
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">${pxIcon(ev.icon)} ${ev.title}</div>
+    <div class="modal-subtitle">Machine #${ev.machine_slot}</div>
+    <p style="font-size:13px;color:var(--text-2);margin:8px 0 14px;line-height:1.5">${ev.text}</p>
+    ${cards}
+    ${_pendingVendingEvents.length > 0 ? `<div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:8px">${_pendingVendingEvents.length} more after this</div>` : ''}`);
+}
+
+async function resolveVendingEvent(choiceIdx) {
+  const ev  = _currentVendingEvent;
+  if (!ev) return;
+  const res = await api('/vending/event_resolve', 'POST', { machine_id: ev.machine_id, event_key: ev.key, choice_idx: choiceIdx });
+  if (res.error) { toast(res.error, 'error'); return; }
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">${pxIcon(ev.icon, 20)} ${ev.title}</div>
+    <p style="font-size:14px;color:var(--text-1);margin:10px 4px 16px;line-height:1.55">${res.result}</p>
+    <button class="btn btn-primary btn-full" onclick="afterVendingEvent()">
+      ${_pendingVendingEvents.length > 0 ? `Next (${_pendingVendingEvents.length})` : 'Done'}
+    </button>`);
+  await refreshState();
+  renderAll();
+}
+
+function afterVendingEvent() { showNextVendingEvent(); }
+
+function showNextArcadeEvent() {
+  if (_pendingArcadeEvents.length === 0) { continueFromEvents(); return; }
+  _currentArcadeEvent = _pendingArcadeEvents.shift();
+  showArcadeEventModal(_currentArcadeEvent);
+}
+
+function showArcadeEventModal(ev) {
+  const cards = ev.choices.map((c, i) => {
+    const tag = c.gain > 0 ? `<span class="contractor-cost" style="color:var(--positive)">+${fmt(c.gain)}</span>`
+              : c.cost > 0 ? `<span class="contractor-cost">${fmt(c.cost)}</span>`
+              : `<span class="contractor-cost" style="color:var(--text-muted)">free</span>`;
+    const tooPoor = c.cost > (state.cash || 0);
+    return `<div class="contractor-card" style="margin-bottom:8px${tooPoor ? ';opacity:0.45' : ''}" ${tooPoor ? '' : `onclick="resolveArcadeEvent(${i})"`}>
+      <div class="contractor-header">
+        <span class="contractor-name">${c.label}</span>
+        ${tooPoor ? `<span class="contractor-cost" style="color:var(--negative)">Need ${fmt(c.cost)}</span>` : tag}
+      </div>
+    </div>`;
+  }).join('');
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">${pxIcon(ev.icon)} ${ev.title}</div>
+    <div class="modal-subtitle">The Back-Room Arcade</div>
+    <p style="font-size:13px;color:var(--text-2);margin:8px 0 14px;line-height:1.5">${ev.text}</p>
+    ${cards}
+    ${_pendingArcadeEvents.length > 0 ? `<div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:8px">${_pendingArcadeEvents.length} more after this</div>` : ''}`);
+}
+
+async function resolveArcadeEvent(choiceIdx) {
+  const ev = _currentArcadeEvent;
+  if (!ev) return;
+  const res = await api('/arcade/event_resolve', 'POST', { event_key: ev.key, choice_idx: choiceIdx });
+  if (res.error) { toast(res.error, 'error'); return; }
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">${pxIcon(ev.icon, 20)} ${ev.title}</div>
+    <p style="font-size:14px;color:var(--text-1);margin:10px 4px 16px;line-height:1.55">${res.result}</p>
+    <button class="btn btn-primary btn-full" onclick="afterArcadeEvent()">
+      ${_pendingArcadeEvents.length > 0 ? `Next (${_pendingArcadeEvents.length})` : 'Done'}
+    </button>`);
+  await refreshState();
+  renderAll();
+}
+
+function afterArcadeEvent() { showNextArcadeEvent(); }
 
 async function setVmPrice(vmId, level) {
   const res = await api('/vending/set_price', 'POST', { vm_id: vmId, level });
@@ -5198,6 +5827,24 @@ const COSTPRO_POLE = [
 
 const STORE_UNLOCK_LEVEL = 3;
 
+// Which CostPro group "windows" are expanded. Reset to all-closed each time the
+// player opens the store (see navTo).
+let _costproOpen = {};
+function toggleCostproGroup(id) { _costproOpen[id] = !_costproOpen[id]; renderStore(); }
+function costproGroup(id, icon, title, count, bodyHtml) {
+  const open = !!_costproOpen[id];
+  return `
+    <div style="border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden">
+      <div onclick="toggleCostproGroup('${id}')" style="display:flex;align-items:center;gap:9px;padding:13px 14px;cursor:pointer;user-select:none">
+        <span style="font-size:18px">${icon}</span>
+        <span style="font-weight:800;font-size:14px;flex:1;min-width:0">${title}</span>
+        <span style="font-size:11px;color:var(--text-muted)">${count} item${count === 1 ? '' : 's'}</span>
+        <span style="font-size:12px;color:var(--text-muted);display:inline-block;transition:transform .15s;transform:rotate(${open ? 90 : 0}deg)">▶</span>
+      </div>
+      ${open ? `<div style="padding:2px 12px 6px;border-top:1px solid var(--border)">${bodyHtml}</div>` : ''}
+    </div>`;
+}
+
 function renderStore() {
   const el  = document.getElementById('page-store');
   if (!el || !state) return;
@@ -5289,11 +5936,7 @@ function renderStore() {
         </div>
       </div>`;
     }).join('');
-    poleSection = `
-      <div class="section-header" style="margin-top:14px">
-        <span class="section-title">💃 Studio Supplies</span>
-      </div>
-      ${poleCards}`;
+    poleSection = poleCards;
   }
 
   // Laundry supplies — only shown when laundromat is owned
@@ -5325,11 +5968,7 @@ function renderStore() {
         </div>
       </div>`;
     }).join('');
-    laundrySection = `
-      <div class="section-header" style="margin-top:14px">
-        <span class="section-title">🧺 Laundromat Supplies</span>
-      </div>
-      ${laundryCards}`;
+    laundrySection = laundryCards;
   }
 
   // Car wash supplies — only shown when car wash is owned
@@ -5365,25 +6004,49 @@ function renderStore() {
         </div>
       </div>`;
     }).join('');
-    cwSection = `
-      <div class="section-header" style="margin-top:14px">
-        <span class="section-title">🚗 Car Wash Supplies</span>
-      </div>
-      ${cwCards}`;
+    cwSection = cwCards;
   }
+
+  // Arcade prize stock — only shown when the Back-Room Arcade is open.
+  let arcadeSection = '';
+  const arc = state.arcade;
+  if (arc && arc.unlocked) {
+    const held = Math.round(arc.prizes || 0);
+    const item = { key: 'arcade_prizes', name: 'Prize Stock', icon: '🧸', price: 320 };
+    arcadeSection = `
+      <div class="card" style="margin-bottom:10px">
+        <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
+          ${pxIcon(item.icon, 28)}
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:800;font-size:13px">${item.name}</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:1px">Plush, tickets & trinkets. A stocked prize counter boosts every cabinet's income (up to +30%) — but stock gets won daily. 60/case.</div>
+            <div style="font-size:11px;margin-top:3px;color:${held > 0 ? 'var(--positive)' : 'var(--warning)'}">${held > 0 ? `${held} prizes in stock` : 'Counter empty — no income boost'}</div>
+          </div>
+          <div style="font-size:15px;font-weight:800;color:var(--primary);flex-shrink:0">${fmt(item.price)}<div style="font-size:10px;font-weight:400;color:var(--text-muted);text-align:right">each</div></div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm btn-primary" style="flex:1" onclick="buySnacks('${item.key}',1)">Buy 1</button>
+          <button class="btn btn-sm btn-primary" style="flex:1" onclick="buySnacks('${item.key}',3)">Buy 3 · ${fmt(item.price*3)}</button>
+          <button class="btn btn-sm btn-primary" style="flex:1" onclick="buySnacks('${item.key}',5)">Buy 5 · ${fmt(item.price*5)}</button>
+        </div>
+      </div>`;
+  }
+
+  const groups = [
+    costproGroup('vending', '🍬', 'Vending Supplies', COSTPRO_SNACKS.length, snackCards),
+    laundrySection ? costproGroup('laundry', '🧺', 'Laundromat Supplies', COSTPRO_LAUNDRY.length, laundrySection) : '',
+    arcadeSection  ? costproGroup('arcade',  '🕹️', 'Arcade Prizes', 1, arcadeSection) : '',
+    poleSection    ? costproGroup('pole',    '💃', 'Studio Supplies', COSTPRO_POLE.length, poleSection) : '',
+    cwSection      ? costproGroup('carwash', '🚗', 'Car Wash Supplies', 5, cwSection) : '',
+  ].join('');
 
   el.innerHTML = `
     <div style="background:var(--primary);color:white;text-align:center;padding:14px 16px">
       <div style="font-family:'Rubik Dirt',cursive;font-size:22px;letter-spacing:2px">CostPro</div>
       <div style="font-size:10px;opacity:0.75;letter-spacing:3px;margin-top:2px">WHOLESALE · BULK · SAVINGS</div>
     </div>
-    <div class="section-header" style="margin-top:14px">
-      <span class="section-title">🍬 Vending Supplies</span>
-    </div>
-    ${snackCards}
-    ${laundrySection}
-    ${poleSection}
-    ${cwSection}
+    <div style="font-size:11px;color:var(--text-muted);padding:12px 2px 8px">Tap a category to open it.</div>
+    ${groups}
     <div style="font-size:11px;color:var(--text-muted);text-align:center;padding:8px 0 16px">
       More products unlock with new businesses.
     </div>`;
@@ -9124,11 +9787,13 @@ async function advanceDays(days) {
 
   _pendingRepairs          = res.repairs           || [];
   _pendingStorylets        = res.storylet_events   || [];
+  _pendingVendingEvents    = res.vending_events     || [];
+  _pendingArcadeEvents     = res.arcade_events      || [];
   _pendingRenewalOffers    = res.renewal_offers    || [];
   _pendingCommercialEvents = res.commercial_events || [];
   _pendingSquatter      = (res.events || []).find(e => e.type === 'squatter') || null;
   _pendingTaxEvent      = (res.tax_event && res.tax_event.amount >= 0) ? res.tax_event : null;
-  const totalPending    = _pendingRepairs.length + _pendingStorylets.length + _pendingRenewalOffers.length + _pendingCommercialEvents.length;
+  const totalPending    = _pendingRepairs.length + _pendingStorylets.length + _pendingVendingEvents.length + _pendingArcadeEvents.length + _pendingRenewalOffers.length + _pendingCommercialEvents.length;
   const repairNote = _pendingRepairs.length > 0
     ? `<div style="background:#FFF8E1;color:#7A4A00;border:2px solid var(--warning);border-radius:var(--radius-sm);padding:10px 12px;margin-top:12px;font-size:13px;font-weight:700">
         ${pxIcon('🔧',16)} ${_pendingRepairs.length} repair${_pendingRepairs.length > 1 ? 's' : ''} need${_pendingRepairs.length === 1 ? 's' : ''} attention!</div>`
@@ -9136,6 +9801,14 @@ async function advanceDays(days) {
   const storyletNote = _pendingStorylets.length > 0
     ? `<div style="background:#E8EAF6;color:#283593;border:2px solid #9FA8DA;border-radius:var(--radius-sm);padding:10px 12px;margin-top:8px;font-size:13px;font-weight:700">
         ${pxIcon('📖',16)} ${_pendingStorylets.length} tenant situation${_pendingStorylets.length > 1 ? 's' : ''} to handle!</div>`
+    : '';
+  const vendingNote = _pendingVendingEvents.length > 0
+    ? `<div style="background:#FFF3E0;color:#A14B00;border:2px solid #FFB74D;border-radius:var(--radius-sm);padding:10px 12px;margin-top:8px;font-size:13px;font-weight:700">
+        ${pxIcon('🥤',16)} ${_pendingVendingEvents.length} vending decision${_pendingVendingEvents.length > 1 ? 's' : ''} to make!</div>`
+    : '';
+  const arcadeNote = _pendingArcadeEvents.length > 0
+    ? `<div style="background:#EDE7F6;color:#4527A0;border:2px solid #9575CD;border-radius:var(--radius-sm);padding:10px 12px;margin-top:8px;font-size:13px;font-weight:700">
+        ${pxIcon('🕹️',16)} ${_pendingArcadeEvents.length} arcade decision${_pendingArcadeEvents.length > 1 ? 's' : ''} to make!</div>`
     : '';
   const renewalNote = _pendingRenewalOffers.length > 0
     ? `<div style="background:#E8F5E9;color:#1B5E20;border:2px solid #66BB6A;border-radius:var(--radius-sm);padding:10px 12px;margin-top:8px;font-size:13px;font-weight:700">
@@ -9150,6 +9823,10 @@ async function advanceDays(days) {
     ? `Fix Repairs (${_pendingRepairs.length})`
     : _pendingStorylets.length > 0
       ? `Tenant Situations (${_pendingStorylets.length})`
+      : _pendingVendingEvents.length > 0
+        ? `Vending Decisions (${_pendingVendingEvents.length})`
+      : _pendingArcadeEvents.length > 0
+        ? `Arcade Decisions (${_pendingArcadeEvents.length})`
       : _pendingRenewalOffers.length > 0
         ? `Review Leases (${_pendingRenewalOffers.length})`
         : _pendingCommercialEvents.length > 0
@@ -9167,6 +9844,8 @@ async function advanceDays(days) {
     ${eventsHtml}
     ${repairNote}
     ${storyletNote}
+    ${vendingNote}
+    ${arcadeNote}
     ${renewalNote}
     ${taxNote}
     <button class="btn btn-primary btn-full mt-8" onclick="continueFromEvents()">${btnLabel}</button>`);
@@ -9181,6 +9860,10 @@ function continueFromEvents() {
     showNextRepair();
   } else if (_pendingStorylets.length > 0) {
     showNextStorylet();
+  } else if (_pendingVendingEvents.length > 0) {
+    showNextVendingEvent();
+  } else if (_pendingArcadeEvents.length > 0) {
+    showNextArcadeEvent();
   } else if (_pendingRenewalOffers.length > 0) {
     showNextRenewalOffer();
   } else if (_pendingCommercialEvents.length > 0) {
@@ -9581,9 +10264,11 @@ function renderTaxes() {
     { key: 'laundromat',  name: 'Laundromat',       icon: '🧺', unlock: 5,  owned: !!state.laundromat },
     { key: 'pole_studio', name: 'Pole studio',      icon: '💃', unlock: 8,  owned: !!(state.pole_studio && state.pole_studio.owned) },
     { key: 'car_wash',    name: 'Car wash',         icon: '🚗', unlock: 10, owned: !!(state.car_wash && state.car_wash.owned) },
+    { key: 'arcade',      name: 'Arcade',           icon: '🕹️', unlock: 5,  owned: !!(state.arcade && state.arcade.unlocked), secret: true },
   ];
   const bizTotal   = BIZ_META.reduce((a, b) => a + (biz[b.key] || 0), 0);
   const bizRows    = BIZ_META.map(b => {
+    if (b.secret && !b.owned) return '';   // stay hidden until discovered
     if (b.owned) {
       return `
       <div class="money-row">

@@ -1332,47 +1332,79 @@ VM_LOCATIONS = {
                          "profile": {"cold": .30, "snacks": .25, "specialty": .20, "fresh": .15, "hot": .10}},
     "riverside_park":   {"name": "Riverside Park",             "traffic": 120, "volatility": 0.30,
                          "profile": {"cold": .40, "snacks": .30, "energy": .15, "fresh": .10, "specialty": .05}},
+    # Special: comes ONLY from the laundromat's In-House Vending add-on (not in
+    # VM_LOCATION_ORDER, so it's never sold at the regular 6 market spots).
+    "laundromat":       {"name": "Your Laundromat",            "traffic": 110, "volatility": 0.20,
+                         "profile": {"snacks": .35, "cold": .30, "energy": .15, "hot": .10, "specialty": .10}},
+    # Special: appears in the Back-Room Arcade (not in VM_LOCATION_ORDER). Gamers
+    # run on energy drinks, soda & snacks.
+    "arcade":           {"name": "The Arcade Floor",           "traffic": 115, "volatility": 0.25,
+                         "profile": {"energy": .35, "cold": .25, "snacks": .25, "specialty": .10, "hot": .05}},
 }
 
-# Location flavor events (Phase 1: simple income modifiers applied to one day).
-VM_LOCATION_EVENTS = {
-    "midtown_grocery": [
-        {"text": "Weekend shopping rush at Midtown Grocery — sales doubled!",        "type": "positive", "effect": "income_mult",  "value": 1.0},
-        {"text": "Power outage hit Midtown — the machine was offline all day.",      "type": "negative", "effect": "income_zero",  "value": 0},
-        {"text": "Health inspector surprise visit at Midtown — small fine.",         "type": "negative", "effect": "fine",         "value": 150},
-        {"text": "Late-night grocery rush boosted sales.",                           "type": "positive", "effect": "income_bonus", "value": 80},
-    ],
-    "riverside_park": [
-        {"text": "Community 5K finished by the park machine — runners cleaned it out!", "type": "positive", "effect": "income_mult",  "value": 0.7},
-        {"text": "Park closed for maintenance — no customers today.",                   "type": "negative", "effect": "income_zero",  "value": 0},
-        {"text": "Heat wave brought big crowds to Riverside Park — extra sales!",       "type": "positive", "effect": "income_mult",  "value": 0.5},
-        {"text": "Vandals rocked the park machine overnight — repair fee.",             "type": "negative", "effect": "fine",         "value": 100},
-    ],
-    "northside_center": [
-        {"text": "Youth tournament packed the center — record sales!",  "type": "positive", "effect": "income_mult",  "value": 0.6},
-        {"text": "Center closed for deep cleaning — offline all day.",   "type": "negative", "effect": "income_zero",  "value": 0},
-        {"text": "Senior bingo night brought an unexpected crowd.",      "type": "positive", "effect": "income_bonus", "value": 75},
-        {"text": "Noise complaint from the building manager — fined.",   "type": "negative", "effect": "fine",         "value": 80},
-    ],
-    "westwood_office": [
-        {"text": "All-hands meeting packed the lobby — great day!",            "type": "positive", "effect": "income_mult",  "value": 0.5},
-        {"text": "Office evacuation drill emptied the building — no sales.",   "type": "negative", "effect": "income_zero",  "value": 0},
-        {"text": "Building management slapped on a placement fee.",            "type": "negative", "effect": "fine",         "value": 120},
-        {"text": "Company happy hour spilled into the lobby — late rush.",     "type": "positive", "effect": "income_bonus", "value": 90},
-    ],
-    "newbay_ferry": [
-        {"text": "Ferry delays stranded a captive crowd for hours — emptied out!", "type": "positive", "effect": "income_mult",  "value": 1.0},
-        {"text": "Ferry service suspended — empty terminal, no sales.",            "type": "negative", "effect": "income_zero",  "value": 0},
-        {"text": "Tourist group rolled through Newbay — windfall!",                "type": "positive", "effect": "income_mult",  "value": 0.7},
-        {"text": "Port authority cited the machine for an expired permit.",        "type": "negative", "effect": "fine",         "value": 175},
-    ],
-    "downtown_bus": [
-        {"text": "Big game day — fans flooded the station, record day!",  "type": "positive", "effect": "income_mult",  "value": 1.0},
-        {"text": "Transit shutdown left the station empty — no sales.",    "type": "negative", "effect": "income_zero",  "value": 0},
-        {"text": "Loiterers scared off customers — day cut short.",        "type": "negative", "effect": "fine",         "value": 50},
-        {"text": "Concert let out nearby — fans rushed the station!",      "type": "positive", "effect": "income_mult",  "value": 0.6},
-    ],
-}
+# Vending events are now CHOICE CARDS — the player decides how to handle each.
+# At most one fires per advance, at a low chance (see VM_EVENT_CHANCE), so the
+# player isn't buried in pop-ups across all their income sources.
+# Choice effect keys: cost (cash out), cash (cash in), rep (machine reputation
+# delta), spoil_pct (fraction of perishable stock dumped). Optional "risk":
+# {chance, cost, rep, result_bad} — a gamble resolved server-side.
+# "problem": True events are halved by the Reinforced Build upgrade.
+VM_EVENT_CHANCE = 0.10   # per advance (one event max, on a random machine)
+
+VM_EVENTS = [
+    {"key": "vandalism", "title": "Vandalized Overnight", "icon": "🧱", "problem": True,
+     "text": "Machine #{slot} at {loc} was tagged and pried at overnight.", "choices": [
+        {"label": "Repair it properly", "cost": 180, "rep": 4, "result": "Good as new — and clearly cared-for."},
+        {"label": "Cheap patch job", "cost": 50, "rep": -2, "result": "Functional, but it looks rough.",
+         "risk": {"chance": 0.30, "cost": 150, "rep": -4, "result_bad": "The patch failed and they hit it again — extra repair."}},
+        {"label": "Leave it for now", "cost": 0, "rep": -10, "result": "A battered machine. Customers notice."}]},
+    {"key": "health_inspection", "title": "Surprise Inspection", "icon": "📋", "problem": True,
+     "text": "A health inspector flagged Machine #{slot} at {loc}.", "choices": [
+        {"label": "Pay the fine", "cost": 150, "rep": 0, "result": "Paid and done."},
+        {"label": "Bring it up to code", "cost": 260, "rep": 5, "result": "Spotless and compliant — a reputation bump."},
+        {"label": "Contest the citation", "cost": 0, "rep": 0, "result": "Dismissed — your paperwork held up.",
+         "risk": {"chance": 0.45, "cost": 320, "rep": -3, "result_bad": "The city won — a steeper fine plus a reputation ding."}}]},
+    {"key": "power_outage", "title": "Power Outage", "icon": "🔌", "problem": True,
+     "text": "A power outage hit {loc} — Machine #{slot}'s fridge is warming up fast.", "choices": [
+        {"label": "Rush a generator over", "cost": 120, "rep": 1, "result": "Power restored — the stock is saved."},
+        {"label": "Let it ride", "cost": 0, "rep": -2, "spoil_pct": 0.6, "result": "Most of the perishables warmed past safe and had to be tossed."}]},
+    {"key": "coin_theft", "title": "Coin Box Cracked", "icon": "🪙", "problem": True,
+     "text": "Someone jimmied the coin box on Machine #{slot} at {loc}.", "choices": [
+        {"label": "Upgrade to card-only", "cost": 200, "rep": 3, "result": "No more cash box to steal. Modern and tidy."},
+        {"label": "Just repair the mech", "cost": 60, "rep": 0, "result": "Fixed — for now.",
+         "risk": {"chance": 0.35, "cost": 60, "rep": -3, "result_bad": "They came back for the coins again."}},
+        {"label": "Ignore it", "cost": 0, "rep": -6, "result": "Word gets around that it's an easy target."}]},
+    {"key": "permit", "title": "Permit Renewal", "icon": "🏛️", "problem": True,
+     "text": "The city says Machine #{slot} at {loc} needs its permit renewed.", "choices": [
+        {"label": "Renew the permit", "cost": 130, "rep": 0, "result": "Squared away with the city."},
+        {"label": "Operate without it", "cost": 0, "rep": 0, "result": "Nobody noticed... this time.",
+         "risk": {"chance": 0.50, "cost": 400, "rep": -4, "result_bad": "Caught operating unpermitted — a hefty fine."}}]},
+    {"key": "graffiti", "title": "Graffiti'd", "icon": "🎨", "problem": True,
+     "text": "Someone tagged Machine #{slot} at {loc} with spray paint.", "choices": [
+        {"label": "Pro cleaning", "cost": 90, "rep": 3, "result": "Looks brand new again."},
+        {"label": "Scrub it yourself", "cost": 0, "rep": 1, "result": "Elbow grease and a weekend. Mostly gone."},
+        {"label": "Leave it", "cost": 0, "rep": -5, "result": "The tag stays. So does the impression."}]},
+    {"key": "jammed", "title": "Jammed Up", "icon": "🛠️", "problem": True,
+     "text": "Machine #{slot} at {loc} is jammed and refusing dollars.", "choices": [
+        {"label": "Call an emergency tech", "cost": 140, "rep": 2, "result": "Back in service within the hour."},
+        {"label": "Try to unjam it yourself", "cost": 0, "rep": 0, "result": "A few whacks and it's working again.",
+         "risk": {"chance": 0.30, "cost": 160, "rep": -5, "result_bad": "You made it worse — a real repair was needed."}},
+        {"label": "Leave it shut down", "cost": 0, "rep": -8, "result": "Days of lost sales and an unhappy spot."}]},
+    {"key": "captive_crowd", "title": "Captive Crowd!", "icon": "🌟", "problem": False,
+     "text": "A delay has trapped a big crowd right by Machine #{slot} at {loc}. They're thirsty and impatient.", "choices": [
+        {"label": "Crank prices — cash in", "cost": 0, "cash": 600, "rep": -6, "result": "You gouge the captive crowd. The register sings; the goodwill doesn't."},
+        {"label": "Fair prices, move volume", "cost": 0, "cash": 280, "rep": 4, "result": "Steady fair sales — and grateful regulars."},
+        {"label": "Do nothing special", "cost": 0, "cash": 120, "rep": 0, "result": "A modest bump from the crowd."}]},
+    {"key": "co_promo", "title": "Co-Promotion Offer", "icon": "🤝", "problem": False,
+     "text": "A local shop near Machine #{slot} ({loc}) offers to cross-promote your machine.", "choices": [
+        {"label": "Split signage costs", "cost": 40, "rep": 8, "result": "Their customers become your customers. Great look."},
+        {"label": "Politely decline", "cost": 0, "rep": 0, "result": "You pass. No harm done."}]},
+    {"key": "influencer", "title": "Influencer Wants In", "icon": "📸", "problem": False,
+     "text": "A local influencer wants to feature Machine #{slot} at {loc} — for some free product.", "choices": [
+        {"label": "Comp them a haul", "cost": 0, "rep": 10, "spoil_pct": 0.15, "result": "The post blows up — your machine's the talk of the block."},
+        {"label": "Offer a small sample", "cost": 0, "rep": 4, "result": "A modest shoutout. Every bit helps."},
+        {"label": "Decline", "cost": 0, "rep": 0, "result": "Not interested in freebies-for-clout."}]},
+]
 
 def _vm_blank_slots():
     return [{"category": None, "stock": 0.0, "restock_day": 0} for _ in range(VM_SLOTS)]
@@ -1476,6 +1508,49 @@ def _vm_update_reputation(vm, spoiled, stockouts):
     delta = max(-5, min(4, delta))
     vm["reputation"] = max(0, min(100, vm.get("reputation", 70) + delta))
 
+def _vm_queue_event(vm, loc):
+    """Build a pending vending-event choice card for the frontend (labels + costs only)."""
+    ev = random.choice(VM_EVENTS)
+    if ev.get("problem") and vm.get("upgrades", {}).get("reinforced") and random.random() < 0.5:
+        return None   # Reinforced Build shrugged it off
+    return {
+        "machine_id":   vm["id"],
+        "machine_slot": vm["slot"],
+        "key":          ev["key"],
+        "title":        ev["title"],
+        "icon":         ev["icon"],
+        "text":         ev["text"].format(slot=vm["slot"], loc=loc["name"]),
+        "choices":      [{"label": c["label"], "cost": c.get("cost", 0), "gain": c.get("cash", 0)}
+                         for c in ev["choices"]],
+    }
+
+def _vm_apply_event_choice(s, vm, choice):
+    """Apply a vending event choice (cash/reputation/spoilage, with optional risk).
+    Returns (result_text, was_bad_outcome)."""
+    result, bad = choice.get("result", "Done."), False
+    extra_cost = extra_rep = 0
+    risk = choice.get("risk")
+    if risk and random.random() < risk.get("chance", 0):
+        bad        = True
+        extra_cost = risk.get("cost", 0)
+        extra_rep  = risk.get("rep", 0)
+        result     = risk.get("result_bad", result)
+    cost = choice.get("cost", 0) + extra_cost
+    if cost:
+        s["cash"] = max(0, s["cash"] - cost)
+    if choice.get("cash"):
+        s["cash"] += choice["cash"]
+    rep_delta = choice.get("rep", 0) + extra_rep
+    if rep_delta:
+        vm["reputation"] = max(0, min(100, vm.get("reputation", 70) + rep_delta))
+    spoil = choice.get("spoil_pct", 0)
+    if spoil:
+        for sl in vm.get("slots", []):
+            cat = sl.get("category")
+            if cat and VM_PRODUCTS.get(cat, {}).get("perishable") and sl.get("stock", 0) > 0:
+                sl["stock"] = round(sl["stock"] * (1 - spoil), 1)
+    return result, bad
+
 def _grandma_shop(s, current_day, events):
     """Grandma's weekly run: buys cases (at a markup) to cover the coming week's
     demand for whatever categories your slots are configured to use."""
@@ -1548,12 +1623,13 @@ COSTPRO_ITEMS = {
     "cw_premium_wax":   {"name": "Premium Wax",          "icon": "✨", "price": 700,   "desc": "Required for Deluxe+. +30% income on Deluxe tier. 8 days per case.", "category": "car_wash"},
     "cw_tire_shine":    {"name": "Tire Shine",           "icon": "🖤", "price": 400,   "desc": "+15% income across all bays. 10 days per case.",      "category": "car_wash"},
     "cw_air_freshener": {"name": "Air Fresheners",       "icon": "🌲", "price": 300,   "desc": "+10% regulars growth rate. 12 days per case.",        "category": "car_wash"},
+    "arcade_prizes":    {"name": "Prize Stock (case)",   "icon": "🧸", "price": 320, "units": 60, "category": "arcade", "desc": "Plush, tickets & trinkets for the prize counter. A stocked counter boosts cabinet income — but stock gets won daily. 60 units/case."},
 }
 
 # ── Dirty Money Laundromat ─────────────────────────────────────────────────────
 LAUNDROMAT_PRICE                   = 250_000
-LAUNDROMAT_START_MACHINES          = 3     # machines included in the purchase
-LAUNDROMAT_MAX_MACHINES            = 12
+LAUNDROMAT_START_MACHINES          = 4     # machines included in the purchase (2 washers + 2 dryers)
+LAUNDROMAT_MAX_MACHINES            = 16
 LAUNDROMAT_MACHINE_PRICES          = [15_000, 20_000, 25_000, 30_000, 35_000, 40_000, 45_000, 50_000, 55_000]  # machines 4–12
 LAUNDROMAT_BASE_INCOME_PER_MACHINE = 280   # per day per working machine
 LAUNDROMAT_CLEAN_DECAY             = 8     # cleanliness drops per day
@@ -1597,13 +1673,256 @@ LAUNDROMAT_EVENTS = [
 LAUNDROMAT_STAFF = {
     "janitor":   {"name": "Janitor",   "icon": "🧹", "cost": 175, "desc": "Auto-cleans when cleanliness drops below 75%."},
     "repairman": {"name": "Repairman", "icon": "🔧", "cost": 225, "desc": "Auto-fixes broken machines every day."},
+    "manager":   {"name": "Supply Manager", "icon": "📦", "cost": 200, "desc": "Auto-orders soap, softener & dryer sheets — keeps you stocked, balanced to a buffer."},
 }
 
 LAUNDROMAT_UPGRADES = {
     "heavy_duty":       {"name": "Heavy-Duty Motor",   "icon": "⚙️",  "cost": 2_000, "desc": "Breakdown chance 6% → 2%."},
-    "card_reader":      {"name": "Card Reader",         "icon": "💳", "cost": 1_500, "desc": "+20% income from this machine."},
+    "card_reader":      {"name": "Card Reader",         "icon": "💳", "cost": 1_500, "desc": "+20% throughput from this machine."},
     "energy_efficient": {"name": "Energy Efficient",    "icon": "🌿", "cost": 1_000, "desc": "Soap lasts 10 days instead of 7."},
 }
+
+# ── Laundromat overhaul: demand vs. capacity, machine types, loyalty, add-ons ──
+# A load needs a WASH stage and a DRY stage. Washers add wash capacity, dryers add
+# dry capacity, combos add both. Daily loads = min(wash_cap, dry_cap, demand);
+# unmet demand = turn-aways (lost income + regulars erode). Income = loads × rate.
+LAUNDROMAT_MACHINE_TYPES = {
+    "washer": {"name": "Washer", "icon": "🌀", "wash": 12, "dry": 0,  "price": 15_000},
+    "dryer":  {"name": "Dryer",  "icon": "💨", "wash": 0,  "dry": 12, "price": 15_000},
+    "combo":  {"name": "Combo Unit", "icon": "🔄", "wash": 16, "dry": 16, "price": 40_000},
+}
+LAUNDROMAT_REV_PER_LOAD     = 50     # before cleanliness/supply multipliers
+LAUNDROMAT_BASE_DEMAND      = 16     # loads/day floor
+LAUNDROMAT_DEMAND_PER_REG   = 0.40   # + per regular
+LAUNDROMAT_DEMAND_PER_MEMBER= 0.50   # + per member
+LAUNDROMAT_DEMAND_VOLATILITY= 0.15
+LAUNDROMAT_MEMBER_FEE       = 7      # recurring $/member/day
+LAUNDROMAT_MACHINE_STEP     = 2_500  # price escalation per machine beyond the starters
+
+LAUNDROMAT_ADDONS = {
+    "vending":   {"name": "In-House Vending",   "icon": "🥤", "cost": 4_000, "income": 0,   "desc": "Adds a 7th machine to your Vending empire — stock & manage it from the Vending tab."},
+    "arcade":    {"name": "Back-Room Arcade",   "icon": "🕹️", "cost": 20_000, "income": 0,  "desc": "Open the laundromat's back room to the public as a games arcade — unlocks a whole new business."},
+    "atm":       {"name": "ATM",                "icon": "🏧", "cost": 3_500, "income": 55,  "desc": "Fee income that scales with foot traffic."},
+    "detergent": {"name": "Detergent Vending",  "icon": "🧴", "cost": 3_000, "income": 50,  "desc": "Sell soap & supplies on-site. +$50/day."},
+    "wash_fold": {"name": "Wash & Fold Service","icon": "🧺", "cost": 6_500, "income": 0,   "desc": "Turns spare machine capacity into high-margin service work."},
+    "loyalty":   {"name": "Loyalty Program",    "icon": "💳", "cost": 4_500, "income": 0,   "desc": "Convert happy regulars into paying members — sticky recurring income."},
+}
+
+# ── The Back-Room Arcade (secret business — unlocked by the laundromat add-on) ──
+# Cabinets have a GENRE; a varied floor out-earns duplicates (saturation). Cabinets
+# wear & break (upkeep), and foot traffic rides the laundromat's regulars (synergy).
+# (Playable mini-games + the hot-cabinet/high-score loop are the NEXT phase.)
+ARCADE_CABINET_PRICE       = 15_000   # base; escalates per cabinet owned
+ARCADE_INCOME_PER_CABINET  = 95       # base $/day per cabinet (before genre/condition/traffic)
+ARCADE_INCOME_VOLATILITY   = 0.20
+ARCADE_CABINET_DECAY       = 3        # condition lost per day
+ARCADE_BREAKDOWN_PCT       = 0.04     # per working cabinet per day
+ARCADE_SERVICE_COST        = 250      # manual service: fix + restore a cabinet
+ARCADE_GENRES = {
+    "fighting": {"name": "Fighting", "icon": "🥊"},
+    "racing":   {"name": "Racing",   "icon": "🏎️"},
+    "shooter":  {"name": "Shooter",  "icon": "👾"},
+    "rhythm":   {"name": "Rhythm",   "icon": "🕺"},
+    "pinball":  {"name": "Pinball",  "icon": "🎰"},
+    "prize":    {"name": "Prize / Claw", "icon": "🎁"},
+    "retro":    {"name": "Retro",    "icon": "🕹️"},
+}
+ARCADE_GAMES = [
+    {"title": "Street Brawler",  "genre": "fighting"},
+    {"title": "Kung-Fu Alley",   "genre": "fighting"},
+    {"title": "Neon Drift",      "genre": "racing"},
+    {"title": "Retro Racer",     "genre": "racing"},
+    {"title": "Galaxy Siege",    "genre": "shooter"},
+    {"title": "Pixel Blaster",   "genre": "shooter"},
+    {"title": "Laser Tag Lords", "genre": "shooter"},
+    {"title": "Dance Fever",     "genre": "rhythm"},
+    {"title": "Beat Pulse",      "genre": "rhythm"},
+    {"title": "Pinball Wizard",  "genre": "pinball"},
+    {"title": "Crane Grab",      "genre": "prize"},
+    {"title": "Ticket Tornado",  "genre": "prize"},
+    {"title": "Zombie Dunk",     "genre": "prize"},
+    {"title": "Quarter Muncher", "genre": "retro"},
+]
+def _arcade_genre_of(title):
+    return next((g["genre"] for g in ARCADE_GAMES if g["title"] == title), "retro")
+ARCADE_CLEAN_DECAY     = 4        # cleanliness lost per day (foot traffic)
+ARCADE_CLEAN_COST      = 120      # manual deep clean
+ARCADE_TILL_PER_CABINET= 1_200    # uncollected cash a machine holds before coins overflow
+ARCADE_STAFF = {
+    "tech":      {"name": "Repair Tech",   "icon": "🔧", "cost": 200, "desc": "Auto-fixes broken cabinets and keeps them maintained."},
+    "collector": {"name": "Arcade Manager", "icon": "💰", "cost": 220, "desc": "Banks the machine cash daily AND keeps the prize counter stocked from CostPro."},
+    "janitor":   {"name": "Janitor",       "icon": "🧹", "cost": 150, "desc": "Keeps the arcade floor clean automatically."},
+}
+
+# Only two of the same title may sit on the floor at once.
+ARCADE_MAX_PER_TITLE = 2
+
+# ── Prize counter ──────────────────────────────────────────────────────────────
+# Prize stock (bought from CostPro) is an investment: a stocked prize counter
+# boosts cabinet income up to +PRIZE_BOOST_MAX, but prizes get won/handed out
+# daily, so you keep restocking.
+ARCADE_PRIZE_BOOST_MAX   = 0.30   # full prize counter → +30% income
+ARCADE_PRIZE_USE_PER_CAB = 1.6    # prize units consumed per working cabinet/day (×traffic)
+
+# ── Cabinet market (refreshes only after you buy — no free re-rolling) ──────────
+ARCADE_MARKET_SIZE       = 3
+ARCADE_RARE_CHANCE       = 0.20   # chance a rare import shows up in the daily lineup
+ARCADE_RARE_PRICE_MULT   = 2.4    # rares cost more...
+ARCADE_RARE_INCOME_MULT  = 1.8    # ...but earn a lot more
+
+# Rare import cabinets — coveted machines that only appear occasionally.
+ARCADE_RARE_GAMES = [
+    {"title": "Samurai Showdown DX", "genre": "fighting"},
+    {"title": "Outrun Phantom",      "genre": "racing"},
+    {"title": "Alien Onslaught EX",  "genre": "shooter"},
+    {"title": "Taiko Legend",        "genre": "rhythm"},
+    {"title": "Gold Fever Pinball",  "genre": "pinball"},
+    {"title": "Mega Claw Deluxe",    "genre": "prize"},
+    {"title": "Vector Classic '83",  "genre": "retro"},
+]
+ARCADE_RARE_TITLES = {g["title"] for g in ARCADE_RARE_GAMES}
+
+# ── Decor / theming (one-time cosmetic upgrades with real effects) ─────────────
+ARCADE_DECOR = {
+    "neon":         {"name": "Neon Lights",   "icon": "🌈", "cost": 6_000,  "traffic": 0.08, "desc": "Glowing neon pulls passersby in. +8% foot traffic."},
+    "sign":         {"name": "Marquee Sign",  "icon": "🪧", "cost": 5_500,  "traffic": 0.06, "desc": "A big lit sign out front. +6% foot traffic."},
+    "themed_walls": {"name": "Themed Murals", "icon": "🎨", "cost": 7_500,  "traffic": 0.10, "desc": "Floor-to-ceiling art makes it a destination. +10% foot traffic."},
+    "carpet":       {"name": "Arcade Carpet", "icon": "🟪", "cost": 4_500,  "clean": 1.5,    "desc": "Classic patterned carpet hides wear — the floor dirties slower."},
+    "snack_nook":   {"name": "Snack Nook",    "icon": "🍿", "cost": 8_000,  "income": 0.08,  "desc": "Popcorn & soda corner. +8% to all cabinet income."},
+}
+
+# ── Arcade events (choice cards) ───────────────────────────────────────────────
+# One may fire per advance at ARCADE_EVENT_CHANCE. Effect keys on a choice:
+# cost (cash out), cash (cash in), clean (cleanliness delta), prizes (prize-stock
+# delta), break_n (break N random working cabinets), steal_till_pct (skim the
+# UNCOLLECTED machine cash — a Floor Manager who banks daily makes this harmless).
+# Optional "risk": {chance, cost, result_bad} gamble resolved server-side.
+ARCADE_EVENT_CHANCE = 0.12
+ARCADE_EVENTS = [
+    {"key": "break_in", "title": "Cabinets Jimmied", "icon": "🦹",
+     "text": "Someone pried open your cabinets overnight, going for the uncollected coins.", "choices": [
+        {"label": "Upgrade the cabinet locks", "cost": 320, "result": "Hardened locks installed — they left empty-handed."},
+        {"label": "Just clean up the mess", "cost": 0, "steal_till_pct": 0.5, "result": "They made off with {lost} that was sitting in the machines."}]},
+    {"key": "spill", "title": "Big Soda Spill", "icon": "🥤",
+     "text": "A toppled tray of drinks left the floor sticky and gross.", "choices": [
+        {"label": "Mop it immediately", "cost": 60, "clean": 5, "result": "Spotless again in minutes."},
+        {"label": "Throw down a 'wet floor' sign", "cost": 0, "clean": -18, "result": "It'll dry... eventually. The floor's a mess in the meantime."}]},
+    {"key": "rowdy", "title": "Rowdy Crowd", "icon": "😤", "problem": True,
+     "text": "A pack of teens got too rough on the machines tonight.", "choices": [
+        {"label": "Hire a door guy for the night", "cost": 200, "result": "Order restored — nothing got wrecked."},
+        {"label": "Let it ride", "cost": 0, "break_n": 1, "result": "They cracked a cabinet before clearing out."}]},
+    {"key": "power_bill", "title": "Surprise Power Bill", "icon": "🔌",
+     "text": "All those cabinets and neon add up — the utility company sent a fat bill.", "choices": [
+        {"label": "Pay it", "cost": 280, "result": "Paid. The lights stay on."},
+        {"label": "Dispute the meter reading", "cost": 0, "result": "They knocked it down to nothing.",
+         "risk": {"chance": 0.45, "cost": 420, "result_bad": "The meter was right — and now there's a late fee on top."}}]},
+    {"key": "claw_jam", "title": "Claw Machine Jammed", "icon": "🎁", "problem": True,
+     "text": "The prize claw seized up mid-grab and a crowd is grumbling.", "choices": [
+        {"label": "Service it on the spot", "cost": 110, "result": "Back to grabbing in no time."},
+        {"label": "Slap an 'out of order' note on it", "cost": 0, "prizes": -8, "result": "You lose a chunk of prize stock to a stuck door before it's noticed."}]},
+    {"key": "high_score", "title": "Viral High Score", "icon": "🏆", "problem": False,
+     "text": "A regular set a world-record run and the clip is blowing up online.", "choices": [
+        {"label": "Lean in — host a watch night", "cost": 50, "cash": 520, "result": "The place is packed for the rematch. Register sings."},
+        {"label": "Just enjoy the buzz", "cost": 0, "cash": 180, "result": "A nice little bump in walk-ins."}]},
+    {"key": "birthday", "title": "Birthday Party Booking", "icon": "🎂", "problem": False,
+     "text": "A parent wants to book out a corner for a kid's birthday bash.", "choices": [
+        {"label": "Premium package — prizes included", "cost": 0, "cash": 600, "prizes": -10, "result": "A loud, happy afternoon — and a tidy fee."},
+        {"label": "Floor rental only", "cost": 0, "cash": 300, "result": "They bring their own cake; you bank the rental."},
+        {"label": "Too much hassle — pass", "cost": 0, "result": "You keep the floor open to walk-ins."}]},
+    {"key": "supplier_deal", "title": "Prize Supplier Deal", "icon": "🧸", "problem": False,
+     "text": "A wholesaler is dumping plush toys and wants them gone today.", "choices": [
+        {"label": "Buy the pallet", "cost": 240, "prizes": 80, "result": "A mountain of prizes at a steal — the counter's stocked for ages."},
+        {"label": "Grab a small lot", "cost": 90, "prizes": 25, "result": "A modest top-up at a fair price."},
+        {"label": "Not today", "cost": 0, "result": "You let it pass."}]},
+    {"key": "retro_craze", "title": "Retro Craze", "icon": "👾", "problem": False,
+     "text": "A nostalgia wave has everyone hunting down old-school cabinets.", "choices": [
+        {"label": "Ride the wave", "cost": 0, "cash": 260, "result": "Quarters rain in all weekend."}]},
+    {"key": "inspection", "title": "Safety Inspection", "icon": "📋", "problem": True,
+     "text": "The city's checking your cabinets for wiring and fire code.", "choices": [
+        {"label": "Pay for full compliance", "cost": 260, "clean": 6, "result": "Passed clean — and the place looks sharp."},
+        {"label": "Do the bare minimum", "cost": 80, "result": "Squeaked by.",
+         "risk": {"chance": 0.40, "cost": 300, "result_bad": "A follow-up visit caught more issues — bigger fine."}}]},
+]
+
+def _arcade_roll_market(s):
+    """Build the day's cabinet lineup (ARCADE_MARKET_SIZE offers, maybe one rare).
+    Skips titles the player already owns two of. Stored on arc['market']."""
+    arc = s.get("arcade")
+    if not arc:
+        return
+    cabs       = arc.get("cabinets", [])
+    # Base climbs $2,000 per cabinet already owned...
+    base_price = ARCADE_CABINET_PRICE + len(cabs) * 2_000
+    # ...and each offer gets a small ±9% wiggle so the three lineup prices look
+    # distinct instead of identical (rounded to the nearest $50).
+    def _jittered(base):
+        return int(round(base * random.uniform(0.91, 1.09) / 50.0)) * 50
+    title_ct   = {}
+    for c in cabs:
+        title_ct[c.get("title")] = title_ct.get(c.get("title"), 0) + 1
+    offers, used = [], set()
+    rare_idx = random.randrange(ARCADE_MARKET_SIZE) if (ARCADE_RARE_GAMES and random.random() < ARCADE_RARE_CHANCE) else -1
+    for i in range(ARCADE_MARKET_SIZE):
+        if i == rare_idx:
+            g = random.choice(ARCADE_RARE_GAMES)
+            offers.append({"id": i, "title": g["title"], "genre": g["genre"], "rare": True,
+                           "price": _jittered(base_price * ARCADE_RARE_PRICE_MULT)})
+        else:
+            pool = [g for g in ARCADE_GAMES
+                    if g["title"] not in used and title_ct.get(g["title"], 0) < ARCADE_MAX_PER_TITLE]
+            if not pool:
+                pool = [g for g in ARCADE_GAMES if g["title"] not in used] or ARCADE_GAMES
+            g = random.choice(pool)
+            used.add(g["title"])
+            offers.append({"id": i, "title": g["title"], "genre": g["genre"], "rare": False,
+                           "price": _jittered(base_price)})
+    random.shuffle(offers)
+    for n, o in enumerate(offers):
+        o["id"] = n
+    arc["market"]      = offers
+    arc["market_day"]  = s.get("day", 0)
+    arc["market_used"] = False
+
+def _arcade_queue_event(s):
+    """Build a pending arcade-event choice card (labels + costs only)."""
+    arc = s.get("arcade")
+    if not (arc and arc.get("unlocked")):
+        return None
+    ev = random.choice(ARCADE_EVENTS)
+    return {
+        "key":   ev["key"], "title": ev["title"], "icon": ev["icon"], "text": ev["text"],
+        "choices": [{"label": c["label"], "cost": c.get("cost", 0), "gain": c.get("cash", 0)}
+                    for c in ev["choices"]],
+    }
+
+def _arcade_apply_event_choice(s, choice):
+    """Apply an arcade event choice. Returns (result_text, was_bad_outcome)."""
+    arc = s.setdefault("arcade", {})
+    result, bad = choice.get("result", "Done."), False
+    extra_cost = 0
+    risk = choice.get("risk")
+    if risk and random.random() < risk.get("chance", 0):
+        bad, extra_cost = True, risk.get("cost", 0)
+        result = risk.get("result_bad", result)
+    cost = choice.get("cost", 0) + extra_cost
+    if cost:
+        s["cash"] = max(0, s["cash"] - cost)
+    if choice.get("cash"):
+        s["cash"] += choice["cash"]
+    if choice.get("clean"):
+        arc["cleanliness"] = max(0, min(100, arc.get("cleanliness", 100) + choice["clean"]))
+    if choice.get("prizes"):
+        arc["prizes"] = max(0, arc.get("prizes", 0) + choice["prizes"])
+    if choice.get("steal_till_pct"):
+        lost = int(arc.get("uncollected", 0) * choice["steal_till_pct"])
+        arc["uncollected"] = max(0, arc.get("uncollected", 0) - lost)
+        result = result.replace("{lost}", f"${lost:,}")
+    if choice.get("break_n"):
+        working = [c for c in arc.get("cabinets", []) if c.get("status") == "working"]
+        random.shuffle(working)
+        for c in working[:choice["break_n"]]:
+            c["status"] = "broken"
+    return result, bad
 
 # ── Brass Pole Fitness Studio ──────────────────────────────────────────────────
 POLE_STUDIO_PRICE            = 600_000
@@ -3192,6 +3511,48 @@ def _migrate_state(s):
     s.setdefault("grandma_last_shop", 0)
     s.setdefault("grandma_budget", 0)   # 0 = uncapped
     s.setdefault("laundromat", None)
+    # Laundromat overhaul migration: old type-less machines become Combo units
+    # (they did wash+dry), plus new loyalty/add-on fields.
+    _lm = s.get("laundromat")
+    if _lm:
+        for _m in _lm.get("machines", []):
+            _m.setdefault("type", "combo")
+        _lm.setdefault("members", 0)
+        _lm.setdefault("addons", {})
+        # If they already own the vending add-on but have no laundromat machine
+        # (pre-7th-machine saves), spawn it now.
+        if _lm["addons"].get("vending"):
+            _vms = s.setdefault("vending_machines", [])
+            if not any(v.get("location_key") == "laundromat" for v in _vms):
+                _vms.append(_vm_new_machine(s, 7, "laundromat"))
+    s.setdefault("arcade", None)
+    # Existing saves that bought the arcade add-on but predate the Arcade business.
+    if _lm and _lm.get("addons", {}).get("arcade") and not (s.get("arcade") and s["arcade"].get("unlocked")):
+        _g = random.choice(ARCADE_GAMES)
+        s["arcade"] = {"unlocked": True, "total_earned": 0, "staff": {},
+                       "cabinets": [{"id": 0, "title": _g["title"], "genre": _g["genre"],
+                                     "condition": 100, "status": "working"}]}
+    # Bring older arcade cabinets up to the genre/upkeep model.
+    _arc = s.get("arcade")
+    if _arc and _arc.get("unlocked"):
+        _arc.setdefault("staff", {})
+        _arc.setdefault("uncollected", 0)
+        _arc.setdefault("cleanliness", 100)
+        _arc.setdefault("prizes", 0)
+        _arc.setdefault("decor", {})
+        for _cab in _arc.get("cabinets", []):
+            if "title" not in _cab:
+                _cab["title"] = _cab.pop("game", "Quarter Muncher")
+            _cab.setdefault("genre", _arcade_genre_of(_cab["title"]))
+            _cab.setdefault("condition", 100)
+            _cab.setdefault("status", "working")
+            _cab.setdefault("rare", _cab["title"] in ARCADE_RARE_TITLES)
+        if not _arc.get("market"):
+            _arcade_roll_market(s)
+        # Retroactively give existing arcades their on-floor vending machine.
+        _vms = s.setdefault("vending_machines", [])
+        if not any(v.get("location_key") == "arcade" for v in _vms):
+            _vms.append(_vm_new_machine(s, 8, "arcade"))
     s.setdefault("pole_studio", None)
     s.setdefault("car_wash", None)
     s.setdefault("commercial_market", [])
@@ -3305,6 +3666,7 @@ def api_state():
         "grandma_budget":         s.get("grandma_budget", 0),
         "costpro_inventory":      s.get("costpro_inventory", {}),
         "laundromat":             s.get("laundromat"),
+        "arcade":                 s.get("arcade"),
         "pole_studio":            s.get("pole_studio"),
         "car_wash":               s.get("car_wash"),
         "building_permit":        s.get("building_permit", False),
@@ -5244,6 +5606,8 @@ def api_advance():
     new_renewal_offers     = []
     new_commercial_events  = []
     new_storylet_events    = []
+    new_vending_events     = []
+    new_arcade_events      = []
     rent_log               = {}   # prop_id -> summary dict
     squatter_spawned       = False
 
@@ -5972,8 +6336,6 @@ def api_advance():
         loc = VM_LOCATIONS.get(vm.get("location_key"))
         if not loc:
             continue
-        reinforced    = vm.get("upgrades", {}).get("reinforced")
-        had_loc_event = False   # max 1 location event per machine per advance
         for d2 in range(days):
             cur = s["day"] + d2 + 1
             # Grandma's weekly shop (runs once across the portfolio, not per machine).
@@ -5985,32 +6347,6 @@ def api_advance():
 
             day_profit, spoiled, stockouts = _vm_sell_day(vm, loc, cur)
             _vm_update_reputation(vm, spoiled, stockouts)
-
-            # 5% location event per machine per advance.
-            if not had_loc_event and random.random() < 0.05:
-                had_loc_event = True
-                loc_pool = VM_LOCATION_EVENTS.get(vm.get("location_key"), [])
-                if loc_pool:
-                    evt = random.choice(loc_pool)
-                    # Reinforced builds shrug off half of the bad events.
-                    if not (evt["type"] == "negative" and reinforced and random.random() < 0.5):
-                        effect = evt["effect"]
-                        val    = evt["value"]
-                        if effect == "income_zero":
-                            day_profit = 0
-                        elif effect == "income_mult":
-                            day_profit = day_profit * (1 + val)
-                        elif effect == "income_bonus":
-                            s["cash"] += val
-                        elif effect == "fine":
-                            s["cash"] = max(0, s["cash"] - val)
-                        events.append({
-                            "prop":     f"Machine #{vm['slot']} — {loc['name']}",
-                            "text":     evt["text"],
-                            "type":     evt["type"],
-                            "category": "business",
-                        })
-
             s["cash"] += round(day_profit)
             _biz_income(s, "vending", round(day_profit))
 
@@ -6020,6 +6356,17 @@ def api_advance():
                     "text":     f"{int(round(spoiled))} units of perishable stock spoiled before selling.",
                     "type":     "negative", "category": "business",
                 })
+
+    # At most ONE vending event per advance (choice card), at a low chance, on a
+    # random machine — so the player isn't buried in pop-ups.
+    if vms and random.random() < VM_EVENT_CHANCE:
+        _evm = random.choice(vms)
+        _eloc = VM_LOCATIONS.get(_evm.get("location_key"))
+        if _eloc:
+            _qe = _vm_queue_event(_evm, _eloc)
+            if _qe:
+                new_vending_events.append(_qe)
+
     s["vending_machines"]  = vms
     s["costpro_inventory"] = inv
 
@@ -6069,6 +6416,18 @@ def api_advance():
                         s["cash"] = max(0, s["cash"] - repair_fee)
                         machine["status"] = "working"
 
+            # Supply Manager: daily salary + auto-orders supplies to a buffer (like Grandma).
+            if staff.get("manager"):
+                s["cash"] = max(0, s["cash"] - LAUNDROMAT_STAFF["manager"]["cost"])
+                has_ee   = any(m.get("upgrades", {}).get("energy_efficient") for m in machines)
+                soap_per = 10 if has_ee else 7
+                while lm.get("soap_days", 0) < 10 and s["cash"] >= 300:       # required — keep ~10–17 days
+                    s["cash"] -= 300; lm["soap_days"] = lm.get("soap_days", 0) + soap_per
+                while lm.get("softener_days", 0) < 8 and s["cash"] >= 500:    # income booster
+                    s["cash"] -= 500; lm["softener_days"] = lm.get("softener_days", 0) + 10
+                while lm.get("sheets_days", 0) < 8 and s["cash"] >= 400:
+                    s["cash"] -= 400; lm["sheets_days"] = lm.get("sheets_days", 0) + 10
+
             # No soap = no income
             if lm.get("soap_days", 0) <= 0:
                 lm["regulars"] = max(0, lm.get("regulars", 0) - 2)
@@ -6077,44 +6436,76 @@ def api_advance():
 
             working = [m for m in machines if m["status"] == "working"]
             if not working:
-                # All machines broken — regulars leave frustrated
                 lm["regulars"] = max(0, lm.get("regulars", 0) - 3)
                 continue
-
-            # More than half machines broken — regulars getting annoyed
             broken_count = len(machines) - len(working)
+
+            # ── Capacity by stage (a load needs a wash AND a dry) ──
+            def _cap(stage):
+                return sum(LAUNDROMAT_MACHINE_TYPES.get(m.get("type", "combo"), {}).get(stage, 0)
+                           * (1.20 if m.get("upgrades", {}).get("card_reader") else 1.0)
+                           for m in working)
+            wash_cap, dry_cap = _cap("wash"), _cap("dry")
+            throughput = min(wash_cap, dry_cap)
+
+            # ── Demand (regulars + members drive it; daily volatility) ──
+            members = lm.get("members", 0)
+            demand  = (LAUNDROMAT_BASE_DEMAND
+                       + lm.get("regulars", 0) * LAUNDROMAT_DEMAND_PER_REG
+                       + members * LAUNDROMAT_DEMAND_PER_MEMBER)
+            demand  = max(0, demand * (1 + random.uniform(-LAUNDROMAT_DEMAND_VOLATILITY, LAUNDROMAT_DEMAND_VOLATILITY)))
+
+            loads      = min(throughput, demand)
+            turn_aways = max(0, demand - throughput)
+
+            income = loads * LAUNDROMAT_REV_PER_LOAD
+            income = income * (0.4 + lm.get("cleanliness", 100) / 100 * 1.4)   # cleanliness mult
+            if lm.get("softener_days", 0) > 0:
+                income *= 1.25; lm["softener_days"] = max(0, lm["softener_days"] - 1)
+            if lm.get("sheets_days", 0) > 0:
+                income *= 1.20; lm["sheets_days"] = max(0, lm["sheets_days"] - 1)
+            income = round(income)
+
+            # ── Membership recurring income + add-on income ──
+            addons = lm.setdefault("addons", {})
+            income += round(members * LAUNDROMAT_MEMBER_FEE)
+            for akey, a in LAUNDROMAT_ADDONS.items():
+                if not addons.get(akey):
+                    continue
+                if akey == "vending":
+                    continue   # a real vending machine now — earns via the vending system
+                if akey == "atm":
+                    income += a["income"] + round(loads * 0.5)
+                elif akey == "wash_fold":
+                    income += round(max(0, throughput - demand) * 9)   # monetize idle capacity
+                else:
+                    income += a.get("income", 0)
+                if akey == "arcade" and random.random() < 0.5:
+                    lm["regulars"] = min(100, lm.get("regulars", 0) + 1)
+
+            # ── Reputation / regulars dynamics ──
+            if turn_aways > 0.5:
+                lm["regulars"] = max(0, lm.get("regulars", 0) - min(5, 1 + int(turn_aways // 4)))
+            elif lm.get("cleanliness", 100) > 55 and broken_count == 0:
+                lm["regulars"] = min(100, lm.get("regulars", 0) + 2)
             if broken_count > len(machines) // 2:
                 lm["regulars"] = max(0, lm.get("regulars", 0) - 1)
-
-            # Filthy conditions drive regulars away
             if lm.get("cleanliness", 100) < 25:
                 lm["regulars"] = max(0, lm.get("regulars", 0) - 2)
 
-            # Base income (card reader upgrade: +20% per machine)
-            income = sum(
-                round(LAUNDROMAT_BASE_INCOME_PER_MACHINE * (1.20 if m.get("upgrades", {}).get("card_reader") else 1.0))
-                for m in working
-            )
+            # ── Members drift toward a share of regulars (only with Loyalty Program) ──
+            if addons.get("loyalty"):
+                target = lm.get("regulars", 0) * 0.6
+                if members < target:
+                    lm["members"] = min(target, members + 1.5)
+                elif members > target:
+                    lm["members"] = max(target, members - 1)
+            lm["members"] = round(lm.get("members", 0), 1)
 
-            # Cleanliness multiplier: 0.4 at 0% → 1.8 at 100%
-            income = round(income * (0.4 + lm.get("cleanliness", 100) / 100 * 1.4))
-
-            # Optional supply bonuses
-            if lm.get("softener_days", 0) > 0:
-                income              = round(income * 1.25)
-                lm["softener_days"] = max(0, lm["softener_days"] - 1)
-            if lm.get("sheets_days", 0) > 0:
-                income            = round(income * 1.20)
-                lm["sheets_days"] = max(0, lm["sheets_days"] - 1)
-
-            # Regulars bonus: up to +40%
-            income = round(income * (1 + lm.get("regulars", 0) / 100 * 0.40))
-
-            # Random event (5% per day)
-            if random.random() < 0.05:
+            # ── Random flavor event (~12%/day while operating) ──
+            if random.random() < 0.12:
                 evt    = random.choice(LAUNDROMAT_EVENTS)
-                effect = evt["effect"]
-                val    = evt["value"]
+                effect = evt["effect"]; val = evt["value"]
                 if effect == "income_zero":
                     income = 0
                 elif effect == "income_mult":
@@ -6128,25 +6519,118 @@ def api_advance():
                 elif effect == "regulars":
                     lm["regulars"] = max(0, min(100, lm.get("regulars", 0) + int(val)))
                 elif effect == "break_two":
-                    picks = random.sample(working, min(2, len(working)))
-                    for m in picks:
+                    for m in random.sample(working, min(2, len(working))):
                         m["status"] = "broken"
-                events.append({
-                    "prop":     "Dirty Money Laundromat",
-                    "text":     evt["text"],
-                    "type":     evt["type"],
-                    "category": "business",
-                })
+                events.append({"prop": "Dirty Money Laundromat", "text": evt["text"],
+                               "type": evt["type"], "category": "business"})
 
-            # Regulars build (40% chance of +3 per open day)
-            if random.random() < 0.40:
-                lm["regulars"] = min(100, lm.get("regulars", 0) + 3)
+            # Surface turn-aways so the player feels the capacity squeeze.
+            if turn_aways >= 4:
+                events.append({"prop": "Dirty Money Laundromat",
+                    "text": f"Turned away ~{int(turn_aways)} loads of demand — not enough {'dryers' if dry_cap < wash_cap else 'washers' if wash_cap < dry_cap else 'machines'} to keep up.",
+                    "type": "negative", "category": "business"})
 
             s["cash"]         += income
             lm["total_earned"] = lm.get("total_earned", 0) + income
             _biz_income(s, "laundromat", income)
 
         s["laundromat"] = lm
+
+    # ── The Back-Room Arcade advance ──────────────────────────────────────────
+    arc = s.get("arcade")
+    if arc and arc.get("unlocked"):
+        import math
+        cabs   = arc.get("cabinets", [])
+        astaff = arc.setdefault("staff", {})
+        lm_arc = s.get("laundromat") or {}
+        arc.setdefault("uncollected", 0)
+        arc.setdefault("cleanliness", 100)
+        arc.setdefault("prizes", 0)
+        decor = arc.get("decor", {})
+        decor_traffic = sum(ARCADE_DECOR[k].get("traffic", 0) for k in decor if decor.get(k) and k in ARCADE_DECOR)
+        decor_clean   = sum(ARCADE_DECOR[k].get("clean", 0)   for k in decor if decor.get(k) and k in ARCADE_DECOR)
+        decor_income  = sum(ARCADE_DECOR[k].get("income", 0)  for k in decor if decor.get(k) and k in ARCADE_DECOR)
+        clean_decay   = max(1, ARCADE_CLEAN_DECAY - decor_clean)
+        for _day in range(days):
+            # Foot traffic dirties the floor; the Janitor keeps it clean. Carpet slows it.
+            arc["cleanliness"] = max(0, arc.get("cleanliness", 100) - clean_decay)
+            if astaff.get("janitor"):
+                s["cash"] = max(0, s["cash"] - ARCADE_STAFF["janitor"]["cost"])
+                if arc["cleanliness"] < 70:
+                    arc["cleanliness"] = min(100, arc["cleanliness"] + 35)
+
+            # Wear, breakdowns, and the Repair Tech (auto-fix + maintain).
+            for cab in cabs:
+                if cab.get("status") == "working":
+                    cab["condition"] = max(0, cab.get("condition", 100) - ARCADE_CABINET_DECAY)
+                    if random.random() < ARCADE_BREAKDOWN_PCT:
+                        cab["status"] = "broken"
+            if astaff.get("tech"):
+                s["cash"] = max(0, s["cash"] - ARCADE_STAFF["tech"]["cost"])
+                for cab in cabs:
+                    if cab.get("status") == "broken":
+                        cab["status"] = "working"
+                    cab["condition"] = max(cab.get("condition", 100), 80)
+
+            working = [c for c in cabs if c.get("status") == "working"]
+            if working:
+                traffic_f = (0.6 + min(1.0, (lm_arc.get("regulars", 0) + lm_arc.get("members", 0)) / 100) * 0.8) * (1 + decor_traffic)
+                clean_f   = 0.6 + arc.get("cleanliness", 100) / 100 * 0.4   # dirty floor earns less
+                # Prize counter: a stocked counter boosts income, but prizes get won daily.
+                prize_use = round(len(working) * traffic_f * ARCADE_PRIZE_USE_PER_CAB)
+                coverage  = min(1.0, arc.get("prizes", 0) / prize_use) if prize_use > 0 else 0.0
+                prize_f   = 1 + ARCADE_PRIZE_BOOST_MAX * coverage
+                arc["prizes"] = max(0, arc.get("prizes", 0) - prize_use)
+                gcounts   = {}
+                for c in working:
+                    gcounts[c.get("genre", "retro")] = gcounts.get(c.get("genre", "retro"), 0) + 1
+                income = 0
+                for c in working:
+                    cond_f  = 0.5 + c.get("condition", 100) / 100 * 0.5
+                    sat_f   = 1.0 / math.sqrt(gcounts[c.get("genre", "retro")])
+                    rare_f  = ARCADE_RARE_INCOME_MULT if c.get("rare") else 1.0
+                    vol     = 1 + random.uniform(-ARCADE_INCOME_VOLATILITY, ARCADE_INCOME_VOLATILITY)
+                    income += round(ARCADE_INCOME_PER_CABINET * cond_f * traffic_f * clean_f
+                                    * sat_f * rare_f * prize_f * (1 + decor_income) * vol)
+                # Money piles up in the machines until you (or the Floor Manager) collect it.
+                cap = max(1000, len(cabs) * ARCADE_TILL_PER_CABINET)
+                arc["uncollected"] = min(cap, arc.get("uncollected", 0) + income)
+
+            # Arcade Manager: banks the machine cash daily AND restocks the prize
+            # counter (balanced to a ~7-day buffer, bought from CostPro out of cash).
+            if astaff.get("collector"):
+                s["cash"] = max(0, s["cash"] - ARCADE_STAFF["collector"]["cost"])
+                take = arc.get("uncollected", 0)
+                if take > 0:
+                    s["cash"]          += take
+                    arc["total_earned"] = arc.get("total_earned", 0) + take
+                    _biz_income(s, "arcade", take)
+                    arc["uncollected"]  = 0
+                n_working = sum(1 for c in cabs if c.get("status") == "working")
+                if n_working:
+                    est_traffic = (0.6 + min(1.0, (lm_arc.get("regulars", 0) + lm_arc.get("members", 0)) / 100) * 0.8) * (1 + decor_traffic)
+                    daily_use   = max(1, round(n_working * est_traffic * ARCADE_PRIZE_USE_PER_CAB))
+                    target      = daily_use * 7
+                    if arc.get("prizes", 0) < target:
+                        _pitem    = COSTPRO_ITEMS["arcade_prizes"]
+                        per_case  = _pitem.get("units", 60)
+                        case_cost = _pitem["price"]
+                        need      = math.ceil((target - arc.get("prizes", 0)) / per_case)
+                        cases     = min(need, int(s["cash"] // case_cost))
+                        if cases > 0:
+                            s["cash"]    -= cases * case_cost
+                            arc["prizes"] = arc.get("prizes", 0) + cases * per_case
+        # The cabinet market refreshes for a new day — but ONLY if you bought from
+        # it (or there isn't one yet). Sit on the same lineup and it won't re-roll.
+        if arc.get("market_used") or not arc.get("market"):
+            _arcade_roll_market(s)
+        s["arcade"] = arc
+
+        # One arcade choice-card event may fire per advance, at a low chance.
+        if random.random() < ARCADE_EVENT_CHANCE:
+            _qae = _arcade_queue_event(s)
+            if _qae:
+                new_arcade_events.append(_qae)
 
     # ── Brass Pole Fitness Studio advance ─────────────────────────────────────
     ps = s.get("pole_studio")
@@ -6630,6 +7114,8 @@ def api_advance():
         "events":             events,
         "repairs":            new_repairs,
         "storylet_events":    new_storylet_events,
+        "vending_events":     new_vending_events,
+        "arcade_events":      new_arcade_events,
         "renewal_offers":     new_renewal_offers,
         "commercial_events":  new_commercial_events,
         "tax_event":          tax_event,
@@ -7262,19 +7748,8 @@ def api_stocks_sell():
     return jsonify({"success": True, "cash": s["cash"], "proceeds": proceeds,
                     "profit": profit, "shares_remaining": held["shares"]})
 
-@app.route('/api/vending/buy', methods=['POST'])
-def api_vending_buy():
-    s    = load()
-    vms  = s.setdefault("vending_machines", [])
-    if len(vms) >= 6:
-        return jsonify({"error": "You already own the maximum of 6 machines"}), 400
-    slot     = len(vms) + 1
-    price    = VM_PRICES[slot - 1]
-    loc_key  = VM_LOCATION_ORDER[slot - 1]
-    if s["cash"] < price:
-        return jsonify({"error": f"Not enough cash — need ${price:,}"}), 400
-    s["cash"] -= price
-    vms.append({
+def _vm_new_machine(s, slot, loc_key):
+    return {
         "id":           int(s["day"] * 1000 + slot),
         "slot":         slot,
         "location_key": loc_key,
@@ -7282,7 +7757,23 @@ def api_vending_buy():
         "reputation":   70,
         "price_level":  "normal",
         "upgrades":     {},
-    })
+    }
+
+@app.route('/api/vending/buy', methods=['POST'])
+def api_vending_buy():
+    s    = load()
+    vms  = s.setdefault("vending_machines", [])
+    # Only the 6 market locations are buyable here; the laundromat & arcade machines are extra.
+    market = [v for v in vms if v.get("location_key") in VM_LOCATION_ORDER]
+    if len(market) >= 6:
+        return jsonify({"error": "You already own the maximum of 6 market machines"}), 400
+    slot     = len(market) + 1
+    price    = VM_PRICES[slot - 1]
+    loc_key  = VM_LOCATION_ORDER[slot - 1]
+    if s["cash"] < price:
+        return jsonify({"error": f"Not enough cash — need ${price:,}"}), 400
+    s["cash"] -= price
+    vms.append(_vm_new_machine(s, slot, loc_key))
     s["log"].insert(0, {"day": s["day"], "type": "positive",
         "text": f"Bought Vending Machine #{slot} at {VM_LOCATIONS[loc_key]['name']} for ${price:,}!"})
     save(s)
@@ -7383,6 +7874,28 @@ def api_vending_upgrade():
     save(s)
     return jsonify({"success": True})
 
+@app.route('/api/vending/event_resolve', methods=['POST'])
+def api_vending_event_resolve():
+    s    = load()
+    data = request.json or {}
+    vm   = next((v for v in s.get("vending_machines", []) if v["id"] == data.get("machine_id")), None)
+    if not vm:
+        return jsonify({"error": "Machine not found"}), 400
+    ev = next((e for e in VM_EVENTS if e["key"] == data.get("event_key")), None)
+    if not ev:
+        return jsonify({"error": "Unknown event"}), 400
+    idx = int(data.get("choice_idx", -1))
+    if idx < 0 or idx >= len(ev["choices"]):
+        return jsonify({"error": "Invalid choice"}), 400
+    choice = ev["choices"][idx]
+    if choice.get("cost", 0) > s["cash"]:
+        return jsonify({"error": "Not enough cash for that"}), 400
+    result, bad = _vm_apply_event_choice(s, vm, choice)
+    s["log"].insert(0, {"day": s["day"], "type": "warning" if bad else "info",
+        "text": f"{ev['title']} (Machine #{vm['slot']}) — {choice['label']}"})
+    save(s)
+    return jsonify({"success": True, "result": result, "bad": bad, "cash": s["cash"]})
+
 @app.route('/api/vending/toggle_grandma', methods=['POST'])
 def api_vending_toggle_grandma():
     s = load()
@@ -7454,6 +7967,13 @@ def api_costpro_buy():
                     "cw_premium_wax": 8, "cw_tire_shine": 10, "cw_air_freshener": 12}
         sup[key] = sup.get(key, 0) + days_map.get(key, 7) * qty
         s["car_wash"] = cw
+    elif item.get("category") == "arcade":
+        arc = s.get("arcade")
+        if not (arc and arc.get("unlocked")):
+            s["cash"] += total   # refund
+            return jsonify({"error": "You haven't opened the Back-Room Arcade yet!"}), 400
+        arc["prizes"] = arc.get("prizes", 0) + item.get("units", 1) * qty
+        s["arcade"] = arc
     else:
         # Vending supplies: each "case" adds `units` to the category's inventory.
         inv      = s.setdefault("costpro_inventory", {})
@@ -7473,15 +7993,20 @@ def api_laundromat_buy():
     if s["cash"] < LAUNDROMAT_PRICE:
         return jsonify({"error": f"Need ${LAUNDROMAT_PRICE:,}"}), 400
     s["cash"] -= LAUNDROMAT_PRICE
+    # Starter: 2 washers + 2 dryers — balanced wash/dry to start.
+    _starter_types = ["washer", "washer", "dryer", "dryer"]
     s["laundromat"] = {
         "owned":          True,
         "cleanliness":    20,
-        "machines":       [{"id": i, "status": "working", "upgrades": {}} for i in range(LAUNDROMAT_START_MACHINES)],
+        "machines":       [{"id": i, "type": _starter_types[i], "status": "working", "upgrades": {}}
+                           for i in range(LAUNDROMAT_START_MACHINES)],
         "soap_days":      0,
         "softener_days":  0,
         "sheets_days":    0,
         "staff":          {"janitor": False, "repairman": False},
         "regulars":       0,
+        "members":        0,
+        "addons":         {},
         "insurance":      False,
         "insurance_days": 0,
         "total_earned":   0,
@@ -7500,18 +8025,264 @@ def api_laundromat_buy_machine():
     machines = lm.get("machines", [])
     if len(machines) >= LAUNDROMAT_MAX_MACHINES:
         return jsonify({"error": f"Already at max {LAUNDROMAT_MAX_MACHINES} machines"}), 400
-    price_idx = len(machines) - LAUNDROMAT_START_MACHINES
-    price     = LAUNDROMAT_MACHINE_PRICES[price_idx]
+    mtype = (request.json or {}).get("machine_type", "washer")
+    if mtype not in LAUNDROMAT_MACHINE_TYPES:
+        return jsonify({"error": "Unknown machine type"}), 400
+    step  = max(0, len(machines) - LAUNDROMAT_START_MACHINES) * LAUNDROMAT_MACHINE_STEP
+    price = LAUNDROMAT_MACHINE_TYPES[mtype]["price"] + step
     if s["cash"] < price:
         return jsonify({"error": f"Need ${price:,}"}), 400
     s["cash"] -= price
-    new_id = len(machines)
-    machines.append({"id": new_id, "status": "working", "upgrades": {}})
+    new_id = (max((m["id"] for m in machines), default=-1)) + 1
+    machines.append({"id": new_id, "type": mtype, "status": "working", "upgrades": {}})
     lm["machines"] = machines
     s["log"].insert(0, {"day": s["day"], "type": "positive",
-        "text": f"Added Machine #{new_id + 1} to the Dirty Money Laundromat for ${price:,}!"})
+        "text": f"Added a {LAUNDROMAT_MACHINE_TYPES[mtype]['name']} to the Dirty Money Laundromat for ${price:,}!"})
     save(s)
     return jsonify({"success": True})
+
+@app.route('/api/arcade/buy_cabinet', methods=['POST'])
+def api_arcade_buy_cabinet():
+    s   = load()
+    arc = s.get("arcade")
+    if not (arc and arc.get("unlocked")):
+        return jsonify({"error": "No arcade"}), 400
+    cabs = arc.get("cabinets", [])
+    # No hard floor cap — the 2-per-title limit (below) bounds the collection.
+    if not arc.get("market"):
+        _arcade_roll_market(s)
+    offer_id = (request.json or {}).get("offer_id")
+    offer    = next((o for o in arc.get("market", []) if o.get("id") == offer_id), None)
+    if not offer:
+        return jsonify({"error": "That cabinet's gone — check the lineup."}), 400
+    title_ct = sum(1 for c in cabs if c.get("title") == offer["title"])
+    if title_ct >= ARCADE_MAX_PER_TITLE:
+        return jsonify({"error": f"You already run two '{offer['title']}' cabinets — that's the limit."}), 400
+    price = offer["price"]
+    if s["cash"] < price:
+        return jsonify({"error": f"Need ${price:,}"}), 400
+    s["cash"] -= price
+    new_id = (max((c["id"] for c in cabs), default=-1)) + 1
+    cabs.append({"id": new_id, "title": offer["title"], "genre": offer["genre"],
+                 "rare": bool(offer.get("rare")), "condition": 100, "status": "working"})
+    arc["cabinets"] = cabs
+    # Pull the bought unit off the lineup; mark the market so it re-rolls next day.
+    arc["market"]      = [o for o in arc.get("market", []) if o.get("id") != offer_id]
+    arc["market_used"] = True
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"{'🌟 Landed a RARE ' if offer.get('rare') else 'Added a '}'{offer['title']}' cabinet for ${price:,}."})
+    save(s)
+    return jsonify({"success": True, "rare": bool(offer.get("rare"))})
+
+@app.route('/api/arcade/buy_decor', methods=['POST'])
+def api_arcade_buy_decor():
+    s   = load()
+    arc = s.get("arcade")
+    if not (arc and arc.get("unlocked")):
+        return jsonify({"error": "No arcade"}), 400
+    key = (request.json or {}).get("key")
+    d   = ARCADE_DECOR.get(key)
+    if not d:
+        return jsonify({"error": "Unknown decor"}), 400
+    decor = arc.setdefault("decor", {})
+    if decor.get(key):
+        return jsonify({"error": "Already installed"}), 400
+    if s["cash"] < d["cost"]:
+        return jsonify({"error": f"Need ${d['cost']:,}"}), 400
+    s["cash"]  -= d["cost"]
+    decor[key]  = True
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"Installed {d['name']} in the arcade (${d['cost']:,})."})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/arcade/event_resolve', methods=['POST'])
+def api_arcade_event_resolve():
+    s    = load()
+    data = request.json or {}
+    ev = next((e for e in ARCADE_EVENTS if e["key"] == data.get("event_key")), None)
+    if not ev:
+        return jsonify({"error": "Unknown event"}), 400
+    idx = int(data.get("choice_idx", -1))
+    if idx < 0 or idx >= len(ev["choices"]):
+        return jsonify({"error": "Invalid choice"}), 400
+    choice = ev["choices"][idx]
+    if choice.get("cost", 0) > s["cash"]:
+        return jsonify({"error": "Not enough cash for that"}), 400
+    result, bad = _arcade_apply_event_choice(s, choice)
+    s["log"].insert(0, {"day": s["day"], "type": "warning" if bad else "info",
+        "text": f"Arcade · {ev['title']} — {choice['label']}"})
+    save(s)
+    return jsonify({"success": True, "result": result, "bad": bad, "cash": s["cash"]})
+
+@app.route('/api/arcade/service_cabinet', methods=['POST'])
+def api_arcade_service_cabinet():
+    s   = load()
+    arc = s.get("arcade")
+    if not (arc and arc.get("unlocked")):
+        return jsonify({"error": "No arcade"}), 400
+    cab = next((c for c in arc.get("cabinets", []) if c["id"] == (request.json or {}).get("cabinet_id")), None)
+    if not cab:
+        return jsonify({"error": "Cabinet not found"}), 400
+    if cab.get("status") == "working" and cab.get("condition", 100) >= 99:
+        return jsonify({"error": "This cabinet is already in top shape."}), 400
+    if s["cash"] < ARCADE_SERVICE_COST:
+        return jsonify({"error": f"Need ${ARCADE_SERVICE_COST:,}"}), 400
+    s["cash"] -= ARCADE_SERVICE_COST
+    cab["status"] = "working"; cab["condition"] = 100
+    s["log"].insert(0, {"day": s["day"], "type": "info",
+        "text": f"Serviced the '{cab['title']}' cabinet (${ARCADE_SERVICE_COST})."})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/arcade/remove_cabinet', methods=['POST'])
+def api_arcade_remove_cabinet():
+    s   = load()
+    arc = s.get("arcade")
+    if not (arc and arc.get("unlocked")):
+        return jsonify({"error": "No arcade"}), 400
+    cid  = (request.json or {}).get("cabinet_id")
+    cabs = arc.get("cabinets", [])
+    cab  = next((c for c in cabs if c["id"] == cid), None)
+    if not cab:
+        return jsonify({"error": "Cabinet not found"}), 400
+    arc["cabinets"] = [c for c in cabs if c["id"] != cid]
+    s["log"].insert(0, {"day": s["day"], "type": "info",
+        "text": f"Hauled off the '{cab['title']}' cabinet (no refund)."})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/arcade/hire_tech', methods=['POST'])
+def api_arcade_hire_tech():
+    s   = load()
+    arc = s.get("arcade")
+    if not (arc and arc.get("unlocked")):
+        return jsonify({"error": "No arcade"}), 400
+    st = arc.setdefault("staff", {})
+    st["tech"] = not st.get("tech", False)
+    save(s)
+    return jsonify({"success": True, "hired": st["tech"]})
+
+@app.route('/api/arcade/hire_staff', methods=['POST'])
+def api_arcade_hire_staff():
+    s   = load()
+    arc = s.get("arcade")
+    if not (arc and arc.get("unlocked")):
+        return jsonify({"error": "No arcade"}), 400
+    role = (request.json or {}).get("role")
+    if role not in ARCADE_STAFF:
+        return jsonify({"error": "Unknown role"}), 400
+    st = arc.setdefault("staff", {})
+    st[role] = not st.get(role, False)
+    meta = ARCADE_STAFF[role]
+    s["log"].insert(0, {"day": s["day"], "type": "info",
+        "text": (f"Hired a {meta['name']} (${meta['cost']}/day)." if st[role]
+                 else f"Let the {meta['name']} go.")})
+    save(s)
+    return jsonify({"success": True, "hired": st[role]})
+
+@app.route('/api/arcade/collect', methods=['POST'])
+def api_arcade_collect():
+    s   = load()
+    arc = s.get("arcade")
+    if not (arc and arc.get("unlocked")):
+        return jsonify({"error": "No arcade"}), 400
+    take = arc.get("uncollected", 0)
+    if take <= 0:
+        return jsonify({"error": "The machines are empty — nothing to collect."}), 400
+    if s.get("energy", 0) < 4:
+        return jsonify({"error": "Not enough energy — need 4 ⚡ (or let the Arcade Manager do it)"}), 400
+    s["energy"]        -= 4
+    s["cash"]          += take
+    arc["total_earned"] = arc.get("total_earned", 0) + take
+    _biz_income(s, "arcade", take)
+    arc["uncollected"]  = 0
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"Emptied the arcade machines: ${take:,} collected."})
+    save(s)
+    return jsonify({"success": True, "collected": take})
+
+@app.route('/api/arcade/clean', methods=['POST'])
+def api_arcade_clean():
+    s   = load()
+    arc = s.get("arcade")
+    if not (arc and arc.get("unlocked")):
+        return jsonify({"error": "No arcade"}), 400
+    if arc.get("cleanliness", 100) >= 99:
+        return jsonify({"error": "The arcade is already spotless."}), 400
+    if s.get("energy", 0) < 6:
+        return jsonify({"error": "Not enough energy — need 6 ⚡ (or hire a Janitor)"}), 400
+    if s["cash"] < ARCADE_CLEAN_COST:
+        return jsonify({"error": f"Need ${ARCADE_CLEAN_COST:,}"}), 400
+    s["energy"]       -= 6
+    s["cash"]         -= ARCADE_CLEAN_COST
+    arc["cleanliness"] = 100
+    s["log"].insert(0, {"day": s["day"], "type": "info",
+        "text": f"Deep-cleaned the arcade floor (${ARCADE_CLEAN_COST})."})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/laundromat/remove_machine', methods=['POST'])
+def api_laundromat_remove_machine():
+    s  = load()
+    lm = s.get("laundromat")
+    if not lm:
+        return jsonify({"error": "No laundromat"}), 400
+    mid      = (request.json or {}).get("machine_id")
+    machines = lm.get("machines", [])
+    m        = next((x for x in machines if x["id"] == mid), None)
+    if not m:
+        return jsonify({"error": "Machine not found"}), 400
+    lm["machines"] = [x for x in machines if x["id"] != mid]
+    tname = LAUNDROMAT_MACHINE_TYPES.get(m.get("type", "combo"), {}).get("name", "machine")
+    s["log"].insert(0, {"day": s["day"], "type": "info",
+        "text": f"Removed a {tname} from the laundromat (no refund)."})
+    save(s)
+    return jsonify({"success": True})
+
+@app.route('/api/laundromat/buy_addon', methods=['POST'])
+def api_laundromat_buy_addon():
+    s  = load()
+    lm = s.get("laundromat")
+    if not lm:
+        return jsonify({"error": "No laundromat"}), 400
+    key = (request.json or {}).get("addon_key")
+    a   = LAUNDROMAT_ADDONS.get(key)
+    if not a:
+        return jsonify({"error": "Unknown add-on"}), 400
+    addons = lm.setdefault("addons", {})
+    if addons.get(key):
+        return jsonify({"error": "Already installed"}), 400
+    if s["cash"] < a["cost"]:
+        return jsonify({"error": f"Need ${a['cost']:,}"}), 400
+    s["cash"] -= a["cost"]
+    addons[key] = True
+    extra = ""
+    # In-House Vending spawns a REAL 7th vending machine in the empire.
+    if key == "vending":
+        vms = s.setdefault("vending_machines", [])
+        if not any(v.get("location_key") == "laundromat" for v in vms):
+            vms.append(_vm_new_machine(s, 7, "laundromat"))
+            extra = " A new vending machine appeared in your Vending tab — stock it!"
+    # Back-Room Arcade unlocks a whole new (secret) business, starting with this cabinet.
+    if key == "arcade":
+        arc = s.get("arcade")
+        if not (arc and arc.get("unlocked")):
+            g = random.choice(ARCADE_GAMES)
+            s["arcade"] = {"unlocked": True, "total_earned": 0, "uncollected": 0,
+                           "cleanliness": 100, "prizes": 0, "decor": {}, "staff": {},
+                           "cabinets": [{"id": 0, "title": g["title"], "genre": g["genre"],
+                                         "rare": False, "condition": 100, "status": "working"}]}
+            _arcade_roll_market(s)   # seed the first day's cabinet lineup
+            # ...and a vending machine right there on the arcade floor (shows up in Vending).
+            vms = s.setdefault("vending_machines", [])
+            if not any(v.get("location_key") == "arcade" for v in vms):
+                vms.append(_vm_new_machine(s, 8, "arcade"))
+            extra = " You opened a secret Arcade business — and a new vending machine appeared on the arcade floor (check the Vending tab)!"
+    s["log"].insert(0, {"day": s["day"], "type": "positive",
+        "text": f"Installed {a['name']} at the laundromat for ${a['cost']:,}.{extra}"})
+    save(s)
+    return jsonify({"success": True, "spawned_vending": key == "vending", "unlocked_arcade": key == "arcade"})
 
 @app.route('/api/laundromat/clean', methods=['POST'])
 def api_laundromat_clean():
