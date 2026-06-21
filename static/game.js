@@ -48,7 +48,8 @@ const COMMERCIAL_TYPES_DATA = {
 };
 
 const ASSISTANTS_DATA = {
-  manager: { name: 'Property Manager', icon: '🤝', unlock_level: 11, monthly_fee: 20000, desc: 'Full hands-off management. Automatically handles every tenant issue, repair, story event, and lease renewal across all your rentals — true passive income.' },
+  manager:    { name: 'Property Manager', icon: '🤝', unlock_level: 11, monthly_fee: 20000, desc: 'Full hands-off management. Automatically handles every tenant issue, repair, story event, and lease renewal across all your rentals — true passive income.' },
+  accountant: { name: 'Accountant',       icon: '🧮', unlock_level: 3,  monthly_fee: 2800,  desc: 'Auto-files your taxes on time every year and finds 15% more deductible write-offs. The retainer itself is a deductible expense.' },
 };
 
 const COMMERCIAL_UPGRADES_DATA = {
@@ -9792,7 +9793,7 @@ async function advanceDays(days) {
   _pendingRenewalOffers    = res.renewal_offers    || [];
   _pendingCommercialEvents = res.commercial_events || [];
   _pendingSquatter      = (res.events || []).find(e => e.type === 'squatter') || null;
-  _pendingTaxEvent      = (res.tax_event && res.tax_event.amount >= 0) ? res.tax_event : null;
+  _pendingTaxEvent      = (res.tax_event && res.tax_event.total >= 0) ? res.tax_event : null;
   const totalPending    = _pendingRepairs.length + _pendingStorylets.length + _pendingVendingEvents.length + _pendingArcadeEvents.length + _pendingRenewalOffers.length + _pendingCommercialEvents.length;
   const repairNote = _pendingRepairs.length > 0
     ? `<div style="background:#FFF8E1;color:#7A4A00;border:2px solid var(--warning);border-radius:var(--radius-sm);padding:10px 12px;margin-top:12px;font-size:13px;font-weight:700">
@@ -9816,7 +9817,7 @@ async function advanceDays(days) {
     : '';
   const taxNote = _pendingTaxEvent
     ? `<div style="background:#FFEBEE;color:#B71C1C;border:2px solid #C62828;border-radius:var(--radius-sm);padding:10px 12px;margin-top:8px;font-size:13px;font-weight:700">
-        ${pxIcon('🧾',16)} Tax Day! ${fmt(_pendingTaxEvent.amount)} owed — you must respond before continuing.</div>`
+        ${pxIcon('🧾',16)} Tax Day! ${fmt(_pendingTaxEvent.total)} owed — you must respond before continuing.</div>`
     : '';
 
   const btnLabel = _pendingRepairs.length > 0
@@ -9933,20 +9934,27 @@ async function briberSquatter(propId) {
 // ── Tax Modal ─────────────────────────────────────────────────────────────────
 function showTaxModal(taxEvent) {
   _modalLocked = true;   // prevent dismiss by tapping outside
-  const amount = taxEvent.amount;
-  const income = taxEvent.flip_income;
+  const amount = taxEvent.total || 0;
   openModal(`
     <div class="modal-handle"></div>
     <div class="modal-title">${pxIcon('🧾',20)} Tax Day</div>
     <div class="modal-subtitle">Winter Day 28 — You must respond before continuing</div>
     <div class="card" style="margin-bottom:14px">
       <div class="money-row">
-        <span class="mr-label">${pxIcon('🏠',14)} Flip income this year</span>
-        <span class="mr-value green">${fmt(income)}</span>
+        <span class="mr-label">${pxIcon('🏠',14)} Rent tax (5% of ${fmt(taxEvent.rent_income || 0)})</span>
+        <span class="mr-value">${fmt(taxEvent.rent_tax || 0)}</span>
       </div>
       <div class="money-row">
-        <span class="mr-label">${pxIcon('📊',14)} Tax rate</span>
-        <span class="mr-value">10%</span>
+        <span class="mr-label">${pxIcon('💼',14)} Business + flip income</span>
+        <span class="mr-value">${fmt((taxEvent.flip_income || 0) + (taxEvent.biz_income || 0))}</span>
+      </div>
+      <div class="money-row">
+        <span class="mr-label">− Deductions</span>
+        <span class="mr-value" style="color:var(--positive)">−${fmt(taxEvent.deductions || 0)}</span>
+      </div>
+      <div class="money-row">
+        <span class="mr-label">Business + flip tax (brackets)</span>
+        <span class="mr-value">${fmt(taxEvent.active_tax || 0)}</span>
       </div>
       <div class="money-row" style="border-top:1px solid var(--border);padding-top:10px;margin-top:6px;font-weight:800">
         <span class="mr-label">Taxes owed</span>
@@ -9955,7 +9963,7 @@ function showTaxModal(taxEvent) {
     </div>
     <button class="btn btn-danger btn-full" style="margin-bottom:10px" onclick="payTaxes()">${pxIcon('💸',16)} Pay ${fmt(amount)} Now</button>
     <button class="btn btn-secondary btn-full" onclick="fileTaxExtension()">${pxIcon('📋',14)} File for Extension — pay on Spring Day 7</button>
-    <p style="font-size:11px;color:var(--text-muted);text-align:center;margin-top:10px">Rent income is never taxed — only profits from selling properties.</p>
+    <p style="font-size:11px;color:var(--text-muted);text-align:center;margin-top:10px">Rent is taxed lightly (5%); business & flip profits ride progressive brackets after deductions.</p>
   `);
 }
 
@@ -10284,9 +10292,15 @@ function renderTaxes() {
       </div>`;
   }).join('');
   const totalIncome = flipIncome + rentIncome + bizTotal;
-  const estimated  = Math.floor(flipIncome * 0.10);
+  const tb = state.tax_breakdown || {
+    rent_tax: Math.round(rentIncome * 0.05), deductions: s.tax_year_deductions || 0,
+    taxable_active: Math.max(0, flipIncome + bizTotal - (s.tax_year_deductions || 0)),
+    active_tax: 0, total: 0,
+  };
   const extFiled   = s.tax_extension_filed  || false;
   const taxOwed    = s.tax_owed             || 0;
+  const acct       = !!(state.assistants && state.assistants.accountant);
+  const acctLocked = (state.level || 0) < (ASSISTANTS_DATA.accountant.unlock_level || 0);
   el.innerHTML = `
     <div class="section-header"><span class="section-title">${pxIcon('🧾',18)} Taxes</span></div>
     <div class="card" style="margin-bottom:12px">
@@ -10296,7 +10310,7 @@ function renderTaxes() {
         <span class="mr-value green">${fmt(rentIncome)}</span>
       </div>
       <div class="money-row">
-        <span class="mr-label">${pxIcon('💰',14)} Flip profits (taxable)</span>
+        <span class="mr-label">${pxIcon('💰',14)} Flip profits</span>
         <span class="mr-value green">${fmt(flipIncome)}</span>
       </div>
       <div class="money-row">
@@ -10315,24 +10329,48 @@ function renderTaxes() {
         <span class="mr-label">Total business income</span>
         <span class="mr-value green">${fmt(bizTotal)}</span>
       </div>
-      <div style="font-size:11px;color:var(--text-muted);margin-top:8px">Operating income, before supply costs & staff fees. Like rent, business income isn't taxed.</div>
     </div>
     <div class="card" style="margin-bottom:12px">
-      <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:10px">Tax Summary</div>
+      <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:10px">Tax Bill</div>
       <div class="money-row">
-        <span class="mr-label">Taxable income (flip only)</span>
-        <span class="mr-value">${fmt(flipIncome)}</span>
+        <span class="mr-label">${pxIcon('🏠',14)} Rent tax (5%)</span>
+        <span class="mr-value">${fmt(tb.rent_tax)}</span>
       </div>
       <div class="money-row">
-        <span class="mr-label">Tax rate</span>
-        <span class="mr-value">10%</span>
+        <span class="mr-label">Business + flip income</span>
+        <span class="mr-value">${fmt(flipIncome + bizTotal)}</span>
       </div>
-      <div class="money-row" style="font-weight:800">
-        <span class="mr-label">Est. taxes owed</span>
-        <span class="mr-value" style="color:${estimated > 0 ? '#C62828' : 'var(--text-muted)'}">
-          ${fmt(estimated)}
-        </span>
+      <div class="money-row">
+        <span class="mr-label">− Deductions${acct ? ' <span style="color:var(--positive)">(+15% acct.)</span>' : ''}</span>
+        <span class="mr-value" style="color:var(--positive)">−${fmt(tb.deductions)}</span>
       </div>
+      <div class="money-row">
+        <span class="mr-label">Taxable (after deductions)</span>
+        <span class="mr-value">${fmt(tb.taxable_active)}</span>
+      </div>
+      <div class="money-row">
+        <span class="mr-label">Business + flip tax (brackets)</span>
+        <span class="mr-value">${fmt(tb.active_tax)}</span>
+      </div>
+      <div class="money-row" style="border-top:1px solid var(--border);padding-top:10px;margin-top:6px;font-weight:800">
+        <span class="mr-label">Est. total owed</span>
+        <span class="mr-value" style="color:${tb.total > 0 ? '#C62828' : 'var(--text-muted)'}">${fmt(tb.total)}</span>
+      </div>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:8px;line-height:1.5">Brackets on business+flip: 8% to $25k · 15% to $100k · 22% to $300k · 30% beyond.</div>
+    </div>
+    <div class="card" style="margin-bottom:12px;border:${acct ? '2px solid var(--positive)' : '1px solid var(--border)'}">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="font-size:22px">🧮</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:800;font-size:13px">Accountant</div>
+          <div style="font-size:11px;color:var(--text-muted)">Auto-files on time & finds 15% more write-offs.</div>
+          <div style="font-size:11px;margin-top:2px;color:${acct ? 'var(--positive)' : 'var(--text-muted)'}">${acct ? '🟢 On retainer — $2,800/mo' : acctLocked ? `🔒 Unlocks at Level ${ASSISTANTS_DATA.accountant.unlock_level}` : '⚫ Not hired'}</div>
+        </div>
+        ${acctLocked
+          ? `<button class="btn btn-sm btn-ghost" style="flex-shrink:0" disabled>Lvl ${ASSISTANTS_DATA.accountant.unlock_level}</button>`
+          : `<button class="btn btn-sm ${acct ? 'btn-ghost' : 'btn-primary'}" style="flex-shrink:0" onclick="toggleAccountant()">${acct ? 'Fire' : 'Hire — $2,800/mo'}</button>`}
+      </div>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:8px">Also available in Personal → Career → Assistants, alongside the Property Manager.</div>
     </div>
     ${extFiled ? `
     <div class="card" style="background:#FFF8E1;border:2px solid var(--warning);margin-bottom:12px">
@@ -10343,10 +10381,19 @@ function renderTaxes() {
       </div>
     </div>` : ''}
     <div class="card" style="font-size:12px;color:var(--text-muted)">
-      💡 Rent income is <strong>never taxed</strong>. Only profits from selling properties are taxed at 10%.<br><br>
-      ${pxIcon('📅',14)} Tax Day is <strong>Winter Day 28</strong>. You'll get a 7-day heads-up. Pay immediately or file a free extension (due Spring Day 7).
+      💡 Rent is taxed gently at <strong>5%</strong>. Business + flip profits ride progressive brackets, minus deductible operating expenses — <strong>staff wages, CostPro supplies, and equipment upkeep</strong>. Reinvesting in your operations lowers your bill.<br><br>
+      ${pxIcon('📅',14)} Tax Day is <strong>Winter Day 28</strong> (7-day heads-up first). Pay immediately or file a free extension (due Spring Day 7). ${acct ? 'Your <strong>accountant</strong> handles it automatically.' : ''}
     </div>
   `;
+}
+
+async function toggleAccountant() {
+  const hired = !!(state.assistants && state.assistants.accountant);
+  const res = await api(hired ? '/fire_assistant' : '/hire_assistant', 'POST', { key: 'accountant' });
+  if (res.error) { toast(res.error, 'error'); return; }
+  sfx.toggle?.();
+  await refreshState();
+  renderTaxes();
 }
 
 async function renderBank() {
@@ -10373,7 +10420,58 @@ async function renderBank() {
   const toNextLbl = nextTier ? `${fmt(nextTier.min - bank.savings)} more to ${nextTier.label}` : 'Max tier reached!';
   const tierClass = tier.label === 'Basic' ? 'budget' : tier.label === 'Standard' ? 'mid' : 'premium';
 
-  document.getElementById('bank-savings-section').innerHTML = `
+  // Credit score gauge
+  const score  = data.credit_score || (bank.credit_score || 650);
+  const clabel = data.credit_label || 'Fair';
+  const cpct   = Math.round((score - 300) / 550 * 100);
+  const ccol   = score >= 760 ? 'var(--positive)' : score >= 700 ? '#7CB342' : score >= 640 ? 'var(--warning)' : score >= 580 ? '#FB8C00' : 'var(--negative)';
+  const creditHtml = `
+    <div class="section-header"><span class="section-title">${pxIcon('📊',18)} Credit Score</span></div>
+    <div class="card" style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:8px">
+        <div><div style="font-size:30px;font-weight:800;color:${ccol};line-height:1">${score}</div><div style="font-size:11px;color:var(--text-muted)">of 850</div></div>
+        <div class="card-badge" style="background:${ccol};color:#fff">${clabel}</div>
+      </div>
+      <div class="condition-bar"><div class="condition-fill" style="width:${cpct}%;background:${ccol}"></div></div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:8px;line-height:1.5">Higher credit → lower APR, bigger loans, and access to better products. On-time payments build it; missed payments wreck it.</div>
+    </div>`;
+
+  // Certificates of Deposit
+  const cds = bank.cds || [];
+  const cdPenPct = Math.round((data.cd_penalty_pct || 0.03) * 100);
+  const activeCdsHtml = cds.map(cd => {
+    const daysLeft = Math.max(0, cd.mature_day - (state.day || 0));
+    const interest = cd.payout - cd.principal;
+    return `<div class="card" style="margin-bottom:8px">
+      <div class="card-header">
+        <div class="card-icon">${pxIcon('🔒')}</div>
+        <div style="flex:1">
+          <div class="card-title">${cd.name}</div>
+          <div class="card-subtitle">${fmt(cd.principal)} locked → ${fmt(cd.payout)} (+${fmt(interest)})</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:15px;font-weight:800;color:${daysLeft === 0 ? 'var(--positive)' : 'var(--text-1)'}">${daysLeft === 0 ? 'Ready' : daysLeft + 'd'}</div>
+          <div style="font-size:10px;color:var(--text-muted)">${daysLeft === 0 ? 'matures next advance' : 'to maturity'}</div>
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-sm" style="color:var(--negative)" onclick="withdrawCd(${cd.id})">Cash out early — forfeit interest + ${cdPenPct}% penalty</button>
+    </div>`;
+  }).join('');
+  const cdOffersHtml = (data.cd_terms || []).map(t => `
+    <div class="card" style="cursor:pointer;margin-bottom:8px" onclick="showCdModal('${t.key}')">
+      <div class="card-header">
+        <div class="card-icon">${pxIcon('📜')}</div>
+        <div style="flex:1"><div class="card-title">${t.name}</div><div class="card-subtitle">${t.desc}</div></div>
+        <div style="text-align:right"><div style="font-size:15px;font-weight:800;color:var(--positive)">+${Math.round(t.yield*100)}%</div><div style="font-size:10px;color:var(--text-muted)">guaranteed</div></div>
+      </div>
+    </div>`).join('');
+  const cdHtml = `
+    <div class="section-header"><span class="section-title">${pxIcon('📜',18)} Certificates of Deposit</span></div>
+    ${activeCdsHtml}
+    <div style="font-size:11px;color:var(--text-muted);margin:4px 0 8px">Lock cash for a fixed term at a guaranteed return that beats savings. Cashing out early forfeits the interest plus a ${cdPenPct}% penalty.</div>
+    ${cdOffersHtml}`;
+
+  document.getElementById('bank-savings-section').innerHTML = creditHtml + `
     <div class="section-header"><span class="section-title">${pxIcon('💰',18)} Savings Account</span></div>
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
@@ -10397,7 +10495,7 @@ async function renderBank() {
         <button class="btn btn-primary btn-sm" onclick="showDepositModal()">⬆ Deposit</button>
         <button class="btn btn-ghost btn-sm ${bank.savings === 0 ? 'btn-disabled' : ''}" onclick="showWithdrawModal()" ${bank.savings === 0 ? 'disabled' : ''}>⬇ Withdraw</button>
       </div>
-    </div>`;
+    </div>` + cdHtml;
 
   const loansHtml = bank.loans?.length > 0
     ? bank.loans.map(l => {
@@ -10408,12 +10506,16 @@ async function renderBank() {
         const pctLeft  = termWks > 0 ? Math.max(5, Math.min(95, (leftWks / termWks) * 100)) : 5;
         const orig     = l.original_amount || (l.weekly_payment || 0) * termWks;
         const paidOff  = orig > 0 ? Math.round(((orig - l.balance) / orig) * 100) : 0;
+        const aprTxt  = l.apr != null ? ` · ${(l.apr*100).toFixed(1)}% APR` : '';
+        const missed  = (l.missed || 0) > 0
+          ? `<span style="background:var(--negative);color:#fff;border-radius:5px;font-size:10px;padding:2px 7px;font-weight:700;margin-left:6px">⚠ ${l.missed} missed</span>`
+          : (l.refinanced ? `<span style="background:var(--positive);color:#fff;border-radius:5px;font-size:10px;padding:2px 7px;font-weight:700;margin-left:6px">refinanced</span>` : '');
         return `<div class="card">
           <div class="card-header">
             <div class="card-icon">${pxIcon(l.icon)}</div>
             <div style="flex:1">
-              <div class="card-title">${l.product}</div>
-              <div class="card-subtitle">${fmt(l.weekly_payment || 0)}/wk · ${leftSeas} season${leftSeas !== 1 ? 's' : ''} left</div>
+              <div class="card-title">${l.product}${missed}</div>
+              <div class="card-subtitle">${fmt(l.weekly_payment || 0)}/wk · ${leftSeas} season${leftSeas !== 1 ? 's' : ''} left${aprTxt}</div>
             </div>
             <div style="text-align:right">
               <div style="font-size:16px;font-weight:800;color:var(--negative)">${fmt(Math.ceil(l.balance))}</div>
@@ -10424,7 +10526,10 @@ async function renderBank() {
             <div class="condition-top"><span class="condition-lbl">Balance</span><span class="condition-val">${paidOff}% paid off</span></div>
             <div class="condition-bar"><div class="condition-fill cond-poor" style="width:${pctLeft}%"></div></div>
           </div>
-          <button class="btn btn-ghost btn-sm" onclick="showExtraPaymentModal(${l.id}, ${Math.ceil(l.balance)})">${pxIcon('💸',14)} Extra Payment</button>
+          <div class="btn-row">
+            <button class="btn btn-ghost btn-sm" onclick="showExtraPaymentModal(${l.id}, ${Math.ceil(l.balance)})">${pxIcon('💸',14)} Extra Payment</button>
+            <button class="btn btn-ghost btn-sm" onclick="refinanceLoan(${l.id})">${pxIcon('🔁',14)} Refinance</button>
+          </div>
         </div>`;}).join('')
     : '';
 
@@ -10434,22 +10539,26 @@ async function renderBank() {
 
   document.getElementById('bank-products-section').innerHTML = `
     <div class="section-header"><span class="section-title">${pxIcon('🏦',18)} Take Out a Loan</span></div>
-    ${data.products.map(p => `
-      <div class="card" style="cursor:pointer" onclick="showLoanModal('${p.key}')">
+    ${data.products.map(p => {
+      const locked = !p.qualifies;
+      return `
+      <div class="card" style="${locked ? 'opacity:0.55' : 'cursor:pointer'}" ${locked ? '' : `onclick="showLoanModal('${p.key}')"`}>
         <div class="card-header">
-          <div class="card-icon">${pxIcon(p.icon)}</div>
+          <div class="card-icon">${pxIcon(locked ? '🔒' : p.icon)}</div>
           <div style="flex:1">
             <div class="card-title">${p.name}</div>
             <div class="card-subtitle">${p.desc}</div>
           </div>
           <div style="text-align:right;flex-shrink:0">
-            <div style="font-size:13px;font-weight:700;color:var(--negative)">${(p.apr*100).toFixed(0)}% APR</div>
+            <div style="font-size:13px;font-weight:700;color:var(--negative)">${(p.effective_apr*100).toFixed(1)}% APR</div>
             <div style="font-size:11px;color:var(--text-muted)">${p.term_seasons} season term</div>
           </div>
         </div>
-        <div class="money-row"><span class="mr-label">Range</span><span class="mr-value">${fmt(p.min)} – ${fmt(p.max)}</span></div>
-        <div class="money-row"><span class="mr-label">Example Payment</span><span class="mr-value orange">${fmt(p.sample_payment)}/wk on ${fmt(p.min)}</span></div>
-      </div>`).join('')}`;
+        ${locked
+          ? `<div style="font-size:12px;color:var(--warning);font-weight:700">${pxIcon('🔒',12)} Requires a credit score of ${p.min_score}+</div>`
+          : `<div class="money-row"><span class="mr-label">Max at your credit</span><span class="mr-value">${fmt(p.min)} – ${fmt(p.effective_max)}</span></div>
+             <div class="money-row"><span class="mr-label">Example Payment</span><span class="mr-value orange">${fmt(p.sample_payment)}/wk on ${fmt(p.min)}</span></div>`}
+      </div>`;}).join('')}`;
 }
 
 function showLoanModal(productKey) {
@@ -10459,10 +10568,10 @@ function showLoanModal(productKey) {
     openModal(`
       <div class="modal-handle"></div>
       <div class="modal-title">${pxIcon(p.icon)} ${p.name}</div>
-      <div class="modal-subtitle">${p.desc} · ${(p.apr*100).toFixed(0)}% APR · ${p.term_seasons}-season term</div>
+      <div class="modal-subtitle">${(p.effective_apr*100).toFixed(1)}% APR at your credit · ${p.term_seasons}-season term</div>
       <div style="margin-bottom:12px">
-        <label style="font-size:13px;font-weight:700;display:block;margin-bottom:6px">Amount (${fmt(p.min)}–${fmt(p.max)})</label>
-        <input id="loan-amount" type="number" min="${p.min}" max="${p.max}" step="500" value="${p.min}"
+        <label style="font-size:13px;font-weight:700;display:block;margin-bottom:6px">Amount (${fmt(p.min)}–${fmt(p.effective_max)})</label>
+        <input id="loan-amount" type="number" min="${p.min}" max="${p.effective_max}" step="500" value="${p.min}"
           style="width:100%;padding:10px;border:2px solid var(--border);border-radius:var(--radius-sm);font-size:16px;font-weight:700"
           oninput="previewLoan('${productKey}')">
       </div>
@@ -10497,6 +10606,75 @@ async function confirmLoan(productKey) {
   sfx.loan();
   toast(`Loan approved! ${fmt(res.loan.weekly_payment)}/wk`, 'success');
   closeModal();
+  await refreshState();
+  renderAll();
+  renderBank();
+}
+
+async function refinanceLoan(loanId) {
+  const res = await api('/bank/loan/refinance', 'POST', { loan_id: loanId });
+  if (res.error) { toast(res.error, 'info'); return; }
+  sfx.loan?.();
+  toast(`Refinanced to ${(res.new_apr*100).toFixed(1)}% APR (fee ${fmt(res.fee)})`, 'success');
+  await refreshState();
+  renderAll();
+  renderBank();
+}
+
+function showCdModal(termKey) {
+  openModal(`<div class="modal-handle"></div><div class="modal-title">Loading…</div>`);
+  api('/bank/products').then(data => {
+    const t = (data.cd_terms || []).find(x => x.key === termKey);
+    if (!t) { closeModal(); return; }
+    const minD = data.cd_min || 1000;
+    const start = Math.max(minD, Math.min(Math.floor((state.cash || 0)), 10000));
+    openModal(`
+      <div class="modal-handle"></div>
+      <div class="modal-title">${pxIcon('📜')} ${t.name}</div>
+      <div class="modal-subtitle">${t.desc} · +${Math.round(t.yield*100)}% guaranteed at maturity</div>
+      <div style="margin:8px 0 12px">
+        <label style="font-size:13px;font-weight:700;display:block;margin-bottom:6px">Deposit (min ${fmt(minD)})</label>
+        <input id="cd-amount" type="number" min="${minD}" step="500" value="${start}"
+          style="width:100%;padding:10px;border:2px solid var(--border);border-radius:var(--radius-sm);font-size:16px;font-weight:700"
+          oninput="previewCd(${t.yield})">
+      </div>
+      <div id="cd-preview" class="card" style="background:var(--surface-2);margin-bottom:12px"></div>
+      <div class="btn-row">
+        <button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="openCd('${termKey}')">Lock It In</button>
+      </div>`);
+    previewCd(t.yield);
+  });
+}
+
+function previewCd(yld) {
+  const amt = parseInt(document.getElementById('cd-amount')?.value || '0');
+  const el  = document.getElementById('cd-preview');
+  if (!el) return;
+  const payout = Math.round(amt * (1 + yld));
+  el.innerHTML = `
+    <div class="money-row"><span class="mr-label">You lock</span><span class="mr-value">${fmt(amt)}</span></div>
+    <div class="money-row"><span class="mr-label">Interest earned</span><span class="mr-value green">+${fmt(payout - amt)}</span></div>
+    <div class="money-row" style="font-weight:800"><span class="mr-label">Payout at maturity</span><span class="mr-value green">${fmt(payout)}</span></div>`;
+}
+
+async function openCd(termKey) {
+  const amount = parseInt(document.getElementById('cd-amount')?.value || '0');
+  const res = await api('/bank/cd/open', 'POST', { term_key: termKey, amount });
+  if (res.error) { toast(res.error, 'error'); return; }
+  sfx.purchase?.();
+  toast('CD locked in.', 'success');
+  closeModal();
+  await refreshState();
+  renderAll();
+  renderBank();
+}
+
+async function withdrawCd(cdId) {
+  const res = await api('/bank/cd/withdraw', 'POST', { cd_id: cdId });
+  if (res.error) { toast(res.error, 'error'); return; }
+  sfx.toggle?.();
+  toast(res.early ? `Cashed out early: ${fmt(res.payout)} (−${fmt(res.penalty)} penalty)` : `Matured: ${fmt(res.payout)}`, res.early ? 'warning' : 'success');
   await refreshState();
   renderAll();
   renderBank();
@@ -11283,6 +11461,11 @@ async function redeemCode() {
 
 // ── Stocks ────────────────────────────────────────────────────────────────────
 let stocksData = null;
+let _stocksOpen = { stock: true, index: false, crypto: false };   // collapsible tiers
+function toggleStockTier(key) {
+  _stocksOpen[key] = !_stocksOpen[key];
+  if (stocksData) _renderStocksInner(stocksData);
+}
 
 async function renderStocks() {
   const el = document.getElementById('stocks-list');
@@ -11312,16 +11495,39 @@ function _renderStocksInner(res) {
   let html = `<div class="stocks-section-header">
     <span class="stocks-section-icon">${pxIcon('📈',22)}</span>
     <div>
-      <div class="stocks-section-title">Stock Market</div>
-      <div class="stocks-section-sub">6 companies · prices update each day</div>
+      <div class="stocks-section-title">The Market</div>
+      <div class="stocks-section-sub">${res.instruments.length} instruments · prices update each day · dividends paid quarterly</div>
     </div>
   </div>`;
-  html += res.instruments.map(i => stockCardHtml(i, res.cash)).join('');
+  const tiers = [
+    { key: 'stock',  label: 'Stocks',      icon: '📈', sub: 'Moderate risk · most pay dividends' },
+    { key: 'index',  label: 'Index Funds', icon: '🧺', sub: 'Low risk · steady · best dividends' },
+    { key: 'crypto', label: 'Crypto',      icon: '🪙', sub: 'Extreme risk · no dividends · moon or dust' },
+  ];
+  tiers.forEach(t => {
+    const items = res.instruments.filter(i => (i.tier || 'stock') === t.key);
+    if (!items.length) return;
+    const open    = !!_stocksOpen[t.key];
+    const heldArr = items.filter(i => i.shares > 0);
+    const heldVal = heldArr.reduce((a, i) => a + i.shares * i.price, 0);
+    const heldNote = heldArr.length ? ` · ${heldArr.length} held (${fmt(heldVal)})` : '';
+    html += `
+      <div onclick="toggleStockTier('${t.key}')" style="display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;user-select:none;border:1px solid var(--border);border-radius:10px;margin:10px 0 ${open ? '8px' : '0'}">
+        <span style="font-size:18px">${t.icon}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:800;font-size:14px">${t.label} <span style="font-size:11px;color:var(--text-muted);font-weight:600">${items.length}</span></div>
+          <div style="font-size:10px;color:var(--text-muted)">${t.sub}${heldNote}</div>
+        </div>
+        <span style="font-size:12px;color:var(--text-muted);display:inline-block;transition:transform .15s;transform:rotate(${open ? 90 : 0}deg)">▶</span>
+      </div>`;
+    if (open) html += items.map(i => stockCardHtml(i, res.cash)).join('');
+  });
   el.innerHTML = html;
 }
 
 function stockCardHtml(inst, cash) {
-  const { ticker, name, icon, desc, price, history, shares, avg_cost, gain } = inst;
+  const { ticker, name, icon, desc, price, history, shares, avg_cost, gain, dividend } = inst;
+  const divStr = dividend > 0 ? `<span style="font-size:10px;font-weight:700;color:var(--positive);border:1px solid var(--positive);border-radius:6px;padding:1px 5px;margin-left:4px">💵 ${(dividend*100).toFixed(1)}% div</span>` : '';
   const spark   = sparklineSvg(history);
   const trend   = history.length >= 2 ? history[history.length - 1] - history[history.length - 2] : 0;
   const trendCls = trend > 0 ? 'stock-up' : trend < 0 ? 'stock-down' : '';
@@ -11337,7 +11543,7 @@ function stockCardHtml(inst, cash) {
     <div class="stock-card-top">
       <div class="stock-icon-wrap">${icon}</div>
       <div class="stock-info">
-        <div class="stock-name">${name} <span class="stock-ticker">${ticker}</span></div>
+        <div class="stock-name">${name} <span class="stock-ticker">${ticker}</span>${divStr}</div>
         <div class="stock-desc">${desc}</div>
       </div>
       <div class="stock-price-wrap">

@@ -7,11 +7,37 @@ app = Flask(__name__)
 
 STARTING_CASH = 4_367
 
+# `apr` is the BASE (good-credit) rate and `max` the BASE ceiling; both are scaled
+# by the player's credit score at borrow time. `min_score` gates qualification.
 LOAN_PRODUCTS = [
-    {"key": "quick",    "name": "Quick Cash",    "icon": "💵", "min": 500,   "max": 5_000,   "apr": 0.24, "term_seasons": 2,  "desc": "Fast money, high interest."},
-    {"key": "personal", "name": "Personal Loan", "icon": "🤝", "min": 3_000, "max": 25_000,  "apr": 0.15, "term_seasons": 4,  "desc": "Reasonable rates for mid-range needs."},
-    {"key": "property", "name": "Property Loan", "icon": "🏦", "min": 15000, "max": 75_000,  "apr": 0.09, "term_seasons": 8,  "desc": "Low rates for real estate investment."},
-    {"key": "business", "name": "Business Loan", "icon": "💼", "min": 50000, "max": 150_000, "apr": 0.07, "term_seasons": 12, "desc": "Best rates for serious investors."},
+    {"key": "quick",    "name": "Quick Cash",    "icon": "💵", "min": 500,   "max": 5_000,   "apr": 0.24, "term_seasons": 2,  "min_score": 300, "desc": "Fast money, high interest. Anyone qualifies."},
+    {"key": "personal", "name": "Personal Loan", "icon": "🤝", "min": 3_000, "max": 25_000,  "apr": 0.15, "term_seasons": 4,  "min_score": 560, "desc": "Reasonable rates for mid-range needs."},
+    {"key": "property", "name": "Property Loan", "icon": "🏦", "min": 15000, "max": 75_000,  "apr": 0.09, "term_seasons": 8,  "min_score": 640, "desc": "Low rates for real estate investment."},
+    {"key": "business", "name": "Business Loan", "icon": "💼", "min": 50000, "max": 150_000, "apr": 0.07, "term_seasons": 12, "min_score": 720, "desc": "Best rates — for borrowers with strong credit."},
+]
+
+# ── Credit score ────────────────────────────────────────────────────────────────
+# 300–850 (FICO-style). On-time payments build it; missed payments + late fees wreck
+# it. Score sets your effective APR (good credit = cheaper), your borrowing ceiling,
+# and which loan products you qualify for. Refinance once your credit improves.
+CREDIT_MIN, CREDIT_MAX, CREDIT_START = 300, 850, 600  # start qualifies for Quick Cash + Personal only
+CREDIT_ONTIME_BONUS    = 2     # per on-time weekly payment
+CREDIT_PAYOFF_BONUS    = 25    # for fully clearing a loan
+CREDIT_MISSED_PENALTY  = 25    # per missed weekly payment (subtracted)
+CREDIT_DRIFT           = 1     # weekly drift toward fair-credit baseline when debt-free
+LOAN_LATE_FEE_PCT      = 0.05  # of the missed payment, added to the balance
+LOAN_LATE_FEE_MIN      = 25
+CREDIT_REFINANCE_FEE_PCT = 0.02  # of remaining balance, to refinance to a better rate
+
+# ── Certificates of Deposit (term deposits) ─────────────────────────────────────
+# Lock cash for a fixed term at a guaranteed total yield that beats savings — but
+# it's illiquid, and cashing out early forfeits the interest plus a principal hit.
+CD_MIN_DEPOSIT = 1_000
+CD_EARLY_PENALTY_PCT = 0.03   # of principal, on early withdrawal (interest also forfeited)
+CD_TERMS = [
+    {"key": "s1", "name": "1-Season CD",       "term_seasons": 1, "yield": 0.05, "desc": "Locked for 1 season (28 days)."},
+    {"key": "s2", "name": "2-Season CD",       "term_seasons": 2, "yield": 0.12, "desc": "Locked for 2 seasons (56 days)."},
+    {"key": "s4", "name": "1-Year CD",         "term_seasons": 4, "yield": 0.28, "desc": "Locked for a full year (4 seasons)."},
 ]
 
 SAVINGS_TIERS = [
@@ -20,6 +46,21 @@ SAVINGS_TIERS = [
     {"min": 10_000, "label": "Premium",  "monthly_rate": 0.005, "apr": 6.0},
     {"min": 50_000, "label": "Elite",    "monthly_rate": 0.008, "apr": 9.6},
 ]
+
+# ── Taxes ───────────────────────────────────────────────────────────────────────
+# Rent is taxed gently (landlording is the core game). Business + flip profit ride
+# a progressive bracket schedule — small operators pay little, empires pay real
+# money (a much-needed late-game money sink). Operating expenses (wages, supplies,
+# maintenance/repairs) are deductible from the business+flip side; capital
+# renovations are NOT (they raise property value instead).
+RENT_TAX_RATE = 0.05
+TAX_BRACKETS = [   # (upper bound of the slice, marginal rate)
+    (25_000,        0.08),
+    (100_000,       0.15),
+    (300_000,       0.22),
+    (float("inf"),  0.30),
+]
+ACCOUNTANT_DEDUCTION_BONUS = 0.15  # Accountant assistant finds 15% more deductions you'd have missed
 
 PROPERTY_TYPES = ["Bungalow", "Ranch House", "Colonial", "Townhouse", "Condo", "Duplex", "Mansion"]
 PROPERTY_ICONS = {
@@ -1152,27 +1193,92 @@ CREATOR_CODES = {
 BAD_WORDS = {"fuck", "shit", "cunt", "asshole"}
 
 # ── Stocks & Crypto ────────────────────────────────────────────────────────────
+# `dividend` = annual yield, paid quarterly (every season) on held shares.
 STOCKS = {
     "AMZ":  {"name": "Amazoom",          "icon": "📦", "ticker": "AMZ",
               "desc": "We ship everything. Eventually.",
-              "base_price": 142.00, "volatility": 0.022, "tier": "stock"},
+              "base_price": 142.00, "volatility": 0.022, "tier": "stock", "dividend": 0.02},
     "GOG":  {"name": "Goog-L",           "icon": "🔍", "ticker": "GOG",
               "desc": "Searching for new ways to monetize you.",
-              "base_price": 95.00,  "volatility": 0.018, "tier": "stock"},
+              "base_price": 95.00,  "volatility": 0.018, "tier": "stock", "dividend": 0.025},
     "FCP":  {"name": "Faceplant Inc.",   "icon": "📘", "ticker": "FCP",
               "desc": "Connecting the world, one data breach at a time.",
-              "base_price": 26.00,  "volatility": 0.035, "tier": "stock"},
+              "base_price": 26.00,  "volatility": 0.035, "tier": "stock", "dividend": 0.03},
     "MSS":  {"name": "MicroSoft-Serve", "icon": "💻", "ticker": "MSS",
               "desc": "Your OS now requires a monthly subscription.",
-              "base_price": 68.00,  "volatility": 0.020, "tier": "stock"},
+              "base_price": 68.00,  "volatility": 0.020, "tier": "stock", "dividend": 0.035},
     "APC":  {"name": "AppleCorp",        "icon": "🍎", "ticker": "APC",
               "desc": "Same phone. New port. $200 more.",
-              "base_price": 185.00, "volatility": 0.024, "tier": "stock"},
+              "base_price": 185.00, "volatility": 0.024, "tier": "stock", "dividend": 0.02},
     "TLM":  {"name": "TesLame",          "icon": "🚗", "ticker": "TLM",
               "desc": "Electric cars. Unhinged tweets.",
-              "base_price": 38.00,  "volatility": 0.055, "tier": "stock"},
+              "base_price": 38.00,  "volatility": 0.055, "tier": "stock", "dividend": 0.0},
 }
-ALL_INSTRUMENTS = STOCKS
+# Low-volatility, dividend-paying index funds — safe parking for idle cash.
+INDEX_FUNDS = {
+    "BRDX": {"name": "BroadMarket 500",  "icon": "🧺", "ticker": "BRDX",
+              "desc": "The whole market in one ticker. Boring on purpose.",
+              "base_price": 300.00, "volatility": 0.007, "tier": "index", "dividend": 0.04},
+    "DVND": {"name": "DiviShield ETF",   "icon": "🛡️", "ticker": "DVND",
+              "desc": "Stodgy blue-chips that just keep paying.",
+              "base_price": 110.00, "volatility": 0.009, "tier": "index", "dividend": 0.055},
+    "TECQ": {"name": "TechTen Index",    "icon": "💾", "ticker": "TECQ",
+              "desc": "All the tech, none of the stock-picking. Swings a touch more.",
+              "base_price": 220.00, "volatility": 0.013, "tier": "index", "dividend": 0.015},
+    "BOND": {"name": "Treasury Bond Fund","icon": "🏛️", "ticker": "BOND",
+              "desc": "Boring government IOUs. Sleeps like a baby.",
+              "base_price": 100.00, "volatility": 0.004, "tier": "index", "dividend": 0.045},
+    "REIT": {"name": "Landlord's REIT",  "icon": "🏘️", "ticker": "REIT",
+              "desc": "Real estate, but someone else mows the lawn.",
+              "base_price": 90.00,  "volatility": 0.010, "tier": "index", "dividend": 0.06},
+    "GBLX": {"name": "Global Markets Index","icon": "🌐", "ticker": "GBLX",
+              "desc": "The whole planet's economy in one ticker.",
+              "base_price": 160.00, "volatility": 0.011, "tier": "index", "dividend": 0.035},
+}
+# Crypto — no dividends, weak mean reversion, gut-churning swings. Moon or dust.
+CRYPTO = {
+    "BTK":  {"name": "Bitcrown",         "icon": "🪙", "ticker": "BTK",
+              "desc": "Digital gold, allegedly. Mostly vibes.",
+              "base_price": 1200.00, "volatility": 0.085, "tier": "crypto", "dividend": 0.0},
+    "SHBR": {"name": "ShibRocket",       "icon": "🚀", "ticker": "SHBR",
+              "desc": "A meme coin with a dog mascot. What could go wrong?",
+              "base_price": 0.45, "volatility": 0.14, "tier": "crypto", "dividend": 0.0},
+    "AETH": {"name": "Aetherium",        "icon": "⛓️", "ticker": "AETH",
+              "desc": "Smart contracts, dumb gas fees.",
+              "base_price": 290.00, "volatility": 0.10, "tier": "crypto", "dividend": 0.0},
+    "LTCN": {"name": "Litecorn",         "icon": "🌽", "ticker": "LTCN",
+              "desc": "Like Bitcrown, but faster and lonelier.",
+              "base_price": 85.00, "volatility": 0.11, "tier": "crypto", "dividend": 0.0},
+    "DOGM": {"name": "DogeMoon",         "icon": "🌙", "ticker": "DOGM",
+              "desc": "A joke that refuses to die. To the moon, allegedly.",
+              "base_price": 0.12, "volatility": 0.16, "tier": "crypto", "dividend": 0.0},
+    "SOLR": {"name": "Solaire",          "icon": "☀️", "ticker": "SOLR",
+              "desc": "Blazing fast. Occasionally on fire.",
+              "base_price": 42.00, "volatility": 0.13, "tier": "crypto", "dividend": 0.0},
+}
+ALL_INSTRUMENTS = {**STOCKS, **INDEX_FUNDS, **CRYPTO}
+
+# Per-tier price dynamics: (mean-reversion strength, daily move cap).
+TIER_DYNAMICS = {
+    "stock":  {"reversion": 0.08, "cap": 0.18},
+    "index":  {"reversion": 0.06, "cap": 0.05},   # hugs its base, barely moves
+    "crypto": {"reversion": 0.015, "cap": 0.40},  # drifts & spikes wildly
+}
+
+# Market news — a headline can shock one instrument's price on a given advance.
+STOCK_NEWS_CHANCE = 0.20   # per advance, at most one headline
+STOCK_NEWS = [
+    {"text": "📈 {name} ({ticker}) smashed earnings — shares surge!",      "min": 0.10, "max": 0.25, "good": True},
+    {"text": "📈 Analysts upgrade {name} to 'strong buy'.",                "min": 0.06, "max": 0.15, "good": True},
+    {"text": "📈 {name} unveils a blockbuster new product.",               "min": 0.08, "max": 0.20, "good": True},
+    {"text": "📈 Buyout rumors send {name} soaring.",                      "min": 0.10, "max": 0.22, "good": True},
+    {"text": "📈 {name} lands a massive government contract.",             "min": 0.07, "max": 0.18, "good": True},
+    {"text": "📉 {name} ({ticker}) misses earnings — sell-off!",           "min": -0.22, "max": -0.10, "good": False},
+    {"text": "📉 Data-breach scandal rocks {name}.",                       "min": -0.20, "max": -0.08, "good": False},
+    {"text": "📉 Regulators open a probe into {name}.",                    "min": -0.18, "max": -0.08, "good": False},
+    {"text": "📉 {name} guidance disappoints Wall Street.",                "min": -0.15, "max": -0.06, "good": False},
+    {"text": "📉 A short-seller report torches {name}.",                   "min": -0.20, "max": -0.09, "good": False},
+]
 
 def _init_stock_state():
     return {
@@ -1182,19 +1288,22 @@ def _init_stock_state():
     }
 
 def _update_stock_prices(s, days):
-    """Advance all prices by `days` using GBM + mean reversion."""
+    """Advance all prices by `days` using GBM + mean reversion, tuned per tier
+    (stocks moderate, index funds barely move, crypto swings wildly)."""
     ss       = s.setdefault("stocks", _init_stock_state())
     prices   = ss.setdefault("prices",  {t: i["base_price"] for t, i in ALL_INSTRUMENTS.items()})
     histories = ss.setdefault("history", {t: [i["base_price"]] for t, i in ALL_INSTRUMENTS.items()})
     for ticker, info in ALL_INSTRUMENTS.items():
         base  = info["base_price"]
         vol   = info["volatility"]
+        dyn   = TIER_DYNAMICS.get(info.get("tier", "stock"), TIER_DYNAMICS["stock"])
+        rev, cap = dyn["reversion"], dyn["cap"]
         price = prices.get(ticker, base)
         hist  = list(histories.get(ticker, [base]))
         for _ in range(days):
-            reversion = (base - price) / base * 0.08   # gentle pull toward base
+            reversion = (base - price) / base * rev
             chg       = random.gauss(reversion, vol)
-            chg       = max(-0.18, min(0.18, chg))     # cap ±18%/day
+            chg       = max(-cap, min(cap, chg))
             price     = max(price * (1 + chg), base * 0.05)  # floor at 5% of base
         price = round(price, 4 if price < 1 else 2)
         prices[ticker] = price
@@ -1202,6 +1311,50 @@ def _update_stock_prices(s, days):
         histories[ticker] = hist[-50:]
     ss["prices"]  = prices
     ss["history"] = histories
+
+def _maybe_stock_news(s):
+    """At most one market-news headline per advance; shocks one instrument's price.
+    Returns an event dict (or None)."""
+    if random.random() >= STOCK_NEWS_CHANCE:
+        return None
+    ss     = s.setdefault("stocks", _init_stock_state())
+    ticker = random.choice(list(ALL_INSTRUMENTS.keys()))
+    info   = ALL_INSTRUMENTS[ticker]
+    news   = random.choice(STOCK_NEWS)
+    mag    = random.uniform(news["min"], news["max"])
+    if info.get("tier") == "crypto":
+        mag *= 1.5   # crypto headlines hit harder
+    price     = ss["prices"].get(ticker, info["base_price"])
+    new_price = max(info["base_price"] * 0.05, price * (1 + mag))
+    new_price = round(new_price, 4 if new_price < 1 else 2)
+    ss["prices"][ticker] = new_price
+    hist = ss["history"].get(ticker, [info["base_price"]])
+    hist.append(new_price)
+    ss["history"][ticker] = hist[-50:]
+    return {"prop": "Market News",
+            "text": news["text"].format(name=info["name"], ticker=ticker) + f" ({mag*100:+.0f}%)",
+            "type": "positive" if news["good"] else "negative"}
+
+def _pay_dividends(s, current_day):
+    """Quarterly (every 28 days) dividend on held shares. Returns event dict or None."""
+    ss   = s.setdefault("stocks", _init_stock_state())
+    last = ss.setdefault("last_dividend_day", current_day)
+    if current_day - last < 28:
+        return None
+    ss["last_dividend_day"] = current_day
+    total = 0.0
+    for ticker, held in ss.get("portfolio", {}).items():
+        info = ALL_INSTRUMENTS.get(ticker)
+        shares = held.get("shares", 0)
+        if not info or shares <= 0 or info.get("dividend", 0) <= 0:
+            continue
+        price = ss["prices"].get(ticker, info["base_price"])
+        total += shares * price * info["dividend"] / 4   # quarterly slice of annual yield
+    total = round(total, 2)
+    if total <= 0:
+        return None
+    s["cash"] += total
+    return {"prop": "Dividends", "text": f"Quarterly dividends paid out: +${total:,.2f}", "type": "positive"}
 
 # Player homes — all base stats are 4 max_energy / 1 recharge. All energy/recharge gains come from furniture items.
 PLAYER_HOMES = [
@@ -2713,6 +2866,11 @@ ASSISTANTS = {
         "unlock_level": 11, "monthly_fee": 20_000,
         "desc": "Full hands-off management. Automatically handles every tenant issue, repair, story event, and lease renewal across all your rentals — true passive income.",
     },
+    "accountant": {
+        "name": "Accountant", "icon": "🧮",
+        "unlock_level": 3, "monthly_fee": 2_800,
+        "desc": "Auto-files your taxes on time every year and finds 15% more deductible write-offs. The retainer itself is a deductible expense.",
+    },
 }
 
 # ── Special contractors ────────────────────────────────────────────────────────
@@ -3333,6 +3491,54 @@ def savings_tier(balance):
             tier = t
     return tier
 
+# ── Credit score helpers ─────────────────────────────────────────────────────
+def _bank(s):
+    return s.setdefault("bank", {"savings": 0, "loans": [], "next_loan_id": 1})
+
+def credit_score(s):
+    return _bank(s).get("credit_score", CREDIT_START)
+
+def _credit_set(s, score):
+    _bank(s)["credit_score"] = max(CREDIT_MIN, min(CREDIT_MAX, int(round(score))))
+
+def _credit_adjust(s, delta):
+    _credit_set(s, credit_score(s) + delta)
+
+def credit_label(score):
+    if score >= 760: return "Excellent"
+    if score >= 700: return "Good"
+    if score >= 640: return "Fair"
+    if score >= 580: return "Poor"
+    return "Bad"
+
+def _credit_apr_mult(score):
+    """Effective-APR multiplier: 300 → 1.5×, 850 → 0.6× (linear)."""
+    t = (max(CREDIT_MIN, min(CREDIT_MAX, score)) - CREDIT_MIN) / (CREDIT_MAX - CREDIT_MIN)
+    return 1.5 - t * 0.9
+
+def _credit_size_factor(score):
+    """Borrowing-ceiling factor: 300 → 0.3, 760+ → 1.0 of a product's base max."""
+    t = max(0.0, min(1.0, (score - CREDIT_MIN) / (760 - CREDIT_MIN)))
+    return 0.3 + t * 0.7
+
+def effective_apr(product, score):
+    return round(product["apr"] * _credit_apr_mult(score), 4)
+
+def effective_max(product, score):
+    # round down to a clean $500 step, never below the product minimum
+    raw = product["max"] * _credit_size_factor(score)
+    return max(product["min"], int(raw // 500) * 500)
+
+def loan_offer(product, score):
+    """Score-adjusted offer for a product: qualifies?, effective APR & ceiling."""
+    return {
+        **product,
+        "qualifies":     score >= product["min_score"],
+        "effective_apr": effective_apr(product, score),
+        "effective_max": effective_max(product, score),
+        "sample_payment": calc_weekly_payment(product["min"], effective_apr(product, score), product["term_seasons"]),
+    }
+
 def enrich(prop, current_day=1):
     p = dict(prop)
     p["market_value"]    = calc_market_value(prop)
@@ -3420,7 +3626,7 @@ def new_game():
         "redeemed_codes": [],
         "intro_seen": False,
         "squatter_count": 0,
-        "bank": {"savings": 0, "loans": [], "next_loan_id": 1},
+        "bank": {"savings": 0, "loans": [], "next_loan_id": 1, "credit_score": CREDIT_START, "cds": [], "next_cd_id": 1},
         "level": 0, "xp": 0,
         "stocks": _init_stock_state(),
         "assistants": {},
@@ -3567,11 +3773,18 @@ def _migrate_state(s):
     for prop in s.get("properties", []):
         if prop.get("commercial"):
             prop.setdefault("superintendent", False)
+    _bank(s).setdefault("credit_score", CREDIT_START)
+    _bank(s).setdefault("cds", [])
+    _bank(s).setdefault("next_cd_id", 1)
     s.setdefault("tax_year_flip_income", 0)
     s.setdefault("tax_year_rent_income", 0)
     s.setdefault("tax_year_biz_income", {})
+    s.setdefault("tax_year_deductions", 0)
     s.setdefault("tax_extension_filed", False)
     s.setdefault("tax_owed", 0)
+    # Accountant is now an assistant (was a standalone flag); migrate it over.
+    if s.pop("accountant_hired", False):
+        s.setdefault("assistants", {})["accountant"] = True
     if "stocks" not in s:
         s["stocks"] = _init_stock_state()
     # Ensure new per-property fields exist on old saves
@@ -3604,6 +3817,54 @@ def _biz_income(s, key, amt):
     if amt:
         b = s.setdefault("tax_year_biz_income", {})
         b[key] = b.get(key, 0) + int(round(amt))
+
+def _tax_deduct(s, amt):
+    """Tally a deductible operating expense (wages, supplies, maintenance) for the
+    current tax year — lowers taxable business+flip income."""
+    if amt and amt > 0:
+        s["tax_year_deductions"] = s.get("tax_year_deductions", 0) + int(round(amt))
+
+def _bracket_tax(amount):
+    """Progressive tax on a positive amount across TAX_BRACKETS."""
+    if amount <= 0:
+        return 0.0
+    tax, last = 0.0, 0
+    for cap, rate in TAX_BRACKETS:
+        if amount <= last:
+            break
+        tax += (min(amount, cap) - last) * rate
+        last = cap
+    return tax
+
+def _compute_taxes(s):
+    """Break down taxes owed for the current tax year.
+    Rent → flat low rate. Business + flip profit → progressive brackets, minus
+    deductible operating expenses (boosted if an Accountant is on staff)."""
+    rent = int(s.get("tax_year_rent_income", 0))
+    flip = int(s.get("tax_year_flip_income", 0))
+    biz  = int(sum(s.get("tax_year_biz_income", {}).values()))
+    ded  = int(s.get("tax_year_deductions", 0))
+    has_accountant = bool(s.get("assistants", {}).get("accountant"))
+    if has_accountant:
+        ded = int(ded * (1 + ACCOUNTANT_DEDUCTION_BONUS))
+    taxable_active = max(0, flip + biz - ded)
+    rent_tax   = int(round(rent * RENT_TAX_RATE))
+    active_tax = int(round(_bracket_tax(taxable_active)))
+    return {
+        "rent_income": rent, "flip_income": flip, "biz_income": biz,
+        "deductions": ded, "taxable_active": taxable_active,
+        "rent_tax": rent_tax, "active_tax": active_tax,
+        "total": rent_tax + active_tax,
+        "accountant": has_accountant,
+    }
+
+def _reset_tax_year(s):
+    s["tax_year_flip_income"] = 0
+    s["tax_year_rent_income"] = 0
+    s["tax_year_biz_income"]  = {}
+    s["tax_year_deductions"]  = 0
+    s["tax_owed"]             = 0
+    s["tax_extension_filed"]  = False
 
 # ── Inject saved state into every JSON response ───────────────────────────────
 @app.after_request
@@ -3654,6 +3915,8 @@ def api_state():
         "log":                    s["log"][-40:],
         "bank":                   s.get("bank", {"savings": 0, "loans": [], "next_loan_id": 1}),
         "savings_tier":           savings_tier(s.get("bank", {}).get("savings", 0)),
+        "assistants":             s.get("assistants", {}),
+        "tax_breakdown":          _compute_taxes(s),
         "level":                  lvl,
         "xp_pct":                 calc_xp_pct(s),
         "unlocked_neighborhoods": get_unlocked_neighborhoods(lvl),
@@ -5620,7 +5883,10 @@ def api_advance():
         # Assistant daily fee deductions
         for asst_key, asst in ASSISTANTS.items():
             if s.get("assistants", {}).get(asst_key):
-                s["cash"] = max(0, s["cash"] - int(asst["monthly_fee"] / 28))
+                _fee = int(asst["monthly_fee"] / 28)
+                s["cash"] = max(0, s["cash"] - _fee)
+                if asst_key == "accountant":
+                    _tax_deduct(s, _fee)   # the accountant's retainer is itself deductible
 
         for prop in s["properties"]:
             if not prop.get("tenant"):
@@ -6259,56 +6525,97 @@ def api_advance():
                 wp       = loan.get("weekly_payment") or round(loan.get("monthly_payment", 0) / 4, 2)
                 wr       = loan.get("weekly_rate")    or loan.get("monthly_rate", 0) / 4
                 payment  = round(min(wp, loan["balance"]), 2)
-                int_part = round(loan["balance"] * wr, 2)
-                pri_part = round(payment - int_part, 2)
-                s["cash"] -= payment
-                loan["balance"] = round(max(0, loan["balance"] - pri_part), 2)
-                loan["weeks_paid"] = loan.get("weeks_paid", loan.get("months_paid", 0)) + 1
-                label = "⚠ You're in the red!" if s["cash"] < 0 else f"${loan['balance']:,.0f} left"
-                events.append({"prop": loan["product"],
-                                "text": f"Weekly loan payment: -${payment:,.2f} ({label})",
-                                "type": "negative" if s["cash"] < 0 else "warning"})
-                if loan["balance"] <= 0:
-                    paid_off.append(loan["id"])
-                    events.append({"prop": loan["product"], "text": "Loan fully paid off! 🎉", "type": "positive"})
+                if s["cash"] >= payment:
+                    # On-time payment — pay it, chip the balance, build credit.
+                    int_part = round(loan["balance"] * wr, 2)
+                    pri_part = round(payment - int_part, 2)
+                    s["cash"] -= payment
+                    loan["balance"]    = round(max(0, loan["balance"] - pri_part), 2)
+                    loan["weeks_paid"] = loan.get("weeks_paid", loan.get("months_paid", 0)) + 1
+                    loan["missed"]     = 0
+                    _credit_adjust(s, CREDIT_ONTIME_BONUS)
+                    events.append({"prop": loan["product"],
+                                    "text": f"Weekly loan payment: -${payment:,.2f} (${loan['balance']:,.0f} left)",
+                                    "type": "warning"})
+                    if loan["balance"] <= 0:
+                        paid_off.append(loan["id"])
+                        _credit_adjust(s, CREDIT_PAYOFF_BONUS)
+                        events.append({"prop": loan["product"],
+                                        "text": f"Loan fully paid off! 🎉 Credit score +{CREDIT_PAYOFF_BONUS}.",
+                                        "type": "positive"})
+                else:
+                    # Missed payment — late fee onto the balance, interest accrues, credit drops.
+                    late_fee = max(LOAN_LATE_FEE_MIN, round(payment * LOAN_LATE_FEE_PCT, 2))
+                    loan["balance"] = round(loan["balance"] + late_fee, 2)
+                    loan["missed"]  = loan.get("missed", 0) + 1
+                    _credit_adjust(s, -CREDIT_MISSED_PENALTY)
+                    events.append({"prop": loan["product"],
+                                    "text": f"⚠ MISSED loan payment! +${late_fee:,.0f} late fee, credit score −{CREDIT_MISSED_PENALTY}. Balance ${loan['balance']:,.0f}.",
+                                    "type": "negative"})
             bank["loans"] = [l for l in bank["loans"] if l["id"] not in paid_off]
+            # Debt-free weeks let credit slowly recover toward fair.
+            if not bank.get("loans") and credit_score(s) < CREDIT_START:
+                _credit_adjust(s, CREDIT_DRIFT)
             s["bank"] = bank
+
+        # CD maturity — checked daily so payout lands on the exact maturity day.
+        _cb = _bank(s)
+        _matured = [cd for cd in _cb.get("cds", []) if current_day >= cd.get("mature_day", 0)]
+        if _matured:
+            for cd in _matured:
+                s["cash"] += cd["payout"]
+                _interest = cd["payout"] - cd["principal"]
+                events.append({"prop": "Certificate of Deposit",
+                                "text": f"{cd['name']} matured: +${cd['payout']:,} (${cd['principal']:,} principal + ${_interest:,} interest)",
+                                "type": "positive"})
+                s["log"].insert(0, {"day": current_day, "type": "positive",
+                    "text": f"{cd['name']} matured — ${cd['payout']:,} returned to cash."})
+            _cb["cds"] = [cd for cd in _cb.get("cds", []) if current_day < cd.get("mature_day", 0)]
+            s["bank"] = _cb
 
         # ── Tax system ────────────────────────────────────────────────────────
         _si, _di = _season_info(current_day)
 
         # Winter day 21: 7-day heads-up
         if _si == 3 and _di == 21:
-            _flip = s.get("tax_year_flip_income", 0)
-            _est  = int(_flip * 0.10)
+            _tx = _compute_taxes(s)
             events.append({
                 "prop": "Tax Notice",
-                "text": f"📋 Tax Day is 7 days away (Winter Day 28)! Flip income this year: ${_flip:,} · Est. taxes: ${_est:,}",
+                "text": f"📋 Tax Day is 7 days away (Winter Day 28)! Estimated tax owed: ${_tx['total']:,} "
+                        f"(rent ${_tx['rent_tax']:,} + business/flips ${_tx['active_tax']:,}).",
                 "type": "warning",
             })
             s["log"].insert(0, {"day": current_day, "type": "warning",
-                "text": f"Tax reminder: ~${_est:,} due on Winter Day 28 from ${_flip:,} in flip profits"})
+                "text": f"Tax reminder: ~${_tx['total']:,} due on Winter Day 28"})
 
-        # Winter day 28: tax due (only if no extension already filed)
+        # Winter day 28: tax due. With an Accountant on staff it's auto-filed &
+        # paid on time; otherwise the player gets the pay-now / extension modal.
         if _si == 3 and _di == 28 and not s.get("tax_extension_filed", False):
-            _flip = s.get("tax_year_flip_income", 0)
-            _owed = int(_flip * 0.10)
-            tax_event = {"amount": _owed, "flip_income": _flip}
-            events.append({
-                "prop": "IRS",
-                "text": f"🧾 Tax Day! ${_owed:,} owed on ${_flip:,} in flip profits — pay now or file for extension.",
-                "type": "warning",
-            })
+            _tx = _compute_taxes(s)
+            if s.get("assistants", {}).get("accountant"):
+                s["cash"] -= _tx["total"]
+                events.append({
+                    "prop": "Accountant",
+                    "text": f"🧾 Your accountant filed and paid your taxes: -${_tx['total']:,} "
+                            f"(rent ${_tx['rent_tax']:,} + business/flips ${_tx['active_tax']:,}).",
+                    "type": "warning",
+                })
+                s["log"].insert(0, {"day": current_day, "type": "warning",
+                    "text": f"Accountant auto-filed taxes: -${_tx['total']:,} paid."})
+                _reset_tax_year(s)
+            else:
+                tax_event = _tx
+                events.append({
+                    "prop": "IRS",
+                    "text": f"🧾 Tax Day! ${_tx['total']:,} owed — pay now or file for extension.",
+                    "type": "warning",
+                })
 
         # Spring day 7: collect deferred extension tax
         if _si == 0 and _di == 7 and s.get("tax_extension_filed", False):
             _owed = s.get("tax_owed", 0)
             s["cash"] -= _owed
-            s["tax_extension_filed"]  = False
-            s["tax_year_flip_income"] = 0
-            s["tax_year_rent_income"] = 0
-            s["tax_year_biz_income"]  = {}
-            s["tax_owed"]             = 0
+            _reset_tax_year(s)
             events.append({
                 "prop": "IRS",
                 "text": f"🧾 Tax extension due today: -${_owed:,} collected",
@@ -6344,6 +6651,7 @@ def api_advance():
             # Vinny tops the route up each morning, for a fee if he moved anything.
             if vinny_on and _vm_restock_from_inventory(vm, inv, cur) > 0:
                 s["cash"] = max(0, s["cash"] - VINNY_FEE)
+                _tax_deduct(s, VINNY_FEE)
 
             day_profit, spoiled, stockouts = _vm_sell_day(vm, loc, cur)
             _vm_update_reputation(vm, spoiled, stockouts)
@@ -6404,12 +6712,14 @@ def api_advance():
             # Janitor daily cost + auto-clean
             if staff.get("janitor"):
                 s["cash"] = max(0, s["cash"] - LAUNDROMAT_STAFF["janitor"]["cost"])
+                _tax_deduct(s, LAUNDROMAT_STAFF["janitor"]["cost"])
                 if lm["cleanliness"] < 75:
                     lm["cleanliness"] = min(100, lm["cleanliness"] + 30)
 
             # Repairman daily cost + auto-fix
             if staff.get("repairman"):
                 s["cash"] = max(0, s["cash"] - LAUNDROMAT_STAFF["repairman"]["cost"])
+                _tax_deduct(s, LAUNDROMAT_STAFF["repairman"]["cost"])
                 repair_fee = 0 if lm.get("insurance") else LAUNDROMAT_REPAIR_COST
                 for machine in machines:
                     if machine["status"] == "broken":
@@ -6419,6 +6729,7 @@ def api_advance():
             # Supply Manager: daily salary + auto-orders supplies to a buffer (like Grandma).
             if staff.get("manager"):
                 s["cash"] = max(0, s["cash"] - LAUNDROMAT_STAFF["manager"]["cost"])
+                _tax_deduct(s, LAUNDROMAT_STAFF["manager"]["cost"])
                 has_ee   = any(m.get("upgrades", {}).get("energy_efficient") for m in machines)
                 soap_per = 10 if has_ee else 7
                 while lm.get("soap_days", 0) < 10 and s["cash"] >= 300:       # required — keep ~10–17 days
@@ -6556,6 +6867,7 @@ def api_advance():
             arc["cleanliness"] = max(0, arc.get("cleanliness", 100) - clean_decay)
             if astaff.get("janitor"):
                 s["cash"] = max(0, s["cash"] - ARCADE_STAFF["janitor"]["cost"])
+                _tax_deduct(s, ARCADE_STAFF["janitor"]["cost"])
                 if arc["cleanliness"] < 70:
                     arc["cleanliness"] = min(100, arc["cleanliness"] + 35)
 
@@ -6567,6 +6879,7 @@ def api_advance():
                         cab["status"] = "broken"
             if astaff.get("tech"):
                 s["cash"] = max(0, s["cash"] - ARCADE_STAFF["tech"]["cost"])
+                _tax_deduct(s, ARCADE_STAFF["tech"]["cost"])
                 for cab in cabs:
                     if cab.get("status") == "broken":
                         cab["status"] = "working"
@@ -6600,6 +6913,7 @@ def api_advance():
             # counter (balanced to a ~7-day buffer, bought from CostPro out of cash).
             if astaff.get("collector"):
                 s["cash"] = max(0, s["cash"] - ARCADE_STAFF["collector"]["cost"])
+                _tax_deduct(s, ARCADE_STAFF["collector"]["cost"])
                 take = arc.get("uncollected", 0)
                 if take > 0:
                     s["cash"]          += take
@@ -6657,12 +6971,14 @@ def api_advance():
             # Vibe manager: auto-maintain atmosphere
             if staff.get("vibe_manager"):
                 s["cash"] = max(0, s["cash"] - POLE_STUDIO_STAFF["vibe_manager"]["cost"])
+                _tax_deduct(s, POLE_STUDIO_STAFF["vibe_manager"]["cost"])
                 if ps["atmosphere"] < 75:
                     ps["atmosphere"] = min(100, ps["atmosphere"] + 20)
 
             # Studio cleaner: auto-clean
             if staff.get("studio_cleaner"):
                 s["cash"] = max(0, s["cash"] - POLE_STUDIO_STAFF["studio_cleaner"]["cost"])
+                _tax_deduct(s, POLE_STUDIO_STAFF["studio_cleaner"]["cost"])
                 if ps["cleanliness"] < 70:
                     ps["cleanliness"] = min(100, ps["cleanliness"] + 25)
 
@@ -6860,6 +7176,7 @@ def api_advance():
             for role, hired in staff.items():
                 if hired:
                     s["cash"] = max(0, s["cash"] - CAR_WASH_STAFF[role]["cost"])
+                    _tax_deduct(s, CAR_WASH_STAFF[role]["cost"])
 
             # No basic soap = no income
             if sup.get("cw_basic_soap", 0) <= 0:
@@ -7102,6 +7419,13 @@ def api_advance():
         new_renewal_offers = [o for o in new_renewal_offers if o not in auto_handled_rn]
 
     _update_stock_prices(s, days)
+    _final_day = s["day"] + days
+    _div_ev = _pay_dividends(s, _final_day)
+    if _div_ev:
+        events.append(_div_ev)
+    _news_ev = _maybe_stock_news(s)
+    if _news_ev:
+        events.append(_news_ev)
     _roll_special_contractors(s)
     s["applicants_cache"] = {}   # fresh tenant pool each advance
     s["day"] += days
@@ -7148,32 +7472,26 @@ def api_pay_contractor(pid):
 
 @app.route('/api/pay_taxes', methods=['POST'])
 def api_pay_taxes():
-    s = load()
-    flip_income = s.get("tax_year_flip_income", 0)
-    tax_owed    = int(flip_income * 0.10)
-    s["cash"]  -= tax_owed
-    s["tax_year_flip_income"] = 0
-    s["tax_year_rent_income"] = 0
-    s["tax_year_biz_income"]  = {}
-    s["tax_extension_filed"]  = False
-    s["tax_owed"]             = 0
+    s  = load()
+    tx = _compute_taxes(s)
+    s["cash"] -= tx["total"]
     s["log"].insert(0, {"day": s["day"], "type": "warning",
-        "text": f"Paid ${tax_owed:,} in taxes (10% of ${flip_income:,} flip income)"})
+        "text": f"Paid ${tx['total']:,} in taxes (rent ${tx['rent_tax']:,} + business/flips ${tx['active_tax']:,})"})
+    _reset_tax_year(s)
     save(s)
-    return jsonify({"success": True, "tax_paid": tax_owed, "cash": s["cash"]})
+    return jsonify({"success": True, "tax_paid": tx["total"], "cash": s["cash"]})
 
 
 @app.route('/api/file_tax_extension', methods=['POST'])
 def api_file_tax_extension():
-    s = load()
-    flip_income = s.get("tax_year_flip_income", 0)
-    tax_owed    = int(flip_income * 0.10)
+    s  = load()
+    tx = _compute_taxes(s)
     s["tax_extension_filed"] = True
-    s["tax_owed"]            = tax_owed
+    s["tax_owed"]            = tx["total"]
     s["log"].insert(0, {"day": s["day"], "type": "info",
-        "text": f"Filed tax extension — ${tax_owed:,} due on Spring Day 7"})
+        "text": f"Filed tax extension — ${tx['total']:,} due on Spring Day 7"})
     save(s)
-    return jsonify({"success": True, "tax_owed": tax_owed, "cash": s["cash"]})
+    return jsonify({"success": True, "tax_owed": tx["total"], "cash": s["cash"]})
 
 
 def _renewal_odds(t):
@@ -7311,25 +7629,33 @@ def api_storylet_respond():
 
 @app.route('/api/bank/products', methods=['GET', 'POST'])
 def api_bank_products():
-    products = [{**p, "sample_payment": calc_weekly_payment(p["min"], p["apr"], p["term_seasons"])}
-                for p in LOAN_PRODUCTS]
-    return jsonify({"products": products, "savings_tiers": SAVINGS_TIERS})
+    s     = load()
+    score = credit_score(s)
+    products = [loan_offer(p, score) for p in LOAN_PRODUCTS]
+    return jsonify({"products": products, "savings_tiers": SAVINGS_TIERS,
+                    "credit_score": score, "credit_label": credit_label(score),
+                    "cd_terms": CD_TERMS, "cd_min": CD_MIN_DEPOSIT,
+                    "cd_penalty_pct": CD_EARLY_PENALTY_PCT})
 
 @app.route('/api/bank/loan/preview', methods=['POST'])
 def api_loan_preview():
     data    = request.json
+    s       = load()
     product = next((p for p in LOAN_PRODUCTS if p["key"] == data["product_key"]), None)
     if not product:
         return jsonify({"error": "Invalid product"}), 400
+    score   = credit_score(s)
+    eapr    = effective_apr(product, score)
+    emax    = effective_max(product, score)
     amount  = int(data["amount"])
-    if amount < product["min"] or amount > product["max"]:
-        return jsonify({"error": f"Amount must be between ${product['min']:,} and ${product['max']:,}"}), 400
-    payment     = calc_weekly_payment(amount, product["apr"], product["term_seasons"])
+    if amount < product["min"] or amount > emax:
+        return jsonify({"error": f"Amount must be between ${product['min']:,} and ${emax:,}"}), 400
+    payment     = calc_weekly_payment(amount, eapr, product["term_seasons"])
     term_weeks  = product["term_seasons"] * 4
     total       = round(payment * term_weeks, 2)
     return jsonify({"weekly_payment": payment, "total_repaid": total,
                     "total_interest": round(total - amount, 2), "term_seasons": product["term_seasons"],
-                    "term_weeks": term_weeks})
+                    "term_weeks": term_weeks, "effective_apr": eapr, "effective_max": emax})
 
 @app.route('/api/bank/loan/take', methods=['POST'])
 def api_loan_take():
@@ -7338,25 +7664,64 @@ def api_loan_take():
     product = next((p for p in LOAN_PRODUCTS if p["key"] == data["product_key"]), None)
     if not product:
         return jsonify({"error": "Invalid product"}), 400
+    score = credit_score(s)
+    if score < product["min_score"]:
+        return jsonify({"error": f"Your credit score ({score}) is too low — need {product['min_score']} for this loan."}), 400
+    eapr   = effective_apr(product, score)
+    emax   = effective_max(product, score)
     amount = int(data["amount"])
-    if amount < product["min"] or amount > product["max"]:
-        return jsonify({"error": "Amount out of range"}), 400
-    if "bank" not in s:
-        s["bank"] = {"savings": 0, "loans": [], "next_loan_id": 1}
-    payment      = calc_weekly_payment(amount, product["apr"], product["term_seasons"])
+    if amount < product["min"] or amount > emax:
+        return jsonify({"error": f"Amount must be between ${product['min']:,} and ${emax:,} at your credit score."}), 400
+    _bank(s)
+    payment      = calc_weekly_payment(amount, eapr, product["term_seasons"])
     term_weeks   = product["term_seasons"] * 4
     term_seasons = product["term_seasons"]
-    loan = {"id": s["bank"]["next_loan_id"], "product": product["name"], "icon": product["icon"],
-            "balance": amount, "original_amount": amount,
-            "weekly_payment": payment, "weekly_rate": product["apr"] / 52,
-            "term_seasons": term_seasons, "term_weeks": term_weeks, "weeks_paid": 0}
+    loan = {"id": s["bank"]["next_loan_id"], "product": product["name"], "product_key": product["key"],
+            "icon": product["icon"], "balance": amount, "original_amount": amount,
+            "weekly_payment": payment, "weekly_rate": eapr / 52, "apr": eapr,
+            "term_seasons": term_seasons, "term_weeks": term_weeks, "weeks_paid": 0, "missed": 0}
     s["bank"]["next_loan_id"] += 1
     s["bank"]["loans"].append(loan)
     s["cash"] += amount
     s["log"].append({"day": s["day"], "type": "info",
-        "text": f"Took out a {product['name']} for ${amount:,} — ${payment:,.2f}/wk for {term_seasons} seasons ({term_weeks} weeks)"})
+        "text": f"Took out a {product['name']} for ${amount:,} @ {eapr*100:.1f}% APR — ${payment:,.2f}/wk for {term_seasons} seasons"})
     save(s)
     return jsonify({"success": True, "cash": s["cash"], "loan": loan})
+
+@app.route('/api/bank/loan/refinance', methods=['POST'])
+def api_loan_refinance():
+    data    = request.json or {}
+    s       = load()
+    loan    = next((l for l in _bank(s)["loans"] if l["id"] == data.get("loan_id")), None)
+    if not loan:
+        return jsonify({"error": "Loan not found"}), 404
+    product = next((p for p in LOAN_PRODUCTS if p["key"] == loan.get("product_key")), None) \
+              or next((p for p in LOAN_PRODUCTS if p["name"] == loan.get("product")), None)
+    if not product:
+        return jsonify({"error": "This loan can't be refinanced."}), 400
+    score    = credit_score(s)
+    new_apr  = effective_apr(product, score)
+    cur_apr  = loan.get("apr", round(loan.get("weekly_rate", 0) * 52, 4))
+    if new_apr >= cur_apr - 0.0001:
+        return jsonify({"error": f"Your credit doesn't earn a better rate yet (current {cur_apr*100:.1f}% APR). Build your score first."}), 400
+    fee = max(50, int(round(loan["balance"] * CREDIT_REFINANCE_FEE_PCT)))
+    if s["cash"] < fee:
+        return jsonify({"error": f"Need ${fee:,} for the refinance fee."}), 400
+    remaining_weeks   = max(4, loan.get("term_weeks", 8) - loan.get("weeks_paid", 0))
+    remaining_seasons = remaining_weeks / 4
+    new_payment = calc_weekly_payment(loan["balance"], new_apr, remaining_seasons)
+    s["cash"]            -= fee
+    loan["apr"]           = new_apr
+    loan["weekly_rate"]   = new_apr / 52
+    loan["weekly_payment"] = new_payment
+    loan["term_weeks"]    = remaining_weeks
+    loan["term_seasons"]  = round(remaining_seasons, 2)
+    loan["weeks_paid"]    = 0
+    loan["refinanced"]    = True
+    s["log"].append({"day": s["day"], "type": "info",
+        "text": f"Refinanced your {loan['product']} to {new_apr*100:.1f}% APR (fee ${fee:,}) — now ${new_payment:,.2f}/wk."})
+    save(s)
+    return jsonify({"success": True, "cash": s["cash"], "new_apr": new_apr, "fee": fee, "loan": loan})
 
 @app.route('/api/bank/loan/pay', methods=['POST'])
 def api_loan_pay():
@@ -7370,11 +7735,15 @@ def api_loan_pay():
         return jsonify({"error": "Not enough cash"}), 400
     s["cash"]      -= amount
     loan["balance"] = round(loan["balance"] - amount, 2)
-    if loan["balance"] <= 0:
+    paid_off = loan["balance"] <= 0
+    if paid_off:
         s["bank"]["loans"] = [l for l in s["bank"]["loans"] if l["id"] != loan["id"]]
-        s["log"].append({"day": s["day"], "type": "info", "text": f"Fully paid off your {loan['product']}!"})
+        _credit_adjust(s, CREDIT_PAYOFF_BONUS)
+        s["log"].append({"day": s["day"], "type": "info",
+            "text": f"Fully paid off your {loan['product']}! Credit score +{CREDIT_PAYOFF_BONUS}."})
     save(s)
-    return jsonify({"success": True, "cash": s["cash"], "remaining": max(0, loan.get("balance", 0))})
+    return jsonify({"success": True, "cash": s["cash"], "remaining": max(0, loan.get("balance", 0)),
+                    "paid_off": paid_off, "credit_score": credit_score(s)})
 
 @app.route('/api/bank/savings/deposit', methods=['POST'])
 def api_savings_deposit():
@@ -7404,6 +7773,55 @@ def api_savings_withdraw():
     s["log"].append({"day": s["day"], "type": "info", "text": f"Withdrew ${amount:,} from savings"})
     save(s)
     return jsonify({"success": True, "cash": s["cash"], "savings": s["bank"]["savings"]})
+
+@app.route('/api/bank/cd/open', methods=['POST'])
+def api_cd_open():
+    data = request.json or {}
+    s    = load()
+    term = next((t for t in CD_TERMS if t["key"] == data.get("term_key")), None)
+    if not term:
+        return jsonify({"error": "Invalid CD term"}), 400
+    amount = int(data.get("amount", 0))
+    if amount < CD_MIN_DEPOSIT:
+        return jsonify({"error": f"Minimum deposit is ${CD_MIN_DEPOSIT:,}"}), 400
+    if amount > s["cash"]:
+        return jsonify({"error": "Not enough cash"}), 400
+    bank = _bank(s)
+    bank.setdefault("cds", []); bank.setdefault("next_cd_id", 1)
+    s["cash"]  -= amount
+    mature_day  = s["day"] + term["term_seasons"] * 28
+    payout      = int(round(amount * (1 + term["yield"])))
+    cd = {"id": bank["next_cd_id"], "name": term["name"], "principal": amount,
+          "term_seasons": term["term_seasons"], "yield": term["yield"],
+          "open_day": s["day"], "mature_day": mature_day, "payout": payout}
+    bank["next_cd_id"] += 1
+    bank["cds"].append(cd)
+    s["log"].append({"day": s["day"], "type": "info",
+        "text": f"Opened a {term['name']}: ${amount:,} locked, matures to ${payout:,} in {term['term_seasons']} season(s)."})
+    save(s)
+    return jsonify({"success": True, "cash": s["cash"], "cd": cd})
+
+@app.route('/api/bank/cd/withdraw', methods=['POST'])
+def api_cd_withdraw():
+    data = request.json or {}
+    s    = load()
+    bank = _bank(s)
+    cd   = next((c for c in bank.get("cds", []) if c["id"] == data.get("cd_id")), None)
+    if not cd:
+        return jsonify({"error": "CD not found"}), 404
+    if s["day"] >= cd.get("mature_day", 0):
+        payout, penalty, early = cd["payout"], 0, False   # matured — full payout
+    else:
+        penalty = int(round(cd["principal"] * CD_EARLY_PENALTY_PCT))
+        payout  = cd["principal"] - penalty               # forfeit interest + penalty
+        early   = True
+    s["cash"] += payout
+    bank["cds"] = [c for c in bank["cds"] if c["id"] != cd["id"]]
+    s["log"].append({"day": s["day"], "type": "warning" if early else "info",
+        "text": (f"Cashed out {cd['name']} early — ${payout:,} (forfeited interest + ${penalty:,} penalty)."
+                 if early else f"{cd['name']} cashed out at maturity — ${payout:,}.")})
+    save(s)
+    return jsonify({"success": True, "cash": s["cash"], "payout": payout, "penalty": penalty, "early": early})
 
 @app.route('/api/diy_renovate', methods=['POST'])
 def api_diy_renovate():
@@ -7682,6 +8100,8 @@ def api_stocks():
             "shares":   shares,
             "avg_cost": avg_cost,
             "gain":     gain,
+            "tier":     info.get("tier", "stock"),
+            "dividend": info.get("dividend", 0),
         })
     return jsonify({"instruments": result, "cash": s["cash"], "level": lvl})
 
@@ -7929,6 +8349,7 @@ def api_costpro_buy():
     if s["cash"] < total:
         return jsonify({"error": f"Not enough cash — need ${total:,}"}), 400
     s["cash"] -= total
+    _tax_deduct(s, total)   # supplies are a deductible business expense
     if item.get("category") == "laundromat":
         lm = s.get("laundromat")
         if not lm:
@@ -8129,6 +8550,7 @@ def api_arcade_service_cabinet():
     if s["cash"] < ARCADE_SERVICE_COST:
         return jsonify({"error": f"Need ${ARCADE_SERVICE_COST:,}"}), 400
     s["cash"] -= ARCADE_SERVICE_COST
+    _tax_deduct(s, ARCADE_SERVICE_COST)
     cab["status"] = "working"; cab["condition"] = 100
     s["log"].insert(0, {"day": s["day"], "type": "info",
         "text": f"Serviced the '{cab['title']}' cabinet (${ARCADE_SERVICE_COST})."})
@@ -8216,6 +8638,7 @@ def api_arcade_clean():
         return jsonify({"error": f"Need ${ARCADE_CLEAN_COST:,}"}), 400
     s["energy"]       -= 6
     s["cash"]         -= ARCADE_CLEAN_COST
+    _tax_deduct(s, ARCADE_CLEAN_COST)
     arc["cleanliness"] = 100
     s["log"].insert(0, {"day": s["day"], "type": "info",
         "text": f"Deep-cleaned the arcade floor (${ARCADE_CLEAN_COST})."})
@@ -8296,6 +8719,7 @@ def api_laundromat_clean():
         return jsonify({"error": f"Need ${LAUNDROMAT_CLEAN_COST}"}), 400
     s["energy"] -= 6
     s["cash"] -= LAUNDROMAT_CLEAN_COST
+    _tax_deduct(s, LAUNDROMAT_CLEAN_COST)
     lm["cleanliness"] = min(100, lm.get("cleanliness", 0) + 30)
     s["log"].insert(0, {"day": s["day"], "type": "positive",
         "text": f"Cleaned the laundromat — cleanliness now {lm['cleanliness']}%."})
