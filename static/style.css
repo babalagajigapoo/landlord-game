@@ -149,7 +149,25 @@ main { flex: 1; overflow: hidden; }
 /* ── Pages ───────────────────────────────────────────────────── */
 .page { display: none; padding: 12px; animation: fadeIn 0.15s ease; }
 .page.active { display: block; height: 100%; overflow-y: auto; box-sizing: border-box; padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) / 2 + 8px); }
-#page-dashboard.active { overflow-y: hidden; }
+#page-dashboard.active { overflow-y: auto; }
+
+/* ── Opening splash: Babalaga Games bumper → game title ── */
+#splash-screen { position: absolute; inset: 0; z-index: 9999; background: #1B1E25; display: grid; place-items: center; transition: opacity 0.5s ease; overflow: hidden; }
+#splash-screen.hide { opacity: 0; pointer-events: none; }
+.splash-stage { grid-area: 1 / 1; display: flex; flex-direction: column; align-items: center; opacity: 0; }
+.splash-studio { animation: splashStudio 3s ease forwards; }
+.splash-title  { animation: splashTitle 2.4s ease 2.9s forwards; }
+.splash-baba { font-family: 'Arial Black','Helvetica Neue',sans-serif; font-weight: 900; font-size: clamp(28px, 9vw, 40px); letter-spacing: 2px; color: #F2B130; line-height: 1; }
+.splash-bar  { height: 6px; border-radius: 3px; background: #F2B130; width: 0; margin-top: 14px; animation: splashBar 0.9s ease 0.4s forwards; }
+.splash-games { margin-top: 14px; background: #2FBF71; color: #0C3B24; font-family: 'Arial Black',sans-serif; font-weight: 700; font-size: 14px; letter-spacing: 6px; padding: 5px 16px; border-radius: 14px; }
+.splash-icon { font-size: 52px; line-height: 1; margin-bottom: 4px; }
+.splash-slum { font-family: 'Rubik Dirt',cursive; font-size: clamp(30px, 11vw, 44px); color: #F2B130; }
+.splash-special { font-family: 'Great Vibes',cursive; font-size: clamp(22px, 8vw, 32px); color: #EBDFC4; }
+.splash-skip { position: absolute; bottom: 30px; left: 0; right: 0; text-align: center; font-family: 'Inter',sans-serif; font-size: 11px; letter-spacing: 1px; color: #5B606B; opacity: 0; animation: splashSkip 0.6s ease 1.4s forwards; }
+@keyframes splashStudio { 0% {opacity:0; transform: translateY(14px);} 14% {opacity:1; transform: translateY(0);} 74% {opacity:1;} 100% {opacity:0;} }
+@keyframes splashTitle  { 0% {opacity:0; transform: scale(0.94);} 30% {opacity:1; transform: scale(1);} 100% {opacity:1;} }
+@keyframes splashBar    { to { width: 200px; } }
+@keyframes splashSkip   { to { opacity: 1; } }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes taxShake { 0%,100% { transform: rotate(-3deg) scale(1.05); } 50% { transform: rotate(3deg) scale(1.1); } }
 

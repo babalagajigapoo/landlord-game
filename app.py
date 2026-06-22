@@ -4567,6 +4567,10 @@ def _migrate_state(s):
         _asst["manager"] = True
     for k in ("repair", "tenant", "estate"):
         _asst.pop(k, None)
+    # ── Milestones / Mogul Rank: baseline existing saves silently (no reward flood) ──
+    if "milestones_done" not in s:
+        s["milestones_done"] = [m["key"] for m in MILESTONES if _milestone_ok(m, s)]
+    s.setdefault("mogul_rank", _mogul_rank_index(_empire_score(s)))
     for prop in s.get("properties", []):
         if prop.get("commercial"):
             prop.setdefault("superintendent", False)
@@ -4700,6 +4704,11 @@ def api_state():
     max_e, rch = _get_home_stats(s)
     weekly_income = sum(p["tenant"]["rent"] for p in s["properties"] if p.get("tenant"))
     lvl = s.get("level", 0)
+    # Milestones can be earned by any action (sell, buy, hire…), not just advancing —
+    # so reconcile them on every state read and report freshly-unlocked ones for a toast.
+    _ms_newly = _sync_milestones(s)
+    if _ms_newly:
+        save(s)   # persist so the unlock isn't re-detected next refresh
     return jsonify({
         "cash":                   s["cash"],
         "day":                    s["day"],
@@ -4737,7 +4746,36 @@ def api_state():
         "building_permit":        s.get("building_permit", False),
         "owned_crews":            s.get("owned_crews", []),
         "active_builds":          s.get("active_builds", []),
+        "empire":                 {**_empire_payload(s), "just_unlocked": [m["name"] for m in _ms_newly]},
     })
+
+def _empire_payload(s):
+    score   = _empire_score(s)
+    idx     = _mogul_rank_index(score)
+    cur     = MOGUL_RANKS[idx]
+    nxt     = MOGUL_RANKS[idx + 1] if idx + 1 < len(MOGUL_RANKS) else None
+    span_lo = cur["score"]
+    span_hi = nxt["score"] if nxt else cur["score"]
+    pct     = 100 if not nxt else max(0, min(100, round((score - span_lo) / max(1, span_hi - span_lo) * 100)))
+    done    = set(s.get("milestones_done", []))
+    return {
+        "score":            score,
+        "total_wealth":     _total_wealth(s),
+        "businesses_owned": _businesses_owned(s),
+        "rank_index":       idx,
+        "rank_name":        cur["name"],
+        "rank_icon":        cur["icon"],
+        "next_rank_name":   nxt["name"] if nxt else None,
+        "next_rank_score":  nxt["score"] if nxt else None,
+        "progress_pct":     pct,
+        "business_bonus":   EMPIRE_BUSINESS_BONUS,
+        "milestone_bonus":  EMPIRE_MILESTONE_BONUS,
+        "milestones_total": len(MILESTONES),
+        "milestones_done":  len(done),
+        "milestones": [{"key": m["key"], "name": m["name"], "icon": m["icon"],
+                        "desc": m["desc"], "done": m["key"] in done}
+                       for m in MILESTONES],
+    }
 
 @app.route('/api/market', methods=['GET', 'POST'])
 def api_market():
@@ -6659,6 +6697,197 @@ def _storylet_tick(s, prop, t, current_day, events):
     t["recent_storylets"] = [r for r in t["recent_storylets"] if current_day - r["day"] < DAYS_PER_SEASON * 4]
     return _run_until_player(s, prop, t, current_day, events)
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Milestones, Empire Score & Mogul Rank — endgame progression.
+# Empire Score = total wealth + bonus per business owned + bonus per milestone done.
+# Mogul Rank is a status ladder driven by Empire Score (never gates content).
+# ─────────────────────────────────────────────────────────────────────────────
+EMPIRE_BUSINESS_BONUS  = 2_000_000
+EMPIRE_MILESTONE_BONUS =   500_000
+CORE_RENO_KEYS = ["landscaping", "paint", "flooring", "windows", "bathrooms", "kitchen", "hvac", "roof"]
+
+MOGUL_RANKS = [
+    {"name": "Broke Nobody",             "icon": "🪣", "score": 0},
+    {"name": "Squatter Wrangler",        "icon": "🔑", "score": 100_000},
+    {"name": "Slumlord",                 "icon": "🏚️", "score": 500_000},
+    {"name": "Landlord",                 "icon": "🏠", "score": 1_500_000},
+    {"name": "Property Baron",           "icon": "🏢", "score": 5_000_000},
+    {"name": "Business Mogul",           "icon": "💼", "score": 15_000_000},
+    {"name": "Real Estate Tycoon",       "icon": "🏙️", "score": 40_000_000},
+    {"name": "City Magnate",             "icon": "👑", "score": 100_000_000},
+    {"name": "Empire Kingpin",           "icon": "🌆", "score": 250_000_000},
+    {"name": "Owns the Whole Damn City", "icon": "🏆", "score": 500_000_000},
+]
+
+def _businesses_owned(s):
+    n = 0
+    if any(v.get("location_key") in VM_LOCATION_ORDER for v in s.get("vending_machines", [])): n += 1
+    if (s.get("laundromat") or {}).get("owned"):  n += 1
+    if (s.get("arcade") or {}).get("unlocked"):   n += 1
+    if (s.get("pole_studio") or {}).get("owned"): n += 1
+    if (s.get("car_wash") or {}).get("owned"):    n += 1
+    if any(p.get("commercial") for p in s.get("properties", [])): n += 1
+    return n
+
+def _total_wealth(s):
+    cash = s.get("cash", 0)
+    res  = sum(calc_market_value(p) for p in s.get("properties", []) if not p.get("commercial"))
+    comm = sum(p.get("purchase_price", 0) for p in s.get("properties", []) if p.get("commercial"))
+    bank = _bank(s)
+    sav  = bank.get("savings", 0)
+    cds  = sum(c.get("principal", 0) for c in bank.get("cds", []))
+    ss   = s.get("stocks") or {}
+    prices = ss.get("prices", {})
+    stk  = sum((h.get("shares", 0) if isinstance(h, dict) else h) * prices.get(tk, 0)
+               for tk, h in (ss.get("portfolio") or {}).items())
+    return int(cash + res + comm + sav + cds + stk)
+
+def _empire_score(s):
+    return (_total_wealth(s)
+            + _businesses_owned(s) * EMPIRE_BUSINESS_BONUS
+            + len(s.get("milestones_done", [])) * EMPIRE_MILESTONE_BONUS)
+
+def _mogul_rank_index(score):
+    idx = 0
+    for i, r in enumerate(MOGUL_RANKS):
+        if score >= r["score"]:
+            idx = i
+    return idx
+
+def _vending_market_count(s):
+    return len([v for v in s.get("vending_machines", []) if v.get("location_key") in VM_LOCATION_ORDER])
+def _commercial_props(s):
+    return [p for p in s.get("properties", []) if p.get("commercial")]
+def _has_flooring_express(s):
+    return any(u.get("business_type") == "flooring_express"
+               for p in _commercial_props(s) for u in (p.get("units") or []))
+def _empire_perfected(s):
+    lm = s.get("laundromat") or {}; arc = s.get("arcade") or {}; ps = s.get("pole_studio") or {}; cw = s.get("car_wash") or {}
+    return (_vending_market_count(s) >= 6
+            and len(lm.get("machines") or []) >= LAUNDROMAT_MAX_MACHINES
+            and len(arc.get("cabinets") or []) >= 8
+            and (ps.get("slot_count") or 0) >= STUDIO_MAX_SLOTS
+            and all((ps.get("staff") or {}).get(k) for k in POLE_STUDIO_STAFF)
+            and (cw.get("bay_count") or 0) >= CAR_WASH_MAX_BAYS
+            and all((cw.get("staff") or {}).get(k) for k in CAR_WASH_STAFF)
+            and any(p.get("units") and all(u.get("business_type") for u in p["units"]) for p in _commercial_props(s)))
+
+# Milestones are pure achievements — no cash reward; each adds to your Empire Score (and thus Mogul Rank).
+MILESTONES = [
+    # ── Getting started ──
+    {"key": "sold_first",   "name": "Off the Streets",     "icon": "🔑", "desc": "Sell your starter property.",
+     "check": lambda s: s.get("level", 0) >= 1},
+    {"key": "first_tenant", "name": "Got a Tenant",        "icon": "🧑", "desc": "Place your first tenant.",
+     "check": lambda s: any(p.get("tenant") for p in s.get("properties", []) if not p.get("commercial"))},
+    {"key": "squatter",     "name": "Squatter Buster",     "icon": "🚪", "desc": "Deal with a squatter.",
+     "check": lambda s: s.get("squatter_count", 0) >= 1},
+    {"key": "full_reno",    "name": "The Flipper",         "icon": "🛠️", "desc": "Fully renovate a property (all 8 upgrades).",
+     "check": lambda s: any(all((p.get("upgrades") or {}).get(k) for k in CORE_RENO_KEYS) for p in s.get("properties", []) if not p.get("commercial"))},
+    {"key": "premium_up",   "name": "A Touch of Luxury",   "icon": "✨", "desc": "Add a premium upgrade to a property.",
+     "check": lambda s: any(p.get("premium_upgrades") for p in s.get("properties", []) if not p.get("commercial"))},
+    # ── Real estate empire ──
+    {"key": "props_3",      "name": "Portfolio Builder",   "icon": "🏘️", "desc": "Own 3 properties at once.",
+     "check": lambda s: len([p for p in s.get("properties", []) if not p.get("commercial")]) >= 3},
+    {"key": "props_10",     "name": "Real Estate Machine", "icon": "🏙️", "desc": "Own 10 properties at once.",
+     "check": lambda s: len([p for p in s.get("properties", []) if not p.get("commercial")]) >= 10},
+    {"key": "props_25",     "name": "Property Tycoon",     "icon": "🌆", "desc": "Own 25 properties at once.",
+     "check": lambda s: len([p for p in s.get("properties", []) if not p.get("commercial")]) >= 25},
+    {"key": "mansion",      "name": "Living Large",        "icon": "🏰", "desc": "Move into the Mansion.",
+     "check": lambda s: s.get("player_home") == "mansion"},
+    # ── Businesses ──
+    {"key": "first_biz",    "name": "Side Hustle",         "icon": "🥤", "desc": "Own your first business.",
+     "check": lambda s: _businesses_owned(s) >= 1},
+    {"key": "grandma",      "name": "Grandma's Got It",    "icon": "👵", "desc": "Hire Grandma to stock your vending machines.",
+     "check": lambda s: bool(s.get("grandma_hired"))},
+    {"key": "vending_6",    "name": "Vending Empire",      "icon": "🥫", "desc": "Own all 6 street vending machines.",
+     "check": lambda s: _vending_market_count(s) >= 6},
+    {"key": "three_biz",    "name": "Diversified",         "icon": "📊", "desc": "Own three different businesses.",
+     "check": lambda s: _businesses_owned(s) >= 3},
+    {"key": "laundro_max",  "name": "Spin to Win",         "icon": "🌀", "desc": "Run a fully-built laundromat (16 machines).",
+     "check": lambda s: len((s.get("laundromat") or {}).get("machines") or []) >= LAUNDROMAT_MAX_MACHINES},
+    {"key": "laundro_full", "name": "Full-Service Wash",   "icon": "🧺", "desc": "Install every laundromat add-on.",
+     "check": lambda s: all(((s.get("laundromat") or {}).get("addons") or {}).get(k) for k in LAUNDROMAT_ADDONS)},
+    {"key": "arcade_baron", "name": "Arcade Baron",        "icon": "🕹️", "desc": "Run 10 arcade cabinets.",
+     "check": lambda s: len((s.get("arcade") or {}).get("cabinets") or []) >= 10},
+    {"key": "pole_slots",   "name": "Full Schedule",       "icon": "🗓️", "desc": "Build all 8 studio class slots.",
+     "check": lambda s: ((s.get("pole_studio") or {}).get("slot_count") or 0) >= STUDIO_MAX_SLOTS},
+    {"key": "pole_dancers", "name": "Star-Studded Lineup", "icon": "💃", "desc": "Hire 5 studio instructors.",
+     "check": lambda s: sum(1 for d in ((s.get("pole_studio") or {}).get("dancers") or {}).values() if (d or {}).get("hired")) >= 5},
+    {"key": "pole_staff",   "name": "Fully Staffed Studio","icon": "📋", "desc": "Hire every studio employee.",
+     "check": lambda s: all(((s.get("pole_studio") or {}).get("staff") or {}).get(k) for k in POLE_STUDIO_STAFF)},
+    {"key": "cw_bays",      "name": "Five-Bay Operation",  "icon": "🚿", "desc": "Build all 5 car wash bays.",
+     "check": lambda s: ((s.get("car_wash") or {}).get("bay_count") or 0) >= CAR_WASH_MAX_BAYS},
+    {"key": "cw_staff",     "name": "The Whole Crew",      "icon": "🧽", "desc": "Hire every car wash employee.",
+     "check": lambda s: all(((s.get("car_wash") or {}).get("staff") or {}).get(k) for k in CAR_WASH_STAFF)},
+    {"key": "all_biz",      "name": "Business Tycoon",     "icon": "🏭", "desc": "Own all six businesses at once.",
+     "check": lambda s: _businesses_owned(s) >= 6},
+    # ── Commercial ──
+    {"key": "commerce",     "name": "Commerce King",       "icon": "🏢", "desc": "Fully lease a commercial building.",
+     "check": lambda s: any(p.get("units") and all(u.get("business_type") for u in p["units"]) for p in _commercial_props(s))},
+    {"key": "flooring_exp", "name": "VIP Tenant",          "icon": "⭐", "desc": "Land Flooring Express as a tenant.",
+     "check": _has_flooring_express},
+    {"key": "comm_3",       "name": "Commercial Baron",    "icon": "🏬", "desc": "Own 3 commercial buildings.",
+     "check": lambda s: len(_commercial_props(s)) >= 3},
+    # ── Finance & delegation ──
+    {"key": "investor",     "name": "Wall Street",         "icon": "📈", "desc": "Own shares of a stock.",
+     "check": lambda s: any((h.get("shares", 0) if isinstance(h, dict) else h) > 0 for h in ((s.get("stocks") or {}).get("portfolio") or {}).values())},
+    {"key": "banker",       "name": "Compound Interest",   "icon": "🏦", "desc": "Open a savings account or CD.",
+     "check": lambda s: _bank(s).get("savings", 0) > 0 or len(_bank(s).get("cds", [])) > 0},
+    {"key": "developer",    "name": "Developer",           "icon": "🏗️", "desc": "Buy a building permit.",
+     "check": lambda s: bool(s.get("building_permit"))},
+    {"key": "crew",         "name": "Got a Crew",          "icon": "👷", "desc": "Hire a construction crew.",
+     "check": lambda s: len(s.get("owned_crews") or []) >= 1},
+    {"key": "delegator",    "name": "Delegator",           "icon": "👔", "desc": "Hire an assistant.",
+     "check": lambda s: any((s.get("assistants") or {}).values())},
+    {"key": "all_assts",    "name": "Hands-Off Mogul",     "icon": "🤝", "desc": "Hire all three personal assistants.",
+     "check": lambda s: all((s.get("assistants") or {}).get(k) for k in ("manager", "accountant", "leasing_agent"))},
+    # ── Prestige ──
+    {"key": "max_level",    "name": "Seasoned Pro",        "icon": "🎓", "desc": "Reach the maximum Level.",
+     "check": lambda s: s.get("level", 0) >= MAX_LEVEL},
+    {"key": "millionaire",  "name": "Millionaire",         "icon": "💰", "desc": "Reach $1,000,000 total wealth.",
+     "check": lambda s: _total_wealth(s) >= 1_000_000},
+    {"key": "eight_fig",    "name": "Eight Figures",       "icon": "💎", "desc": "Reach $10,000,000 total wealth.",
+     "check": lambda s: _total_wealth(s) >= 10_000_000},
+    {"key": "heavy_hitter", "name": "Heavy Hitter",        "icon": "🤑", "desc": "Reach $50,000,000 total wealth.",
+     "check": lambda s: _total_wealth(s) >= 50_000_000},
+    {"key": "nine_fig",     "name": "Nine Figures",        "icon": "🏆", "desc": "Reach $100,000,000 total wealth.",
+     "check": lambda s: _total_wealth(s) >= 100_000_000},
+    {"key": "empire_perf",  "name": "Empire Perfected",    "icon": "👑", "desc": "Max out every single business at once.",
+     "check": _empire_perfected},
+]
+
+def _milestone_ok(m, s):
+    try: return bool(m["check"](s))
+    except Exception: return False
+
+def _sync_milestones(s):
+    """Mark any newly-completed milestones; return the list of newly-completed defs."""
+    done  = s.setdefault("milestones_done", [])
+    newly = []
+    for m in MILESTONES:
+        if m["key"] in done:
+            continue
+        if _milestone_ok(m, s):
+            done.append(m["key"])
+            newly.append(m)
+            s["log"].insert(0, {"day": s["day"], "type": "positive",
+                "text": f"Milestone unlocked: {m['name']}"})
+    return newly
+
+def _update_mogul_rank(s, events):
+    new_idx = _mogul_rank_index(_empire_score(s))
+    old_idx = s.get("mogul_rank", 0)
+    if new_idx > old_idx:
+        for i in range(old_idx + 1, new_idx + 1):
+            r = MOGUL_RANKS[i]
+            bonus = int(r["score"] * 0.02)
+            s["cash"] += bonus
+            events.append({"type": "positive", "category": "mogul",
+                "text": f"{r['icon']} RANK UP — you're now a {r['name']}!" + (f" (+${bonus:,})" if bonus else "")})
+            s["log"].insert(0, {"day": s["day"], "type": "positive",
+                "text": f"Mogul Rank up: {r['name']}" + (f" (+${bonus:,})" if bonus else "")})
+        s["mogul_rank"] = new_idx
+
 @app.route('/api/advance', methods=['POST'])
 def api_advance():
     data     = request.json
@@ -8250,6 +8479,10 @@ def api_advance():
     _roll_special_contractors(s)
     s["applicants_cache"] = {}   # fresh tenant pool each advance
     s["day"] += days
+    for _m in _sync_milestones(s):   # award newly-completed milestones (recap)
+        events.append({"type": "positive", "category": "milestone",
+            "text": f"🏅 Milestone unlocked: {_m['name']} — {_m['desc']}"})
+    _update_mogul_rank(s, events)    # celebrate any rank-ups
     save(s)
     return jsonify({
         "success":   True,

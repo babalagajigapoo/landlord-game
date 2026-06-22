@@ -222,73 +222,29 @@ async function api(path, method = 'GET', body = null) {
   return data;
 }
 
-// ── Forced Reset (one-time tax man wipe) ──────────────────────────────────────
-const RESET_FLAG = 'landlord_reset_taxman_v1';
-
-function checkForcedReset() {
-  if (localStorage.getItem(RESET_FLAG)) return false;  // already wiped, skip
-  if (!localStorage.getItem('landlord_save')) return false;  // brand new player, nothing to wipe
-  return true;
-}
-
-function showForcedResetScreen() {
-  const overlay = document.createElement('div');
-  overlay.id = 'taxman-overlay';
-  overlay.style.cssText = `
-    position:fixed;inset:0;z-index:99999;
-    background:linear-gradient(160deg,#1a0a00,#2d1200,#0a0a0a);
-    display:flex;flex-direction:column;align-items:center;justify-content:center;
-    padding:24px;text-align:center;
-  `;
-  overlay.innerHTML = `
-    <div style="margin-bottom:16px;animation:taxShake 0.6s infinite">${pxIcon('🏛️', 72)}</div>
-    <div style="font-size:22px;font-weight:900;color:#FFD700;margin-bottom:12px;letter-spacing:1px">
-      NOTICE FROM THE IRS
-    </div>
-    <div style="max-width:420px;font-size:14px;line-height:1.7;color:#ddd;margin-bottom:24px">
-      The tax man came by and noticed you haven't been paying up.<br><br>
-      Unfortunately, <strong style="color:#FFD700">Uncle Sam doesn't care</strong> that he's never heard of you,
-      that your LLC is definitely legit, or that you've been
-      "reinvesting profits" into a very serious vending machine business.<br><br>
-      <strong style="color:#FF6B6B">Your entire real estate empire has been seized.<br>
-      Every property. Every dollar. Every tenant.</strong><br>
-      Even Phil.<br><br>
-      <span style="font-size:12px;color:#aaa">
-        The government thanks you for your service.<br>
-        Please start over and try to be less suspicious this time.
-      </span>
-    </div>
-    <button id="taxman-btn" style="
-      background:#FFD700;color:#1a0a00;border:none;border-radius:12px;
-      padding:16px 32px;font-size:16px;font-weight:900;cursor:pointer;
-      letter-spacing:.5px;box-shadow:0 4px 20px rgba(255,215,0,0.4);
-    ">
-      🏳️ Accept Defeat &amp; Start Fresh
-    </button>
-    <div style="font-size:11px;color:#555;margin-top:16px">
-      You cannot appeal this decision.
-    </div>
-  `;
-  document.body.appendChild(overlay);
-
-  document.getElementById('taxman-btn').addEventListener('click', () => {
-    clearLocalState();
-    localStorage.setItem(RESET_FLAG, '1');
-    overlay.remove();
-    init();
-  });
+// ── One-time forced wipe ──────────────────────────────────────────────────────
+// Resets every player's save exactly ONCE — the first time they open this build.
+// A localStorage flag makes it self-disabling: after the wipe the flag is set and
+// the reset never runs again. DO NOT change ONE_TIME_RESET_KEY — bumping it would
+// wipe everyone's progress all over again. Only ever introduce a NEW key (and a
+// new reason) if a future forced reset is genuinely intended.
+const ONE_TIME_RESET_KEY = 'landlord_forced_reset_2026_06_22';
+function runOneTimeReset() {
+  try {
+    if (localStorage.getItem(ONE_TIME_RESET_KEY)) return;   // already done — never again
+    clearLocalState();                                       // wipe the save (if any)
+    localStorage.setItem(ONE_TIME_RESET_KEY, '1');           // mark it consumed forever
+  } catch {}
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
-  if (checkForcedReset()) {
-    showForcedResetScreen();
-    return;
-  }
+  runOneTimeReset();   // must run BEFORE refreshState loads the old save
   setupNav();
   await refreshState();
   if (!state.intro_seen) {
-    showIntroScreen();
+    // New game: tell grandma's story — but only after the opening splash finishes.
+    whenSplashDone(showIntroScreen);
     return;
   }
   await loadMarket();
@@ -399,6 +355,9 @@ async function refreshState() {
   const prevLevel = state ? (state.level ?? 0) : null;
   state = await api('/state');
   updateHeader();
+  // Milestones can unlock from any action — toast any that just completed.
+  const _ms = (state.empire && state.empire.just_unlocked) || [];
+  _ms.forEach(name => toast(`🏅 Milestone: ${name}`, 'success'));
   if (prevLevel !== null && state.level > prevLevel) {
     _pendingLevelUp = state.level;
     await loadMarket();
@@ -687,8 +646,67 @@ function renderDashboard() {
     }
   }
 
+  // Mogul Rank + Milestones
+  renderMogul();
+  renderMilestones();
+
   // Side jobs
   renderJobs();
+}
+
+let _milestonesOpen = false;
+function toggleMilestones() {
+  _milestonesOpen = !_milestonesOpen;
+  const t = document.getElementById('dash-milestones-toggle');
+  if (t) t.textContent = _milestonesOpen ? '▴' : '▾';
+  renderMilestones();
+}
+
+function renderMogul() {
+  const el = document.getElementById('dash-mogul');
+  const e  = state && state.empire;
+  if (!el || !e) return;
+  const next = e.next_rank_name
+    ? `<span style="font-size:11px;color:var(--text-muted)">Next: <strong>${e.next_rank_name}</strong> at ${fmt(e.next_rank_score)}</span>`
+    : `<span style="font-size:11px;color:var(--positive);font-weight:800">👑 Maximum rank — you own the whole damn city.</span>`;
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px">
+      <span style="font-size:40px;line-height:1">${pxIcon(e.rank_icon, 40)}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:17px;font-weight:900">${e.rank_name}</div>
+        <div style="font-size:12px;color:var(--text-muted)">Empire Score <strong style="color:var(--text-1)">${fmt(e.score)}</strong></div>
+      </div>
+    </div>
+    <div class="condition-bar" style="margin-top:10px"><div class="condition-fill cond-great" style="width:${e.progress_pct}%"></div></div>
+    <div style="display:flex;justify-content:space-between;margin-top:5px">${next}<span style="font-size:11px;color:var(--text-muted)">${e.progress_pct}%</span></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;font-size:10px;color:var(--text-muted)">
+      <span style="background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:2px 8px">💵 Wealth ${fmt(e.total_wealth)}</span>
+      <span style="background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:2px 8px">🏢 ${e.businesses_owned}/6 businesses +${fmt(e.businesses_owned * e.business_bonus)}</span>
+      <span style="background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:2px 8px">🏅 ${e.milestones_done}/${e.milestones_total} milestones +${fmt(e.milestones_done * e.milestone_bonus)}</span>
+    </div>`;
+}
+
+function renderMilestones() {
+  const el = document.getElementById('dash-milestones');
+  const e  = state && state.empire;
+  if (!el || !e) return;
+  const t = document.getElementById('dash-milestones-toggle');
+  if (t) t.textContent = _milestonesOpen ? '▴' : '▾';
+  if (!_milestonesOpen) {
+    el.innerHTML = `<div class="card" style="text-align:center;font-size:12px;color:var(--text-muted);padding:10px;cursor:pointer" onclick="toggleMilestones()">
+      ${e.milestones_done} of ${e.milestones_total} completed — tap to view</div>`;
+    return;
+  }
+  const rows = e.milestones.map(m => `
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid var(--border);opacity:${m.done ? 1 : 0.55}">
+      <span style="font-size:20px;line-height:1">${m.done ? '✅' : pxIcon(m.icon, 18)}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:700">${m.name}</div>
+        <div style="font-size:11px;color:var(--text-muted)">${m.desc}</div>
+      </div>
+      <span style="font-size:10px;font-weight:800;color:${m.done ? 'var(--positive)' : 'var(--text-muted)'};white-space:nowrap">${m.done ? 'DONE' : '🔒'}</span>
+    </div>`).join('');
+  el.innerHTML = `<div class="card" style="padding:0;overflow:hidden">${rows}</div>`;
 }
 
 // ── Market ────────────────────────────────────────────────────────────────────
@@ -12411,6 +12429,35 @@ function regularTenantCard(t, id, fairRent) {
         </div>
       </div>`;
 }
+
+// ── Opening splash ────────────────────────────────────────────────────────────
+let _splashDone     = false;   // true once the splash is fully removed
+let _splashDismissing = false;
+let _afterSplash    = null;    // callback to run once the splash is gone (e.g. the intro)
+
+function dismissSplash() {
+  if (_splashDismissing) return;
+  _splashDismissing = true;
+  const s = document.getElementById('splash-screen');
+  if (s) {
+    s.classList.add('hide');
+    setTimeout(_finishSplash, 600);
+  } else {
+    _finishSplash();
+  }
+}
+function _finishSplash() {
+  const s = document.getElementById('splash-screen');
+  if (s && s.parentNode) s.remove();
+  _splashDone = true;
+  if (_afterSplash) { const cb = _afterSplash; _afterSplash = null; cb(); }
+}
+// Run cb once the splash has fully cleared (immediately if it's already gone).
+function whenSplashDone(cb) {
+  if (_splashDone) cb();
+  else _afterSplash = cb;
+}
+setTimeout(dismissSplash, 5300);   // auto-dismiss after the studio bumper + title play
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', init);
