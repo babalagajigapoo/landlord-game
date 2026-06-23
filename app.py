@@ -1435,7 +1435,7 @@ STORE_ITEMS = {
 VM_PRICES        = [1_200, 2_000, 3_000, 4_200, 5_800, 8_000]   # machine #1–6 purchase price
 VM_SLOTS         = 6                                            # slots per machine
 VM_SLOT_CAPACITY = 60                                           # base units a filled slot holds (90 with Bigger Capacity)
-VINNY_FEE        = 200                                          # per machine, per day Vinny restocks
+VINNY_FEE        = 150                                          # per machine, per day Vinny restocks
 
 # Phase 2 — dynamic pricing: per-machine price level → (price multiplier, demand multiplier).
 VM_PRICE_LEVELS = {

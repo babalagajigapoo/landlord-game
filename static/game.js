@@ -237,11 +237,21 @@ function runOneTimeReset() {
   } catch {}
 }
 
+// Keep --hdr-h in sync with the real header height so bottom-sheet modals stop
+// below the header (the cash/level/energy bar stays visible while a menu is open).
+function syncHeaderHeight() {
+  const h = document.querySelector('header');
+  if (h && h.offsetHeight) document.documentElement.style.setProperty('--hdr-h', h.offsetHeight + 'px');
+}
+window.addEventListener('resize', syncHeaderHeight);
+window.addEventListener('load', syncHeaderHeight);
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
   runOneTimeReset();   // must run BEFORE refreshState loads the old save
   setupNav();
   await refreshState();
+  syncHeaderHeight();
   if (!state.intro_seen) {
     // New game: tell grandma's story — but only after the opening splash finishes.
     whenSplashDone(showIntroScreen);
@@ -6920,7 +6930,7 @@ function launchPaintGame(upgradeKey) {
   grid.addEventListener('mousedown',  pgMouseDown);
   grid.addEventListener('mousemove',  pgMouseMove);
   grid.addEventListener('mouseup',    pgMouseUp);
-  document.addEventListener('mouseup', pgMouseUp);
+  _mgListen(document, 'mouseup', pgMouseUp);
 }
 
 function pgStart() {
@@ -8390,7 +8400,7 @@ function rfStart() {
   // Mouse (desktop testing)
   grid.addEventListener('mousedown', e => { _mg.dragging = true; rfHandle(e.target); });
   grid.addEventListener('mousemove', e => { if (_mg.dragging) rfHandle(e.target); });
-  document.addEventListener('mouseup', () => { _mg.dragging = false; });
+  _mgListen(document, 'mouseup', () => { _mg.dragging = false; });
 
   // Timer
   const endTime = Date.now() + RF_DURATION * 1000;
@@ -12241,7 +12251,34 @@ function logItemHtml(l) {
 }
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
+// Cancel any animation loops / timers a mini-game left running. Without this, a
+// mini-game abandoned by closing the modal mid-play (or by launching another) leaks
+// a 60fps RAF loop + intervals; these stack across a session and progressively chug
+// the whole app — taps stop registering until a full restart clears the heap.
+// document/window listeners owned by the active mini-game. Tracked at module scope
+// (not on _mg, which gets reassigned per game) so teardown can always remove them.
+let _mgListeners = [];
+function _mgListen(target, type, fn, opts) {
+  target.addEventListener(type, fn, opts);
+  _mgListeners.push({ target, type, fn, opts });
+}
+
+function _teardownMinigame() {
+  // remove any document/window listeners the mini-game attached
+  _mgListeners.forEach(l => { try { l.target.removeEventListener(l.type, l.fn, l.opts); } catch (e) {} });
+  _mgListeners = [];
+  if (typeof _mg !== 'object' || !_mg) return;
+  ['rafId', 'animId', 'markerRaf', 'wobbleRaf'].forEach(k => {
+    if (_mg[k]) { cancelAnimationFrame(_mg[k]); _mg[k] = null; }
+  });
+  ['timerId', 'autoCloseId', 'spawnId'].forEach(k => {
+    if (_mg[k]) { clearTimeout(_mg[k]); clearInterval(_mg[k]); _mg[k] = null; }
+  });
+  _mg.running = false;
+}
+
 function openModal(html) {
+  _teardownMinigame();   // kill any prior mini-game before showing a new modal
   const content = document.getElementById('modal-content');
   content.innerHTML = html;
   document.getElementById('modal-overlay').classList.add('open');
@@ -12253,6 +12290,7 @@ function openModal(html) {
 }
 
 function closeModal() {
+  _teardownMinigame();   // stop any mini-game loops/timers when the modal closes
   document.getElementById('modal-overlay').classList.remove('open');
   _pendingConfirm = null;
   _propDetailId   = null;
