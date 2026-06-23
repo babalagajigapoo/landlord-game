@@ -382,7 +382,7 @@ async function refreshState() {
   updateHeader();
   // Milestones can unlock from any action — toast any that just completed.
   const _ms = (state.empire && state.empire.just_unlocked) || [];
-  _ms.forEach(name => toast(`🏅 Milestone: ${name}`, 'success'));
+  _ms.forEach(m => toast(`🏅 Milestone: ${m.name}${m.reward ? ' · +' + fmt(m.reward) : ''}`, 'success'));
   if (prevLevel !== null && state.level > prevLevel) {
     _pendingLevelUp = state.level;
     await loadMarket();
@@ -730,7 +730,10 @@ function renderMilestones() {
         <div style="font-size:13px;font-weight:700">${m.name}</div>
         <div style="font-size:11px;color:var(--text-muted)">${m.desc}</div>
       </div>
-      <span style="font-size:10px;font-weight:800;color:${m.done ? 'var(--positive)' : 'var(--text-muted)'};white-space:nowrap">${m.done ? 'DONE' : '🔒'}</span>
+      <span style="text-align:right;white-space:nowrap;flex-shrink:0">
+        <span style="font-size:12px;font-weight:800;color:${m.done ? 'var(--positive)' : 'var(--text-muted)'}">+${fmt(m.reward)}</span>
+        ${m.done ? '<div style="font-size:9px;font-weight:800;color:var(--positive);letter-spacing:0.5px">DONE</div>' : ''}
+      </span>
     </div>`).join('');
   el.innerHTML = `<div class="card" style="padding:0;overflow:hidden">${rows}</div>`;
 }
@@ -846,7 +849,8 @@ function marketCardHtml(p) {
   const canAfford = p.purchase_price <= state.cash;
 
   return `
-  <div class="card">
+  <div class="card" style="${p.foreclosure ? 'border:2px solid #C0392B' : ''}">
+    ${p.foreclosure ? `<div style="display:inline-block;background:#C0392B;color:#fff;font-size:11px;font-weight:800;letter-spacing:0.5px;padding:3px 10px;border-radius:6px;margin-bottom:8px">🏷️ FORECLOSURE · sold as-is</div>` : ''}
     <div class="card-header">
       <div class="card-icon">${propModelImg(p)}</div>
       <div style="flex:1">
@@ -9734,7 +9738,7 @@ function tlDropNext() {
   _mg.fallingTile = { col, color, el: tile, targetRow, targetY, floorY, startTime, speed, done: false };
 
   function animate(now) {
-    if (!_mg.fallingTile || _mg.fallingTile.done) return;
+    if (!_mg.running || !_mg.fallingTile || _mg.fallingTile.done) return;
     const elapsed = now - startTime;
     const progress = Math.min(elapsed / speed, 1);
     const currentY = -tileSize + (floorY + tileSize) * progress;
@@ -12287,6 +12291,13 @@ function _teardownMinigame() {
   ['rafId', 'animId', 'markerRaf', 'wobbleRaf'].forEach(k => {
     if (_mg[k]) { cancelAnimationFrame(_mg[k]); _mg[k] = null; }
   });
+  // The tiling game nests its falling-tile RAF off _mg.fallingTile, not a top-level
+  // key — cancel it here too, or it keeps animating a detached tile after close.
+  if (_mg.fallingTile) {
+    if (_mg.fallingTile.raf) cancelAnimationFrame(_mg.fallingTile.raf);
+    _mg.fallingTile.done = true;
+    _mg.fallingTile = null;
+  }
   ['timerId', 'autoCloseId', 'spawnId'].forEach(k => {
     if (_mg[k]) { clearTimeout(_mg[k]); clearInterval(_mg[k]); _mg[k] = null; }
   });

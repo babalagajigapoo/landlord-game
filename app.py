@@ -4421,6 +4421,17 @@ def new_game():
     state["market"], state["next_id"] = _gen_market(state["next_id"])
     return state
 
+# Foreclosures: rare, dirt-cheap, always F-tier fixer-uppers — a beginner on-ramp.
+# Per-neighborhood spawn chance, highest in the cheap areas, ~1% in the best (Newbay).
+FORECLOSURE_CHANCE = {"Midtown": 0.15, "Northside": 0.12, "Westwood": 0.07, "Riverside": 0.03, "Newbay": 0.01}
+
+def _make_foreclosure(nid, hood):
+    p = generate_property(nid, hoods=[hood])
+    p["condition"]      = random.randint(15, 37)     # always F-tier
+    p["foreclosure"]    = True
+    p["purchase_price"] = max(2_000, int(calc_market_value(p) * random.uniform(0.30, 0.40)))
+    return p
+
 def _gen_market(start_id, hoods=None):
     listings, nid = [], start_id
     target_hoods = list(hoods) if hoods else list(NEIGHBORHOODS.keys())
@@ -4428,6 +4439,10 @@ def _gen_market(start_id, hoods=None):
         count = random.randint(2, 5)
         for _ in range(count):
             listings.append(generate_property(nid, hoods=[hood]))
+            nid += 1
+        # Rare bonus foreclosure listing for this neighborhood (extra opportunity, not a replacement)
+        if random.random() < FORECLOSURE_CHANCE.get(hood, 0):
+            listings.append(_make_foreclosure(nid, hood))
             nid += 1
     return listings, nid
 
@@ -4750,7 +4765,7 @@ def api_state():
         "building_permit":        s.get("building_permit", False),
         "owned_crews":            s.get("owned_crews", []),
         "active_builds":          s.get("active_builds", []),
-        "empire":                 {**_empire_payload(s), "just_unlocked": [m["name"] for m in _ms_newly]},
+        "empire":                 {**_empire_payload(s), "just_unlocked": [{"name": m["name"], "reward": MILESTONE_REWARD.get(m["key"], 0)} for m in _ms_newly]},
         "mode":                   s.get("mode", "legit"),
         "dark":                   s.get("dark"),
     })
@@ -4779,7 +4794,8 @@ def _empire_payload(s):
         "milestones_total": len(MILESTONES),
         "milestones_done":  len(done),
         "milestones": [{"key": m["key"], "name": m["name"], "icon": m["icon"],
-                        "desc": m["desc"], "done": m["key"] in done}
+                        "desc": m["desc"], "reward": MILESTONE_REWARD.get(m["key"], 0),
+                        "done": m["key"] in done}
                        for m in MILESTONES],
     }
 
@@ -6890,6 +6906,20 @@ MILESTONES = [
      "check": _empire_perfected},
 ]
 
+# One-time cash reward per milestone (small early, bigger for the hard ones).
+MILESTONE_REWARD = {
+    "sold_first": 2_000, "first_tenant": 3_000, "squatter": 5_000, "full_reno": 10_000, "premium_up": 8_000,
+    "props_3": 5_000, "props_10": 25_000, "props_25": 75_000, "mansion": 50_000,
+    "first_biz": 10_000, "grandma": 5_000, "vending_6": 20_000, "three_biz": 50_000,
+    "laundro_max": 40_000, "laundro_full": 30_000, "arcade_baron": 40_000,
+    "pole_slots": 30_000, "pole_dancers": 25_000, "pole_staff": 30_000,
+    "cw_bays": 30_000, "cw_staff": 30_000, "all_biz": 250_000,
+    "commerce": 100_000, "flooring_exp": 50_000, "comm_3": 150_000,
+    "investor": 5_000, "banker": 5_000, "developer": 10_000, "crew": 10_000, "delegator": 5_000, "all_assts": 50_000,
+    "max_level": 50_000, "millionaire": 25_000, "eight_fig": 100_000, "heavy_hitter": 500_000,
+    "nine_fig": 1_000_000, "empire_perf": 1_000_000,
+}
+
 def _milestone_ok(m, s):
     try: return bool(m["check"](s))
     except Exception: return False
@@ -6904,8 +6934,11 @@ def _sync_milestones(s):
         if _milestone_ok(m, s):
             done.append(m["key"])
             newly.append(m)
+            r = MILESTONE_REWARD.get(m["key"], 0)
+            if r:
+                s["cash"] += r
             s["log"].insert(0, {"day": s["day"], "type": "positive",
-                "text": f"Milestone unlocked: {m['name']}"})
+                "text": f"Milestone unlocked: {m['name']}" + (f" (+${r:,})" if r else "")})
     return newly
 
 def _update_mogul_rank(s, events):
@@ -8514,8 +8547,9 @@ def api_advance():
     s["applicants_cache"] = {}   # fresh tenant pool each advance
     s["day"] += days
     for _m in _sync_milestones(s):   # award newly-completed milestones (recap)
+        _mr = MILESTONE_REWARD.get(_m["key"], 0)
         events.append({"type": "positive", "category": "milestone",
-            "text": f"🏅 Milestone unlocked: {_m['name']} — {_m['desc']}"})
+            "text": f"🏅 Milestone: {_m['name']} — {_m['desc']}" + (f" (+${_mr:,})" if _mr else "")})
     _update_mogul_rank(s, events)    # celebrate any rank-ups
     save(s)
     return jsonify({
