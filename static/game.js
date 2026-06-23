@@ -9,6 +9,21 @@ function pxIcon(emoji, size) {
   return emoji || '';
 }
 
+// Custom house art (baked-in SVG so it's identical on every device).
+// Rental types pick a good or run-down model by condition (>=75 / C-tier = good).
+const PROP_MODEL_SLUG = { 'Bungalow':'bungalow', 'Ranch House':'ranch', 'Colonial':'colonial',
+  'Townhouse':'townhouse', 'Condo':'condo', 'Duplex':'duplex', 'Mansion':'mansion' };
+function propModelImg(p, size) {
+  const slug  = PROP_MODEL_SLUG[p.type] || 'ranch';
+  const cond  = (p.condition >= 75) ? 'good' : 'bad';
+  const px    = size || 48;   // inline style overrides the shared .card-icon/.prop-icon-circle img rule
+  return `<img src="/static/icons/prop-${slug}-${cond}.svg" alt="${p.type}" style="width:${px}px;height:${px}px;display:block">`;
+}
+function homeModelImg(key, size) {
+  const px = size || 48;
+  return `<img src="/static/icons/myhome-${key}.svg" alt="" style="width:${px}px;height:${px}px;display:block">`;
+}
+
 // ── State ─────────────────────────────────────────────────────────────────────
 let state           = null;
 
@@ -832,7 +847,7 @@ function marketCardHtml(p) {
   return `
   <div class="card">
     <div class="card-header">
-      <div class="card-icon">${pxIcon(p.icon)}</div>
+      <div class="card-icon">${propModelImg(p)}</div>
       <div style="flex:1">
         <div class="card-title">${p.address || p.type}</div>
         <div class="card-subtitle">${p.bedrooms}bd / ${p.bathrooms}ba ${p.type} · ${p.sqft.toLocaleString()} sqft</div>
@@ -1579,7 +1594,7 @@ function playerHomeCardHtml() {
   </div>
   <div class="card" onclick="showPlayerHomeModal()" style="cursor:pointer;margin-bottom:16px;border:2px solid var(--primary)">
     <div class="card-header">
-      <div class="card-icon">${pxIcon(home.icon)}</div>
+      <div class="card-icon">${homeModelImg(home.key)}</div>
       <div style="flex:1">
         <div class="card-title">${home.name}</div>
         <div class="card-subtitle">${isMax ? `${pxIcon('🏆',16)} Max upgrade reached!` : 'Tap to upgrade your home'}</div>
@@ -1607,7 +1622,7 @@ function showPlayerHomeModal() {
     <div class="modal-title">${pxIcon('🏠', 18)} Your Home</div>
     <div class="card" style="margin-bottom:16px;background:var(--surface-2)">
       <div style="display:flex;align-items:center;gap:12px">
-        <div style="font-size:36px;line-height:1">${pxIcon(current.icon)}</div>
+        <div style="line-height:1">${homeModelImg(current.key, 56)}</div>
         <div style="flex:1">
           <div style="font-size:16px;font-weight:800">${current.name}</div>
           <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${current.desc}</div>
@@ -1635,7 +1650,7 @@ function showPlayerHomeModal() {
            return `
            <div class="card" style="margin-bottom:10px;opacity:${isLocked ? '0.45' : (!canAfford ? '0.6' : '1')}">
              <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
-               <div style="font-size:28px;line-height:1">${pxIcon(isLocked ? '🔒' : h.icon)}</div>
+               <div style="font-size:28px;line-height:1">${isLocked ? pxIcon('🔒') : homeModelImg(h.key, 44)}</div>
                <div style="flex:1">
                  <div style="font-size:15px;font-weight:800">${h.name}</div>
                  <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${isLocked ? `Unlocks at Level ${reqLevel}` : h.desc}</div>
@@ -2123,7 +2138,7 @@ function renderPersonal() {
 
     return `
     <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);opacity:${opacity}">
-      <div style="font-size:22px;line-height:1;flex-shrink:0">${pxIcon(isUnlocked || isCurrent ? h.icon : '🔒')}</div>
+      <div style="font-size:22px;line-height:1;flex-shrink:0">${(isUnlocked || isCurrent) ? homeModelImg(h.key, 40) : pxIcon('🔒')}</div>
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           <span style="font-size:13px;font-weight:800">${h.name}</span>
@@ -2272,7 +2287,7 @@ function renderPersonal() {
         <div class="hood-section" style="margin-bottom:10px">
           <div style="padding:14px">
             <div style="display:flex;align-items:center;gap:14px">
-              <div style="font-size:34px;line-height:1;flex-shrink:0">${pxIcon(current.icon)}</div>
+              <div style="flex-shrink:0">${homeModelImg(homeKey, 54)}</div>
               <div style="flex:1;min-width:0">
                 <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:3px">Your Home</div>
                 <div style="font-size:16px;font-weight:900">${current.name}</div>
@@ -2467,7 +2482,7 @@ function portfolioCardHtml(p) {
   return `
   <div class="card tier-${tier}" onclick="showPropertyDetail(${p.id})" style="cursor:pointer">
     <div class="card-header">
-      <div class="prop-icon-circle prop-icon-${tier}">${pxIcon(p.icon)}</div>
+      <div class="prop-icon-circle prop-icon-${tier}">${propModelImg(p)}</div>
       <div style="flex:1">
         <div class="card-title">${p.address || p.type}</div>
         <div class="card-subtitle">${p.bedrooms}bd / ${p.bathrooms}ba ${p.type} · ${p.neighborhood}</div>
@@ -2714,7 +2729,7 @@ async function showPropertyDetail(id) {
   openModal(`
     <div class="modal-handle"></div>
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
-      <span style="font-size:36px">${pxIcon(prop.icon)}</span>
+      <span style="flex-shrink:0">${propModelImg(prop, 60)}</span>
       <div>
         <div style="font-size:18px;font-weight:800;margin-bottom:2px">${prop.address || prop.type}</div>
         <div style="font-size:13px;color:var(--text-2)">${prop.bedrooms}bd / ${prop.bathrooms}ba ${prop.type} · ${prop.neighborhood}</div>
