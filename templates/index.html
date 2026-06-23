@@ -227,8 +227,12 @@
   <!-- Toasts -->
   <div id="toast-container"></div>
 
+  <!-- Dark Mode ("Off the Books") — its own self-contained UI, shown only when state.mode === 'dark' -->
+  <div id="dark-root" style="display:none"></div>
+
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
 <script src="/static/game.js?v={{ asset_v }}"></script>
+<script src="/static/dark.js?v={{ asset_v }}"></script>
 </body>
 </html>

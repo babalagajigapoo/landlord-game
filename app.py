@@ -1,5 +1,5 @@
 from flask import Flask, render_template, jsonify, request, g
-import json, os, random
+import json, os, random, copy
 
 app = Flask(__name__)
 
@@ -4605,6 +4605,10 @@ def _migrate_state(s):
                     prem_cost = _reno_cost(prop, UPGRADES[key]["base_cost"], CONTRACTORS["premium"]["cost_mult"])
                     rolled[key] = {**SPECIAL_CONTRACTORS[key], "cost": prem_cost}
             prop["special_contractors"] = rolled
+    # ── Dark Mode ("Off the Books"): its own self-contained game, namespaced. ──
+    s.setdefault("mode", "legit")        # 'legit' | 'dark'
+    s.setdefault("dark", None)           # all crime-empire data lives here in dark mode
+    s.setdefault("dark_snapshot", None)  # the Level-11 legit save to "wake" back to
     return s
 
 def load():
@@ -4747,6 +4751,8 @@ def api_state():
         "owned_crews":            s.get("owned_crews", []),
         "active_builds":          s.get("active_builds", []),
         "empire":                 {**_empire_payload(s), "just_unlocked": [m["name"] for m in _ms_newly]},
+        "mode":                   s.get("mode", "legit"),
+        "dark":                   s.get("dark"),
     })
 
 def _empire_payload(s):
@@ -4776,6 +4782,34 @@ def _empire_payload(s):
                         "desc": m["desc"], "done": m["key"] in done}
                        for m in MILESTONES],
     }
+
+# ── Dark Mode: enter ("Off the Books") and wake ("it was all a dream") ──────────
+@app.route('/api/dark/enter', methods=['POST'])
+def api_dark_enter():
+    s = load()
+    if s.get("mode") == "dark":
+        return jsonify({"error": "You're already on the dark side."}), 400
+    # Snapshot the whole legit save so "it was all a dream" restores it exactly.
+    s["dark_snapshot"] = copy.deepcopy({k: v for k, v in s.items() if k not in ("dark", "dark_snapshot")})
+    s["mode"] = "dark"
+    # Carry-over (cash — already clean, businesses, homes + tenants) all stay in state.
+    # The dark module layers its own progression + resources on top.
+    s["dark"] = {"rank": 1, "xp": 0, "dirty_money": 0, "heat": 0, "entered_day": s.get("day", 1)}
+    save(s)
+    return jsonify({"ok": True})
+
+@app.route('/api/dark/wake', methods=['POST'])
+def api_dark_wake():
+    s = load()
+    snap = s.get("dark_snapshot")
+    if not snap:
+        return jsonify({"error": "Nothing to wake from."}), 400
+    restored = copy.deepcopy(snap)
+    restored["mode"] = "legit"
+    restored["dark"] = None
+    restored["dark_snapshot"] = None
+    save(restored)
+    return jsonify({"ok": True})
 
 @app.route('/api/market', methods=['GET', 'POST'])
 def api_market():

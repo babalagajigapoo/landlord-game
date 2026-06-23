@@ -395,6 +395,7 @@ async function refreshState() {
     }
     // Otherwise: continueFromEvents or closeModal will pick it up
   }
+  if (typeof applyGameMode === 'function') applyGameMode();   // dark-mode router (separate module)
 }
 
 async function loadMarket() {
