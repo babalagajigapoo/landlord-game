@@ -9737,7 +9737,7 @@ function tlDropNext() {
   _mg.fallingTile = { col, color, el: tile, targetRow, targetY, floorY, startTime, speed, done: false };
 
   function animate(now) {
-    if (!_mg.fallingTile || _mg.fallingTile.done) return;
+    if (!_mg.running || !_mg.fallingTile || _mg.fallingTile.done) return;
     const elapsed = now - startTime;
     const progress = Math.min(elapsed / speed, 1);
     const currentY = -tileSize + (floorY + tileSize) * progress;
@@ -12290,6 +12290,13 @@ function _teardownMinigame() {
   ['rafId', 'animId', 'markerRaf', 'wobbleRaf'].forEach(k => {
     if (_mg[k]) { cancelAnimationFrame(_mg[k]); _mg[k] = null; }
   });
+  // The tiling game nests its falling-tile RAF off _mg.fallingTile, not a top-level
+  // key — cancel it here too, or it keeps animating a detached tile after close.
+  if (_mg.fallingTile) {
+    if (_mg.fallingTile.raf) cancelAnimationFrame(_mg.fallingTile.raf);
+    _mg.fallingTile.done = true;
+    _mg.fallingTile = null;
+  }
   ['timerId', 'autoCloseId', 'spawnId'].forEach(k => {
     if (_mg[k]) { clearTimeout(_mg[k]); clearInterval(_mg[k]); _mg[k] = null; }
   });
