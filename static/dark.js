@@ -1515,6 +1515,8 @@ const DARK = {
       -webkit-touch-callout:none;
     }
     .dkck-ov, .dkck-ov *, #dk-sling, #dk-sling *{touch-action:none}   /* minigames: no scroll/pan hijacking a press or drag */
+    /* Lock the page while dark mode is up so the mobile toolbar can't toggle and jump the overlay. Menus still scroll inside .dk-content; the real Settings view is excepted. */
+    body.dark-mode:not(.dk-settings-open){position:fixed;top:0;left:0;right:0;bottom:0;overflow:hidden;overscroll-behavior:none}
     .dk-app{max-width:480px;width:100%;height:100%;display:flex;flex-direction:column;background:#0c0608;color:#e8d9d9;font-family:'Inter',sans-serif}
     .dk-header{flex-shrink:0;padding:12px 14px 10px;background:linear-gradient(150deg,#3A0E10,#7A1A1E);border-bottom:2px solid #C0392B}
     .dk-brand{font-family:'Rubik Dirt',cursive;font-size:17px;color:#fff;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
