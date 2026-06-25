@@ -1,5 +1,6 @@
 from flask import Flask, render_template, jsonify, request, g
 import json, os, random, copy
+from dark_events import CREW_EVENTS, DEALER_EVENTS, LAUNDER_EVENTS
 
 app = Flask(__name__)
 
@@ -873,6 +874,7 @@ JOB_PAY_RANGES = {1: (100, 350), 2: (350, 700), 3: (700, 1200), 4: (1200, 2000)}
 CREATOR_CODES = {
     "cheatercheater":  {"desc": "Here you go cheater, here's 10 mill. Now leave me alone 💰", "cash": 10_000_000},
     "pumpkineater":    {"desc": "Max level? Sweet! Now you ruined all the progression of the game... ⭐", "level": MAX_LEVEL, "xp": XP_THRESHOLDS[MAX_LEVEL]},
+    "level11":         {"desc": "Jumped you to Level 11. The crossroads. 🌙", "level": 11, "xp": XP_THRESHOLDS[11]},
     "69 bitches":      {"desc": "Real mature Alex... Real mature... 🙄"},
     "redmo":           {"desc": "Hey dummy, you spelt that wrong... it's Dremo"},
     "dremo":           {"desc": "Wait... I thought it was spelt Redmo?"},
@@ -4624,6 +4626,30 @@ def _migrate_state(s):
     s.setdefault("mode", "legit")        # 'legit' | 'dark'
     s.setdefault("dark", None)           # all crime-empire data lives here in dark mode
     s.setdefault("dark_snapshot", None)  # the Level-11 legit save to "wake" back to
+    # Backfill dark saves made before newer fields existed (so old in-progress runs work).
+    dk = s.get("dark")
+    if dk:
+        dk.setdefault("cred", 1); dk.setdefault("cred_xp", 0)
+        dk.setdefault("dirty_money", 0); dk.setdefault("heat", 0)
+        dk.setdefault("crews", []); dk.setdefault("next_crew_id", 1)
+        dk.setdefault("roster", []); dk.setdefault("recruits", []); dk.setdefault("next_recruit_id", 1)
+        dk.setdefault("recruits_refresh_day", None); dk.setdefault("supplies", {})
+        dk.setdefault("pending_event", None)
+        dk.setdefault("raid_in", None); dk.setdefault("bribes", 0)
+        dk.setdefault("lawyered", False); dk.setdefault("moved", False); dk.setdefault("lying_low", False)
+        dk.setdefault("watch", None); dk.setdefault("watch_known", False)
+        dk.setdefault("watch_quiet", 0); dk.setdefault("watch_since", 0); dk.setdefault("vip", False)
+        dk.setdefault("hunt_introduced", False); dk.setdefault("cook_day", None)
+        dk.setdefault("stash", {}); dk.setdefault("dealers", []); dk.setdefault("next_dealer_id", 1)
+        dk.setdefault("home_market", []); dk.setdefault("homes_bought", 0)
+        if "biz" not in dk:
+            dk["biz"] = {"laundromat": bool((s.get("laundromat") or {}).get("owned")),
+                         "car_wash":   bool((s.get("car_wash") or {}).get("owned")),
+                         "strip_club": bool((s.get("pole_studio") or {}).get("owned")),
+                         "casino":     False,
+                         "arcade_had": bool((s.get("arcade") or {}).get("unlocked")),
+                         "vending":    len(s.get("vending_machines") or []) > 0}
+        dk.setdefault("corners_unlocked", not dk["biz"].get("vending"))
     return s
 
 def load():
@@ -4768,6 +4794,8 @@ def api_state():
         "empire":                 {**_empire_payload(s), "just_unlocked": [{"name": m["name"], "reward": MILESTONE_REWARD.get(m["key"], 0)} for m in _ms_newly]},
         "mode":                   s.get("mode", "legit"),
         "dark":                   s.get("dark"),
+        "dark_defs":              ({"drugs": DARK_DRUGS, "supplies": DARK_SUPPLIES, "traits": DARK_TRAITS, "swat_heat": DARK_SWAT_HEAT}
+                                   if s.get("mode") == "dark" else None),
     })
 
 def _empire_payload(s):
@@ -4808,9 +4836,23 @@ def api_dark_enter():
     # Snapshot the whole legit save so "it was all a dream" restores it exactly.
     s["dark_snapshot"] = copy.deepcopy({k: v for k, v in s.items() if k not in ("dark", "dark_snapshot")})
     s["mode"] = "dark"
-    # Carry-over (cash — already clean, businesses, homes + tenants) all stay in state.
-    # The dark module layers its own progression + resources on top.
-    s["dark"] = {"rank": 1, "xp": 0, "dirty_money": 0, "heat": 0, "entered_day": s.get("day", 1)}
+    # The Fixer takes EVERYTHING. You start from scratch: $10k seed + one rundown starter
+    # house (Midtown — "crumbling blocks, forgotten by time"). Nothing else carries over.
+    starter = generate_property(s["next_id"], hoods=["Midtown"]); s["next_id"] += 1
+    starter["purchase_price"] = 0; starter["foreclosure"] = False
+    starter["rented"] = False; starter["tenant"] = None; starter["lab"] = None; starter["starter"] = True
+    s["properties"] = [starter]
+    s["cash"] = 10_000
+    s["dark"] = {"cred": 1, "cred_xp": 0, "dirty_money": 0, "heat": 0, "entered_day": s.get("day", 1),
+                 "crews": [], "next_crew_id": 1,
+                 "recruits": [], "next_recruit_id": 1, "roster": [], "recruits_refresh_day": None,
+                 "stash": {}, "supplies": {}, "dealers": [], "next_dealer_id": 1, "home_market": [],
+                 "biz": {}, "corners_unlocked": True, "homes_bought": 0,
+                 "raid_in": None, "bribes": 0, "lawyered": False, "moved": False, "lying_low": False,
+                 "watch": None, "watch_known": False, "watch_quiet": 0, "watch_since": 0, "vip": False,
+                 "hunt_introduced": False, "pending_event": None}
+    s["dark"]["recruits"] = _dark_gen_recruits(s["dark"], 10)   # faces on the street to hire
+    _dark_gen_home_market(s)                                    # more homes you can buy later
     save(s)
     return jsonify({"ok": True})
 
@@ -4826,6 +4868,1197 @@ def api_dark_wake():
     restored["dark_snapshot"] = None
     save(restored)
     return jsonify({"ok": True})
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  DARK MODE BACKEND — "Off the Books" crime systems (only active when mode=='dark')
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Drug ladder — street nicknames only. Higher tier = more money, more heat, higher
+# Street Cred to unlock (gated gradually). base_yield = product units/day at production
+# level 1; base_heat = heat added to that home/day at level 1; unit_value = $ (dirty)/unit.
+DARK_DRUGS = {
+    "reggie": {"name": "Weed",   "icon": "🌿", "tier": 1, "cred_req": 1,  "base_yield": 3, "base_heat": 3,  "unit_value": 40},
+    "beans":  {"name": "Pills",  "icon": "💊", "tier": 2, "cred_req": 3,  "base_yield": 3, "base_heat": 5,  "unit_value": 90},
+    "soft":   {"name": "Powder", "icon": "❄️", "tier": 3, "cred_req": 5,  "base_yield": 3, "base_heat": 8,  "unit_value": 160},
+    "hard":   {"name": "Rock",   "icon": "🪨", "tier": 4, "cred_req": 7,  "base_yield": 3, "base_heat": 12, "unit_value": 280},
+    "glass":  {"name": "Glass",  "icon": "🧊", "tier": 5, "cred_req": 9,  "base_yield": 4, "base_heat": 17, "unit_value": 480},
+    "tar":    {"name": "Tar",    "icon": "🛢️", "tier": 6, "cred_req": 10, "base_yield": 4, "base_heat": 24, "unit_value": 800},
+}
+
+# Drug-making EQUIPMENT — one bundled set per drug (no individual ingredients). Bought
+# from the Fence with clean cash; a lab needs the matching set installed to operate.
+# Drug-making SUPPLIES — consumable, one set per drug, bought from the Fence. You hand a
+# set to a crew at a lab to start a batch (one batch = one supply set).
+DARK_SUPPLIES = {
+    "reggie": {"name": "Weed Supplies",   "icon": "🌱", "cost": 1_000},
+    "beans":  {"name": "Pill Supplies",   "icon": "⚗️", "cost": 2_500},
+    "soft":   {"name": "Powder Supplies", "icon": "🔪", "cost": 5_000},
+    "hard":   {"name": "Rock Supplies",   "icon": "🍳", "cost": 9_000},
+    "glass":  {"name": "Glass Supplies",  "icon": "🧪", "cost": 14_000},
+    "tar":    {"name": "Tar Supplies",    "icon": "🛢️", "cost": 22_000},
+}
+DARK_BATCH_DAYS  = {1: 5, 2: 3, 3: 2}          # cook speed 1=slow,2=med,3=fast → days to finish
+DARK_BATCH_HEAT  = {1: 0.8, 2: 1.3, 3: 2.2}    # heat/day multiplier by speed (faster = hotter)
+DARK_BATCH_YIELD = 15                          # batch units = base_yield × this × crew factor
+DARK_CREW_FEE_PCT = 0.10                        # crew's cut: 10% of a finished batch's street value
+DARK_CREW_GRACE   = 3                           # days they'll wait for their cut before tempers flare
+DARK_CREW_TEMPER_RATE = 25                      # temper gained per day once the grace period's up
+
+# Cooking it yourself (the hands-on minigame): max units from a PERFECT hand-cook, scaled
+# by your minigame score. Smaller than a crew batch — but instant, no crew, no cut.
+DARK_SELFCOOK = {"reggie": 12, "beans": 12, "soft": 14, "hard": 15, "glass": 16, "tar": 18}
+# A hand-cook costs a little CLEAN cash for ingredients (~30% of a perfect batch's street
+# value) — NOT a Fence supply (those are for crew batches). Limited to once per day.
+DARK_SELFCOOK_COST = {"reggie": 150, "beans": 325, "soft": 675, "hard": 1250, "glass": 2300, "tar": 4300}
+
+# ── Street Cred — the Kingpin rank ladder. `cred` (1–10) is your reputation level,
+# earned by moving product + washing money (cred_xp). Each rank is a perk; the drug
+# tree unlocks at the cred levels in DARK_DRUGS[*]["cred_req"] (1/3/5/7/9/10). ──
+DARK_RANKS = [
+    {"level": 1,  "name": "Corner Boy",  "xp": 0,     "perk": "Cooking Weed and working corners."},
+    {"level": 2,  "name": "Slinger",     "xp": 150,   "perk": "Dealers move more product per day."},
+    {"level": 3,  "name": "Pusher",      "xp": 400,   "perk": "💊 Pills unlocked."},
+    {"level": 4,  "name": "Lieutenant",  "xp": 800,   "perk": "Your name pulls weight — supplies cost less."},
+    {"level": 5,  "name": "Supplier",    "xp": 1400,  "perk": "❄️ Powder unlocked."},
+    {"level": 6,  "name": "Distributor", "xp": 2200,  "perk": "A cop on the payroll bleeds your heat down."},
+    {"level": 7,  "name": "Boss",        "xp": 3200,  "perk": "🪨 Rock unlocked."},
+    {"level": 8,  "name": "Underboss",   "xp": 4500,  "perk": "Dealers move even more; supplies cheaper still."},
+    {"level": 9,  "name": "Shot Caller", "xp": 6200,  "perk": "🧊 Glass unlocked."},
+    {"level": 10, "name": "Kingpin",     "xp": 8500,  "perk": "🛢️ Tar unlocked. You run this town."},
+]
+
+# Dark-only creator codes (redeemed through the same box, but ONLY work while mode=='dark').
+DARK_CREATOR_CODES = {
+    "dirtymoneyplease": {"desc": "Here's $10,000,000 in grimy, unmarked bills. 🧺", "dirty": 10_000_000},
+    "cleanmoneyplease": {"desc": "Here's $10,000,000, squeaky clean. 💵", "cash": 10_000_000},
+}
+for _r in DARK_RANKS:
+    if _r["level"] >= 2:
+        DARK_CREATOR_CODES[f"streetcred{_r['level']}"] = {
+            "cred": _r["level"], "xp": _r["xp"],
+            "desc": f"Fast-tracked to Street Cred {_r['level']} — {_r['name']}. 📈"}
+
+def _dark_rank(level):
+    return next((r for r in DARK_RANKS if r["level"] == level), DARK_RANKS[0])
+
+def _dark_level_for_xp(xp):
+    lvl = 1
+    for r in DARK_RANKS:
+        if xp >= r["xp"]: lvl = r["level"]
+    return lvl
+
+def _dark_dealer_cap(d):
+    # Base 8/day, +2 at Slinger (2), +3 more at Underboss (8) → bigger pipes as you rise.
+    cred = d.get("cred", 1)
+    return 8 + (2 if cred >= 2 else 0) + (3 if cred >= 8 else 0)
+
+def _dark_supply_price(drug, d):
+    base = (DARK_SUPPLIES.get(drug) or {}).get("cost", 0)
+    cred = d.get("cred", 1)
+    disc = (0.10 if cred >= 4 else 0.0) + (0.10 if cred >= 8 else 0.0)   # Lieutenant 10%, Underboss +10%
+    return int(round(base * (1 - disc)))
+
+def _dark_heat_bleed(d):
+    # Distributor (6)+ keeps a cop on the payroll who quietly bleeds global heat each day.
+    return 3 if d.get("cred", 1) >= 6 else 0
+
+def _dark_award_cred(s, events):
+    """Bump cred_xp → cred, firing a Fixer rank-up message for each level gained."""
+    d = s["dark"]; before = d.get("cred", 1)
+    after = _dark_level_for_xp(d.get("cred_xp", 0))
+    if after > before:
+        d["cred"] = after
+        for lvl in range(before + 1, after + 1):
+            r = _dark_rank(lvl)
+            events.append({"type": "info", "text": f"📈 The Fixer: \"They're calling you a {r['name']} now.\" — {r['perk']}"})
+
+def _dark_do_raid(s, events):
+    """The raid lands. Seizes your hottest lab + hottest dealer + loose cash/stash,
+    softened by 'lawyer up' (skip one charge, half the cash) and 'move the product'
+    (stash + dirty money safe). Then the heat dies down."""
+    d = s["dark"]; lawyered = d.get("lawyered"); moved = d.get("moved"); hit = []
+    labs    = sorted([p for p in s["properties"] if p.get("lab")], key=lambda p: p["lab"].get("heat", 0), reverse=True)
+    dealers = sorted(d.get("dealers", []), key=lambda x: x.get("heat", 0), reverse=True)
+    seize_lab, seize_dealer = bool(labs), bool(dealers)
+    if lawyered and seize_lab and seize_dealer:   # your lawyer beats one charge — they take the hotter target only
+        if labs[0]["lab"].get("heat", 0) >= dealers[0].get("heat", 0): seize_dealer = False
+        else: seize_lab = False
+    if seize_lab and labs:
+        p = labs[0]; cid = p["lab"].get("crew_id")
+        d["roster"] = [m for m in d.get("roster", []) if m.get("crew_id") != cid]
+        d["crews"]  = [c for c in d.get("crews", []) if c["id"] != cid]
+        s["properties"] = [x for x in s["properties"] if x["id"] != p["id"]]
+        hit.append(f"the {p.get('type','lab')} lab + crew")
+    if seize_dealer and dealers:
+        dl = dealers[0]
+        d["dealers"] = [x for x in d.get("dealers", []) if x["id"] != dl["id"]]
+        hit.append(f"your dealer {dl.get('name','?')}")
+    if not moved:
+        grab = d.get("dirty_money", 0) // (2 if lawyered else 1)
+        if grab: d["dirty_money"] -= grab; hit.append(f"${grab:,} dirty")
+        if d.get("stash"): d["stash"] = {}; hit.append("your stash")
+    d["heat"] = 30; d["raid_in"] = None; d["lawyered"] = False; d["moved"] = False
+    if hit:
+        events.append({"type": "negative", "text": f"🚨 RAID — {DARK_DETECTIVE} kicked the door in. Lost: {', '.join(hit)}. The case cools off… for now."})
+    else:
+        events.append({"type": "info", "text": f"🚨 The raid came up empty — you'd cleared out in time. {DARK_DETECTIVE} leaves with nothing."})
+    d["watch"] = None; d["watch_known"] = False; d["watch_quiet"] = 0   # case resets after the hit
+
+def _dark_pick_watch(s):
+    """Marsh picks one operation to tail — a running-capable lab, framed as the house or a crew member on it."""
+    d = s["dark"]
+    labs = [p for p in s["properties"] if p.get("lab") and p["lab"].get("crew_id") is not None]
+    if not labs: return None
+    p = random.choice(labs)
+    members = _dark_crew_members(d, _dark_crew_by_id(d, p["lab"].get("crew_id")))
+    if members and random.random() < 0.5:
+        m = random.choice(members)
+        return {"kind": "crew", "prop_id": p["id"], "name": m.get("name", "your guy"), "house": p.get("type", "house")}
+    return {"kind": "house", "prop_id": p["id"], "name": p.get("type", "house"), "house": p.get("type", "house")}
+
+def _dark_watch_label(w):
+    if not w: return ""
+    if w.get("kind") == "crew": return f"tailing {w['name']} — who works the {w['house']}"
+    return f"watching the {w['name']}"
+
+def _dark_hunt_watch(s, events):
+    """End-of-day: strip-club income + intel, and Marsh's target tracking (pick / give up / switch / reveal)."""
+    d = s["dark"]; biz = d.get("biz") or {}
+    if biz.get("strip_club"):
+        d["dirty_money"] = d.get("dirty_money", 0) + DARK_STRIPCLUB_EARN   # the club earns on its own
+    if d.get("cred", 1) < 2:        # Hunt not active yet — Marsh isn't tailing anyone
+        if d.get("watch"): d["watch"] = None; d["watch_known"] = False; d["watch_quiet"] = 0
+        return
+    h = d.get("heat", 0); w = d.get("watch")
+    if h < DARK_WATCH_MIN_HEAT:                       # case cold → no active tail
+        if w: d["watch"] = None; d["watch_known"] = False; d["watch_quiet"] = 0
+        return
+    if w:                                             # watched op may have vanished
+        p = next((x for x in s["properties"] if x.get("id") == w.get("prop_id")), None)
+        if not p or not p.get("lab"):
+            d["watch"] = None; d["watch_known"] = False; d["watch_quiet"] = 0; w = None
+    if not w:                                         # pick a fresh target
+        nw = _dark_pick_watch(s)
+        if nw:
+            d["watch"] = nw; d["watch_known"] = False; d["watch_quiet"] = 0; d["watch_since"] = s["day"]
+            events.append({"type": "warning", "text": f"🕵️ The Fixer: \"{random.choice(DARK_MARSH_WATCH_LINES)}\""})
+        return
+    p = next((x for x in s["properties"] if x.get("id") == w.get("prop_id")), None)
+    running = bool(p and p.get("lab") and p["lab"].get("batch"))
+    if running:
+        d["watch_quiet"] = 0
+    else:
+        d["watch_quiet"] = d.get("watch_quiet", 0) + 1
+        if d["watch_quiet"] >= DARK_WATCH_GIVEUP:     # quiet too long → he moves on
+            d["watch"] = None; d["watch_known"] = False; d["watch_quiet"] = 0
+            events.append({"type": "info", "text": f"😮‍💨 The Fixer: \"{random.choice(DARK_MARSH_GIVEUP_LINES)}\""})
+            return
+    if s["day"] - d.get("watch_since", 0) >= DARK_WATCH_RETARGET:   # he re-evaluates
+        nw = _dark_pick_watch(s)
+        if nw and nw.get("prop_id") != w.get("prop_id"):
+            d["watch"] = nw; d["watch_known"] = False; d["watch_quiet"] = 0; d["watch_since"] = s["day"]
+            events.append({"type": "warning", "text": "🕵️ The Fixer: \"Marsh shifted his attention — he's onto something else of yours now.\""})
+            return
+        d["watch_since"] = s["day"]
+    if not d.get("watch_known"):                      # passive intel reveal
+        chance = (DARK_VIP_INTEL_CHANCE if (biz.get("strip_club") and d.get("vip")) else 0.0)
+        if any(m.get("trait") == "connected" for m in d.get("roster", [])): chance += 0.12
+        if d.get("cred", 1) >= 6: chance += 0.08      # bent cop on the payroll
+        if chance and random.random() < chance:
+            d["watch_known"] = True
+            src = "VIP-lounge chatter" if (biz.get("strip_club") and d.get("vip")) else "a whisper from your people"
+            events.append({"type": "info", "text": f"🔎 Intel ({src}): Marsh is {_dark_watch_label(d['watch'])}. Pause that operation."})
+
+# Criminal traits — each recruit has exactly ONE. "knows" traits gate which drug a crew
+# can cook (a crew needs a member who knows the target drug). The rest are skill/personality
+# traits whose mechanical effects kick in once crews work labs.
+DARK_TRAITS = {
+    "green_thumb": {"name": "Green Thumb",   "icon": "🌿", "knows": "reggie", "cost": 2500,  "desc": "Knows how to grow Weed."},
+    "pill_cook":   {"name": "Pill Cook",     "icon": "💊", "knows": "beans",  "cost": 5000,  "desc": "Knows how to press Pills."},
+    "cutter":      {"name": "Cutter",        "icon": "❄️", "knows": "soft",   "cost": 8000,  "desc": "Knows how to cut Powder."},
+    "rock_cook":   {"name": "Rock Cook",     "icon": "🪨", "knows": "hard",   "cost": 11000, "desc": "Knows how to cook Rock."},
+    "chemist":     {"name": "Chemist",       "icon": "🧪", "knows": "glass",  "cost": 15000, "desc": "Knows how to cook Glass."},
+    "tar_boiler":  {"name": "Tar Boiler",    "icon": "🛢️", "knows": "tar",    "cost": 20000, "desc": "Knows how to boil Tar."},
+    "workhorse":   {"name": "Workhorse",     "icon": "🐂", "cost": 3500, "desc": "Cranks out product faster."},
+    "ghost":       {"name": "Ghost",         "icon": "👻", "cost": 4000, "desc": "Draws less heat — barely leaves a trace."},
+    "loyal":       {"name": "Loyal",         "icon": "🤝", "cost": 3500, "desc": "Won't snitch, even unpaid. Fewer bad events."},
+    "hothead":     {"name": "Hothead",       "icon": "🔥", "cost": 1800, "desc": "More conflict events — but wins turf."},
+    "connected":   {"name": "Connected",     "icon": "📇", "cost": 4500, "desc": "Brings cheap-gear & opportunity events."},
+    "sloppy":      {"name": "Sloppy",        "icon": "🧤", "cost": 900,  "desc": "Cheap, but causes more accidents."},
+    "lookout":     {"name": "Lookout",       "icon": "👀", "cost": 3000, "desc": "Gives early warning before a raid."},
+    "lucky":       {"name": "Lucky",         "icon": "🍀", "cost": 4500, "desc": "Better luck on event rolls."},
+    "junkie":      {"name": "Junkie",        "icon": "💉", "cost": 700,  "desc": "Skims product for himself. Dirt cheap."},
+    "smooth":      {"name": "Smooth Talker", "icon": "🎩", "cost": 3500, "desc": "Talks down cops — softens busts."},
+}
+# Weighted recruit pool: weed-cooks + skills common, high-tier cooks rare.
+_DARK_TRAIT_WEIGHTS = {"green_thumb": 6, "pill_cook": 3, "cutter": 2, "rock_cook": 1, "chemist": 1, "tar_boiler": 1,
+                       "workhorse": 3, "ghost": 3, "loyal": 3, "hothead": 3, "connected": 3, "sloppy": 3,
+                       "lookout": 3, "lucky": 2, "junkie": 3, "smooth": 3}
+_DARK_RECRUIT_NAMES = ["Tony", "Vince", "Marco", "Sal", "Rico", "Benny", "Dom", "Carlo", "Joey", "Nico", "Frankie",
+                       "Lou", "Gus", "Paulie", "Mickey", "Dee", "Manny", "Hector", "Reggie", "Omar", "Trey", "Cyrus",
+                       "Big Mike", "Slim", "Ace", "Doc", "Tank", "Razor", "Smiley", "Lefty", "Bishop", "Diego",
+                       "Marcus", "Jamal", "Vito", "Knuckles", "Spider"]
+
+def _dark_gen_recruits(d, n=10):
+    pool = [t for t, w in _DARK_TRAIT_WEIGHTS.items() for _ in range(w)]
+    out = []
+    for _ in range(n):
+        rid = d.get("next_recruit_id", 1); d["next_recruit_id"] = rid + 1
+        out.append({"id": rid, "name": random.choice(_DARK_RECRUIT_NAMES), "trait": random.choice(pool)})
+    return out
+
+# Crew roles. hire = one-time clean-cash cost; wage = clean cash/day while employed.
+DARK_SWAT_HEAT = 100   # per-home heat that triggers a raid
+
+# ── THE HUNT — global heat is the detective's case strength. It creeps up the more
+# (and hotter) you operate; cross the threshold and a raid gets scheduled a few days
+# out (telegraphed) — scramble to cool it or soften the blow. ──
+DARK_DETECTIVE      = "Det. Marsh"
+DARK_RAID_THRESHOLD = 85    # case strength that schedules a raid
+DARK_RAID_SAFE      = 65    # get below this before the clock runs out → raid called off
+DARK_RAID_DAYS      = 3     # countdown length once a raid's scheduled
+DARK_HUNT_TIERS = [(85, "Closing In", "#E0533D"), (65, "Building a Case", "#FF8A3D"),
+                   (40, "Sniffing Around", "#FFC83D"), (0, "Cold", "#4CAF50")]
+# The Watch: once warm, Marsh tails ONE operation. Running it while watched piles on heat;
+# pausing it makes him lose the lead. You learn the target via intel (mole / VIP lounge).
+DARK_WATCH_MIN_HEAT = 40    # case must be at least "Sniffing Around" for him to pick a target
+DARK_WATCH_BONUS    = 7     # extra heat/day on a watched lab that keeps cooking
+DARK_WATCH_GIVEUP   = 3     # quiet days on the watched op before he moves on
+DARK_WATCH_RETARGET = 12    # days before he re-evaluates and may switch targets
+DARK_INTEL_COST     = 5_000     # buy a tip from a precinct mole
+DARK_VIP_COST       = 60_000    # build the strip-club VIP lounge (intel engine)
+DARK_VIP_WORK_COST  = 6_000     # work the VIP room for a guaranteed tip
+DARK_VIP_INTEL_CHANCE = 0.35    # passive daily chance the lounge reveals the watch target
+DARK_STRIPCLUB_EARN = 1_500     # dirty money/day the club pulls in on its own
+
+DARK_MARSH_WATCH_LINES = [   # what the Fixer hears when Marsh picks a new target
+    "Marsh pulled someone's file today. He's onto one of your spots.",
+    "Word is Marsh started a surveillance log. One of your operations is on it.",
+    "Marsh has been parked somewhere with a camera. Wish I knew where.",
+    "A detective's been asking around your blocks again. Marsh.",
+]
+DARK_MARSH_GIVEUP_LINES = [
+    "Marsh gave up the stakeout — nothing was moving. He's looking elsewhere.",
+    "Quiet spot, bored cop. Marsh moved on.",
+]
+
+def _dark_hunt_tier(h):
+    for lo, label, col in DARK_HUNT_TIERS:
+        if h >= lo: return label, col
+    return "Cold", "#4CAF50"
+
+def _dark_heat_tier(h):
+    if h >= DARK_SWAT_HEAT: return "swat"
+    if h >= 75: return "imminent"
+    if h >= 50: return "hot"
+    if h >= 25: return "watched"
+    return "quiet"
+
+def _dark_crew_by_id(d, cid):
+    return next((c for c in d.get("crews", []) if c["id"] == cid), None)
+
+def _dark_crew_members(d, crew):
+    return [m for m in d.get("roster", []) if crew and m.get("crew_id") == crew["id"]]
+
+def _dark_crew_knows(d, crew):
+    # the set of drug keys this crew can cook (from members' knowledge traits)
+    out = set()
+    for m in _dark_crew_members(d, crew):
+        kn = (DARK_TRAITS.get(m.get("trait")) or {}).get("knows")
+        if kn: out.add(kn)
+    return out
+
+def _dark_stash_add(d, drug, units):
+    st = d.setdefault("stash", {})
+    st[drug] = st.get(drug, 0) + units
+
+DARK_DEALER_CAP = 8   # units a dealer moves per day
+DARK_BIZ_PRICE  = {"laundromat": 250_000, "car_wash": 600_000, "strip_club": 600_000, "pizzeria": 200_000}
+DARK_CASINO_COST = 75_000   # convert a carried-over arcade into a casino
+
+# Laundering fronts — wash dirty money into clean. cap = dirty $/day cleaned per rate level;
+# hire = one-time dirty-manager fee; wage = daily upkeep while washing; heat_rate scales business heat.
+DARK_LAUNDER = {
+    "laundromat": {"name": "Laundromat",            "icon": "🧼", "cap": 1500, "hire": 5_000,  "wage": 250, "heat_rate": 7},
+    "car_wash":   {"name": "Car Wash",              "icon": "🚗", "cap": 3000, "hire": 8_000,  "wage": 450, "heat_rate": 8},
+    "pizzeria":   {"name": "Famiglia's Pizzeria",   "icon": "🍕", "cap": 6000, "hire": 12_000, "wage": 800, "heat_rate": 9},
+}
+DARK_VENDING_PAYOUT = 80_000   # cousin Vinny buys the vending business
+
+# ── Events — fire on Advance, each a choice with good/bad/quirky outcomes. ──
+# req gates eligibility: always | crew | lab | dealer | business.
+# effects apply cash / dirty_money / heat (global). "special" runs a coded handler.
+DARK_EVENTS = [
+    {"key": "cop_take", "icon": "👮", "req": "always",
+     "text": "A patrol cop catches your eye and taps his badge. \"Be a shame if I had to start writing things down.\"",
+     "choices": [{"label": "Slip him an envelope", "result": "He pockets it and forgets your face.", "effects": {"cash": -4000, "heat": -18}},
+                 {"label": "Play dumb", "result": "He writes something down. Great.", "effects": {"heat": 10}}]},
+    {"key": "snitch", "icon": "🐀", "req": "crew",
+     "text": "Word is one of your guys has been chatting with someone who reeks of 'undercover.'",
+     "choices": [{"label": "Pay him to stay quiet", "result": "Money talks. He stays loyal.", "effects": {"cash": -3000, "heat": -5}},
+                 {"label": "Cut him loose", "result": "You show him the door before he shows the cops yours.", "effects": {"heat": -8}, "special": "lose_crew_member"}]},
+    {"key": "lab_fire", "icon": "🔥", "req": "lab",
+     "text": "A hot plate left on overnight nearly took a whole lab — and the block — up in flames.",
+     "choices": [{"label": "Pay for quiet repairs", "result": "Patched up before anyone asks questions.", "effects": {"cash": -2500}},
+                 {"label": "Air it out and hope", "result": "The neighbors definitely noticed.", "effects": {"heat": 12}}]},
+    {"key": "dealer_jumped", "icon": "🥊", "req": "dealer",
+     "text": "One of your dealers got jumped on his corner. He wants to know if you'll cover what they took.",
+     "choices": [{"label": "Make him whole", "result": "He's grateful. Loyalty bought cheap.", "effects": {"cash": -2500}},
+                 {"label": "\"That's the job\"", "result": "He eats the loss — and the grudge.", "effects": {"heat": 4}, "special": "dealer_lose_held"}]},
+    {"key": "bulk_buyer", "icon": "🤝", "req": "always",
+     "text": "A club promoter wants a bulk order — cash up front, no questions.",
+     "choices": [{"label": "Make the deal", "result": "Easiest money you've made all week.", "effects": {"dirty_money": 4000}},
+                 {"label": "Smells like a setup — pass", "result": "Maybe paranoid. Maybe alive.", "effects": {"heat": -3}}]},
+    {"key": "wall_cash", "icon": "💵", "req": "always",
+     "text": "Tearing out a wall, your crew found a roll of cash a previous tenant stashed.",
+     "choices": [{"label": "Pocket it", "result": "Finders keepers.", "effects": {"cash": 1800}}]},
+    {"key": "junkie", "icon": "💉", "req": "crew",
+     "text": "One of your guys 'quality tested' a little too much of the product. Again.",
+     "choices": [{"label": "Dock his cut", "result": "He grumbles, but gets the message.", "effects": {"cash": 300}},
+                 {"label": "Let it slide", "result": "Morale stays up; inventory does not.", "effects": {"heat": 2}}]},
+    {"key": "livestream", "icon": "📱", "req": "lab",
+     "text": "A crew member livestreamed the lab 'as a joke.' It got 4,000 views before he deleted it.",
+     "choices": [{"label": "Pay a guy to scrub it", "result": "Gone. Probably.", "effects": {"cash": -1200}},
+                 {"label": "Pray nobody important saw", "result": "Bold strategy.", "effects": {"heat": 14}}]},
+    {"key": "abuela", "icon": "🫔", "req": "crew",
+     "text": "The cook's abuela showed up and fed the whole crew. Morale's through the roof.",
+     "choices": [{"label": "Let them enjoy it", "result": "A happy crew is a careful crew.", "effects": {"heat": -7}}]},
+    {"key": "inspector", "icon": "📋", "req": "business",
+     "text": "A surprise inspector is poking around one of your fronts, clipboard in hand.",
+     "choices": [{"label": "Grease the clipboard", "result": "He finds everything 'in order.'", "effects": {"cash": -2000}},
+                 {"label": "Let him look", "result": "He left frowning.", "effects": {"heat": 9}}]},
+    {"key": "rival_push", "icon": "🔪", "req": "crew",
+     "text": "A rival crew is muscling onto one of your corners.",
+     "choices": [{"label": "Push back hard", "result": "You hold the block — loudly.", "effects": {"heat": 8, "cash": 1200}},
+                 {"label": "Give them the corner", "result": "Not worth the bodies. This time.", "effects": {"dirty_money": -1500}}]},
+    {"key": "cartel_tip", "icon": "📦", "req": "always",
+     "text": "Your supplier slips you a tip: a pallet of supplies 'fell off a truck.' Cheap.",
+     "choices": [{"label": "Buy the load", "result": "Free supplies hit your stash.", "effects": {"cash": -1500}, "special": "free_supplies"},
+                 {"label": "Pass", "result": "Too good to be true, usually is.", "effects": {}}]},
+    {"key": "quiet_week", "icon": "😌", "req": "always",
+     "text": "Quiet week on the block. The heat's died down on its own.",
+     "choices": [{"label": "Enjoy the calm", "result": "Things cool off.", "effects": {"heat": -12}}]},
+    {"key": "old_debt", "icon": "💰", "req": "always",
+     "text": "An old debt finally got paid back — in grimy, unmarked bills.",
+     "choices": [{"label": "Take the dirty cash", "result": "Straight onto the pile that needs washing.", "effects": {"dirty_money": 3000}}]},
+]
+
+def _dark_eligible_events(s):
+    d = s["dark"]
+    has = {
+        "always":   True,
+        "crew":     any(_dark_crew_members(d, c) for c in d.get("crews", [])),
+        "lab":      any(p.get("lab") for p in s["properties"]),
+        "dealer":   bool(d.get("dealers")),
+        "business": any((d.get("biz") or {}).get(k) for k in ("laundromat", "car_wash", "strip_club", "casino", "pizzeria")),
+    }
+    return [e for e in DARK_EVENTS if has.get(e["req"])]
+
+def _dark_gen_home_market(s):
+    # 3 buyable homes/day, refreshed each advance. Homes are just lab/rent locations now
+    # (no flipping), so prices sit in a flat, moderate band rather than legit market values.
+    hoods = get_unlocked_neighborhoods(s.get("level", 0)) or list(NEIGHBORHOODS.keys())
+    # Prices creep up as you buy more (gentle +8%/purchase, capped) — homes get pricier
+    # the bigger your operation gets, but never runaway.
+    mult = min(4.0, 1 + 0.08 * s["dark"].get("homes_bought", 0))
+    nid = s["next_id"]; homes = []
+    for _ in range(3):
+        p = generate_property(nid, hoods=[random.choice(hoods)]); nid += 1
+        base = random.randint(20, 80) * 1000   # ~$20k–$80k before scaling
+        p["purchase_price"] = int(round(base * mult / 1000)) * 1000
+        p["foreclosure"] = False
+        homes.append(p)
+    s["next_id"] = nid
+    s["dark"]["home_market"] = homes
+
+def _dark_rent_options(prop):
+    # 3 tenant choices (from the real tenant pool) — all pay ~the same, no downsides.
+    base = max(50, int(calc_fair_weekly_rent(prop)))
+    tier = NEIGHBORHOODS.get(prop.get("neighborhood", ""), {}).get("tier", "mid")
+    pool = [t for t in TENANT_PROFILES if t.get("unique") and tier in t.get("tiers", ["budget", "mid", "premium"])]
+    if len(pool) < 3:
+        pool += [t for t in TENANT_PROFILES if tier in t.get("tiers", ["budget", "mid", "premium"])]
+    if len(pool) < 3:
+        pool = list(TENANT_PROFILES)
+    picks = random.sample(pool, min(3, len(pool)))
+    return [{"name": t["name"], "icon": t.get("icon", "🧑"), "desc": t.get("desc", ""),
+             "rent": int(round(base * random.uniform(0.95, 1.05)))} for t in picks]
+
+@app.route('/api/dark/buy_supplies', methods=['POST'])
+def api_dark_buy_supplies():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; drug = (request.json or {}).get("drug")
+    sup = DARK_SUPPLIES.get(drug); dm = DARK_DRUGS.get(drug)
+    if not sup or not dm: return jsonify({"error": "No such supplies."}), 400
+    if dm["cred_req"] > d.get("cred", 1):
+        return jsonify({"error": f"{dm['name']} supplies unlock at Street Cred {dm['cred_req']}."}), 400
+    price = _dark_supply_price(drug, d)
+    if s["cash"] < price:
+        return jsonify({"error": f"Need ${price:,} for {sup['name']}."}), 400
+    s["cash"] -= price
+    d.setdefault("supplies", {})[drug] = d.get("supplies", {}).get(drug, 0) + 1
+    save(s)
+    return jsonify({"ok": True})
+
+@app.route('/api/dark/put_word_out', methods=['POST'])
+def api_dark_put_word_out():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; FEE = 2_000
+    if d.get("recruits_refresh_day") and d["recruits_refresh_day"] > s["day"]:
+        return jsonify({"error": "Word's already out — new faces show up tomorrow."}), 400
+    if s["cash"] < FEE: return jsonify({"error": f"Need ${FEE:,} to put the word out."}), 400
+    s["cash"] -= FEE
+    d["recruits_refresh_day"] = s["day"] + 1
+    save(s)
+    return jsonify({"ok": True})
+
+@app.route('/api/dark/hire_recruit', methods=['POST'])
+def api_dark_hire_recruit():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; rid = (request.json or {}).get("recruit_id")
+    rec = next((r for r in d.get("recruits", []) if r["id"] == rid), None)
+    if not rec: return jsonify({"error": "They've already moved on."}), 400
+    trait = DARK_TRAITS.get(rec["trait"]); cost = (trait or {}).get("cost", 2000)
+    if s["cash"] < cost: return jsonify({"error": f"Need ${cost:,} to bring {rec['name']} on."}), 400
+    s["cash"] -= cost
+    d["recruits"] = [r for r in d["recruits"] if r["id"] != rid]
+    d.setdefault("roster", []).append({"id": rec["id"], "name": rec["name"], "trait": rec["trait"], "crew_id": None})
+    save(s)
+    return jsonify({"ok": True})
+
+@app.route('/api/dark/dismiss_roster', methods=['POST'])
+def api_dark_dismiss_roster():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; mid = (request.json or {}).get("member_id")
+    d["roster"] = [m for m in d.get("roster", []) if m["id"] != mid]
+    save(s)
+    return jsonify({"ok": True})
+
+@app.route('/api/dark/form_crew', methods=['POST'])
+def api_dark_form_crew():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; data = request.json or {}
+    mids = data.get("member_ids") or []
+    members = [m for m in d.get("roster", []) if m["id"] in mids]
+    if not (3 <= len(members) <= 5):
+        return jsonify({"error": "A crew needs 3 to 5 people."}), 400
+    if any(m.get("crew_id") is not None for m in members):
+        return jsonify({"error": "Someone in that group is already in a crew."}), 400
+    cid = d.get("next_crew_id", 1); d["next_crew_id"] = cid + 1
+    name = (data.get("name") or "").strip() or f"Crew #{cid}"
+    d.setdefault("crews", []).append({"id": cid, "name": name, "home_id": None})
+    for m in members: m["crew_id"] = cid
+    save(s)
+    return jsonify({"ok": True, "crew_id": cid})
+
+@app.route('/api/dark/disband_crew', methods=['POST'])
+def api_dark_disband_crew():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; cid = (request.json or {}).get("crew_id")
+    crew = _dark_crew_by_id(d, cid)
+    if not crew: return jsonify({"error": "No such crew."}), 400
+    if crew.get("home_id") is not None:   # pull them off the lab (any in-progress batch is lost)
+        p = next((x for x in s["properties"] if x.get("id") == crew["home_id"]), None)
+        if p and p.get("lab"): p["lab"] = None
+    for m in d.get("roster", []):
+        if m.get("crew_id") == cid: m["crew_id"] = None
+    d["crews"] = [c for c in d.get("crews", []) if c["id"] != cid]
+    save(s)
+    return jsonify({"ok": True})
+
+@app.route('/api/dark/assign_lab', methods=['POST'])
+def api_dark_assign_lab():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; data = request.json or {}
+    crew = _dark_crew_by_id(d, data.get("crew_id"))
+    p = next((x for x in s["properties"] if x.get("id") == data.get("prop_id")), None)
+    drug = data.get("drug"); dm = DARK_DRUGS.get(drug)
+    if not crew or not p or not dm: return jsonify({"error": "Bad crew, home, or product."}), 400
+    if crew.get("home_id") is not None: return jsonify({"error": "That crew's already working a lab."}), 400
+    if p.get("lab"): return jsonify({"error": "That home's already a lab."}), 400
+    if dm["cred_req"] > d.get("cred", 1):
+        return jsonify({"error": f"{dm['name']} needs Street Cred {dm['cred_req']}."}), 400
+    if drug not in _dark_crew_knows(d, crew):
+        return jsonify({"error": f"Nobody in this crew knows how to cook {dm['name']}."}), 400
+    p["rented"] = False; p["tenant"] = None            # lab OR rental — never both
+    p["lab"] = {"drug": drug, "speed": 2, "heat": 0, "product": 0, "batch": None, "crew_id": crew["id"],
+                "owed": 0, "owed_since": None, "temper": 0}
+    crew["home_id"] = p["id"]
+    save(s)
+    return jsonify({"ok": True})
+
+@app.route('/api/dark/set_lab_speed', methods=['POST'])
+def api_dark_set_lab_speed():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    data = request.json or {}
+    p = next((x for x in s["properties"] if x.get("id") == data.get("prop_id")), None)
+    if not p or not p.get("lab"): return jsonify({"error": "Not a lab."}), 400
+    p["lab"]["speed"] = max(1, min(3, int(data.get("speed", 2))))
+    save(s)
+    return jsonify({"ok": True})
+
+@app.route('/api/dark/start_batch', methods=['POST'])
+def api_dark_start_batch():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; data = request.json or {}
+    p = next((x for x in s["properties"] if x.get("id") == data.get("prop_id")), None)
+    if not p or not p.get("lab"): return jsonify({"error": "Not a lab."}), 400
+    lab = p["lab"]
+    if lab.get("batch"): return jsonify({"error": "A batch is already cooking here."}), 400
+    if lab.get("owed", 0) > 0: return jsonify({"error": "Pay your crew their cut before they'll start another batch."}), 400
+    crew = _dark_crew_by_id(d, lab.get("crew_id")); members = _dark_crew_members(d, crew) if crew else []
+    if not crew or not members: return jsonify({"error": "This lab has no working crew."}), 400
+    drug = lab["drug"]
+    if d.get("supplies", {}).get(drug, 0) < 1:
+        sup = DARK_SUPPLIES.get(drug) or {}
+        return jsonify({"error": f"No {sup.get('name', 'supplies')} — buy some at the Fence first."}), 400
+    speed = max(1, min(3, int(data.get("speed", lab.get("speed", 2))))); lab["speed"] = speed
+    d["supplies"][drug] -= 1
+    n = len(members); wh = sum(1 for m in members if m.get("trait") == "workhorse")
+    yld = max(1, round(DARK_DRUGS[drug]["base_yield"] * DARK_BATCH_YIELD * (0.7 + 0.15 * n) * (1 + 0.25 * wh)))
+    lab["batch"] = {"speed": speed, "days_left": DARK_BATCH_DAYS[speed], "yield": yld}
+    save(s)
+    return jsonify({"ok": True, "yield": yld, "days": DARK_BATCH_DAYS[speed]})
+
+@app.route('/api/dark/pay_crew', methods=['POST'])
+def api_dark_pay_crew():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    p = next((x for x in s["properties"] if x.get("id") == (request.json or {}).get("prop_id")), None)
+    if not p or not p.get("lab"): return jsonify({"error": "Not a lab."}), 400
+    lab = p["lab"]; owed = lab.get("owed", 0)
+    if owed <= 0: return jsonify({"error": "Your crew isn't owed anything right now."}), 400
+    if s["cash"] < owed: return jsonify({"error": f"Need ${owed:,} clean to settle up with the crew."}), 400
+    s["cash"] -= owed
+    lab["owed"] = 0; lab["owed_since"] = None; lab["temper"] = 0
+    save(s)
+    return jsonify({"ok": True, "paid": owed})
+
+@app.route('/api/dark/dismantle_lab', methods=['POST'])
+def api_dark_dismantle_lab():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; p = next((x for x in s["properties"] if x.get("id") == (request.json or {}).get("prop_id")), None)
+    if not p or not p.get("lab"): return jsonify({"error": "Not a lab."}), 400
+    cid = p["lab"].get("crew_id")
+    crew = _dark_crew_by_id(d, cid) if cid is not None else None
+    if crew: crew["home_id"] = None
+    p["lab"] = None
+    save(s)
+    return jsonify({"ok": True})
+
+@app.route('/api/dark/toggle_rent', methods=['POST'])
+def api_dark_toggle_rent():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    p = next((x for x in s["properties"] if x.get("id") == (request.json or {}).get("prop_id")), None)
+    if not p: return jsonify({"error": "No such property."}), 400
+    if p.get("lab"): return jsonify({"error": "It's a lab — dismantle it first."}), 400
+    p["rented"] = not p.get("rented")
+    if not p["rented"]:
+        p["tenant"] = None; p.pop("rent_options", None)   # evicted
+    save(s)
+    return jsonify({"ok": True})
+
+@app.route('/api/dark/rent_options', methods=['POST'])
+def api_dark_rent_options():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    p = next((x for x in s["properties"] if x.get("id") == (request.json or {}).get("prop_id")), None)
+    if not p: return jsonify({"error": "No such property."}), 400
+    if p.get("lab"): return jsonify({"error": "It's a lab — dismantle it first."}), 400
+    if p.get("rented"): return jsonify({"error": "Already rented."}), 400
+    p["rent_options"] = _dark_rent_options(p)
+    save(s)
+    return jsonify({"ok": True})
+
+@app.route('/api/dark/rent_pick', methods=['POST'])
+def api_dark_rent_pick():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    data = request.json or {}
+    p = next((x for x in s["properties"] if x.get("id") == data.get("prop_id")), None)
+    if not p: return jsonify({"error": "No such property."}), 400
+    opts = p.get("rent_options") or []
+    idx = data.get("idx")
+    if not isinstance(idx, int) or idx < 0 or idx >= len(opts):
+        return jsonify({"error": "Pick a tenant."}), 400
+    o = opts[idx]
+    p["rented"] = True
+    p["tenant"] = {"name": o["name"], "icon": o.get("icon", "🧑"), "rent": o["rent"], "next_pay": s["day"] + 7}
+    p.pop("rent_options", None)
+    save(s)
+    return jsonify({"ok": True})
+
+@app.route('/api/dark/buy_home', methods=['POST'])
+def api_dark_buy_home():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; mkt = d.get("home_market", [])
+    p = next((x for x in mkt if x.get("id") == (request.json or {}).get("prop_id")), None)
+    if not p: return jsonify({"error": "That listing's already gone."}), 400
+    price = p.get("purchase_price", 0)
+    if s["cash"] < price: return jsonify({"error": f"Need ${price:,} for that place."}), 400
+    s["cash"] -= price
+    p["rented"] = False; p["lab"] = None; p["tenant"] = None
+    s["properties"].append(p)
+    d["home_market"] = [x for x in mkt if x.get("id") != p["id"]]
+    d["homes_bought"] = d.get("homes_bought", 0) + 1   # nudges future market prices up
+    save(s)
+    return jsonify({"ok": True})
+
+@app.route('/api/dark/sell_vending', methods=['POST'])
+def api_dark_sell_vending():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; biz = d.setdefault("biz", {})
+    if not biz.get("vending"): return jsonify({"error": "No vending business to sell."}), 400
+    s["cash"] += DARK_VENDING_PAYOUT
+    biz["vending"] = False
+    d["corners_unlocked"] = True
+    save(s)
+    return jsonify({"ok": True, "payout": DARK_VENDING_PAYOUT})
+
+@app.route('/api/dark/buy_business', methods=['POST'])
+def api_dark_buy_business():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; biz = d.setdefault("biz", {}); key = (request.json or {}).get("key")
+    price = DARK_BIZ_PRICE.get(key)
+    if price is None: return jsonify({"error": "Can't buy that."}), 400
+    if biz.get(key): return jsonify({"error": "You already run that."}), 400
+    if s["cash"] < price: return jsonify({"error": f"Need ${price:,}."}), 400
+    s["cash"] -= price; biz[key] = True
+    save(s)
+    return jsonify({"ok": True})
+
+@app.route('/api/dark/convert_casino', methods=['POST'])
+def api_dark_convert_casino():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; biz = d.setdefault("biz", {})
+    if biz.get("casino"): return jsonify({"error": "It's already a casino."}), 400
+    if not biz.get("arcade_had"): return jsonify({"error": "You've got no arcade to convert."}), 400
+    if s["cash"] < DARK_CASINO_COST: return jsonify({"error": f"Need ${DARK_CASINO_COST:,} to convert it."}), 400
+    s["cash"] -= DARK_CASINO_COST; biz["casino"] = True
+    save(s)
+    return jsonify({"ok": True})
+
+@app.route('/api/dark/hire_manager', methods=['POST'])
+def api_dark_hire_manager():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; key = (request.json or {}).get("front"); meta = DARK_LAUNDER.get(key)
+    if not meta or not (d.get("biz") or {}).get(key): return jsonify({"error": "You don't run that front."}), 400
+    ln = d.setdefault("launder", {}).setdefault(key, {"manager": False, "heat": 0, "rate": 0})
+    if ln.get("manager"): return jsonify({"error": "Already got a manager there."}), 400
+    if s["cash"] < meta["hire"]: return jsonify({"error": f"Need ${meta['hire']:,} to bring one on."}), 400
+    s["cash"] -= meta["hire"]; ln["manager"] = True
+    save(s)
+    return jsonify({"ok": True})
+
+@app.route('/api/dark/fire_manager', methods=['POST'])
+def api_dark_fire_manager():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    ln = ((s["dark"].get("launder") or {}).get((request.json or {}).get("front")))
+    if ln: ln["manager"] = False; ln["rate"] = 0
+    save(s)
+    return jsonify({"ok": True})
+
+@app.route('/api/dark/set_launder_rate', methods=['POST'])
+def api_dark_set_launder_rate():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; data = request.json or {}; key = data.get("front")
+    if key not in DARK_LAUNDER or not (d.get("biz") or {}).get(key): return jsonify({"error": "You don't run that front."}), 400
+    ln = d.setdefault("launder", {}).setdefault(key, {"manager": False, "heat": 0, "rate": 0})
+    ln["rate"] = max(0, min(3, int(data.get("rate", 0))))
+    save(s)
+    return jsonify({"ok": True})
+
+@app.route('/api/dark/collect_lab', methods=['POST'])
+def api_dark_collect_lab():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    p = next((x for x in s["properties"] if x.get("id") == (request.json or {}).get("prop_id")), None)
+    if not p or not p.get("lab"): return jsonify({"error": "Not a lab."}), 400
+    units = p["lab"].get("product", 0)
+    if units <= 0: return jsonify({"error": "Nothing to collect yet."}), 400
+    _dark_stash_add(s["dark"], p["lab"]["drug"], units)
+    p["lab"]["product"] = 0
+    save(s)
+    return jsonify({"ok": True, "collected": units})
+
+@app.route('/api/dark/self_cook', methods=['POST'])
+def api_dark_self_cook():
+    # Player cooks a batch by hand (the minigame): consumes 1 supply, product → stash,
+    # yield scaled by their score. No crew, no cut. Adds a little heat to the operation.
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; data = request.json or {}
+    drug = data.get("drug"); dm = DARK_DRUGS.get(drug)
+    p = next((x for x in s["properties"] if x.get("id") == data.get("prop_id")), None)
+    if not p or not dm: return jsonify({"error": "Bad cook."}), 400
+    if p.get("lab") or p.get("rented"): return jsonify({"error": "You can only hand-cook in a vacant house."}), 400
+    if dm["cred_req"] > d.get("cred", 1): return jsonify({"error": f"{dm['name']} unlocks at Street Cred {dm['cred_req']}."}), 400
+    if d.get("cook_day") == s.get("day"): return jsonify({"error": "You've already cooked by hand today — come back tomorrow."}), 400
+    cost = DARK_SELFCOOK_COST.get(drug, 200)
+    if s["cash"] < cost: return jsonify({"error": f"Need ${cost:,} for ingredients."}), 400
+    try: score = float(data.get("score", 0))
+    except (TypeError, ValueError): score = 0.0
+    score = max(0.0, min(1.0, score)); botched = bool(data.get("botched"))
+    s["cash"] -= cost                          # pay for ingredients (clean cash)
+    d["cook_day"] = s.get("day")               # one hand-cook per day
+    units = 0 if botched else max(1, round(DARK_SELFCOOK.get(drug, 10) * score))
+    if units > 0:
+        _dark_stash_add(d, drug, units)
+        d["cred_xp"] = d.get("cred_xp", 0) + units            # cooking builds your rep
+    d["heat"] = min(100, d.get("heat", 0) + max(2, round(dm["base_heat"] * 0.7)))   # a hand-cook leaves a trace
+    save(s)
+    return jsonify({"ok": True, "yield": units, "botched": botched, "drug": drug, "cost": cost,
+                    "cash": s["cash"], "cook_day": d["cook_day"], "stash": d.get("stash", {})})
+
+@app.route('/api/dark/hire_dealer', methods=['POST'])
+def api_dark_hire_dealer():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; cost = 5_000 + 3_000 * len(d.get("dealers", []))
+    if s["cash"] < cost: return jsonify({"error": f"Need ${cost:,} to bring a dealer on."}), 400
+    s["cash"] -= cost
+    did = d.get("next_dealer_id", 1); d["next_dealer_id"] = did + 1
+    d.setdefault("dealers", []).append({"id": did, "name": random.choice(_DARK_RECRUIT_NAMES),
+                                        "inventory": {}, "held": 0, "heat": 0})
+    save(s)
+    return jsonify({"ok": True})
+
+@app.route('/api/dark/fire_dealer', methods=['POST'])
+def api_dark_fire_dealer():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; dl = next((x for x in d.get("dealers", []) if x["id"] == (request.json or {}).get("dealer_id")), None)
+    if not dl: return jsonify({"error": "No such dealer."}), 400
+    d["dirty_money"] = d.get("dirty_money", 0) + dl.get("held", 0)   # cash off them before they walk
+    d["dealers"] = [x for x in d.get("dealers", []) if x["id"] != dl["id"]]
+    save(s)
+    return jsonify({"ok": True})
+
+@app.route('/api/dark/stock_dealer', methods=['POST'])
+def api_dark_stock_dealer():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; data = request.json or {}
+    dl = next((x for x in d.get("dealers", []) if x["id"] == data.get("dealer_id")), None)
+    drug = data.get("drug"); avail = d.get("stash", {}).get(drug, 0)
+    if not dl: return jsonify({"error": "No such dealer."}), 400
+    if avail <= 0: return jsonify({"error": "No product of that kind in your stash."}), 400
+    amt = data.get("amount")
+    units = avail if amt in (None, "all", 0) else min(avail, max(1, int(amt)))
+    inv = dl.setdefault("inventory", {})
+    inv[drug] = inv.get(drug, 0) + units
+    d["stash"][drug] = avail - units
+    if d["stash"][drug] <= 0: d["stash"].pop(drug, None)
+    save(s)
+    return jsonify({"ok": True, "stocked": units})
+
+@app.route('/api/dark/pause_dealer', methods=['POST'])
+def api_dark_pause_dealer():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    dl = next((x for x in s["dark"].get("dealers", []) if x["id"] == (request.json or {}).get("dealer_id")), None)
+    if not dl: return jsonify({"error": "No such dealer."}), 400
+    dl["paused"] = not dl.get("paused")
+    save(s)
+    return jsonify({"ok": True, "paused": dl["paused"]})
+
+@app.route('/api/dark/sling', methods=['POST'])
+def api_dark_sling():
+    # Player works a corner themselves (the "Sling Yourself" minigame): hand-to-hand
+    # sale straight from the stash → dirty money + street-cred XP. No heat (it's the safe play).
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; data = request.json or {}
+    drug = data.get("drug"); dm = DARK_DRUGS.get(drug)
+    try: qty = int(data.get("qty", 0)); price = int(data.get("price", 0))
+    except (TypeError, ValueError): return jsonify({"error": "Bad deal."}), 400
+    if not dm or qty <= 0: return jsonify({"error": "Bad deal."}), 400
+    have = d.get("stash", {}).get(drug, 0)
+    if have < qty: return jsonify({"error": "You're out of that."}), 400
+    price = max(0, min(price, int(dm["unit_value"] * qty * 2)))   # sanity cap (anti-cheat)
+    d["stash"][drug] = have - qty
+    if d["stash"][drug] <= 0: d["stash"].pop(drug, None)
+    d["dirty_money"] = d.get("dirty_money", 0) + price
+    d["cred_xp"] = d.get("cred_xp", 0) + round(price / 40)   # active selling pays a bit more rep/$
+    msgs = []
+    _dark_award_cred(s, msgs)
+    save(s)
+    return jsonify({"ok": True, "dirty_money": d["dirty_money"], "cred": d.get("cred", 1),
+                    "cred_xp": d.get("cred_xp", 0), "stash": d.get("stash", {}),
+                    "rank_msgs": [m["text"] for m in msgs]})
+
+DARK_BRIBE_BASE = 4_000   # paying off the detective; climbs each time he's paid
+DARK_LAWYER_COST = 8_000
+DARK_MOVE_COST   = 3_000
+
+@app.route('/api/dark/hunt_action', methods=['POST'])
+def api_dark_hunt_action():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; act = (request.json or {}).get("action"); raid = d.get("raid_in") is not None
+    if act == "lie_low":
+        if d.get("lying_low"): return jsonify({"error": "You're already set to lie low."}), 400
+        d["lying_low"] = True
+        save(s); return jsonify({"ok": True, "msg": "You'll keep everything quiet — advance to lie low."})
+    if act == "bribe":
+        cost = DARK_BRIBE_BASE + 1500 * d.get("bribes", 0)
+        if s["cash"] < cost: return jsonify({"error": f"Need ${cost:,} to pay {DARK_DETECTIVE} off."}), 400
+        s["cash"] -= cost; d["bribes"] = d.get("bribes", 0) + 1
+        d["heat"] = max(0, d.get("heat", 0) - 35)
+        save(s); return jsonify({"ok": True, "msg": f"Paid off {DARK_DETECTIVE} — the case cools."})
+    if act == "lawyer":
+        if not raid: return jsonify({"error": "Nothing to lawyer up for right now."}), 400
+        if d.get("lawyered"): return jsonify({"error": "Your lawyer's already on retainer."}), 400
+        if s["cash"] < DARK_LAWYER_COST: return jsonify({"error": f"Need ${DARK_LAWYER_COST:,} for a lawyer."}), 400
+        s["cash"] -= DARK_LAWYER_COST; d["lawyered"] = True
+        save(s); return jsonify({"ok": True, "msg": "Lawyer's on retainer — a raid will hurt less."})
+    if act == "move":
+        if not raid: return jsonify({"error": "No raid coming — nothing to move yet."}), 400
+        if d.get("moved"): return jsonify({"error": "Product's already stashed safe."}), 400
+        if s["cash"] < DARK_MOVE_COST: return jsonify({"error": f"Need ${DARK_MOVE_COST:,} for a mover."}), 400
+        s["cash"] -= DARK_MOVE_COST; d["moved"] = True
+        save(s); return jsonify({"ok": True, "msg": "Stash and dirty money moved somewhere safe."})
+    return jsonify({"error": "Unknown move."}), 400
+
+@app.route('/api/dark/buy_intel', methods=['POST'])
+def api_dark_buy_intel():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]
+    if not d.get("watch"): return jsonify({"error": "Marsh isn't tailing anything specific right now."}), 400
+    if d.get("watch_known"): return jsonify({"error": "You already know what he's watching."}), 400
+    if s["cash"] < DARK_INTEL_COST: return jsonify({"error": f"Need ${DARK_INTEL_COST:,} for the mole's tip."}), 400
+    s["cash"] -= DARK_INTEL_COST; d["watch_known"] = True
+    save(s)
+    return jsonify({"ok": True, "msg": f"Mole's tip: Marsh is {_dark_watch_label(d['watch'])}. Pause it."})
+
+@app.route('/api/dark/build_vip', methods=['POST'])
+def api_dark_build_vip():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]
+    if not (d.get("biz") or {}).get("strip_club"): return jsonify({"error": "You don't run a strip club."}), 400
+    if d.get("vip"): return jsonify({"error": "The VIP lounge is already open."}), 400
+    if s["cash"] < DARK_VIP_COST: return jsonify({"error": f"Need ${DARK_VIP_COST:,} to build the VIP lounge."}), 400
+    s["cash"] -= DARK_VIP_COST; d["vip"] = True
+    save(s)
+    return jsonify({"ok": True})
+
+@app.route('/api/dark/work_vip', methods=['POST'])
+def api_dark_work_vip():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]
+    if not ((d.get("biz") or {}).get("strip_club") and d.get("vip")): return jsonify({"error": "Build the VIP lounge first."}), 400
+    if s["cash"] < DARK_VIP_WORK_COST: return jsonify({"error": f"Need ${DARK_VIP_WORK_COST:,} to work the room."}), 400
+    s["cash"] -= DARK_VIP_WORK_COST
+    if d.get("watch") and not d.get("watch_known"):
+        d["watch_known"] = True
+        save(s); return jsonify({"ok": True, "msg": f"You worked the VIP room — Marsh is {_dark_watch_label(d['watch'])}. Pause it."})
+    d["heat"] = max(0, d.get("heat", 0) - 8)
+    save(s); return jsonify({"ok": True, "msg": "You greased a badge in the lounge — the case cooled a little."})
+
+@app.route('/api/dark/collect_dealer', methods=['POST'])
+def api_dark_collect_dealer():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; dl = next((x for x in d.get("dealers", []) if x["id"] == (request.json or {}).get("dealer_id")), None)
+    if not dl: return jsonify({"error": "No such dealer."}), 400
+    got = dl.get("held", 0)
+    if got <= 0: return jsonify({"error": "They've got nothing to hand over yet."}), 400
+    d["dirty_money"] = d.get("dirty_money", 0) + got
+    dl["held"] = 0
+    save(s)
+    return jsonify({"ok": True, "collected": got})
+
+@app.route('/api/dark/advance', methods=['POST'])
+def api_dark_advance():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; events = []
+    seized_ids = []; rented = 0
+    lying = d.get("lying_low")     # "lie low" day — everything goes quiet and cools (set by a Hunt scramble)
+    watched_id = (d.get("watch") or {}).get("prop_id")   # the lab Marsh is tailing (heats up faster)
+    for p in s["properties"]:
+        lab = p.get("lab")
+        if lab:
+            if lab.get("event"):     # trouble at the lab — production frozen until you handle it
+                continue
+            if lying:                # laying low: no cooking today, lab cools fast
+                lab["heat"] = max(0, lab.get("heat", 0) - 14); continue
+            drug  = DARK_DRUGS.get(lab.get("drug")) or DARK_DRUGS["reggie"]
+            batch = lab.get("batch")
+            crew  = _dark_crew_by_id(d, lab.get("crew_id"))
+            members = _dark_crew_members(d, crew) if crew else []
+            # ── Unpaid crew: after a grace period their temper climbs, then they may walk. ──
+            if lab.get("owed", 0) > 0 and crew and members:
+                days_owed = s["day"] - (lab.get("owed_since") or s["day"])
+                loyal = any(m.get("trait") == "loyal" for m in members)
+                if days_owed > DARK_CREW_GRACE and not loyal:
+                    lab["temper"] = min(100, lab.get("temper", 0) + DARK_CREW_TEMPER_RATE)
+                    if random.random() < lab["temper"] / 200:     # walk chance scales with temper
+                        d["roster"] = [m for m in d.get("roster", []) if m.get("crew_id") != crew["id"]]
+                        d["crews"]  = [c for c in d.get("crews", []) if c["id"] != crew["id"]]
+                        lab["crew_id"] = None; lab["owed"] = 0; lab["owed_since"] = None; lab["temper"] = 0
+                        events.append({"type": "negative", "text": f"💢 Fed up with not getting paid, the crew walked off the {p.get('type','lab')} — and took the keys."})
+                        continue
+            if not batch or not crew or not members:
+                lab["heat"] = max(0, lab.get("heat", 0) - 8)     # no batch / no crew: cools off
+                continue
+            speed = batch.get("speed", 2)
+            gh = sum(1 for m in members if m.get("trait") == "ghost")
+            sl = sum(1 for m in members if m.get("trait") == "sloppy")
+            # heat accrues by cook speed (faster = hotter); ghosts cool it, sloppy stokes it
+            hmult = max(0.4, 1 - 0.25 * gh + 0.2 * sl)
+            lab["heat"] = lab.get("heat", 0) + drug["base_heat"] * DARK_BATCH_HEAT.get(speed, 1.3) * hmult
+            if p["id"] == watched_id:     # Marsh is documenting this exact spot — it heats up fast
+                lab["heat"] = min(120, lab["heat"] + DARK_WATCH_BONUS)
+            batch["days_left"] = batch.get("days_left", 1) - 1
+            if batch["days_left"] <= 0:                          # batch done — big drop of product
+                lab["product"] = lab.get("product", 0) + batch.get("yield", 0)
+                fee = round(DARK_CREW_FEE_PCT * batch.get("yield", 0) * drug.get("unit_value", 0))
+                lab["owed"] = fee; lab["owed_since"] = s["day"]; lab["temper"] = 0
+                d["cred_xp"] = d.get("cred_xp", 0) + batch.get("yield", 0)   # cooking builds rep too
+                events.append({"type": "info", "text": f"✅ Batch ready at the {p.get('type','lab')} — {batch.get('yield',0)} units of {drug['name']}. The crew wants their cut: ${fee:,}."})
+                lab["batch"] = None
+            if lab["heat"] >= DARK_SWAT_HEAT:
+                seized_ids.append(p["id"])
+                d["roster"] = [m for m in d.get("roster", []) if m.get("crew_id") != crew["id"]]   # crew arrested
+                d["crews"]  = [c for c in d.get("crews", []) if c["id"] != crew["id"]]
+                d["heat"]   = min(100, d.get("heat", 0) + 15)
+                events.append({"type": "negative", "text": f"🚨 SWATTED — the {p.get('type','house')} in {p.get('neighborhood','town')} got raided. The house, the lab, {lab.get('product',0)} units, and the whole crew — gone."})
+        elif p.get("rented"):
+            rented += 1
+    if seized_ids:
+        s["properties"] = [p for p in s["properties"] if p["id"] not in seized_ids]
+    if rented: d["heat"] = max(0, d.get("heat", 0) - rented * 3)
+    # ── Dealers work product into dirty money — and rack up their own heat ──
+    busted = []
+    for dl in d.get("dealers", []):
+        inv = dl.setdefault("inventory", {})
+        if dl.get("event"):          # dealer's got a problem — frozen until you handle it
+            continue
+        if lying:                    # laying low: corners go quiet, dealer cools
+            dl["heat"] = max(0, dl.get("heat", 0) - 14); continue
+        if dl.get("paused") or sum(inv.values()) <= 0:
+            dl["heat"] = max(0, dl.get("heat", 0) - 10)   # paused / idle: cools off
+            continue
+        to_sell = _dark_dealer_cap(d); sold_val = 0.0; sold_units = 0
+        for dk in list(inv.keys()):
+            if to_sell <= 0: break
+            take = min(inv[dk], to_sell)
+            if take <= 0: continue
+            uv = (DARK_DRUGS.get(dk) or {}).get("unit_value", 40)
+            sold_val += take * uv
+            inv[dk] -= take; sold_units += take; to_sell -= take
+            if inv[dk] <= 0: del inv[dk]
+        dl["held"] = dl.get("held", 0) + round(sold_val)
+        dl["heat"] = dl.get("heat", 0) + sold_units * 1.8
+        d["cred_xp"] = d.get("cred_xp", 0) + round(sold_val / 50)   # street rep grows as you move weight
+        if dl["heat"] >= 100: busted.append(dl)
+    for dl in busted:
+        d["dealers"] = [x for x in d.get("dealers", []) if x["id"] != dl["id"]]
+        d["heat"] = min(100, d.get("heat", 0) + 10)
+        events.append({"type": "negative", "text": f"🚔 BUSTED — your dealer {dl.get('name','?')} got picked up. ${dl.get('held',0):,} dirty money and their stash — seized."})
+    # ── Laundering — fronts wash dirty money into clean (needs a manager + a rate). ──
+    laundered = 0; biz = d.get("biz") or {}; launder = d.setdefault("launder", {})
+    for key, meta in DARK_LAUNDER.items():
+        if not biz.get(key): continue
+        ln = launder.setdefault(key, {"manager": False, "heat": 0, "rate": 0})
+        if ln.get("event"):          # front's got a situation — washing frozen until handled
+            continue
+        if lying:                    # laying low: front sits quiet, cools
+            ln["heat"] = max(0, ln.get("heat", 0) - 10); continue
+        if not ln.get("manager") or ln.get("rate", 0) <= 0:
+            ln["heat"] = max(0, ln.get("heat", 0) - 8)   # idle: cools off
+            continue
+        if s["cash"] < meta["wage"]:
+            ln["manager"] = False
+            events.append({"type": "warning", "text": f"💸 Couldn't make payroll — the {meta['name']} manager walked."})
+            continue
+        s["cash"] -= meta["wage"]   # daily upkeep
+        amount = min(d.get("dirty_money", 0), meta["cap"] * ln["rate"])
+        if amount > 0:
+            d["dirty_money"] -= amount; s["cash"] += amount; laundered += amount
+            ln["heat"] = ln.get("heat", 0) + (amount / meta["cap"]) * meta["heat_rate"]
+            d["cred_xp"] = d.get("cred_xp", 0) + round(amount / 250)   # clean money builds your standing
+        if ln["heat"] >= 100:
+            biz[key] = False; launder[key] = {"manager": False, "heat": 0, "rate": 0}
+            d["heat"] = min(100, d.get("heat", 0) + 12)
+            events.append({"type": "negative", "text": f"🚔 The {meta['name']} got raided — the laundering op and the business, gone."})
+    if laundered:
+        events.append({"type": "info", "text": f"🧼 Washed ${laundered:,} clean."})
+    bleed = _dark_heat_bleed(d)   # bent-cop perk (Distributor+) quietly cools your global heat
+    if bleed: d["heat"] = max(0, d.get("heat", 0) - bleed)
+    if lying: d["lying_low"] = False
+    # ── THE HUNT — only active once you've made a name (Street Cred 2+). Below that
+    # you're small-time: no case builds, giving new players room to get on their feet. ──
+    if d.get("cred", 1) < 2:
+        d["heat"] = 0   # stay off the radar while you're a nobody
+    else:
+        if lying:
+            d["heat"] = max(0, d.get("heat", 0) - 25)   # a quiet day cools the case hard
+        else:
+            op_heat = sum(p["lab"].get("heat", 0) for p in s["properties"] if p.get("lab"))
+            op_heat += sum(x.get("heat", 0) for x in d.get("dealers", []))
+            op_heat += sum(v.get("heat", 0) for v in (d.get("launder") or {}).values())
+            d["heat"] = min(100, d.get("heat", 0) + round(op_heat / 150))   # investigation creep
+        h = d.get("heat", 0)
+        if d.get("raid_in") is None:
+            if h >= DARK_RAID_THRESHOLD:
+                d["raid_in"] = DARK_RAID_DAYS
+                events.append({"type": "negative", "text": f"🚨 The Fixer: \"{DARK_DETECTIVE} is putting a raid together. You've got about {DARK_RAID_DAYS} days — cool it down or get ready.\""})
+        else:
+            if h < DARK_RAID_SAFE:
+                d["raid_in"] = None; d["lawyered"] = False; d["moved"] = False
+                events.append({"type": "info", "text": f"😮‍💨 The Fixer: \"The case fell apart — {DARK_DETECTIVE} backed off. You're clear, for now.\""})
+            else:
+                d["raid_in"] -= 1
+                if d["raid_in"] <= 0:
+                    _dark_do_raid(s, events)
+                else:
+                    events.append({"type": "warning", "text": f"🚨 Raid in {d['raid_in']} day{'s' if d['raid_in'] != 1 else ''} — {DARK_DETECTIVE} is closing in."})
+    _dark_hunt_watch(s, events)   # strip-club income always; Marsh's tailing only once the Hunt's live
+    s["day"] += 1
+    # Put-the-word-out refresh lands the next day with a fresh ~10 recruits.
+    if d.get("recruits_refresh_day") and s["day"] >= d["recruits_refresh_day"]:
+        d["recruits"] = _dark_gen_recruits(d, 10); d["recruits_refresh_day"] = None
+        events.append({"type": "info", "text": "📞 Word got around — fresh faces are looking for work (check the Crew tab)."})
+    # Rented homes pay clean rent weekly (cover income — no late pay, no trouble).
+    rent_got = 0
+    for p in s["properties"]:
+        t = p.get("tenant")
+        if p.get("rented") and t and t.get("rent") and t.get("next_pay", 0) <= s["day"]:
+            s["cash"] += t["rent"]; rent_got += t["rent"]; t["next_pay"] = s["day"] + 7
+    if rent_got:
+        events.append({"type": "info", "text": f"🏠 Rent day — collected ${rent_got:,} from your tenants."})
+    _dark_gen_home_market(s)   # fresh listings on the home market each day
+    # ── Roll a situation onto ONE active operation — it pauses until handled. ──
+    ent_pool = []
+    for p in s["properties"]:
+        lab = p.get("lab")
+        if lab and lab.get("crew_id") and not lab.get("event"):
+            ent_pool.append(("lab", lab, CREW_EVENTS))
+    for dl in d.get("dealers", []):
+        if not dl.get("event"):
+            ent_pool.append(("dealer", dl, DEALER_EVENTS))
+    for key in DARK_LAUNDER:
+        if biz.get(key):
+            ln = launder.setdefault(key, {"manager": False, "heat": 0, "rate": 0})
+            if not ln.get("event"):
+                ent_pool.append(("front", ln, LAUNDER_EVENTS[key]))
+    if ent_pool and random.random() < 0.45:
+        _, ent, pool = random.choice(ent_pool)
+        e = random.choice(pool)
+        ent["event"] = {"icon": e["i"], "text": e["t"], "choices": e["c"]}
+        events.append({"type": "warning", "text": f"{e['i']} Something's come up — one of your operations is paused until you handle it."})
+    # A general street situation that needs your call (global choice modal).
+    if not d.get("pending_event") and random.random() < 0.3:
+        pool = _dark_eligible_events(s)
+        if pool:
+            ev = random.choice(pool)
+            d["pending_event"] = {"key": ev["key"], "icon": ev["icon"], "text": ev["text"], "choices": ev["choices"]}
+    _dark_award_cred(s, events)   # rank up if the day's hustle pushed cred_xp over a threshold
+    # The Hunt switches on the first time you hit Street Cred 2 — one-time heads-up.
+    hunt_intro = False
+    if d.get("cred", 1) >= 2 and not d.get("hunt_introduced"):
+        d["hunt_introduced"] = True
+        hunt_intro = True
+    save(s)
+    return jsonify({"ok": True, "events": events, "hunt_intro": hunt_intro})
+
+@app.route('/api/dark/resolve_entity_event', methods=['POST'])
+def api_dark_resolve_entity_event():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; data = request.json or {}
+    kind = data.get("kind"); ref = data.get("ref"); idx = data.get("choice", 0)
+    ent = None
+    if kind == "lab":
+        p = next((x for x in s["properties"] if x.get("id") == ref), None)
+        ent = p.get("lab") if p else None
+    elif kind == "dealer":
+        ent = next((x for x in d.get("dealers", []) if x["id"] == ref), None)
+    elif kind == "front":
+        ent = (d.get("launder") or {}).get(ref)
+    if not ent or not ent.get("event"): return jsonify({"error": "Nothing to handle."}), 400
+    choices = ent["event"].get("choices", [])
+    if not isinstance(idx, int) or idx < 0 or idx >= len(choices): return jsonify({"error": "Pick an option."}), 400
+    label, result, eff = choices[idx][0], choices[idx][1], (choices[idx][2] or {})
+    s["cash"] = max(0, s["cash"] + eff.get("cash", 0))
+    d["dirty_money"] = max(0, d.get("dirty_money", 0) + eff.get("dirty", 0))
+    d["heat"] = max(0, min(100, d.get("heat", 0) + eff.get("heat", 0)))
+    if "eheat" in eff:
+        ent["heat"] = max(0, min(100, ent.get("heat", 0) + eff["eheat"]))
+    sp = eff.get("s"); removed = False
+    if sp == "lose_crew" and kind == "lab":
+        crew = _dark_crew_by_id(d, ent.get("crew_id")); members = _dark_crew_members(d, crew) if crew else []
+        if members:
+            gone = random.choice(members); d["roster"] = [m for m in d.get("roster", []) if m["id"] != gone["id"]]
+    elif sp == "lose_product" and kind == "lab":
+        ent["product"] = ent.get("product", 0) // 2
+    elif sp == "bonus_product" and kind == "lab":
+        ent["product"] = ent.get("product", 0) + 15
+    elif sp == "lose_held" and kind == "dealer":
+        ent["held"] = 0
+    elif sp == "free_supplies":
+        pool = [k for k, dm in DARK_DRUGS.items() if dm["cred_req"] <= d.get("cred", 1)]
+        if pool:
+            k = random.choice(pool); d.setdefault("supplies", {})[k] = d.get("supplies", {}).get(k, 0) + 1
+    elif sp == "bust" and kind == "dealer":
+        d["dealers"] = [x for x in d.get("dealers", []) if x["id"] != ref]; removed = True
+    if not removed:
+        ent["event"] = None
+    save(s)
+    return jsonify({"ok": True, "result": result})
+
+@app.route('/api/dark/resolve_event', methods=['POST'])
+def api_dark_resolve_event():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; ev = d.get("pending_event")
+    if not ev: return jsonify({"error": "Nothing to resolve."}), 400
+    idx = (request.json or {}).get("choice", 0)
+    choices = ev.get("choices", [])
+    if not isinstance(idx, int) or idx < 0 or idx >= len(choices): return jsonify({"error": "Pick an option."}), 400
+    ch = choices[idx]; eff = ch.get("effects", {})
+    s["cash"] = max(0, s["cash"] + eff.get("cash", 0))
+    d["dirty_money"] = max(0, d.get("dirty_money", 0) + eff.get("dirty_money", 0))
+    d["heat"] = max(0, min(100, d.get("heat", 0) + eff.get("heat", 0)))
+    sp = ch.get("special")
+    if sp == "lose_crew_member":
+        roster = d.get("roster", [])
+        if roster:
+            gone = random.choice(roster)
+            d["roster"] = [x for x in roster if x["id"] != gone["id"]]
+    elif sp == "dealer_lose_held":
+        holders = [x for x in d.get("dealers", []) if x.get("held", 0) > 0]
+        if holders: random.choice(holders)["held"] = 0
+    elif sp == "free_supplies":
+        pool = [k for k, dm in DARK_DRUGS.items() if dm["cred_req"] <= d.get("cred", 1)]
+        if pool:
+            k = random.choice(pool); d.setdefault("supplies", {})[k] = d.get("supplies", {}).get(k, 0) + 1
+    d["pending_event"] = None
+    save(s)
+    return jsonify({"ok": True, "result": ch.get("result", "")})
 
 @app.route('/api/market', methods=['GET', 'POST'])
 def api_market():
@@ -9104,6 +10337,23 @@ def api_redeem_code():
             "text": f"Bad language in the code box — lost ${stolen:,}"})
         save(s)
         return jsonify({"success": True, "reward_desc": msg, "cash_after": 0})
+    # ── Dark-only codes — only redeemable while you're off the books ────────────
+    if code in DARK_CREATOR_CODES:
+        if s.get("mode") != "dark":
+            return jsonify({"error": "Invalid code — try again!"}), 400   # stays secret in the legit game
+        if code in s.get("redeemed_codes", []):
+            return jsonify({"error": "Code already used!"}), 400
+        rw = DARK_CREATOR_CODES[code]; d = s.setdefault("dark", {})
+        if "cred" in rw:
+            d["cred"] = rw["cred"]; d["cred_xp"] = rw.get("xp", d.get("cred_xp", 0))
+        if "dirty" in rw:
+            d["dirty_money"] = d.get("dirty_money", 0) + rw["dirty"]
+        if "cash" in rw:
+            s["cash"] = s.get("cash", 0) + rw["cash"]
+        s.setdefault("redeemed_codes", []).append(code)
+        s["log"].insert(0, {"day": s["day"], "type": "info", "text": f"Dark code — {rw['desc']}"})
+        save(s)
+        return jsonify({"success": True, "reward_desc": rw["desc"]})
     if code not in CREATOR_CODES:
         return jsonify({"error": "Invalid code — try again!"}), 400
     redeemed = s.get("redeemed_codes", [])

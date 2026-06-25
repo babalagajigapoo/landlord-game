@@ -396,6 +396,7 @@ async function refreshState() {
     // Otherwise: continueFromEvents or closeModal will pick it up
   }
   if (typeof applyGameMode === 'function') applyGameMode();   // dark-mode router (separate module)
+  if (typeof DARK !== 'undefined' && DARK.maybeOffer) DARK.maybeOffer();   // Level-11 dark-side dilemma
 }
 
 async function loadMarket() {
@@ -11950,7 +11951,7 @@ function renderSettings() {
       <div id="creator-code-msg" style="font-size:13px;margin-top:8px;min-height:18px"></div>
     </div>
 
-    <div class="card" style="margin-top:12px">
+    <div class="card" id="settings-danger-zone" style="margin-top:12px">
       <div style="font-size:14px;font-weight:800;margin-bottom:8px">⚠️ Danger Zone</div>
       <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">This will permanently erase all progress and start a fresh game.</p>
       <button class="btn btn-danger btn-full" onclick="confirmReset()">${pxIcon('🗑',16)} Start New Game</button>
@@ -12326,6 +12327,8 @@ function closeModal() {
     const lvl   = _pendingLevelUp;
     _pendingLevelUp = null;
     setTimeout(() => showLevelUpModal(lvl), 80);
+  } else if (typeof DARK !== 'undefined' && DARK.maybeOffer) {
+    setTimeout(() => DARK.maybeOffer(), 90);   // once the last modal's closed, the Level-11 deal can knock
   }
 }
 
