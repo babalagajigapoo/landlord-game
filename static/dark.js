@@ -1488,7 +1488,7 @@ const DARK = {
     .dk-soon-tag{font-size:9px;font-weight:800;color:#C0392B;text-transform:uppercase;letter-spacing:0.5px}
     .dk-soon-title{font-size:13px;font-weight:800;margin-top:3px}
     .dk-wake{width:100%;margin-top:18px;background:none;border:1px solid #3a2024;color:#9a8a8a;padding:12px;border-radius:10px;font-size:13px;cursor:pointer;line-height:1.4}
-    .dk-nav{flex-shrink:0;display:flex;background:#0a0506;border-top:1px solid #2a1418}
+    .dk-nav{flex-shrink:0;display:flex;background:#0a0506;border-top:1px solid #2a1418;padding-bottom:env(safe-area-inset-bottom,0px)}
     .dk-nav-btn{flex:1;background:none;border:none;color:#7a6a6a;padding:8px 2px 9px;font-size:10px;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;border-top:2px solid transparent;-webkit-tap-highlight-color:transparent}
     .dk-nav-ic{font-size:20px;line-height:1}
     .dk-nav-btn.active{color:#fff;border-top-color:#C0392B;background:linear-gradient(180deg,rgba(192,57,43,0.18),transparent)}
@@ -1787,7 +1787,7 @@ function applyGameMode() {
       document.head.appendChild(st);
     }
     if (DARK._inSettings) { root.style.display = 'none'; return; }   // viewing the real settings page — keep the overlay tucked away (survives refreshState)
-    root.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;height:100vh;z-index:9000;background:#0c0608;display:flex;justify-content:center';
+    root.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;height:100vh;height:100dvh;z-index:9000;background:#0c0608;display:flex;justify-content:center';
     root.innerHTML = DARK.render();
   } else {
     root.style.display = 'none';
