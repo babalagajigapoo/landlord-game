@@ -4639,7 +4639,11 @@ def _migrate_state(s):
         dk.setdefault("lawyered", False); dk.setdefault("moved", False); dk.setdefault("lying_low", False)
         dk.setdefault("watch", None); dk.setdefault("watch_known", False)
         dk.setdefault("watch_quiet", 0); dk.setdefault("watch_since", 0); dk.setdefault("vip", False)
-        dk.setdefault("hunt_introduced", False); dk.setdefault("cook_day", None)
+        dk.setdefault("hunt_introduced", False); dk.setdefault("cook_day", None); dk.setdefault("cooks_today", 0)
+        dk.setdefault("fixer_washed_day", None); dk.setdefault("fixer_washed", 0)
+        dk.setdefault("debt_active", False); dk.setdefault("debt_balance", 0); dk.setdefault("year_take", 0)
+        dk.setdefault("debt_bill", 0); dk.setdefault("debt_paid", 0); dk.setdefault("debt_bill_year", None)
+        dk.setdefault("debt_first_year", None); dk.setdefault("fixer_event", None)
         dk.setdefault("stash", {}); dk.setdefault("dealers", []); dk.setdefault("next_dealer_id", 1)
         dk.setdefault("home_market", []); dk.setdefault("homes_bought", 0)
         if "biz" not in dk:
@@ -4910,6 +4914,18 @@ DARK_SELFCOOK = {"reggie": 12, "beans": 12, "soft": 14, "hard": 15, "glass": 16,
 # A hand-cook costs a little CLEAN cash for ingredients (~30% of a perfect batch's street
 # value) — NOT a Fence supply (those are for crew batches). Limited to once per day.
 DARK_SELFCOOK_COST = {"reggie": 150, "beans": 325, "soft": 675, "hard": 1250, "glass": 2300, "tar": 4300}
+DARK_SELFCOOK_PER_DAY = 3   # hand-cooks allowed per day
+DARK_FIXER_WASH_CAP = 8000  # most the Fixer will quick-wash per day
+DARK_FIXER_CUT = 0.15       # the Fixer's cut on a quick wash
+# The Fixer's debt — triggered at Pusher (cred 3). A looming $1B you can never clear;
+# each year he takes a cut of your GROSS take, locked on Winter 1, due Winter 28.
+DARK_DEBT_TOTAL = 1_000_000_000
+DARK_DEBT_RATE  = 0.15      # yearly bill = this × your gross take that year
+DARK_DEBT_MISS_MULT = 1.10  # miss the deadline → total debt grows by this
+
+def _dark_season(day):
+    yd = (day - 1) % 112
+    return yd // 28, (yd % 28) + 1, (day - 1) // 112 + 1   # (seasonIdx 0-3 Spring..Winter, seasonDay 1-28, year)
 
 # ── Street Cred — the Kingpin rank ladder. `cred` (1–10) is your reputation level,
 # earned by moving product + washing money (cred_xp). Each rank is a perk; the drug
@@ -4971,6 +4987,33 @@ def _dark_award_cred(s, events):
         for lvl in range(before + 1, after + 1):
             r = _dark_rank(lvl)
             events.append({"type": "info", "text": f"📈 The Fixer: \"They're calling you a {r['name']} now.\" — {r['perk']}"})
+        if after >= 3 and not d.get("debt_active"):     # Pusher → the Fixer calls in the marker
+            d["debt_active"] = True
+            d["debt_balance"] = DARK_DEBT_TOTAL
+            d["year_take"] = 0
+            seasonIdx, _, year = _dark_season(s.get("day", 1))
+            d["debt_first_year"] = year + 1 if seasonIdx == 3 else year   # hit Pusher in Winter → first bill is next year
+            d["fixer_event"] = {"kind": "intro"}
+
+def _dark_debt_tick(s, events):
+    """Per advanced day: settle last year's bill when the year rolls, lock the new one on Winter 1."""
+    d = s["dark"]
+    if not d.get("debt_active"): return
+    seasonIdx, seasonDay, year = _dark_season(s.get("day", 1))
+    by = d.get("debt_bill_year")
+    if by is not None and year > by:                    # crossed past that bill's Winter 28 → settle
+        if d.get("debt_paid", 0) < d.get("debt_bill", 0):
+            d["debt_balance"] = round(d.get("debt_balance", 0) * DARK_DEBT_MISS_MULT)
+            lost_dirty = d.get("dirty_money", 0); lost_units = sum((d.get("stash") or {}).values())
+            d["dirty_money"] = 0; d["stash"] = {}
+            d["fixer_event"] = {"kind": "goons", "dirty": lost_dirty, "units": lost_units, "balance": d["debt_balance"]}
+            events.append({"type": "negative", "text": "💢 You came up short — the Fixer's goons cleaned you out (all dirty money + stash gone)."})
+        d["debt_bill"] = 0; d["debt_paid"] = 0; d["debt_bill_year"] = None
+    if seasonIdx == 3 and seasonDay == 1 and d.get("debt_bill_year") is None and year >= (d.get("debt_first_year") or year):
+        bill = round(DARK_DEBT_RATE * d.get("year_take", 0))      # lock 15% of this year's gross take
+        d["debt_bill"] = bill; d["debt_paid"] = 0; d["debt_bill_year"] = year; d["year_take"] = 0
+        d["fixer_event"] = {"kind": "warn", "bill": bill}
+        events.append({"type": "warning", "text": f"🕴️ The Fixer wants his cut: ${bill:,} by Winter 28. Don't be short."})
 
 def _dark_do_raid(s, events):
     """The raid lands. Seizes your hottest lab + hottest dealer + loose cash/stash,
@@ -5611,14 +5654,17 @@ def api_dark_self_cook():
     if not p or not dm: return jsonify({"error": "Bad cook."}), 400
     if p.get("lab") or p.get("rented"): return jsonify({"error": "You can only hand-cook in a vacant house."}), 400
     if dm["cred_req"] > d.get("cred", 1): return jsonify({"error": f"{dm['name']} unlocks at Street Cred {dm['cred_req']}."}), 400
-    if d.get("cook_day") == s.get("day"): return jsonify({"error": "You've already cooked by hand today — come back tomorrow."}), 400
+    today = s.get("day")
+    if d.get("cook_day") != today: d["cook_day"] = today; d["cooks_today"] = 0   # new day → reset the counter
+    if d.get("cooks_today", 0) >= DARK_SELFCOOK_PER_DAY:
+        return jsonify({"error": f"You've cooked all {DARK_SELFCOOK_PER_DAY} of today's hand-batches — come back tomorrow."}), 400
     cost = DARK_SELFCOOK_COST.get(drug, 200)
     if s["cash"] < cost: return jsonify({"error": f"Need ${cost:,} for ingredients."}), 400
     try: score = float(data.get("score", 0))
     except (TypeError, ValueError): score = 0.0
     score = max(0.0, min(1.0, score)); botched = bool(data.get("botched"))
     s["cash"] -= cost                          # pay for ingredients (clean cash)
-    d["cook_day"] = s.get("day")               # one hand-cook per day
+    d["cooks_today"] = d.get("cooks_today", 0) + 1
     units = 0 if botched else max(1, round(DARK_SELFCOOK.get(drug, 10) * score))
     if units > 0:
         _dark_stash_add(d, drug, units)
@@ -5626,7 +5672,53 @@ def api_dark_self_cook():
     d["heat"] = min(100, d.get("heat", 0) + max(2, round(dm["base_heat"] * 0.7)))   # a hand-cook leaves a trace
     save(s)
     return jsonify({"ok": True, "yield": units, "botched": botched, "drug": drug, "cost": cost,
-                    "cash": s["cash"], "cook_day": d["cook_day"], "stash": d.get("stash", {})})
+                    "cash": s["cash"], "cook_day": d["cook_day"], "cooks_today": d["cooks_today"],
+                    "left": max(0, DARK_SELFCOOK_PER_DAY - d["cooks_today"]), "stash": d.get("stash", {})})
+
+@app.route('/api/dark/fixer_wash', methods=['POST'])
+def api_dark_fixer_wash():
+    # The Fixer's quick-wash: instant dirty→clean, no front needed, but he takes a cut and
+    # caps how much he'll handle per day. (His "help" early is the hook for the debt later.)
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; today = s.get("day")
+    if d.get("fixer_washed_day") != today: d["fixer_washed_day"] = today; d["fixer_washed"] = 0
+    remaining = max(0, DARK_FIXER_WASH_CAP - d.get("fixer_washed", 0))
+    amount = min(d.get("dirty_money", 0), remaining)
+    if amount <= 0:
+        if d.get("dirty_money", 0) <= 0: return jsonify({"error": "No dirty money to wash."}), 400
+        return jsonify({"error": "The Fixer's washed all he will for you today — come back tomorrow."}), 400
+    clean = int(round(amount * (1 - DARK_FIXER_CUT)))
+    d["dirty_money"] -= amount; s["cash"] += clean; d["fixer_washed"] = d.get("fixer_washed", 0) + amount
+    save(s)
+    return jsonify({"ok": True, "washed": amount, "clean": clean, "cut": amount - clean,
+                    "cap_left": max(0, DARK_FIXER_WASH_CAP - d["fixer_washed"]),
+                    "cash": s["cash"], "dirty_money": d["dirty_money"]})
+
+@app.route('/api/dark/pay_fixer', methods=['POST'])
+def api_dark_pay_fixer():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; owed = d.get("debt_bill", 0) - d.get("debt_paid", 0)
+    if not d.get("debt_active") or d.get("debt_bill_year") is None or owed <= 0:
+        return jsonify({"error": "Nothing's due to the Fixer right now."}), 400
+    pay = min(s["cash"], owed)
+    if pay <= 0: return jsonify({"error": "You're tapped out — no clean cash to pay him."}), 400
+    s["cash"] -= pay
+    d["debt_paid"] = d.get("debt_paid", 0) + pay
+    d["debt_balance"] = max(0, d.get("debt_balance", 0) - pay)
+    save(s)
+    return jsonify({"ok": True, "paid": pay, "settled": d["debt_paid"] >= d.get("debt_bill", 0),
+                    "cash": s["cash"], "debt_paid": d["debt_paid"], "debt_bill": d.get("debt_bill", 0),
+                    "debt_balance": d["debt_balance"]})
+
+@app.route('/api/dark/ack_fixer', methods=['POST'])
+def api_dark_ack_fixer():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    s["dark"]["fixer_event"] = None   # dismiss the story-beat modal
+    save(s)
+    return jsonify({"ok": True})
 
 @app.route('/api/dark/hire_dealer', methods=['POST'])
 def api_dark_hire_dealer():
@@ -5698,6 +5790,7 @@ def api_dark_sling():
     if d["stash"][drug] <= 0: d["stash"].pop(drug, None)
     d["dirty_money"] = d.get("dirty_money", 0) + price
     d["cred_xp"] = d.get("cred_xp", 0) + round(price / 40)   # active selling pays a bit more rep/$
+    d["year_take"] = d.get("year_take", 0) + price           # gross take → the Fixer's cut
     msgs = []
     _dark_award_cred(s, msgs)
     save(s)
@@ -5873,6 +5966,7 @@ def api_dark_advance():
         dl["held"] = dl.get("held", 0) + round(sold_val)
         dl["heat"] = dl.get("heat", 0) + sold_units * 1.8
         d["cred_xp"] = d.get("cred_xp", 0) + round(sold_val / 50)   # street rep grows as you move weight
+        d["year_take"] = d.get("year_take", 0) + round(sold_val)    # gross take → counts toward the Fixer's cut
         if dl["heat"] >= 100: busted.append(dl)
     for dl in busted:
         d["dealers"] = [x for x in d.get("dealers", []) if x["id"] != dl["id"]]
@@ -5949,6 +6043,7 @@ def api_dark_advance():
         if p.get("rented") and t and t.get("rent") and t.get("next_pay", 0) <= s["day"]:
             s["cash"] += t["rent"]; rent_got += t["rent"]; t["next_pay"] = s["day"] + 7
     if rent_got:
+        d["year_take"] = d.get("year_take", 0) + rent_got   # rent counts toward the Fixer's cut too
         events.append({"type": "info", "text": f"🏠 Rent day — collected ${rent_got:,} from your tenants."})
     _dark_gen_home_market(s)   # fresh listings on the home market each day
     # ── Roll a situation onto ONE active operation — it pauses until handled. ──
@@ -5977,6 +6072,7 @@ def api_dark_advance():
             ev = random.choice(pool)
             d["pending_event"] = {"key": ev["key"], "icon": ev["icon"], "text": ev["text"], "choices": ev["choices"]}
     _dark_award_cred(s, events)   # rank up if the day's hustle pushed cred_xp over a threshold
+    _dark_debt_tick(s, events)    # the Fixer's yearly cut: lock on Winter 1, settle on the year-roll
     # The Hunt switches on the first time you hit Street Cred 2 — one-time heads-up.
     hunt_intro = False
     if d.get("cred", 1) >= 2 and not d.get("hunt_introduced"):

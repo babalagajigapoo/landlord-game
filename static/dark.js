@@ -498,7 +498,73 @@ const DARK = {
     </div>`;
     el.style.display = 'flex';
   },
-  closeDayModal() { const el = document.getElementById('dk-day-modal'); if (el) el.remove(); },
+  closeDayModal() { const el = document.getElementById('dk-day-modal'); if (el) el.remove(); this.checkFixer(); },
+
+  // ── The Fixer's debt ────────────────────────────────────────────────────────
+  debtPanel() {
+    const d = state.dark || {};
+    if (!d.debt_active) return '';
+    const cal = (typeof getSeasonInfo === 'function') ? getSeasonInfo(state.day || 1) : { name: '', seasonDay: 1, year: 1 };
+    const bal = d.debt_balance || 0, bill = d.debt_bill || 0, paid = d.debt_paid || 0, owed = Math.max(0, bill - paid);
+    const billActive = (d.debt_bill_year === cal.year) && bill > 0;
+    let body;
+    if (billActive && owed > 0) {
+      const daysLeft = Math.max(0, 28 - cal.seasonDay), tooPoor = (state.cash || 0) <= 0;
+      body = `<div class="dk-pline" style="color:#E0533D">Due by Winter 28: <b>${fmt(owed)}</b></div>
+        <div class="dk-muted2" style="font-size:11px;margin-top:2px">${daysLeft} ${daysLeft === 1 ? 'day' : 'days'} left — come up short and the goons take it all.</div>
+        <button class="dk-mini ${tooPoor ? 'dk-buy-off' : ''}" style="width:100%;margin-top:8px;background:#C0392B;border-color:#C0392B;color:#fff" ${tooPoor ? 'disabled' : 'onclick="DARK.payFixer()"'}>💵 Pay the Fixer ${fmt(Math.min(state.cash || 0, owed))}</button>`;
+    } else if (billActive) {
+      body = `<div class="dk-muted" style="color:#4CAF50;margin-top:4px">✅ Square with the Fixer this year.</div>`;
+    } else {
+      body = `<div class="dk-muted" style="margin-top:4px">He's tallying your take. His cut comes due on <b>Winter 1</b> — you won't know the number until then.</div>`;
+    }
+    const strike = (d.cred || 1) >= 10
+      ? `<button class="dk-mini" style="width:100%;margin-top:9px;opacity:.8" disabled>⚔️ Strike Back at the Fixer <span class="dk-muted2">· coming soon</span></button>` : '';
+    return `
+      ${this.sectionTitle("The Fixer's Debt")}
+      <div class="dk-card dk-pcard" style="border-color:#7A1A1E">
+        <div class="dk-phead"><div class="dk-row-ic">🕴️</div>
+          <div class="dk-row-main"><div class="dk-row-title">The House always collects</div><div class="dk-muted">You owe <b style="color:#E0533D">${fmt(bal)}</b></div></div></div>
+        ${body}${strike}
+      </div>`;
+  },
+  async payFixer() {
+    const r = await api('/dark/pay_fixer', 'POST');
+    if (r.error) { toast(r.error, 'error'); return; }
+    if (typeof sfx === 'object' && sfx.cash) sfx.cash();
+    await refreshState(); this.rerender();
+    toast(r.settled ? `Paid the Fixer ${fmt(r.paid)} — square for the year. 🤝` : `Paid ${fmt(r.paid)} — still owe ${fmt((r.debt_bill || 0) - (r.debt_paid || 0))}.`, r.settled ? 'success' : 'info');
+  },
+  checkFixer() {
+    const d = state.dark; if (!d || !d.fixer_event || this._fixerOpen) return;
+    if (document.getElementById('dk-day-modal') || document.getElementById('dk-hunt-intro')) return;   // let the recap finish first
+    this.showFixerEvent(d.fixer_event);
+  },
+  showFixerEvent(ev) {
+    this._fixerOpen = true;
+    let icon = '🕴️', body = '';
+    if (ev.kind === 'intro') {
+      icon = '🕴️';
+      body = `<b style="font-size:15px">Well, well. Look who made <span style="color:#C0392B">Pusher</span>.</b><br><br>"Knew you had it in you. Which means it's time we talked about what you owe me." He taps the contract — Article V, circled in red.<br><br>You owe the House <b>${fmt(1000000000)}</b>. You'll never clear it — that's rather the point. Every year, on <b>Winter 1</b>, I'll name my cut: <b>15% of everything you made</b>. Have it by <b>Winter 28</b>… or my boys come collect.`;
+    } else if (ev.kind === 'warn') {
+      body = `<b style="font-size:15px">"Time to settle up."</b><br><br>The Fixer wants <b style="color:#E0533D">${fmt(ev.bill || 0)}</b> by <b>Winter 28</b>. Pay him from the Cash tab — and don't come up short.`;
+    } else if (ev.kind === 'goons') {
+      icon = '💢';
+      body = `<b style="font-size:15px">You came up short.</b><br><br>The Fixer doesn't do patience. His goons caught you in the open — took <b>${fmt(ev.dirty || 0)}</b> in dirty money and <b>${ev.units || 0} units</b> of product, and left you something to remember.<br><br>Your debt's grown to <b style="color:#E0533D">${fmt(ev.balance || 0)}</b>.`;
+    }
+    let el = document.getElementById('dk-fixer-modal'); if (!el) { el = document.createElement('div'); el.id = 'dk-fixer-modal'; document.body.appendChild(el); }
+    el.className = 'dk-evt-overlay'; el.style.zIndex = '9750';
+    el.innerHTML = `<div class="dk-evt-card"><div class="dk-evt-icon">${icon}</div>
+      <div class="dk-evt-text" style="text-align:left">${body}</div>
+      <div class="dk-evt-choices"><button class="dk-evt-choice" onclick="DARK.ackFixer()">${ev.kind === 'goons' ? 'Damn it.' : ev.kind === 'intro' ? 'I hear you.' : 'Got it.'}</button></div></div>`;
+    el.style.display = 'flex';
+  },
+  ackFixer() {
+    this._fixerOpen = false;
+    const el = document.getElementById('dk-fixer-modal'); if (el) el.remove();
+    if (state.dark) state.dark.fixer_event = null;
+    api('/dark/ack_fixer', 'POST');
+  },
 
   // ── Crew forming + lab management ──────────────────────────────────────────
   _sel: [],        // member ids selected while forming a crew
@@ -853,6 +919,13 @@ const DARK = {
     if (r.error) { toast(r.error, 'error'); return; }
     if (typeof sfx === 'object' && sfx.purchase) sfx.purchase();
     await refreshState(); this.rerender(); toast('New house on the books. 🏠', 'success');
+  },
+  async fixerWash() {
+    const r = await api('/dark/fixer_wash', 'POST');
+    if (r.error) { toast(r.error, 'error'); return; }
+    if (typeof sfx === 'object' && sfx.cash) sfx.cash();
+    await refreshState(); this.rerender();
+    toast(`The Fixer washed ${fmt(r.washed)} → ${fmt(r.clean)} clean (his cut: ${fmt(r.cut)}). 🧼`, 'success');
   },
   async hireManager(front) {
     const r = await api('/dark/hire_manager', 'POST', { front });
@@ -1316,15 +1389,17 @@ const DARK = {
   openCookPicker(propId) { this._cookFor = (this._cookFor === propId ? null : propId); this._labFor = null; this._rentFor = null; this.rerender(); },
   cookPicker(p) {
     const d = state.dark || {}, cred = d.cred || 1, cash = state.cash || 0;
-    if (d.cook_day === state.day) {
-      return `<div style="margin-top:9px;border-top:1px solid #3a2024;padding-top:9px"><div class="dk-muted">👨‍🍳 You've already cooked by hand today — advance a day to cook again.</div></div>`;
+    const PER_DAY = 3;
+    const left = (d.cook_day === state.day) ? Math.max(0, PER_DAY - (d.cooks_today || 0)) : PER_DAY;
+    if (left <= 0) {
+      return `<div style="margin-top:9px;border-top:1px solid #3a2024;padding-top:9px"><div class="dk-muted">👨‍🍳 You've cooked all 3 of today's hand-batches — advance a day to cook again.</div></div>`;
     }
     const rows = this.DRUGS.map(dr => {
       const cost = this.COOK_COST[dr.key] || 0, locked = cred < dr.cred, poor = cash < cost, can = !locked && !poor;
       return `<button class="dk-rate ${can ? '' : 'dk-buy-off'}" style="flex:0 0 auto;padding:7px 9px" ${can ? `onclick="DARK.startCook(${p.id},'${dr.key}')"` : 'disabled'}>${dr.icon} ${dr.name}${locked ? ` 🔒${dr.cred}` : ` <span class="dk-muted2">${fmt(cost)}</span>`}</button>`;
     }).join('');
     return `<div style="margin-top:9px;border-top:1px solid #3a2024;padding-top:9px">
-      <div class="dk-muted" style="margin-bottom:6px">Cook by hand — <b>once a day</b>. Costs a little cash for ingredients; product goes straight to your stash. No crew, no cut.</div>
+      <div class="dk-muted" style="margin-bottom:6px">Cook by hand — <b>${left} ${left === 1 ? 'cook' : 'cooks'} left today</b> (3/day). Costs a little cash for ingredients; product goes straight to your stash. No crew, no cut.</div>
       <div class="dk-rates" style="flex-wrap:wrap;gap:6px">${rows}</div></div>`;
   },
   startCook(propId, drug) { this._cookFor = null; if (typeof sfx === 'object' && sfx.tap) sfx.tap(); COOK.open(propId, drug); },
@@ -1375,6 +1450,11 @@ const DARK = {
         <button class="dk-mini-x" onclick="DARK.fireManager('${key}')">Let the manager go</button>
       </div>`;
     };
+    const fday = (d.fixer_washed_day === state.day) ? (d.fixer_washed || 0) : 0;
+    const fLeft = Math.max(0, 8000 - fday);
+    const fAmt = Math.min(d.dirty_money || 0, fLeft);
+    const fNet = Math.round(fAmt * 0.85);
+    const fOk = fAmt > 0;
     return `
       ${this.sectionTitle('Cash')}
       <div class="dk-grid2">
@@ -1382,9 +1462,17 @@ const DARK = {
         ${this.stat('🧼 Dirty Money', fmt(d.dirty_money || 0), '#E0533D')}
       </div>
       <div class="dk-card" style="margin-top:10px">
-        <p class="dk-p">Dirty money's useless until it's washed. Run it through a front (needs a dirty manager) — but every dollar cleaned heats the place up. Too hot and it gets raided.</p>
+        <p class="dk-p">Dirty money's useless until it's washed. No front yet? The Fixer will wash it for you — for a cut.</p>
       </div>
-      ${this.sectionTitle('Laundering')}
+      ${this.debtPanel()}
+      ${this.sectionTitle("The Fixer's Quick-Wash")}
+      <div class="dk-card dk-pcard">
+        <div class="dk-phead"><div class="dk-row-ic">🕴️</div>
+          <div class="dk-row-main"><div class="dk-row-title">The Fixer</div><div class="dk-muted">Instant, no front needed. He takes <b>15%</b> · up to <b>${fmt(8000)}/day</b>.</div></div></div>
+        <div class="dk-muted2" style="margin-top:7px;font-size:11px">${fmt(fLeft)} left to wash with him today</div>
+        <button class="dk-mini ${fOk ? '' : 'dk-buy-off'}" style="width:100%;margin-top:8px" ${fOk ? 'onclick="DARK.fixerWash()"' : 'disabled'}>${fOk ? `🧼 Wash ${fmt(fAmt)} → get ${fmt(fNet)}` : ((d.dirty_money || 0) <= 0 ? 'No dirty money to wash' : 'Maxed out with the Fixer today')}</button>
+      </div>
+      ${this.sectionTitle('Laundering Fronts')}
       ${frontCard('laundromat')}${frontCard('car_wash')}${frontCard('pizzeria')}
       ${this.soon('The Underworld Bank', 'Loan shark, offshore shells, street rep. Coming soon.')}
     `;
@@ -1421,6 +1509,12 @@ const DARK = {
 
   css() {
     return `
+    /* Mobile: stop taps/holds/drags from highlighting text or popping the iOS copy-paste bubble */
+    body.dark-mode, body.dark-mode *, .dk-evt-overlay, .dk-evt-overlay *, .dkck-ov, .dkck-ov * {
+      -webkit-user-select:none; -moz-user-select:none; -ms-user-select:none; user-select:none;
+      -webkit-touch-callout:none;
+    }
+    #dkckS, #ckcS, #dk-sl-area, .dk-sl-cust, .dk-sl-bar, .dk-sl-deal{touch-action:none}
     .dk-app{max-width:480px;width:100%;height:100%;display:flex;flex-direction:column;background:#0c0608;color:#e8d9d9;font-family:'Inter',sans-serif}
     .dk-header{flex-shrink:0;padding:12px 14px 10px;background:linear-gradient(150deg,#3A0E10,#7A1A1E);border-bottom:2px solid #C0392B}
     .dk-brand{font-family:'Rubik Dirt',cursive;font-size:17px;color:#fff;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
@@ -1625,7 +1719,7 @@ const COOK = {
               {t:'mash',label:'Pull the tar',sub:'Mash to fold and pull it to consistency.',icon:'🛢️',col:'#5e3d22',dur:4200} ] },
   loop: null, timers: [], winUp: null, prop: null, drug: null, sIdx: 0, scores: [], steps: [],
   clamp(v, a, b) { return Math.max(a, Math.min(b, v)); },
-  stop() { if (this.loop) cancelAnimationFrame(this.loop); this.loop = null; this.timers.forEach(clearTimeout); this.timers = []; if (this.winUp) { window.removeEventListener('pointerup', this.winUp); this.winUp = null; } },
+  stop() { if (this.loop) cancelAnimationFrame(this.loop); this.loop = null; this.timers.forEach(clearTimeout); this.timers = []; if (this.winUp) { window.removeEventListener('pointerup', this.winUp); this.winUp = null; } if (this.stage) { this.stage.onpointerdown = null; this.stage.onpointermove = null; this.stage.onpointerup = null; } },
   tlater(f, t) { var id = setTimeout(f, t); this.timers.push(id); return id; },
   btn(txt, fn, sec) { var b = document.createElement('button'); b.className = 'dk-evt-choice'; if (sec) b.style.background = '#3a2024'; b.textContent = txt; b.onpointerdown = function(e){e.preventDefault();}; b.onclick = fn; return b; },
   progbar(color) { var bar = document.createElement('div'); bar.className = 'dkck-bar'; bar.innerHTML = '<i></i>'; if (color) bar.firstChild.style.background = color; this.stage.appendChild(bar); return bar.firstChild; },
@@ -1665,6 +1759,7 @@ const COOK = {
     if (r.stash) state.dark.stash = r.stash;          // patch locally so the result + UI are right…
     if (typeof r.cash === 'number') state.cash = r.cash;   // …without depending on a full state refresh
     if (typeof r.cook_day !== 'undefined') state.dark.cook_day = r.cook_day;
+    if (typeof r.cooks_today === 'number') state.dark.cooks_today = r.cooks_today;
     this.showResult(r, avg);
   },
   showResult(r, avg) {
@@ -1684,7 +1779,7 @@ const COOK = {
     this.stage.innerHTML = '<div class="dkck-title" id="ckhT">Warming up…</div><div id="ckhTr" style="position:absolute;left:50%;top:60px;transform:translateX(-50%);width:80px;height:282px;background:#160a0c;border:1px solid #3a2024;border-radius:12px;overflow:hidden;cursor:pointer">'+(st.danger?'<div style="position:absolute;left:0;right:0;top:0;height:'+(100-st.danger*100)+'%;background:rgba(224,83,61,.16);border-bottom:1px dashed #E0533D"></div>':'')+'<div id="ckhB" style="position:absolute;left:0;right:0"></div><div id="ckhM" style="position:absolute;left:6px;right:6px;height:16px;border-radius:6px"></div></div>';
     var tr=document.getElementById('ckhTr'),band=document.getElementById('ckhB'),mark=document.getElementById('ckhM'),T=document.getElementById('ckhT');
     var H=282,pos=.12,vel=0,holding=false,t0=performance.now(),inb=0,last=t0,win=st.dur-this.GRACE,GR=this.GRACE,BL=this.BLUE;
-    tr.onpointerdown=function(e){e.preventDefault();holding=true;}; this.winUp=function(){holding=false;}; window.addEventListener('pointerup',this.winUp);
+    this.stage.onpointerdown=function(e){e.preventDefault();holding=true;}; this.winUp=function(){holding=false;}; window.addEventListener('pointerup',this.winUp);
     var fill=this.progbar();
     (function run(now){var dt=Math.min(40,now-last)/1000;last=now;var el=now-t0,grace=el<GR;
       vel+=(holding?5.2:-4.2)*dt;vel*=.97;vel=C(vel,-2.6,2.6);pos+=vel*dt;if(pos<0){pos=0;vel=-vel*.25;}if(pos>1){pos=1;vel=-vel*.25;}
@@ -1712,7 +1807,7 @@ const COOK = {
     var C=this.clamp,bag=st.style==='bag';
     this.stage.innerHTML='<div class="dkck-title">'+(bag?'Pour into the baggie':'Pour to the line')+'</div><div id="ckpC" style="position:absolute;left:50%;top:72px;transform:translateX(-50%);width:'+(bag?'120px':'108px')+';height:264px;background:#10141a;border:'+(bag?'2px solid #c9d2dc':'3px solid #6a6a72')+';border-top:'+(bag?'2px solid #c9d2dc':'none')+';border-radius:'+(bag?'4px 4px 14px 14px':'0 0 16px 16px')+';overflow:hidden;cursor:pointer">'+(bag?'<div style="position:absolute;top:0;left:0;right:0;height:10px;background:#c9d2dc"></div>':'')+'<div id="ckpF" style="position:absolute;left:0;right:0;bottom:0;height:0;background:'+st.col+'"></div><div style="position:absolute;left:0;right:0;height:3px;background:#FFC83D;bottom:'+(st.target*264)+'px"></div><div style="position:absolute;right:5px;font-size:9px;color:#FFC83D;bottom:'+(st.target*264+4)+'px">LINE</div></div><div style="position:absolute;left:0;right:0;bottom:46px;text-align:center;font-size:11px;color:#9a8a8a">hold to pour · release to stop</div>';
     var Cn=document.getElementById('ckpC'),fillEl=document.getElementById('ckpF'),lvl=0,holding=false,last=performance.now(),donev=false,started=false;
-    Cn.onpointerdown=function(e){e.preventDefault();holding=true;started=true;};
+    this.stage.onpointerdown=function(e){e.preventDefault();holding=true;started=true;};
     this.winUp=function(){if(donev||!started)return;holding=false;donev=true;COOK.stop();var dd=Math.abs(lvl-st.target);done(C(1-dd/st.tol,0,1));};window.addEventListener('pointerup',this.winUp);
     (function run(now){var dt=(now-last)/1000;last=now;if(holding)lvl=C(lvl+.4*dt,0,1);fillEl.style.height=(lvl*264)+'px';if(!donev)COOK.loop=requestAnimationFrame(run);})(last);
   },
@@ -1720,7 +1815,7 @@ const COOK = {
     var C=this.clamp,A=this.acc();
     this.stage.innerHTML='<div class="dkck-title" id="ckmL">Tap! '+(st.dur/1000).toFixed(0)+'s</div><div id="ckmP" style="position:absolute;left:50%;top:62px;transform:translateX(-50%);width:150px;height:230px;border:3px solid #6a6a72;border-top:none;border-radius:0 0 22px 22px;overflow:hidden;background:#10141a;cursor:pointer"><div id="ckmF" style="position:absolute;left:0;right:0;bottom:0;height:0;background:'+st.col+'"></div><div id="ckmI" style="position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;font-size:60px;pointer-events:none">'+st.icon+'</div><div id="ckmR" style="position:absolute;left:50%;top:50%;width:10px;height:10px;border:3px solid #fff;border-radius:50%;transform:translate(-50%,-50%) scale(0);opacity:0;pointer-events:none"></div></div>';
     var pad=document.getElementById('ckmP'),fillEl=document.getElementById('ckmF'),ico=document.getElementById('ckmI'),ring=document.getElementById('ckmR'),L=document.getElementById('ckmL'),fillv=0,t0=performance.now(),last=t0,fb=this.progbar(A);
-    pad.onpointerdown=function(e){e.preventDefault();fillv=C(fillv+.075,0,1);ico.style.transform='translateY(-50%) scale(1.18)';ring.style.transition='none';ring.style.transform='translate(-50%,-50%) scale(0)';ring.style.opacity='.9';COOK.tlater(function(){ring.style.transition='transform .3s,opacity .3s';ring.style.transform='translate(-50%,-50%) scale(7)';ring.style.opacity='0';},10);COOK.tlater(function(){ico.style.transform='translateY(-50%) scale(1)';},70);fb.style.width=(fillv*100)+'%';fillEl.style.height=(fillv*230)+'px';};
+    this.stage.onpointerdown=function(e){e.preventDefault();fillv=C(fillv+.075,0,1);ico.style.transform='translateY(-50%) scale(1.18)';ring.style.transition='none';ring.style.transform='translate(-50%,-50%) scale(0)';ring.style.opacity='.9';COOK.tlater(function(){ring.style.transition='transform .3s,opacity .3s';ring.style.transform='translate(-50%,-50%) scale(7)';ring.style.opacity='0';},10);COOK.tlater(function(){ico.style.transform='translateY(-50%) scale(1)';},70);fb.style.width=(fillv*100)+'%';fillEl.style.height=(fillv*230)+'px';};
     (function run(now){var dt=(now-last)/1000;last=now;fillv=C(fillv-.17*dt,0,1);fb.style.width=(fillv*100)+'%';fillEl.style.height=(fillv*230)+'px';var rem=(st.dur-(now-t0))/1000;L.textContent='Tap! '+Math.max(0,rem).toFixed(1)+'s';if(now-t0>=st.dur){COOK.stop();return done(C(fillv,0,1));}COOK.loop=requestAnimationFrame(run);})(t0);
   },
   stopbar(st, done) {
@@ -1729,7 +1824,9 @@ const COOK = {
     this.stage.innerHTML='<div class="dkck-title" id="cksL">'+head()+'</div><div style="position:absolute;left:14px;right:14px;top:160px;height:36px;background:#160a0c;border:1px solid #3a2024;border-radius:9px;overflow:hidden"><div id="cksZ" style="position:absolute;top:0;bottom:0;background:rgba(76,175,80,.32);border-left:2px solid #4CAF50;border-right:2px solid #4CAF50"></div><div id="cksM" style="position:absolute;top:-3px;bottom:-3px;width:4px;background:#FFC83D"></div></div><div id="cksB" style="position:absolute;left:0;right:0;top:212px;text-align:center;font-size:11px;color:#9a8a8a"></div>';
     var W=332,zone=document.getElementById('cksZ'),mark=document.getElementById('cksM'),L=document.getElementById('cksL'),B=document.getElementById('cksB');
     var zc=.3+Math.random()*.4;zone.style.left=((zc-st.zoneHW)*W)+'px';zone.style.width=(st.zoneHW*2*W)+'px';var t0=performance.now();
-    this.ctrl.appendChild(this.btn(verb,function(){var p=parseFloat(mark.dataset.p||'0');var dd=Math.abs(p-zc);var s=C(1-dd/(st.zoneHW*1.8),0,1);acc.push(s);left--;if(left<=0){COOK.stop();return done(isTries?Math.max.apply(null,acc):acc.reduce(function(a,b){return a+b;},0)/acc.length);}if(isTries){B.textContent='Best so far: '+Math.round(Math.max.apply(null,acc)*100)+'%';L.textContent=head();}else{L.textContent='Stamp '+left+' to go';}zc=.18+Math.random()*.64;zone.style.left=((zc-st.zoneHW)*W)+'px';}));
+    function doStop(){var p=parseFloat(mark.dataset.p||'0');var dd=Math.abs(p-zc);var s=C(1-dd/(st.zoneHW*1.8),0,1);acc.push(s);left--;if(left<=0){COOK.stop();return done(isTries?Math.max.apply(null,acc):acc.reduce(function(a,b){return a+b;},0)/acc.length);}if(isTries){B.textContent='Best so far: '+Math.round(Math.max.apply(null,acc)*100)+'%';L.textContent=head();}else{L.textContent='Stamp '+left+' to go';}zc=.18+Math.random()*.64;zone.style.left=((zc-st.zoneHW)*W)+'px';}
+    this.ctrl.appendChild(this.btn(verb,doStop));
+    this.stage.onpointerdown=function(e){e.preventDefault();doStop();};
     (function run(now){var el=(now-t0)/1000*st.speed;var p=(Math.sin(el*Math.PI)+1)/2;mark.dataset.p=p;mark.style.left=(p*W-2)+'px';COOK.loop=requestAnimationFrame(run);})(t0);
   },
   chop(st, done) {
@@ -1760,7 +1857,7 @@ const COOK = {
     this.stage.innerHTML='<div class="dkck-title" id="ckxL">Smash it! 0 / '+st.need+'</div><div id="ckxW" style="position:absolute;left:50%;top:80px;transform:translateX(-50%);width:250px;height:188px;background:#23252b;border:5px solid #3a3d45;border-radius:8px;cursor:pointer"><div style="position:absolute;top:9px;left:9px;width:222px;height:160px"><svg id="ckxSvg" width="222" height="160" viewBox="0 0 222 160" style="display:block"><rect x="0" y="0" width="222" height="160" rx="4" fill="#bfe6f0"/><polygon points="0,0 92,0 46,62 0,78" fill="#d9f2f8"/><polygon points="222,0 222,72 150,36 120,0" fill="#a9d8e6"/><polygon points="0,160 72,160 30,104 0,112" fill="#a9d8e6"/><polygon points="222,160 222,92 156,128 128,160" fill="#d2eef5"/><polygon points="92,56 150,52 140,112 86,108" fill="#cfeaf2"/><g id="ckxC"></g></svg></div></div>';
     var wrap=document.getElementById('ckxW'),svg=document.getElementById('ckxSvg'),cracks=document.getElementById('ckxC'),L=document.getElementById('ckxL'),hits=0,t0=performance.now(),donev=false,fb=this.progbar('#8fd3e0');
     function spider(x,y){for(var a=0;a<5;a++){var ang=Math.random()*6.28,len=22+Math.random()*42;var ln=document.createElementNS('http://www.w3.org/2000/svg','line');ln.setAttribute('x1',x);ln.setAttribute('y1',y);ln.setAttribute('x2',x+Math.cos(ang)*len);ln.setAttribute('y2',y+Math.sin(ang)*len);ln.setAttribute('stroke','#ffffff');ln.setAttribute('stroke-width','1.5');ln.setAttribute('opacity','.85');cracks.appendChild(ln);}}
-    wrap.onpointerdown=function(e){e.preventDefault();if(donev)return;hits++;var r=svg.getBoundingClientRect();var x=C(e.clientX-r.left,8,214),y=C(e.clientY-r.top,8,152);spider(x,y);wrap.style.transform='translateX(-50%) translateY(2px)';COOK.tlater(function(){wrap.style.transform='translateX(-50%)';},60);L.textContent='Smash it! '+Math.min(hits,st.need)+' / '+st.need;fb.style.width=Math.min(100,hits/st.need*100)+'%';if(hits>=st.need){donev=true;COOK.stop();shatter();}};
+    this.stage.onpointerdown=function(e){e.preventDefault();if(donev)return;hits++;var r=svg.getBoundingClientRect();var x=C(e.clientX-r.left,8,214),y=C(e.clientY-r.top,8,152);spider(x,y);wrap.style.transform='translateX(-50%) translateY(2px)';COOK.tlater(function(){wrap.style.transform='translateX(-50%)';},60);L.textContent='Smash it! '+Math.min(hits,st.need)+' / '+st.need;fb.style.width=Math.min(100,hits/st.need*100)+'%';if(hits>=st.need){donev=true;COOK.stop();shatter();}};
     function shatter(){L.textContent='Shattered!';svg.querySelectorAll('polygon,rect').forEach(function(el){el.style.transition='transform .6s ease-in, opacity .6s';el.style.transform='translate('+((Math.random()-.5)*70)+'px,'+(80+Math.random()*70)+'px) rotate('+((Math.random()-.5)*70)+'deg)';el.style.opacity='0';});COOK.tlater(function(){done(1);},650);}
     (function run(now){if(now-t0>=st.dur){if(!donev){donev=true;COOK.stop();return done(C(hits/st.need,0,1));}return;}COOK.loop=requestAnimationFrame(run);})(t0);
   }

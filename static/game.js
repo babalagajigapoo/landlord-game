@@ -397,6 +397,7 @@ async function refreshState() {
   }
   if (typeof applyGameMode === 'function') applyGameMode();   // dark-mode router (separate module)
   if (typeof DARK !== 'undefined' && DARK.maybeOffer) DARK.maybeOffer();   // Level-11 dark-side dilemma
+  if (typeof DARK !== 'undefined' && DARK.checkFixer) DARK.checkFixer();   // Fixer debt story beats
 }
 
 async function loadMarket() {
