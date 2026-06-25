@@ -1514,7 +1514,7 @@ const DARK = {
       -webkit-user-select:none; -moz-user-select:none; -ms-user-select:none; user-select:none;
       -webkit-touch-callout:none;
     }
-    #dkckS, #ckcS, #dk-sl-area, .dk-sl-cust, .dk-sl-bar, .dk-sl-deal{touch-action:none}
+    .dkck-ov, .dkck-ov *, #dk-sling, #dk-sling *{touch-action:none}   /* minigames: no scroll/pan hijacking a press or drag */
     .dk-app{max-width:480px;width:100%;height:100%;display:flex;flex-direction:column;background:#0c0608;color:#e8d9d9;font-family:'Inter',sans-serif}
     .dk-header{flex-shrink:0;padding:12px 14px 10px;background:linear-gradient(150deg,#3A0E10,#7A1A1E);border-bottom:2px solid #C0392B}
     .dk-brand{font-family:'Rubik Dirt',cursive;font-size:17px;color:#fff;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
