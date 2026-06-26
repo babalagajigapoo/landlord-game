@@ -438,7 +438,7 @@ function updateHeader() {
     else if (lvl >= 14)  xpNextLbl.textContent = 'Fully maxed out!';
     else                 xpNextLbl.textContent = `→ Level ${lvl + 1}`;
   }
-  syncMusicToLevel(musicTargetLevel());
+  updateMusicMode();
 }
 
 function animateCashChange(delta) {
@@ -11451,8 +11451,9 @@ function setupMusicAutoStart() {
       if (!_musicStarted) {
         _musicStarted = true;
         Tone.getTransport().start();
-        syncMusicToLevel(musicTargetLevel());
       }
+      DarkMusic.ensure();
+      updateMusicMode();
     });
   };
   document.addEventListener('touchend', _musicAutoStartHandler, false);
@@ -11471,9 +11472,11 @@ function toggleMusicEnabled(on) {
         _musicStarted = true;
         Tone.getTransport().start();
       }
-      syncMusicToLevel(musicTargetLevel());
+      DarkMusic.ensure();
+      updateMusicMode();
     });
   } else {
+    DarkMusic.stop();
     syncMusicToLevel(-1);
   }
   renderSettings();
@@ -11483,6 +11486,138 @@ function setMusicManualLevel(val) {
   if (val === '') localStorage.removeItem('musicManualLevel');
   else            localStorage.setItem('musicManualLevel', val);
   syncMusicToLevel(musicTargetLevel());
+}
+
+// ── Off the Books theme: "Cold Blooded" ────────────────────────────────────────
+// A dedicated dark-mode track (raw Web Audio on Tone's context). 10 layers reveal by
+// Street Cred rank, same idea as the normal song. Only one track is audible at a time —
+// updateMusicMode() mutes the normal song and runs this when state.mode === 'dark'.
+const DARK_MUSIC_LAYERS = ['Deep bell + crackle','Filthy bass','Heavy kick + clap','Drill hats',
+  'Dark drone','Tritone stabs','Sub + groan','Dark strings','Whistle lead','Full mix + choir'];
+
+const DarkMusic = (function() {
+  var ctx=null, master, comp, conv, lg=[], noiseBuf, distCurve;
+  var running=false, timer=null, level=0, built=false;
+  var BPM=130, beat=60/BPM, barDur=beat*4, barTime=0, barIdx=0;
+  var mix=[0.55,1.0,0.92,0.4,0.45,0.5,0.6,0.28,0.5,0.55];
+
+  function f(n){var m={C:0,Db:1,'C#':1,D:2,Eb:3,'D#':3,E:4,F:5,Gb:6,'F#':6,G:7,Ab:8,'G#':8,A:9,Bb:10,'A#':10,B:11};
+    var t=n.match(/^([A-G][b#]?)(\d)$/);return 440*Math.pow(2,(((+t[2]+1)*12+m[t[1]])-69)/12);}
+  function curve(k){var n=1024,c=new Float32Array(n);for(var i=0;i<n;i++){var x=i*2/n-1;c[i]=(3+k)*x*20*Math.PI/180/(Math.PI+k*Math.abs(x));}return c;}
+
+  function build() {
+    if (built || typeof Tone === 'undefined') return;
+    try { ctx = Tone.getContext().rawContext; } catch(e) { try { ctx = Tone.context.rawContext || Tone.context; } catch(e2) { return; } }
+    if (!ctx) return;
+    distCurve = curve(8);
+    master = ctx.createGain(); master.gain.value = 0.5;
+    comp = ctx.createDynamicsCompressor(); comp.threshold.value=-18; comp.ratio.value=6; comp.attack.value=0.003; comp.release.value=0.2;
+    master.connect(comp); comp.connect(ctx.destination);
+    var len=ctx.sampleRate*2.6; conv=ctx.createConvolver(); var ib=ctx.createBuffer(2,len,ctx.sampleRate);
+    for(var c=0;c<2;c++){var d=ib.getChannelData(c);for(var i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2.0);}
+    conv.buffer=ib; var rv=ctx.createGain(); rv.gain.value=0.42; conv.connect(rv); rv.connect(master);
+    noiseBuf=ctx.createBuffer(1,ctx.sampleRate,ctx.sampleRate); var nd=noiseBuf.getChannelData(0);
+    for(var k=0;k<nd.length;k++)nd[k]=Math.random()*2-1;
+    lg=[]; for(var L=0;L<10;L++){var g=ctx.createGain(); g.gain.value=0; g.connect(master); if(L===0||L===7||L===8||L===9)g.connect(conv); lg.push(g);}
+    built=true;
+  }
+
+  function tone(dest,o){var osc=ctx.createOscillator();osc.type=o.type||'sawtooth';osc.frequency.setValueAtTime(o.freq,o.t);
+    if(o.glide)osc.frequency.exponentialRampToValueAtTime(o.glide,o.t+o.dur);if(o.detune)osc.detune.value=o.detune;var node=osc;
+    if(o.filter){var fl=ctx.createBiquadFilter();fl.type=o.ft||'lowpass';fl.frequency.value=o.filter;if(o.q)fl.Q.value=o.q;node.connect(fl);node=fl;}
+    var g=ctx.createGain();var a=o.atk==null?0.008:o.atk,rel=o.rel==null?0.09:o.rel;
+    g.gain.setValueAtTime(0.0001,o.t);g.gain.linearRampToValueAtTime(o.peak,o.t+a);g.gain.setTargetAtTime(0.0001,o.t+o.dur,rel);
+    node.connect(g);g.connect(dest);osc.start(o.t);osc.stop(o.t+o.dur+rel*7+0.05);}
+  function noise(dest,t,dur,ft,fr,q,pk){var s=ctx.createBufferSource();s.buffer=noiseBuf;var fl=ctx.createBiquadFilter();fl.type=ft;fl.frequency.value=fr;if(q)fl.Q.value=q;
+    var g=ctx.createGain();g.gain.setValueAtTime(pk,t);g.gain.exponentialRampToValueAtTime(0.0008,t+dur);s.connect(fl);fl.connect(g);g.connect(dest);s.start(t);s.stop(t+dur+0.03);}
+  function kick(t){var o=ctx.createOscillator();o.type='sine';o.frequency.setValueAtTime(135,t);o.frequency.exponentialRampToValueAtTime(40,t+0.13);
+    var ds=ctx.createWaveShaper();ds.curve=distCurve;var g=ctx.createGain();g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(1,t+0.006);g.gain.exponentialRampToValueAtTime(0.001,t+0.4);
+    o.connect(ds);ds.connect(g);g.connect(lg[2]);o.start(t);o.stop(t+0.5);}
+  function bass(t,freq,dur,glideFrom){var ds=ctx.createWaveShaper();ds.curve=distCurve;ds.oversample='2x';
+    var lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.setValueAtTime(140,t);lp.frequency.linearRampToValueAtTime(1100,t+0.04);lp.frequency.setTargetAtTime(150,t+0.12,0.18);lp.Q.value=5;
+    var g=ctx.createGain();g.gain.setValueAtTime(0.0001,t);g.gain.linearRampToValueAtTime(1,t+0.012);g.gain.setTargetAtTime(0.0001,t+dur,0.07);
+    [[-9,0.5,'sawtooth',false],[10,0.5,'sawtooth',false],[0,1.0,'sine',true]].forEach(function(p){
+      var o=ctx.createOscillator();o.type=p[2];var fr=p[3]?freq/2:freq;
+      if(glideFrom){o.frequency.setValueAtTime(p[3]?glideFrom/2:glideFrom,t);o.frequency.exponentialRampToValueAtTime(fr,t+0.07);}else o.frequency.setValueAtTime(fr,t);
+      o.detune.value=p[0];var og=ctx.createGain();og.gain.value=p[1];o.connect(og);og.connect(p[3]?g:ds);o.start(t);o.stop(t+dur+0.5);});
+    ds.connect(lp);lp.connect(g);g.connect(lg[1]);}
+  function whistle(t,freq,dur){var lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=3400;lp.Q.value=0.7;
+    var g=ctx.createGain();g.gain.setValueAtTime(0.0001,t);g.gain.linearRampToValueAtTime(0.24,t+0.06);g.gain.setTargetAtTime(0.0001,t+dur,0.16);lp.connect(g);g.connect(lg[8]);
+    var lfo=ctx.createOscillator();lfo.type='sine';lfo.frequency.value=5.1;var ld=ctx.createGain();ld.gain.value=11;lfo.connect(ld);lfo.start(t);lfo.stop(t+dur+0.4);
+    [['triangle',0,1],['triangle',-7,0.55],['sine',5,0.4]].forEach(function(p){var o=ctx.createOscillator();o.type=p[0];o.frequency.value=freq;o.detune.value=p[1];ld.connect(o.detune);
+      var og=ctx.createGain();og.gain.value=p[2];o.connect(og);og.connect(lp);o.start(t);o.stop(t+dur+0.4);});}
+
+  var R=['D2','Eb2','D2','Eb2'];
+  var BELL={0:[[0,'A3'],[2,'F3']],1:[[0,'Bb3'],[2,'G3']],2:[[0,'D4'],[2,'A3']],3:[[0,'Eb4'],[1.5,'Bb3'],[2.5,'G3']]};
+  var TRI={0:['D3','F3','A3'],1:['Eb3','G3','Bb3'],2:['D3','F3','A3'],3:['Eb3','G3','Bb3']};
+  var STAB={0:['D3','Ab3'],1:['Eb3','A3'],2:['D3','Ab3'],3:['Eb3','A3']};
+  var STR={0:['D4','A4'],1:['Eb4','Bb4'],2:['D4','A4'],3:['Eb4','Bb4']};
+  var LEAD={0:[[0,'A5',3.2]],1:[[0,'Bb5',1.7],[2,'A5',1.7]],2:[[0,'F5',3.2]],3:[[0,'Eb5',1.3],[1.5,'D5',1.2],[2.9,'A4',1.0]]};
+  var CHOIR={0:['D5','F5','A5'],1:['Eb5','G5','Bb5'],2:['D5','F5','A5'],3:['Eb5','G5','Bb5']};
+
+  function scheduleBar(t0,ci){var b=function(x){return t0+x*beat;};
+    noise(lg[0],b(0),barDur,'lowpass',850,0,0.07);
+    for(var p=0;p<7;p++)noise(lg[0],b(Math.random()*4),0.025,'bandpass',650+Math.random()*1600,2,0.06);
+    BELL[ci].forEach(function(e){var fr=f(e[1]);
+      tone(lg[0],{type:'triangle',freq:fr,t:b(e[0]),dur:beat*1.5,peak:0.4,atk:0.02,rel:0.45,filter:1150,detune:-9});
+      tone(lg[0],{type:'triangle',freq:fr,t:b(e[0]),dur:beat*1.5,peak:0.4,atk:0.02,rel:0.45,filter:1150,detune:10});
+      tone(lg[0],{type:'sine',freq:fr/2,t:b(e[0]),dur:beat*1.7,peak:0.5,atk:0.03,rel:0.5,filter:520});});
+    var gf=f(R[(ci+3)%4]),rf=f(R[ci]); bass(b(0),rf,beat*1.2,gf); bass(b(1.5),rf,beat*0.45); bass(b(2.5),rf,beat*0.5); bass(b(3.25),rf,beat*0.4);
+    [0,1.5,3.5].forEach(function(x){kick(b(x));});
+    noise(lg[2],b(2),0.18,'bandpass',1500,1,0.6); noise(lg[2],b(2.03),0.13,'bandpass',2100,1.6,0.4); noise(lg[2],b(2.05),0.09,'highpass',3000,0,0.25);
+    for(var h=0;h<8;h++)noise(lg[3],b(h*0.5),0.028,'highpass',8600,0,h%2?0.2:0.32);
+    [3.33,3.66,3.999].forEach(function(x){noise(lg[3],b(x),0.02,'highpass',9000,0,0.26);});
+    noise(lg[3],b(1),0.04,'bandpass',3600,8,0.18); noise(lg[3],b(3),0.04,'bandpass',4200,9,0.18);
+    TRI[ci].forEach(function(nn){tone(lg[4],{type:'sawtooth',freq:f(nn),t:b(0),dur:beat*3.9,peak:0.16,atk:0.6,rel:0.5,filter:560,detune:-10});tone(lg[4],{type:'sawtooth',freq:f(nn),t:b(0),dur:beat*3.9,peak:0.16,atk:0.6,rel:0.5,filter:560,detune:11});});
+    [0,2.5].forEach(function(x){STAB[ci].forEach(function(nn){var ds=ctx.createWaveShaper();ds.curve=distCurve;
+      var o=ctx.createOscillator();o.type='sawtooth';o.frequency.value=f(nn);o.detune.value=(Math.random()*16-8);
+      var lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1400;var g=ctx.createGain();var t=b(x);
+      g.gain.setValueAtTime(0.0001,t);g.gain.linearRampToValueAtTime(0.34,t+0.01);g.gain.setTargetAtTime(0.0001,t+0.18,0.06);
+      o.connect(ds);ds.connect(lp);lp.connect(g);g.connect(lg[5]);o.start(t);o.stop(t+0.5);});});
+    var rf2=f(R[ci]);
+    tone(lg[6],{type:'sawtooth',freq:rf2/2,t:b(0),dur:beat*3.8,peak:0.3,atk:0.25,rel:0.4,filter:140,glide:rf2/2*1.04});
+    tone(lg[6],{type:'sine',freq:rf2/2,t:b(0),dur:beat*3.8,peak:0.45,atk:0.1,rel:0.4,filter:120});
+    STR[ci].forEach(function(nn){tone(lg[7],{type:'sawtooth',freq:f(nn),t:b(0),dur:beat*3.9,peak:0.1,atk:0.9,rel:0.7,filter:1500,detune:-6});tone(lg[7],{type:'sawtooth',freq:f(nn),t:b(0),dur:beat*3.9,peak:0.1,atk:0.9,rel:0.7,filter:1500,detune:7});});
+    LEAD[ci].forEach(function(e){whistle(b(e[0]),f(e[1]),beat*e[2]);});
+    CHOIR[ci].forEach(function(nn){tone(lg[9],{type:'sawtooth',freq:f(nn),t:b(0),dur:beat*3.9,peak:0.06,atk:0.9,rel:0.7,filter:2600,detune:10});});
+    if(ci===0){var o=ctx.createOscillator();o.type='sine';o.frequency.setValueAtTime(60,t0);o.frequency.exponentialRampToValueAtTime(28,t0+0.6);var ds=ctx.createWaveShaper();ds.curve=distCurve;var g=ctx.createGain();g.gain.setValueAtTime(1,t0);g.gain.exponentialRampToValueAtTime(0.001,t0+0.7);o.connect(ds);ds.connect(g);g.connect(lg[9]);o.start(t0);o.stop(t0+0.8);noise(lg[9],t0,0.6,'lowpass',300,0,0.55);}
+    if(ci===3){var s=ctx.createBufferSource();s.buffer=noiseBuf;var fl=ctx.createBiquadFilter();fl.type='bandpass';fl.Q.value=1;fl.frequency.setValueAtTime(300,b(0));fl.frequency.exponentialRampToValueAtTime(6000,b(4));var g2=ctx.createGain();g2.gain.setValueAtTime(0.0008,b(0));g2.gain.exponentialRampToValueAtTime(0.3,b(4));s.connect(fl);fl.connect(g2);g2.connect(lg[9]);s.start(b(0));s.stop(b(4));}}
+
+  function applyLevel(){ if(!built)return; var now=ctx.currentTime; for(var i=0;i<10;i++)lg[i].gain.setTargetAtTime(i<level?mix[i]:0.0001,now,0.6); }
+  function tick(){ if(!running)return; while(barTime<ctx.currentTime+0.4){ scheduleBar(barTime,barIdx%4); barTime+=barDur; barIdx++; } }
+
+  return {
+    ensure: function(){ build(); },
+    start: function(){ build(); if(!built||running)return; running=true; barTime=ctx.currentTime+0.12; barIdx=0; timer=setInterval(tick,60); },
+    stop: function(){ if(!built){level=0;return;} level=0; applyLevel(); running=false; if(timer){clearInterval(timer);timer=null;} },
+    setLevel: function(n){ level=Math.max(0,n|0); applyLevel(); },
+    isBuilt: function(){ return built; }, isRunning: function(){ return running; }, getLevel: function(){ return level; }
+  };
+})();
+
+function darkMusicTargetLevel() {
+  if (!_musicEnabled || !state || state.mode !== 'dark' || !state.dark) return 0;
+  const rank   = Math.max(1, Math.min(state.dark.cred || 1, 10));
+  const manual = localStorage.getItem('darkMusicManualLevel');
+  return manual !== null ? Math.min(parseInt(manual), rank) : rank;
+}
+
+function setDarkMusicLevel(val) {
+  if (val === '') localStorage.removeItem('darkMusicManualLevel');
+  else            localStorage.setItem('darkMusicManualLevel', val);
+  DarkMusic.setLevel(darkMusicTargetLevel());
+}
+
+// Route audio to the right track for the current game mode. Only one plays at a time.
+function updateMusicMode() {
+  const dark = !!(state && state.mode === 'dark');
+  if (dark && _musicEnabled) {
+    syncMusicToLevel(-1);                 // silence the empire theme
+    if (_musicStarted) { DarkMusic.start(); DarkMusic.setLevel(darkMusicTargetLevel()); }
+  } else {
+    DarkMusic.stop();                     // silence Cold Blooded
+    syncMusicToLevel(musicTargetLevel());
+  }
 }
 
 // ── Sound Effects ─────────────────────────────────────────────────────────────
@@ -11878,6 +12013,9 @@ function renderSettings() {
   const darkOn    = localStorage.getItem('darkMode') === '1';
   const gameLevel = Math.min(state.level ?? 0, 5);
   const manualLvl = localStorage.getItem('musicManualLevel');
+  const darkGame  = state.mode === 'dark';
+  const dmRank    = darkGame ? Math.max(1, Math.min((state.dark && state.dark.cred) || 1, 10)) : 0;
+  const dmManual  = localStorage.getItem('darkMusicManualLevel');
   el.innerHTML = `
     <div class="section-header"><span class="section-title">${pxIcon('⚙️',18)} Settings</span></div>
 
@@ -11909,7 +12047,7 @@ function renderSettings() {
       <div style="display:flex;align-items:center;justify-content:space-between">
         <div>
           <div style="font-size:13px;font-weight:600">Background Music</div>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Soundtrack for your empire</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${darkGame ? 'Off the Books — “Cold Blooded”' : 'Soundtrack for your empire'}</div>
         </div>
         <label class="dark-toggle">
           <input type="checkbox" ${_musicEnabled ? 'checked' : ''} onchange="toggleMusicEnabled(this.checked)">
@@ -11926,7 +12064,18 @@ function renderSettings() {
           <span class="dark-toggle-track"></span>
         </label>
       </div>
-      ${_musicEnabled ? (gameLevel >= 1 ? `
+      ${_musicEnabled ? (darkGame ? `
+      <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
+        <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">Soundtrack Layer</div>
+        <select onchange="setDarkMusicLevel(this.value)" style="width:100%;padding:9px 12px;font-size:13px;border:1.5px solid var(--border);border-radius:10px;background:var(--bg-card);color:var(--text-primary);outline:none;appearance:auto">
+          <option value="" ${dmManual === null ? 'selected' : ''}>Auto (follows your Street Cred)</option>
+          ${[1,2,3,4,5,6,7,8,9,10].filter(i => i <= dmRank).map(i => {
+            const names = ['Deep bell + crackle','+ Filthy bass','+ Heavy kick + clap','+ Drill hats','+ Dark drone','+ Tritone stabs','+ Sub + groan','+ Dark strings','+ Whistle lead','+ Full mix + choir'];
+            return `<option value="${i}" ${dmManual === String(i) ? 'selected' : ''}>Layer ${i} — ${names[i-1]}</option>`;
+          }).join('')}
+        </select>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:6px">Rise in Street Cred to unlock all 10 layers</div>
+      </div>` : (gameLevel >= 1 ? `
       <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
         <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">Soundtrack Layer</div>
         <select onchange="setMusicManualLevel(this.value)" style="width:100%;padding:9px 12px;font-size:13px;border:1.5px solid var(--border);border-radius:10px;background:var(--bg-card);color:var(--text-primary);outline:none;appearance:auto">
@@ -11937,7 +12086,7 @@ function renderSettings() {
           }).join('')}
         </select>
         <div style="font-size:11px;color:var(--text-muted);margin-top:6px">Level up to unlock all 6 layers</div>
-      </div>` : `<div style="margin-top:10px;font-size:12px;color:var(--text-muted);font-style:italic">🎚️ Level up to unlock more soundtrack layers</div>`) : ''}
+      </div>` : `<div style="margin-top:10px;font-size:12px;color:var(--text-muted);font-style:italic">🎚️ Level up to unlock more soundtrack layers</div>`)) : ''}
     </div>
 
     <div class="card" style="margin-top:12px">
