@@ -107,6 +107,25 @@ const DARK = {
     license:  { name: 'Liquor License',       icon: '📜', desc: 'A clean legal face — lowers baseline heat.',            tiers: [['Get it on the books', 55000]] },
     back:     { name: 'Back Entrance',        icon: '🚪', desc: 'Discreet in-and-out for VIPs — less back-room heat.',    tiers: [['Private parking & door', 35000]] },
   },
+  // ── Heists (mirror of DARK_HEISTS in app.py — board & planning display; run beats come from the server). ──
+  HEIST_ROLES: { driver: { name: 'Driver', icon: '🚗' }, hacker: { name: 'Hacker', icon: '💻' }, boxman: { name: 'Boxman', icon: '🧨' }, muscle: { name: 'Muscle', icon: '🔫' }, face: { name: 'Face', icon: '🎭' } },
+  HEIST_TIERS: [{ tier: 'street', name: 'Street', cut: 6, skill: 1 }, { tier: 'seasoned', name: 'Seasoned', cut: 10, skill: 3 }, { tier: 'pro', name: 'Pro', cut: 15, skill: 5 }],
+  HEIST_ORDER: ['checkcash', 'jewelry', 'armored', 'bank', 'casino', 'bigone'],
+  HEISTS: {
+    checkcash: { name: 'The Check-Cashing Spot', icon: '🏪', cred: 2, est: 25000, roles: ['driver', 'muscle'], playable: true,
+      blurb: 'A cash-heavy check-cashing joint off the boulevard. Thin security, fat drawers. A clean first score.',
+      case: [{ id: 'watch', label: 'Watch the place for a day', cost: 1500, bonus: 8 }, { id: 'sched', label: "Buy the schedule off the clerk's cousin", cost: 3500, bonus: 13 }] },
+    jewelry: { name: 'The Jewelry Store', icon: '💍', cred: 4, est: 80000, roles: ['driver', 'muscle', 'hacker'], playable: true,
+      blurb: 'Display cases of ice and a wired back-room safe. Bring someone who can talk to alarms.' },
+    armored: { name: 'The Armored Truck', icon: '🚚', cred: 5, est: 160000, roles: ['driver', 'muscle', 'hacker'], playable: true,
+      blurb: 'Hit it on its route — all timing and nerve, and a wheelman who can vanish.' },
+    bank: { name: 'The Bank', icon: '🏦', cred: 7, est: 375000, roles: ['driver', 'muscle', 'hacker', 'boxman'], playable: true,
+      blurb: 'The real thing. A proper vault, a proper crew, and a take that changes everything.' },
+    casino: { name: 'The Casino Count Room', icon: '🎰', cred: 8, est: 750000, roles: ['driver', 'muscle', 'hacker', 'boxman', 'face'], playable: true,
+      blurb: "Where the house keeps its cash. You don't get in without a man on the inside." },
+    bigone: { name: 'The Big One', icon: '🏛️', cred: 9, est: 1600000, roles: ['driver', 'muscle', 'hacker', 'boxman', 'face'], playable: true,
+      blurb: "The score they'll tell stories about. Everything you've got, one night, no second chances." },
+  },
   // Kingpin rank ladder (mirrors DARK_RANKS in app.py).
   RANKS: [
     { level: 1,  name: 'Corner Boy',  xp: 0,    perk: 'Cooking Weed and working corners.' },
@@ -529,8 +548,16 @@ const DARK = {
     </div>`;
   },
 
+  // A heist is "available" if one's in progress, or one is unlocked, playable, and not yet pulled.
+  heistAvailable() {
+    const d = state.dark || {};
+    if (d.heist) return true;
+    const cred = d.cred || 1, done = d.heists_done || [];
+    return this.HEIST_ORDER.some(k => { const H = this.HEISTS[k]; return H.playable && cred >= H.cred && !done.includes(k); });
+  },
   nav() {
-    return `<div class="dk-nav">${this.TABS.map(t => `
+    const tabs = this.heistAvailable() ? this.TABS.concat([{ key: 'scores', icon: '💰', label: 'Scores' }]) : this.TABS;
+    return `<div class="dk-nav">${tabs.map(t => `
       <button class="dk-nav-btn ${this._tab === t.key ? 'active' : ''}" onclick="DARK.go('${t.key}')">
         <span class="dk-nav-ic">${t.icon}</span><span>${t.label}</span>
       </button>`).join('')}</div>`;
@@ -544,6 +571,7 @@ const DARK = {
       case 'dealers':    return this.pageDealers();
       case 'cash':       return this.pageCash();
       case 'businesses': return this.pageBusinesses();
+      case 'scores':     return this.pageScores();
       default:           return this.pageHome();
     }
   },
@@ -1267,9 +1295,18 @@ const DARK = {
         ${this.stat('🔥 Heat',        (d.heat || 0) + '%',      '#FF8A3D')}
         ${this.stat('🏆 Rank',        this.rank(d.cred || 1).name, '#C0392B')}
       </div>
+      ${this.scoresCard()}
       ${this.rankCard()}
       ${this.huntCard()}
     `;
+  },
+  scoresCard() {
+    if (!this.heistAvailable()) return '';
+    const inProg = !!(state.dark || {}).heist;
+    return `<div class="dk-card dk-pcard" style="margin-top:10px;border-color:#FFC83D">
+      <div class="dk-phead"><div class="dk-row-ic">💰</div><div class="dk-row-main"><div class="dk-row-title">Scores${inProg ? ' · job in progress' : ' available'}</div><div class="dk-muted" style="font-size:11px">${inProg ? "You've got a job lined up — get back to it." : "A big one-time heist's on the table. Build a crew and pull it."}</div></div></div>
+      <button class="dk-mini" style="width:100%;margin-top:9px" onclick="DARK.openScores()">${inProg ? 'Back to the job →' : 'Open the board →'}</button>
+    </div>`;
   },
   rankCard() {
     const d = state.dark || {};
@@ -1966,6 +2003,170 @@ const DARK = {
 </svg></div>`;
   },
   setBizTab(t) { this._bizTab = t; this.rerender(); },
+  // ── SCORES (heists) ──────────────────────────────────────────────────────
+  openScores() { this.go('scores'); },
+  tierName(t) { const x = this.HEIST_TIERS.find(y => y.tier === t); return x ? x.name : t; },
+  pageScores() {
+    const d = state.dark || {}, h = d.heist, cash = state.cash || 0;
+    if (!h) return this.heistBoard(d, cash);
+    if (h.stage === 'plan') return this.heistPlan(d, h, cash);
+    if (h.stage === 'run') return this.heistRun(d, h);
+    if (h.stage === 'done') return this.heistResult(d, h);
+    return this.heistBoard(d, cash);
+  },
+  heistBoard(d, cash) {
+    const cred = d.cred || 1, done = d.heists_done || [];
+    const cards = this.HEIST_ORDER.map(key => {
+      const H = this.HEISTS[key], isDone = done.includes(key), locked = cred < H.cred, soon = !H.playable;
+      const roles = H.roles.map(r => this.HEIST_ROLES[r].icon).join(' ');
+      let action;
+      if (isDone) action = '<div class="dk-muted2" style="font-size:11px;margin-top:8px">✓ Already pulled — gone for good.</div>';
+      else if (locked) action = `<div class="dk-muted2" style="font-size:11px;margin-top:8px">🔒 Unlocks at Street Cred ${H.cred}</div>`;
+      else if (soon) action = '<div class="dk-muted2" style="font-size:11px;margin-top:8px">🚧 In the works — coming soon.</div>';
+      else action = `<button class="dk-mini" style="width:100%;margin-top:9px" onclick="DARK.startHeist('${key}')">Plan this score →</button>`;
+      return `<div class="dk-card${(!isDone && !locked && !soon) ? ' dk-pcard' : ''}" style="margin-bottom:8px;${isDone ? 'opacity:.5' : ''}">
+        <div class="dk-phead"><div class="dk-row-ic">${H.icon}</div><div class="dk-row-main">
+          <div class="dk-row-title">${H.name}</div><div class="dk-muted" style="font-size:11px">Est. ${fmt(H.est)} · ${roles}</div></div></div>
+        <div class="dk-muted2" style="font-size:11px;margin-top:6px">${H.blurb}</div>${action}</div>`;
+    }).join('');
+    return `<button class="dk-mini-x" style="margin-bottom:10px" onclick="DARK.go('home')">← Back</button>
+      ${this.sectionTitle('💰 Scores')}
+      <div class="dk-card"><p class="dk-p">One-time jobs — bigger scores unlock as your name grows. Build a crew, case the joint, then pull it: cash out safe, or push your luck for way more.</p></div>
+      ${cards}`;
+  },
+  heistPlan(d, h, cash) {
+    const H = this.HEISTS[h.key], owned = d.heist_crew || [];
+    const tierIdx = (t) => this.HEIST_TIERS.findIndex(x => x.tier === t);
+    const slots = H.roles.map(role => {
+      const R = this.HEIST_ROLES[role], aid = h.crew[role];
+      const pool = owned.filter(m => m.role === role).sort((a, b) => tierIdx(a.tier) - tierIdx(b.tier));
+      const cards = pool.map(m => `<div class="dk-crewcard ${aid === m.id ? 'on' : ''}" onclick="DARK.heistCrew('${role}',${m.id})">
+          <div class="dk-crewcard-tier">${this.tierName(m.tier)}</div>
+          <div class="dk-crewcard-name">${m.name}</div>
+          <div class="dk-crewcard-sk">★ ${m.skill}</div>
+          <div class="dk-crewcard-cut">${m.cut}% cut</div>
+        </div>`).join('');
+      return `<div style="margin-bottom:12px">
+        <div class="dk-lbl" style="margin-bottom:2px">${R.icon} ${R.name}${aid != null ? '' : ' <span style="color:#ff8a3d">· pick one</span>'}</div>
+        <div class="dk-crewrow">${cards}</div></div>`;
+    }).join('');
+    const caseOpts = (H.case || []).map(a => {
+      const did = (h.cased || []).includes(a.id), poor = cash < a.cost;
+      return `<button class="dk-mini ${(did || poor) ? 'dk-buy-off' : ''}" style="width:100%;margin-top:6px" ${(did || poor) ? 'disabled' : `onclick="DARK.heistCase('${a.id}')"`}>${did ? '✓ ' : ''}${a.label} — ${fmt(a.cost)} (+${a.bonus}% odds)</button>`;
+    }).join('');
+    const cutTotal = H.roles.reduce((t, role) => { const m = (h.crew[role] != null) ? owned.find(x => x.id === h.crew[role]) : null; return t + (m ? m.cut : 0); }, 0);
+    const filled = H.roles.every(r => h.crew[r] != null);
+    return `<button class="dk-mini-x" style="margin-bottom:10px" onclick="DARK.heistAbort()">← Back out</button>
+      ${this.sectionTitle(H.icon + ' ' + H.name)}
+      <div class="dk-card">
+        <div class="dk-muted" style="font-size:12px">${H.blurb}</div>
+        <div class="dk-clbar"><span class="dk-muted">SAFE ESTIMATE</span><span style="font-weight:800;color:#4CAF50">${fmt(H.est)}</span></div>
+        <div class="dk-clbar"><span class="dk-muted">CREW CUT</span><span style="font-weight:800;color:#E0533D">${cutTotal}%</span></div>
+      </div>
+      ${this.sectionTitle('The Crew')}
+      <div class="dk-muted2" style="font-size:11px;margin-bottom:6px">Reuse a member next job and their cut stays the same — but they level up. Pros are great now; loyal rookies get cheap and elite by the end.</div>
+      ${slots}
+      ${this.sectionTitle('Case the Joint')}
+      <div class="dk-card"><div class="dk-muted2" style="font-size:11px;margin-bottom:3px">Raise your odds before you move in. (+${h.case_bonus || 0}% banked so far.)</div>${caseOpts || '<div class="dk-muted2" style="font-size:11px">No angles to case.</div>'}</div>
+      <button class="dk-advance" style="margin-top:12px${filled ? '' : ';opacity:.5'}" ${filled ? 'onclick="DARK.heistGo()"' : 'disabled'}>${filled ? 'Pull the job →' : 'Fill every crew slot first'}</button>`;
+  },
+  heistRun(d, h) {
+    const H = this.HEISTS[h.key], beat = h.beat;
+    if (!h.clutch) this._clutchActive = false;   // clutch resolved/gone → reset local flag
+    const last = h.last ? `<div style="text-align:center;margin:8px 0 2px"><span class="dk-evt-delta" style="color:${h.last.ok ? '#4CAF50' : '#ff6b6b'}">${h.last.ok ? ('✓ +' + fmt(h.last.gain || 0)) : ('✗ −' + fmt(h.last.loss || 0))}</span>${h.last.text ? `<div class="dk-muted2" style="font-size:11px;margin-top:4px;font-style:italic">${h.last.text}</div>` : ''}</div>` : '';
+    const pot = `<div class="dk-card dk-pcard">
+        <div class="dk-clbar"><span class="dk-muted">IN THE BAG</span><span style="font-weight:800;color:#4CAF50;font-size:16px">${fmt(h.pot || 0)}</span></div>
+        <div class="dk-clbar"><span class="dk-muted">Est. ${fmt(H.est)}${h.secured ? ' · SECURED' : ''}</span><span class="dk-muted2">${h.secured ? 'push your luck, or cash out' : 'getting in…'}</span></div></div>`;
+    // ── A failed roll: clutch decision, then the timing minigame. ──
+    if (h.clutch) {
+      if (this._clutchActive) return pot + this.clutchGame(h);
+      return pot + this.clutchDecision(h);
+    }
+    if (!beat) return pot + last;
+    const choices = beat.choices.map((c, i) => {
+      const role = c.role ? ` <span class="dk-muted2">${this.HEIST_ROLES[c.role].icon}</span>` : '';
+      const col = c.chance >= 60 ? '#4CAF50' : c.chance >= 40 ? '#FFC83D' : '#ff6b6b';
+      return `<button class="dk-evt-choice" style="display:flex;justify-content:space-between;align-items:center;gap:8px;text-align:left" onclick="DARK.heistChoice(${i})">
+        <span>${c.label}${role}${c.crit ? ' ⚠️' : ''}</span><span style="color:${col};font-weight:800">${c.chance}%</span></button>`;
+    }).join('');
+    const cashout = (h.secured && !beat.getaway) ? `<button class="dk-mini" style="width:100%;margin-top:9px;border-color:#3a7d44;color:#9be59b" onclick="DARK.heistCashout()">🫰 Cash out &amp; run with ${fmt(h.pot || 0)}</button>` : '';
+    return `${pot}${last}
+      <div class="dk-card" style="border-color:#C0392B">
+        <div style="font-size:30px;text-align:center;line-height:1.1">${beat.icon}</div>
+        <div class="dk-evt-text" style="margin:7px 0 13px">${beat.text}</div>
+        <div class="dk-evt-choices">${choices}</div>
+      </div>${cashout}`;
+  },
+  clutchDecision(h) {
+    const cl = h.clutch;
+    const takeLabel = cl.crit ? "🚪 Cut your losses — walk away with what you've got"
+                              : `Take the loss — drop ${fmt(cl.bad)}`;
+    const goWarn = cl.crit ? "miss and you're caught" : `miss and you drop ${fmt(Math.round(cl.bad * 1.8))}`;
+    return `<div class="dk-card" style="border-color:#ff4d2d">
+      <div style="font-size:28px;text-align:center;line-height:1.1">⚠️</div>
+      <div class="dk-evt-text" style="margin:7px 0 13px">${cl.text}</div>
+      <div class="dk-evt-choices">
+        <button class="dk-evt-choice" style="border-color:#FFC83D" onclick="DARK.clutchGo()"><b>🎯 Go for the clutch</b> — nail the timing to pull it off <span class="dk-muted2">(${goWarn})</span></button>
+        <button class="dk-evt-choice" onclick="DARK.heistClutch(false)">${takeLabel}</button>
+      </div></div>`;
+  },
+  clutchGame(h) {
+    const z = this._clutchZone || { left: 38, width: 24, crit: false };
+    return `<div class="dk-card" style="border-color:#FFC83D;text-align:center">
+      <div class="dk-evt-text" style="margin-bottom:12px">${z.crit ? 'One shot. Stop it dead in the green.' : 'Stop the marker in the green!'}</div>
+      <div class="dk-clutch-bar" id="dk-clutch-bar">
+        <div class="dk-clutch-zone" style="left:${z.left}%;width:${z.width}%"></div>
+        <div class="dk-clutch-marker${z.crit ? ' crit' : ''}" id="dk-clutch-marker"></div>
+      </div>
+      <button class="dk-advance" style="margin-top:14px" onclick="DARK.clutchStop()">STOP</button>
+    </div>`;
+  },
+  clutchGo() {
+    const crit = ((state.dark.heist || {}).clutch || {}).crit;
+    const width = crit ? 13 : 24;
+    this._clutchZone = { left: 12 + Math.random() * (76 - width), width, crit };
+    this._clutchActive = true;
+    this.rerender();
+  },
+  clutchStop() {
+    const bar = document.getElementById('dk-clutch-bar'), mk = document.getElementById('dk-clutch-marker');
+    let hit = false;
+    if (bar && mk && this._clutchZone) {
+      const br = bar.getBoundingClientRect(), mr = mk.getBoundingClientRect();
+      const pct = ((mr.left + mr.width / 2) - br.left) / br.width * 100;
+      hit = pct >= this._clutchZone.left && pct <= this._clutchZone.left + this._clutchZone.width;
+    }
+    this._clutchActive = false;
+    if (typeof sfx === 'object' && sfx.tap) sfx.tap();
+    this.heistClutch(true, hit ? 'hit' : 'miss');
+  },
+  async heistClutch(go, result) {
+    this._clutchActive = false;
+    const r = await api('/dark/heist_clutch', 'POST', { go, result });
+    if (r.error) { toast(r.error, 'error'); return; }
+    await refreshState(); this.rerender();
+  },
+  heistResult(d, h) {
+    const f = h.final || {}, win = h.outcome === 'win';
+    const body = win
+      ? `<div class="dk-evt-delta" style="margin:10px 0">Take ${fmt(f.pot)} − crew ${f.cut_pct}% (${fmt(f.cut)}) = <b style="color:#4CAF50">${fmt(f.your)}</b> dirty</div>
+         <div class="dk-muted2" style="font-size:11px">Your crew leveled up. The loot's dirty — wash it through your fronts.</div>`
+      : `<div class="dk-muted2" style="font-size:12px;margin:10px 0">You got out empty-handed and the heat spiked. The crew scattered — but the job's still on the board to try again.</div>`;
+    return `<div class="dk-card dk-incident" style="border-color:${win ? '#4CAF50' : '#ff4d2d'}">
+      <div class="dk-incident-ic">${win ? '💰' : '🚨'}</div>
+      <div class="dk-incident-t" style="color:${win ? '#4CAF50' : '#ff6b4d'}">${win ? 'Clean getaway' : 'It all went wrong'}</div>
+      ${body}
+      <button class="dk-advance" style="margin-top:12px" onclick="DARK.heistClose()">Done</button></div>`;
+  },
+  async startHeist(key) { const r = await api('/dark/heist_start', 'POST', { key }); if (r.error) { toast(r.error, 'error'); return; } await refreshState(); this.rerender(); },
+  async heistCrew(role, id) { const r = await api('/dark/heist_crew', 'POST', { role, id }); if (r.error) { toast(r.error, 'error'); return; } await refreshState(); this.rerender(); },
+  async heistCase(action) { const r = await api('/dark/heist_case', 'POST', { action }); if (r.error) { toast(r.error, 'error'); return; } await refreshState(); this.rerender(); if (r.note) toast(r.note, 'info'); },
+  async heistGo() { const r = await api('/dark/heist_go', 'POST'); if (r.error) { toast(r.error, 'error'); return; } await refreshState(); this.rerender(); },
+  async heistChoice(idx) { const r = await api('/dark/heist_choice', 'POST', { choice: idx }); if (r.error) { toast(r.error, 'error'); return; } if (typeof sfx === 'object' && sfx.tap) sfx.tap(); await refreshState(); this.rerender(); },
+  async heistCashout() { const r = await api('/dark/heist_cashout', 'POST'); if (r.error) { toast(r.error, 'error'); return; } await refreshState(); this.rerender(); },
+  async heistClose() { const r = await api('/dark/heist_close', 'POST'); if (r.error) { toast(r.error, 'error'); return; } await refreshState(); this.rerender(); },
+  async heistAbort() { const r = await api('/dark/heist_abort', 'POST'); if (r.error) { toast(r.error, 'error'); return; } await refreshState(); this.rerender(); },
+
   pageBusinesses() {
     const d = state.dark || {}, biz = d.biz || {}, cash = state.cash || 0;
     const tab = this._bizTab || 'club';
@@ -2085,6 +2286,18 @@ const DARK = {
     .dk-title{display:inline-block;font-size:9px;font-weight:800;color:#FFC83D;background:rgba(255,200,61,0.12);border:1px solid #FFC83D55;border-radius:5px;padding:1px 6px;vertical-align:middle;letter-spacing:.3px}
     .dk-housemom{border-color:#c9893d;background:linear-gradient(180deg,rgba(201,137,61,0.12),#1a1012)}
     .dk-housemom .dk-title{color:#f0b86a;border-color:#c9893d}
+    .dk-clutch-bar{position:relative;height:32px;background:#1a1012;border:1px solid #3a2024;border-radius:8px;overflow:hidden}
+    .dk-clutch-zone{position:absolute;top:0;bottom:0;background:rgba(76,175,80,0.32);border-left:2px solid #4CAF50;border-right:2px solid #4CAF50}
+    .dk-clutch-marker{position:absolute;top:-2px;bottom:-2px;width:5px;background:#FFC83D;box-shadow:0 0 9px #FFC83D;animation:dkclutch .9s linear infinite alternate}
+    .dk-clutch-marker.crit{animation-duration:.62s}
+    @keyframes dkclutch{from{left:0}to{left:calc(100% - 5px)}}
+    .dk-crewrow{display:flex;gap:7px}
+    .dk-crewcard{flex:1;background:#1a1012;border:1px solid #3a2024;border-radius:10px;padding:10px 5px 9px;text-align:center;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:border-color .12s}
+    .dk-crewcard.on{border-color:#C0392B;background:linear-gradient(180deg,rgba(192,57,43,0.20),#1a1012);box-shadow:0 0 0 1px #C0392B inset}
+    .dk-crewcard-tier{font-size:8px;font-weight:800;letter-spacing:.6px;color:#9a8a8a;text-transform:uppercase}
+    .dk-crewcard-name{font-weight:800;font-size:13px;margin:3px 0 4px;color:#f0e0e0}
+    .dk-crewcard-sk{font-size:11px;color:#FFC83D;font-weight:800}
+    .dk-crewcard-cut{font-size:10px;color:#E0533D;font-weight:700;margin-top:3px}
     .dk-away{opacity:.62}
     .dk-dancer-evt{border-color:#ff4d2d;background:linear-gradient(180deg,rgba(255,77,45,0.10),#1a1012)}
     .dk-evt-delta{font-size:13px;font-weight:800;margin:10px 0 2px;line-height:1.6}

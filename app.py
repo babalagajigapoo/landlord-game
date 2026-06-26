@@ -4654,6 +4654,9 @@ def _migrate_state(s):
                          "arcade_had": bool((s.get("arcade") or {}).get("unlocked")),
                          "vending":    len(s.get("vending_machines") or []) > 0}
         dk.setdefault("corners_unlocked", not dk["biz"].get("vending"))
+        dk.setdefault("heists_done", []); dk.setdefault("heist_crew", []); dk.setdefault("heist", None)
+        dk.setdefault("next_heist_member", 1)
+        if dk.get("heist_crew"): _dark_heist_ensure_pool(dk)   # repair old duplicated/partial pools
         if dk.get("club"): _dark_club_migrate(dk["club"])
     return s
 
@@ -4948,6 +4951,7 @@ DARK_RANKS = [
 DARK_CREATOR_CODES = {
     "dirtymoneyplease": {"desc": "Here's $10,000,000 in grimy, unmarked bills. 🧺", "dirty": 10_000_000},
     "cleanmoneyplease": {"desc": "Here's $10,000,000, squeaky clean. 💵", "cash": 10_000_000},
+    "replayheists":     {"desc": "Every score's back on the board — pull 'em again. 🎬", "reset": "heists"},
 }
 for _r in DARK_RANKS:
     if _r["level"] >= 2:
@@ -5871,6 +5875,412 @@ DARK_LAUNDER = {
     "car_wash":   {"name": "Car Wash",              "icon": "🚗", "cap": 8000, "hire": 12_000, "wage": 850, "heat_rate": 5},
 }
 DARK_VENDING_PAYOUT = 80_000   # cousin Vinny buys the vending business
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  SCORES — one-time heists. Bigger targets unlock by Street Cred. Assemble a crew
+#  of specialists (cut for life, +1 skill every job they run), case the joint to
+#  raise your odds, then pull a branching job: build the pot to the estimate, then
+#  cash out OR push your luck for way more. A specialist buffs the choice that
+#  matches their role. Loot is dirty money. A bust costs the take + a heat spike
+#  (crew walks clean, and the job stays available to try again).
+# ══════════════════════════════════════════════════════════════════════════════
+DARK_HEIST_ROLES = {"driver": {"name": "Driver", "icon": "🚗"}, "hacker": {"name": "Hacker", "icon": "💻"},
+                    "boxman": {"name": "Boxman", "icon": "🧨"}, "muscle": {"name": "Muscle", "icon": "🔫"},
+                    "face":   {"name": "Face",   "icon": "🎭"}}
+DARK_HEIST_TIERS = [{"tier": "street", "name": "Street", "cut": 6, "skill": 1},
+                    {"tier": "seasoned", "name": "Seasoned", "cut": 10, "skill": 3},
+                    {"tier": "pro", "name": "Pro", "cut": 15, "skill": 5}]
+DARK_HEIST_NAMES = {
+    "driver": ["Treadz", "Gears", "Lefty", "Wheels", "Ramps"],
+    "hacker": ["Bitwise", "Glitch", "Cipher", "Modem", "Root"],
+    "boxman": ["Tumbler", "Click", "Nitro", "Fingers", "Dial"],
+    "muscle": ["Bull", "Crusher", "Tiny", "Rebar", "Mack"],
+    "face":   ["Silk", "Cardsharp", "Mirage", "Velvet", "Slick"],
+}
+DARK_HEIST_SKILL_BUFF = 8   # +% to a matching choice per skill point
+DARK_HEIST_FUMBLE_MULT = 1.8  # a blown clutch costs this much more than just taking the loss
+
+# Each beat: choices = [{label, role?, base%, good (pot $ on success), bad (pot $ lost on fail), crit?}].
+# Getaway choices keep the pot on success; a crit fail anywhere = bust.
+DARK_HEISTS = {
+    "checkcash": {
+        "name": "The Check-Cashing Spot", "icon": "🏪", "cred": 2, "est": 25_000, "roles": ["driver", "muscle"],
+        "blurb": "A cash-heavy check-cashing joint off the boulevard. Thin security, fat drawers. A clean first score.",
+        "case": [
+            {"id": "watch", "label": "Watch the place for a day", "cost": 1_500, "bonus": 6,  "note": "You clock the guard's smoke breaks and the camera blind spot."},
+            {"id": "sched", "label": "Buy the schedule off the clerk's cousin", "cost": 3_500, "bonus": 9, "note": "Now you know exactly when the drawer's fattest."},
+        ],
+        "beats": [
+            {"icon": "🚪", "text": "Two minutes to opening. Through the glass: one clerk counting her till, a rent-a-guard half-asleep on a stool. Your muscle's knuckles are white on the door handle. How do you go in?",
+             "choices": [{"label": "Walk in calm — flash the piece", "role": "muscle", "base": 42, "good": 9_000, "bad": 3_000,
+                          "win": "The piece does the talking. The guard's hands are up before he's even awake.", "fail": "The guard's quicker than he looks — he lunges for the panic button.",
+                          "clutch": "His hand's slamming toward the alarm — you have to reach him first."},
+                         {"label": "Kick the door — all noise", "role": "muscle", "base": 34, "good": 11_000, "bad": 4_000,
+                          "win": "You come in like a thunderclap. Nobody so much as breathes.", "fail": "Too loud — someone on the sidewalk already has a phone out.",
+                          "clutch": "A bystander's filming — shut it down before that clip goes anywhere."}]},
+            {"icon": "💵", "text": "The clerk's frozen, hand trembling an inch above the cash drawer. Every second you stand here is a second closer to a silent alarm she hasn't hit yet.",
+             "choices": [{"label": "Let your muscle lean on her — now", "role": "muscle", "base": 47, "good": 8_000, "bad": 2_500,
+                          "win": "One look from your guy and the drawer slides open.", "fail": "She panics and her knee finds the alarm under the counter.",
+                          "clutch": "Her hand's diving for the alarm — beat her to it."},
+                         {"label": "Keep it cool, talk her through it", "base": 43, "good": 9_000, "bad": 2_000,
+                          "win": "Soft voice, steady hands. She does exactly what you say.", "fail": "She reads calm as weakness and starts stalling for time.",
+                          "clutch": "She's running out the clock on purpose — close the gap fast."}]},
+            {"icon": "🧷", "text": "Drawer's open. Banded stacks staring back at you. The clock in your head is screaming to move.",
+             "choices": [{"label": "Sweep it into the bag and move", "base": 60, "good": 8_000, "bad": 3_000,
+                          "win": "Bag's full in eight seconds flat.", "fail": "You fumble a stack and bills go fluttering across the floor.",
+                          "clutch": "Cash all over the tile — scoop it before it scatters."}]},
+        ],
+        "greed": [
+            {"icon": "🗄️", "text": "On the way out you clock it — a back-office safe, door cracked, nobody watching. Could be nothing. Could be the real money.",
+             "choices": [{"label": "Have your guy force it", "role": "muscle", "base": 38, "good": 13_000, "bad": 5_000,
+                          "win": "He peels it like a tin can. Jackpot.", "fail": "The hinge shrieks — and so does somebody out front.",
+                          "clutch": "That screech carried — move before it brings company."},
+                         {"label": "Pop it quiet, driver on the street", "role": "driver", "base": 42, "good": 11_000, "bad": 4_000,
+                          "win": "Quiet, clean, and your driver never blinked.", "fail": "Your driver hisses a warning — headlights swinging in.",
+                          "clutch": "Headlights coming — finish it or bolt, right now."}]},
+            {"icon": "🏧", "text": "Out back, the night-deposit ATM sits there fat and dumb. But you can hear a patrol car a few blocks off, and it's getting closer.",
+             "choices": [{"label": "Rip it open and gun it", "role": "muscle", "base": 30, "good": 18_000, "bad": 9_000, "crit": True,
+                          "win": "You tear it open and the cash is yours — go, go, go.", "fail": "The cruiser rounds the corner just as it gives. They've got you.",
+                          "clutch": "Cruiser's right on top of you — one perfect move or it's over."},
+                         {"label": "Crack it careful, eyes on the road", "role": "driver", "base": 35, "good": 15_000, "bad": 7_000, "crit": True,
+                          "win": "Surgical. You're a ghost before the taillights fade.", "fail": "A beat too slow — a spotlight pins you to the wall.",
+                          "clutch": "Spotlight swinging your way — NOW or never."}]},
+        ],
+        "getaway": {"icon": "🚗", "text": "Bag's heavy, sirens somewhere behind you, your driver's got the engine screaming. Which way out of here?",
+                    "choices": [{"label": "Main road — floor it", "role": "driver", "base": 46, "crit": True,
+                                 "win": "He threads moving traffic like it's parked. Gone.", "fail": "Roadblock. Lights everywhere, nowhere to go.",
+                                 "clutch": "Roadblock dead ahead — thread the gap or get boxed in."},
+                                {"label": "Back streets — stay cool", "role": "driver", "base": 56, "crit": True,
+                                 "win": "Quiet streets, easy speed. You melt into the city.", "fail": "Dead end — and a cruiser fills the mirror.",
+                                 "clutch": "Dead end coming up — find the out before he blocks it."}]},
+    },
+    # ── The rest of the ladder: visible on the board, authored later. ──
+    "jewelry": {
+        "name": "The Jewelry Store", "icon": "💍", "cred": 4, "est": 80_000, "roles": ["driver", "muscle", "hacker"],
+        "blurb": "Display cases of ice and a back-room safe — wired to the teeth. Bring someone who can talk to alarms.",
+        "case": [
+            {"id": "buyer", "label": "Pose as a buyer, scope the floor", "cost": 3_000, "bonus": 7, "note": "You map the cases and every camera arc."},
+            {"id": "mall",  "label": "Bribe the mall's night guard", "cost": 6_000, "bonus": 11, "note": "He'll be on a very long bathroom break at showtime."},
+        ],
+        "beats": [
+            {"icon": "💻", "text": "The whole shop's tied to a central monitoring station — motion sensors, glass-break mics, the works. Nothing happens until that system goes blind.",
+             "choices": [{"label": "Loop the camera feed", "role": "hacker", "base": 44, "good": 26_000, "bad": 9_000,
+                          "win": "The cameras play yesterday on a loop. You're invisible.", "fail": "The loop stutters and the station pings for a status check.",
+                          "clutch": "The system wants a handshake — answer it before it locks the place down."},
+                         {"label": "Cut the line, brute-force the panel", "role": "muscle", "base": 36, "good": 30_000, "bad": 12_000,
+                          "win": "Lines dead, panel in pieces. Crude — but it's dark.", "fail": "A backup cell uplink kicks in — the alarm's awake.",
+                          "clutch": "The backup radio's powering up — kill it NOW."}]},
+            {"icon": "🔨", "text": "Rows of glass cases full of ice stand between you and the back safe. The night guard's halfway through his round.",
+             "choices": [{"label": "Lay the guard down quiet", "role": "muscle", "base": 46, "good": 27_000, "bad": 9_000,
+                          "win": "Zip-tied and calm before he knew you were in the room.", "fail": "He twists loose and lunges for his radio.",
+                          "clutch": "He's keying the radio — shut him up first."},
+                         {"label": "Ignore him, hammer the cases", "base": 40, "good": 24_000, "bad": 8_000,
+                          "win": "Hammers swing, velvet trays empty into the bag.", "fail": "He rounds the corner mid-smash and bolts for the door.",
+                          "clutch": "He's sprinting for the exit — cut him off."}]},
+            {"icon": "💎", "text": "The floor ice is bagged. The real money's the certified stones locked in the back safe.",
+             "choices": [{"label": "Crack the back safe", "role": "hacker", "base": 48, "good": 27_000, "bad": 10_000,
+                          "win": "The little safe gives up its velvet boxes. Gorgeous.", "fail": "Three wrong codes — it locks itself for an hour.",
+                          "clutch": "One attempt left before lockout — read the dial right."}]},
+        ],
+        "greed": [
+            {"icon": "⌚", "text": "There's a sealed case of collector watches up front — Pateks, the works. Right under the street window, though.",
+             "choices": [{"label": "Smash it and grab", "role": "muscle", "base": 38, "good": 35_000, "bad": 14_000,
+                          "win": "A fortune in wrists, straight into the bag.", "fail": "The smash trips a separate window sensor.",
+                          "clutch": "Window alarm arming — clear the case before it screams."},
+                         {"label": "Pick it clean and quiet", "role": "hacker", "base": 42, "good": 28_000, "bad": 11_000,
+                          "win": "Lock pops without a sound. Tidy.", "fail": "A passerby on the sidewalk stops to stare.",
+                          "clutch": "Someone's watching through the glass — look casual, move fast."}]},
+            {"icon": "🏦", "text": "The owner's personal safe is upstairs — rumored to hold loose diamonds worth more than the whole floor. You're way past your window now.",
+             "choices": [{"label": "Go for the owner's safe", "role": "muscle", "base": 30, "good": 55_000, "bad": 22_000, "crit": True,
+                          "win": "Loose stones by the fistful. The score of a lifetime.", "fail": "A silent alarm you missed — blue lights fill the street.",
+                          "clutch": "Sirens already wailing — grab it and vanish in five seconds."}]},
+        ],
+        "getaway": {"icon": "🚗", "text": "Bags of ice, and somewhere a silent alarm's tripped. Your driver's idling out back.",
+                    "choices": [{"label": "Hit the freeway", "role": "driver", "base": 48, "crit": True,
+                                 "win": "Onto the on-ramp and gone before the first cruiser shows.", "fail": "A traffic cam tags you — units converging.",
+                                 "clutch": "They're funneling you toward a checkpoint — find the off-ramp."},
+                                {"label": "Ditch the car, vanish through the mall", "role": "driver", "base": 56, "crit": True,
+                                 "win": "You melt into the late crowd and out a service door.", "fail": "Mall security locks the exits — you're penned in.",
+                                 "clutch": "They're sealing the doors — make the service exit first."}]},
+    },
+    "armored": {
+        "name": "The Armored Truck", "icon": "🚚", "cred": 5, "est": 160_000, "roles": ["driver", "muscle", "hacker"],
+        "blurb": "Hit it on its route. All timing and nerve — stop it cold, crack it fast, and have a wheelman who can vanish.",
+        "case": [
+            {"id": "tail",   "label": "Tail the route for a week", "cost": 6_000, "bonus": 8, "note": "You know the exact corner where it slows for the light."},
+            {"id": "freq",   "label": "Buy the dispatch frequency", "cost": 12_000, "bonus": 12, "note": "You'll hear them call it in — and you'll already be moving."},
+        ],
+        "beats": [
+            {"icon": "🚧", "text": "The truck runs its route like clockwork. You've got one intersection to stop ten tons of steel cold.",
+             "choices": [{"label": "Box it in with two cars", "role": "driver", "base": 42, "good": 38_000, "bad": 16_000,
+                          "win": "Pinned at the light, nowhere to go.", "fail": "The driver guns it onto the curb and around you.",
+                          "clutch": "He's mounting the curb to escape — cut the angle off."},
+                         {"label": "Lay a spike strip", "role": "hacker", "base": 40, "good": 42_000, "bad": 18_000,
+                          "win": "Tires blow and the truck slews to a dead stop.", "fail": "Only one tire catches — it limps forward.",
+                          "clutch": "Still rolling on the rim — stop it before it clears the block."}]},
+            {"icon": "📡", "text": "The guards inside are already keying the radio to dispatch. Cut them off, or the cavalry's coming in minutes.",
+             "choices": [{"label": "Jam their comms", "role": "hacker", "base": 44, "good": 40_000, "bad": 16_000,
+                          "win": "Static. They're screaming into a dead mic.", "fail": "The jam's spotty — a partial call slips out.",
+                          "clutch": "Half a distress call got through — smother the rest."},
+                         {"label": "Smoke them out the back", "role": "muscle", "base": 38, "good": 38_000, "bad": 17_000,
+                          "win": "Doors pop, hands up, no shots fired.", "fail": "They button up tight and call it in anyway.",
+                          "clutch": "They're radioing from inside — breach before they finish the sentence."}]},
+            {"icon": "💰", "text": "Back doors open. Canvas bags of banded cash, more than you can carry. The clock's screaming.",
+             "choices": [{"label": "Form a chain, load fast", "role": "muscle", "base": 50, "good": 42_000, "bad": 14_000,
+                          "win": "Bag after bag into the trunk. Heavy and beautiful.", "fail": "You drop a bag and bills wash toward a storm drain.",
+                          "clutch": "A bag's tipping into the gutter — save it."}]},
+            {"icon": "🔥", "text": "You've got the cash, but dash cams have your faces and dispatch knows something's wrong.",
+             "choices": [{"label": "Torch the truck to kill the evidence", "role": "hacker", "base": 46, "good": 38_000, "bad": 12_000,
+                          "win": "Flames eat the cameras and the prints. Clean.", "fail": "The fire draws every eye on the block.",
+                          "clutch": "The blaze is a beacon — get clear before it pins you."}]},
+        ],
+        "greed": [
+            {"icon": "🔒", "text": "There's a second strongbox bolted to the floor — the high-value run. Bearer bonds, maybe. The good stuff.",
+             "choices": [{"label": "Pry it loose", "role": "muscle", "base": 34, "good": 60_000, "bad": 24_000,
+                          "win": "The bolts shear and the box is yours. Jackpot.", "fail": "It won't budge and you've burned a minute you don't have.",
+                          "clutch": "Last heave before the units arrive — rip it free."}]},
+            {"icon": "🚁", "text": "Dispatch scrambled a chopper. One more grab from the cab's lockbox — the payroll run — or you run now.",
+             "choices": [{"label": "One more grab", "role": "hacker", "base": 28, "good": 90_000, "bad": 40_000, "crit": True,
+                          "win": "The cab box held the whole payroll. Unreal.", "fail": "A searchlight from above lights up the entire scene.",
+                          "clutch": "Spotlight sweeping in — clear the cab in three seconds."}]},
+        ],
+        "getaway": {"icon": "🚗", "text": "Loaded down, sirens closing, a chopper somewhere overhead.",
+                    "choices": [{"label": "Highway sprint", "role": "driver", "base": 46, "crit": True,
+                                 "win": "He outruns the cruisers and loses the chopper under an overpass.", "fail": "They PIT you into the median.",
+                                 "clutch": "Cruiser's lining up the PIT — break away before contact."},
+                                {"label": "Lose them in the industrial maze", "role": "driver", "base": 54, "crit": True,
+                                 "win": "Alleys, loading docks, a switch to a clean car. Gone.", "fail": "Dead-end loading bay — boxed in.",
+                                 "clutch": "That bay's a dead end — reverse out before they block it."}]},
+    },
+    "bank": {
+        "name": "The Bank", "icon": "🏦", "cred": 7, "est": 375_000, "roles": ["driver", "muscle", "hacker", "boxman"],
+        "blurb": "The real thing. A hardened vault, a full specialist crew, and a take that changes everything.",
+        "case": [
+            {"id": "acct", "label": "Open an account, walk the lobby", "cost": 12_000, "bonus": 7, "note": "You've clocked the vault door and the camera blind spots."},
+            {"id": "tell", "label": "Turn a teller", "cost": 30_000, "bonus": 12, "note": "She'll leave the day-gate unlocked and look the other way."},
+        ],
+        "beats": [
+            {"icon": "🚪", "text": "Doors at open. A floor of customers, two guards, and a manager carrying the only override card.",
+             "choices": [{"label": "Lock it down loud — everyone on the floor", "role": "muscle", "base": 40, "good": 90_000, "bad": 35_000,
+                          "win": "One shout and the whole floor's flat. You own the room.", "fail": "A guard's hand drops to his sidearm.",
+                          "clutch": "Guard's drawing — put him down before he clears leather."},
+                         {"label": "Quiet — pull the manager aside first", "role": "muscle", "base": 44, "good": 85_000, "bad": 30_000,
+                          "win": "Manager's cooperating, customers none the wiser.", "fail": "A customer clocks what's happening and screams.",
+                          "clutch": "The room's about to panic — calm it instantly."}]},
+            {"icon": "📷", "text": "Cameras and silent alarms run off the security room. While it's live, every second is recorded and counted.",
+             "choices": [{"label": "Hijack the security room", "role": "hacker", "base": 42, "good": 95_000, "bad": 38_000,
+                          "win": "Feeds frozen, alarms suppressed. The clock's yours now.", "fail": "A failsafe pings the monitoring company.",
+                          "clutch": "Monitoring's calling to verify — answer as the guard."}]},
+            {"icon": "🔐", "text": "The vault door. A foot of hardened steel on a time-lock — the real obstacle. This is what you brought the boxman for.",
+             "choices": [{"label": "Drill the lock", "role": "boxman", "base": 40, "good": 100_000, "bad": 40_000,
+                          "win": "He finds the sweet spot. The door sighs open.", "fail": "The bit snaps off in the housing.",
+                          "clutch": "Bit's about to seize — ease off at the exact right second."},
+                         {"label": "Burn it with thermite", "role": "boxman", "base": 36, "good": 105_000, "bad": 45_000,
+                          "win": "White-hot and fast — the door gives.", "fail": "The burn warps the frame and jams it half-open.",
+                          "clutch": "It's jamming — wedge it before it seizes shut."}]},
+            {"icon": "💵", "text": "Vault's open. Pallets of banded cash and a wall of safe-deposit boxes. Load what you came for.",
+             "choices": [{"label": "Sweep the cash drawers", "role": "muscle", "base": 54, "good": 90_000, "bad": 28_000,
+                          "win": "Duffels full of clean stacks. This is the number you came for.", "fail": "A dye pack you missed bursts in the bag.",
+                          "clutch": "Dye pack arming — ditch that bundle before it blows."}]},
+        ],
+        "greed": [
+            {"icon": "🗃️", "text": "The safe-deposit boxes. Drill a row and you can't know what you'll get — but rich people hide rich things.",
+             "choices": [{"label": "Drill the VIP row", "role": "boxman", "base": 36, "good": 200_000, "bad": 80_000,
+                          "win": "Cash, bonds, a velvet bag of stones. Pure profit.", "fail": "Half come up empty and you've burned precious minutes.",
+                          "clutch": "Time's bleeding — get the high-number boxes open NOW."}]},
+            {"icon": "👔", "text": "There's a second vault — the manager's private hold for the high-net clients. Nobody hits that and walks away. You could be nobody.",
+             "choices": [{"label": "Take the private vault", "role": "boxman", "base": 28, "good": 400_000, "bad": 160_000, "crit": True,
+                          "win": "Gold, cash, and paper worth more than the building. Legends are made of this.", "fail": "The hold's on its own loop — every cop in the city just woke up.",
+                          "clutch": "That loop's screaming — clear the hold in five or you're done."}]},
+        ],
+        "getaway": {"icon": "🚗", "text": "Duffels stacked, the lobby alarm finally howling, your driver flooring it to the curb.",
+                    "choices": [{"label": "Straight shot down the avenue", "role": "driver", "base": 46, "crit": True,
+                                 "win": "He splits the traffic and the city swallows you whole.", "fail": "They've strung a roadblock clean across the avenue.",
+                                 "clutch": "Roadblock ahead — find the gap or get caught with all of it."},
+                                {"label": "Through the parking structure to the swap car", "role": "driver", "base": 56, "crit": True,
+                                 "win": "Up, around, into a clean car two levels down. Vanished.", "fail": "They seal the structure's exits behind you.",
+                                 "clutch": "Gates dropping on the exits — beat the last one down."}]},
+    },
+    "casino": {
+        "name": "The Casino Count Room", "icon": "🎰", "cred": 8, "est": 750_000, "roles": ["driver", "muscle", "hacker", "boxman", "face"],
+        "blurb": "Where the house keeps its cash. You don't get in without a man on the inside and a face that can lie to a pit boss.",
+        "case": [
+            {"id": "comp", "label": "Comp a weekend, learn the floor", "cost": 25_000, "bonus": 7, "note": "You know the pit bosses' rotations and the cage shifts."},
+            {"id": "deal", "label": "Flip a dealer for the count-room schedule", "cost": 60_000, "bonus": 12, "note": "You'll hit it during the drop — when the cash is all in one place."},
+        ],
+        "beats": [
+            {"icon": "🎭", "text": "Getting back-of-house means a keycard door and a very alert pit boss. This is the face's moment.",
+             "choices": [{"label": "Walk in as a gaming inspector", "role": "face", "base": 42, "good": 180_000, "bad": 70_000,
+                          "win": "Clipboard, confidence, a flashed badge — they hold the door.", "fail": "The boss asks for a credential you don't have.",
+                          "clutch": "He's calling to verify your badge — sell it, hard."},
+                         {"label": "Inside man buzzes you through", "role": "face", "base": 46, "good": 170_000, "bad": 65_000,
+                          "win": "A nod from your guy and the lock clicks green.", "fail": "His relief came in early — wrong man at the desk.",
+                          "clutch": "Stranger at the desk — improvise before he calls it in."}]},
+            {"icon": "📹", "text": "The surveillance room — the 'eye in the sky' — watches everything. Blind it or the whole floor's against you.",
+             "choices": [{"label": "Loop the eye", "role": "hacker", "base": 40, "good": 185_000, "bad": 72_000,
+                          "win": "Every monitor plays a quiet night on repeat.", "fail": "An operator notices the timestamp's frozen.",
+                          "clutch": "He's reaching for the floor phone — cut the line first."}]},
+            {"icon": "🔐", "text": "The count-room vault, where the day's drop sits being tallied. Your boxman's whole reason for coming.",
+             "choices": [{"label": "Crack the count-room vault", "role": "boxman", "base": 38, "good": 195_000, "bad": 78_000,
+                          "win": "The door swings on a room knee-deep in banded cash.", "fail": "The seismic sensor in the door trips.",
+                          "clutch": "Sensor's arming — still the door before it locks the room down."}]},
+            {"icon": "🧰", "text": "Inside: more cash than you've seen in one place in your life. Load it before the drop team's break ends.",
+             "choices": [{"label": "Bag the cage and the drop", "role": "muscle", "base": 50, "good": 190_000, "bad": 60_000,
+                          "win": "Carts of cash straight into the laundry bins. Genius.", "fail": "A drop-team guard wanders back early.",
+                          "clutch": "Guard's keying in — be ready at the door."}]},
+        ],
+        "greed": [
+            {"icon": "🃏", "text": "The high-limit cage holds the whales' markers and a vault of chips you can wash dirty. Greedy. Beautiful.",
+             "choices": [{"label": "Hit the high-limit cage", "role": "boxman", "base": 34, "good": 300_000, "bad": 120_000,
+                          "win": "Plaques and markers worth a fortune. The whales will weep.", "fail": "The cage has a time-delay you didn't budget for.",
+                          "clutch": "Delay timer ticking — pop it before it freezes."}]},
+            {"icon": "💎", "text": "The owner's private vault behind the count room — the skim, untaxed, off every book. Touch it and there's no going back, ever.",
+             "choices": [{"label": "Take the owner's skim", "role": "boxman", "base": 26, "good": 700_000, "bad": 280_000, "crit": True,
+                          "win": "Stacks the taxman never knew existed. You just robbed a robber blind.", "fail": "His private alarm goes straight to people far worse than cops.",
+                          "clutch": "That alarm reaches very bad men — clear it in five seconds flat."}]},
+        ],
+        "getaway": {"icon": "🚗", "text": "Laundry bins of cash, the floor finally catching on, your driver waiting at the loading dock.",
+                    "choices": [{"label": "Out through the service tunnels", "role": "driver", "base": 48, "crit": True,
+                                 "win": "Down through the kitchens and out a delivery ramp. Ghosts.", "fail": "Security floods the tunnels behind you.",
+                                 "clutch": "They're sealing the tunnel — make the ramp first."},
+                                {"label": "Blend into the valet chaos", "role": "driver", "base": 54, "crit": True,
+                                 "win": "You roll out in the valet line like any other high roller.", "fail": "They lock the garage — you're trapped in the line.",
+                                 "clutch": "Garage gates dropping — slip out before they seal it."}]},
+    },
+    "bigone": {
+        "name": "The Big One", "icon": "🏛️", "cred": 9, "est": 1_600_000, "roles": ["driver", "muscle", "hacker", "boxman", "face"],
+        "blurb": "A private depository — where institutions that can't use real banks stash untraceable cash. Three rings of security, a four-minute response clock, and a legend waiting on the other side. One night. No second chances.",
+        "case": [
+            {"id": "months", "label": "Months of surveillance", "cost": 60_000, "bonus": 7, "note": "You know the guard rotations down to the minute."},
+            {"id": "inside", "label": "Buy a man on the inside", "cost": 150_000, "bonus": 12, "note": "He'll kill the inner door's failsafe at the exact moment."},
+        ],
+        "beats": [
+            {"icon": "🚁", "text": "The roof, midnight. Armed patrols, a grid of motion lasers, and a four-minute armed-response clock the instant you trip anything.",
+             "choices": [{"label": "Rappel in through the skylight", "role": "muscle", "base": 38, "good": 320_000, "bad": 130_000,
+                          "win": "Silent descent, boots down between the beams. You're in.", "fail": "A boot clips a laser — the clock starts ticking.",
+                          "clutch": "You broke a beam — kill the relay before it makes the call."}]},
+            {"icon": "💻", "text": "First ring: a lattice of motion sensors feeding the master alarm spine. Blind all of it or die trying.",
+             "choices": [{"label": "Splice the alarm spine", "role": "hacker", "base": 36, "good": 330_000, "bad": 140_000,
+                          "win": "The whole building goes dumb. Every sensor sleeps.", "fail": "A redundant node screams to the response center.",
+                          "clutch": "Backup node waking — sever it before the call connects."}]},
+            {"icon": "🎭", "text": "The inner door needs two things: a biometric you have to talk a guard into giving, and a code only the night manager carries.",
+             "choices": [{"label": "Run the con on the night manager", "role": "face", "base": 38, "good": 340_000, "bad": 145_000,
+                          "win": "You walk him right up and his own thumb opens the door.", "fail": "He sees through it and reaches for the panic stud.",
+                          "clutch": "His thumb's drifting to the panic button — stop him cold."}]},
+            {"icon": "🔐", "text": "The main vault. A door built to survive a bomb. Your boxman's whole career has led to this single moment.",
+             "choices": [{"label": "Defeat the vault", "role": "boxman", "base": 34, "good": 350_000, "bad": 150_000,
+                          "win": "Forty minutes of genius compressed into eight. The door yawns open.", "fail": "The relockers fire — the door's a tomb.",
+                          "clutch": "Relockers tripping — hit the override this instant."}]},
+            {"icon": "💵", "text": "Beyond the door: pallets. Shrink-wrapped bricks of cash stacked to the ceiling. More money than you can comprehend.",
+             "choices": [{"label": "Load the cart — every second counts", "role": "muscle", "base": 48, "good": 320_000, "bad": 110_000,
+                          "win": "Bricks by the armful. The response clock be damned.", "fail": "You overload the cart and a wheel buckles.",
+                          "clutch": "Cart's tipping — steady it and keep moving."}]},
+        ],
+        "greed": [
+            {"icon": "🏷️", "text": "A sealed room off the vault — bearer bonds and cartel paper. Untraceable, weightless, worth a fortune.",
+             "choices": [{"label": "Take the paper room", "role": "boxman", "base": 30, "good": 800_000, "bad": 320_000,
+                          "win": "Folders of bonds worth more than the cash on your back.", "fail": "It's on a separate trigger — your response clock just halved.",
+                          "clutch": "You cut the timeline in half — clear the room NOW."}]},
+            {"icon": "☠️", "text": "And the last door. Whatever's behind it, the people who own this place will hunt you to the ends of the earth for it. Point of no return.",
+             "choices": [{"label": "Open the last door", "role": "boxman", "base": 24, "good": 1_600_000, "bad": 700_000, "crit": True,
+                          "win": "Gold bars and a number with too many zeros. You just became a myth — and a marked man for life.", "fail": "It was bait. The trap closes and the real guns arrive.",
+                          "clutch": "The trap's springing — beat it shut in five seconds or it's over."}]},
+        ],
+        "getaway": {"icon": "🚗", "text": "Everything you can carry, the four-minute clock long expired, the whole city's law bearing down. Your driver's been counting every second.",
+                    "choices": [{"label": "The planned route — full commitment", "role": "driver", "base": 44, "crit": True,
+                                 "win": "Every turn rehearsed a hundred times. You disappear like you were never there.", "fail": "They predicted the route — it's a gauntlet of cruisers.",
+                                 "clutch": "They're waiting on the route — break off it before they close the net."},
+                                {"label": "Go dark — switch cars, walk away clean", "role": "driver", "base": 52, "crit": True,
+                                 "win": "Three cars, a tunnel, and a quiet walk into a brand new life.", "fail": "The switch point's already crawling with units.",
+                                 "clutch": "Units at the swap — make the change before they lock it down."}]},
+    },
+}
+DARK_HEIST_ORDER = ["checkcash", "jewelry", "armored", "bank", "casino", "bigone"]
+
+def _dark_heist_playable(key):
+    return bool(DARK_HEISTS.get(key, {}).get("beats"))
+
+def _heist_member(d, mid):
+    return next((m for m in d.get("heist_crew", []) if m["id"] == mid), None)
+
+def _dark_heist_ensure_pool(d):
+    """The crew are permanent people: exactly 3 named specialists per role (one per tier).
+    Idempotent + self-repairing — keeps existing (leveled) members, dedupes extras, fills any
+    gaps. Safe to run on every load, so old duplicated/partial pools get fixed automatically."""
+    crew = d.get("heist_crew", [])
+    valid_tiers = [t["tier"] for t in DARK_HEIST_TIERS]
+    rebuilt = []
+    for role in DARK_HEIST_ROLES:
+        members = [m for m in crew if m.get("role") == role]
+        by_tier = {}
+        for m in members:                       # keep the best (most-leveled) member per tier
+            t = m.get("tier")
+            if t in valid_tiers and (t not in by_tier or m.get("skill", 0) > by_tier[t].get("skill", 0)):
+                by_tier[t] = m
+        names = DARK_HEIST_NAMES.get(role, ["Smith", "Jones", "Doe"]); used = set()
+        for td in DARK_HEIST_TIERS:
+            keep = by_tier.get(td["tier"])
+            if keep:
+                keep["cut"] = td["cut"]; rebuilt.append(keep); used.add(keep.get("name"))
+            else:
+                avail = [n for n in names if n not in used] or names
+                nm = random.choice(avail); used.add(nm)
+                mid = d.get("next_heist_member", 1); d["next_heist_member"] = mid + 1
+                rebuilt.append({"id": mid, "role": role, "tier": td["tier"], "name": nm,
+                                "cut": td["cut"], "skill": td["skill"]})
+    d["heist_crew"] = rebuilt
+    h = d.get("heist")                            # drop any now-dangling crew assignments
+    if h and isinstance(h.get("crew"), dict):
+        valid = {m["id"] for m in rebuilt}
+        h["crew"] = {r: mid for r, mid in h["crew"].items() if mid in valid}
+
+def _dark_heist_chance(h, d, opt):
+    base = opt.get("base", 50) + h.get("case_bonus", 0)
+    role = opt.get("role")
+    if role and h.get("crew", {}).get(role):
+        m = _heist_member(d, h["crew"][role])
+        if m: base += m.get("skill", 1) * DARK_HEIST_SKILL_BUFF
+    return max(5, min(95, base))
+
+def _dark_heist_curbeat(h, defn):
+    ph = h.get("phase"); idx = h.get("idx", 0)
+    if ph == "getaway": return defn.get("getaway")
+    if ph == "greed":
+        g = defn.get("greed", []); return g[idx] if idx < len(g) else None
+    if ph == "core":
+        b = defn.get("beats", []); return b[idx] if idx < len(b) else None
+    return None
+
+def _dark_heist_set_beat(h, d):
+    """Stash a client-facing view of the current beat (with crew/casing-adjusted odds)."""
+    defn = DARK_HEISTS.get(h["key"], {})
+    beat = _dark_heist_curbeat(h, defn)
+    if not beat:
+        h["beat"] = None; return
+    h["beat"] = {"icon": beat["icon"], "text": beat["text"], "getaway": h.get("phase") == "getaway",
+                 "choices": [{"label": c["label"], "role": c.get("role"), "crit": bool(c.get("crit")),
+                              "chance": _dark_heist_chance(h, d, c)} for c in beat["choices"]]}
+
+def _dark_heist_finish(s, d, busted):
+    h = d.get("heist");  defn = DARK_HEISTS.get(h["key"], {})
+    if busted:
+        d["heat"] = min(100, d.get("heat", 0) + 25)
+        h["stage"] = "done"; h["outcome"] = "bust"
+        h["final"] = {"your": 0, "cut": 0, "pot": 0}
+        return
+    pot = h.get("pot", 0)
+    members = [_heist_member(d, mid) for mid in h.get("crew", {}).values()]
+    cut_pct = sum(m["cut"] for m in members if m)
+    cut_amt = round(pot * cut_pct / 100.0)
+    your = max(0, pot - cut_amt)
+    d["dirty_money"] = d.get("dirty_money", 0) + your
+    d["heat"] = min(100, d.get("heat", 0) + 8 + round(h.get("heat", 0) / 2))
+    d["cred_xp"] = d.get("cred_xp", 0) + round(your / 200)
+    for m in members:
+        if m: m["skill"] = min(6, m.get("skill", 1) + 1)
+    d.setdefault("heists_done", []).append(h["key"])
+    h["stage"] = "done"; h["outcome"] = "win"
+    h["final"] = {"your": your, "cut": cut_amt, "pot": pot, "cut_pct": cut_pct}
 
 # ── Events — fire on Advance, each a choice with good/bad/quirky outcomes. ──
 # req gates eligibility: always | crew | lab | dealer | business.
@@ -6852,6 +7262,174 @@ def api_dark_vip_action():
         outcome = "Last call — he's done talking for the night. You didn't get what you came for."
     if g.get("done"): g["outcome"] = outcome
     save(s); return jsonify({"ok": True, "game": g})
+
+def _dark_heist_curchoice(h, defn, ci):
+    if h.get("phase") == "getaway": beat = defn["getaway"]
+    elif h.get("phase") == "greed": beat = defn.get("greed", [])[h["idx"]]
+    else: beat = defn["beats"][h["idx"]]
+    return beat["choices"][ci]
+
+def _dark_heist_resolve_beat(s, d, h, defn, ci, kind):
+    """kind: 'win' (rolled it / clutched it), 'loss' (took the loss), 'fumble' (blew the clutch)."""
+    opt = _dark_heist_curchoice(h, defn, ci)
+    if kind == "win":
+        h["heat"] = h.get("heat", 0) + 2
+        h["pot"] = h.get("pot", 0) + opt.get("good", 0)
+        h["last"] = {"ok": True, "gain": opt.get("good", 0), "text": opt.get("win", "")}
+        _heist_advance(h, defn, True)
+        if h.get("phase") == "payout": _dark_heist_finish(s, d, busted=False)
+        else: _dark_heist_set_beat(h, d)
+        return
+    h["heat"] = h.get("heat", 0) + 5
+    if opt.get("crit"):                       # a failed critical beat = caught, no matter how it failed
+        h["last"] = {"ok": False, "text": opt.get("fail", "")}
+        _dark_heist_finish(s, d, busted=True)
+        return
+    mult = DARK_HEIST_FUMBLE_MULT if kind == "fumble" else 1.0
+    loss = min(h.get("pot", 0), round(opt.get("bad", 0) * mult))
+    h["pot"] = h.get("pot", 0) - loss
+    txt = opt.get("fail", "")
+    if kind == "fumble": txt += " You blew the clutch — it cost you extra."
+    h["last"] = {"ok": False, "loss": loss, "text": txt}
+    _heist_advance(h, defn, False)
+    _dark_heist_set_beat(h, d)
+
+def _heist_advance(h, defn, success):
+    """Move to the next beat / phase after a beat resolves."""
+    phase = h["phase"]
+    if phase == "getaway":
+        h["phase"] = "payout"   # getaway done → payout (success keeps the pot)
+        return
+    h["idx"] = h.get("idx", 0) + 1
+    if phase == "core":
+        if h["idx"] >= len(defn["beats"]):
+            h["secured"] = True
+            if defn.get("greed"): h["phase"] = "greed"; h["idx"] = 0
+            else: h["phase"] = "getaway"; h["idx"] = 0
+    elif phase == "greed":
+        if h["idx"] >= len(defn.get("greed", [])):
+            h["phase"] = "getaway"; h["idx"] = 0
+
+@app.route('/api/dark/heist_start', methods=['POST'])
+def api_dark_heist_start():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; key = (request.json or {}).get("key"); defn = DARK_HEISTS.get(key)
+    if not defn: return jsonify({"error": "No such score."}), 400
+    if d.get("heist"): return jsonify({"error": "You're already lining up a job."}), 400
+    if key in d.get("heists_done", []): return jsonify({"error": "That score's already been pulled."}), 400
+    if not _dark_heist_playable(key): return jsonify({"error": "That one's still in the works."}), 400
+    if d.get("cred", 1) < defn["cred"]: return jsonify({"error": f"Unlocks at Street Cred {defn['cred']}."}), 400
+    _dark_heist_ensure_pool(d)
+    d["heist"] = {"key": key, "stage": "plan", "crew": {},
+                  "case_bonus": 0, "cased": [], "pot": 0, "heat": 0, "phase": "core", "idx": 0,
+                  "secured": False, "last": None, "outcome": None, "final": None}
+    save(s); return jsonify({"ok": True})
+
+@app.route('/api/dark/heist_crew', methods=['POST'])
+def api_dark_heist_crew():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; h = d.get("heist")
+    if not h or h.get("stage") != "plan": return jsonify({"error": "No job to crew up."}), 400
+    j = request.json or {}; role = j.get("role")
+    if role not in DARK_HEISTS[h["key"]]["roles"]: return jsonify({"error": "That role isn't on this job."}), 400
+    m = _heist_member(d, j.get("id"))
+    if not m or m["role"] != role: return jsonify({"error": "No such specialist for that role."}), 400
+    h["crew"][role] = m["id"]   # just select — the crew are permanent, no duplicating
+    save(s); return jsonify({"ok": True})
+
+@app.route('/api/dark/heist_case', methods=['POST'])
+def api_dark_heist_case():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; h = d.get("heist")
+    if not h or h.get("stage") != "plan": return jsonify({"error": "No job to case."}), 400
+    aid = (request.json or {}).get("action")
+    act = next((a for a in DARK_HEISTS[h["key"]].get("case", []) if a["id"] == aid), None)
+    if not act: return jsonify({"error": "Nothing to do there."}), 400
+    if aid in h.get("cased", []): return jsonify({"error": "You've already cased that angle."}), 400
+    if s["cash"] < act["cost"]: return jsonify({"error": f"Need ${act['cost']:,} to case it."}), 400
+    s["cash"] -= act["cost"]; h["case_bonus"] = h.get("case_bonus", 0) + act["bonus"]
+    h.setdefault("cased", []).append(aid); d["heat"] = min(100, d.get("heat", 0) + 2)
+    save(s); return jsonify({"ok": True, "note": act["note"]})
+
+@app.route('/api/dark/heist_go', methods=['POST'])
+def api_dark_heist_go():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; h = d.get("heist")
+    if not h or h.get("stage") != "plan": return jsonify({"error": "No job to pull."}), 400
+    missing = [r for r in DARK_HEISTS[h["key"]]["roles"] if r not in h.get("crew", {})]
+    if missing: return jsonify({"error": f"Still need a {DARK_HEIST_ROLES[missing[0]]['name']}."}), 400
+    h["stage"] = "run"; h["phase"] = "core"; h["idx"] = 0; h["pot"] = 0; h["secured"] = False; h["last"] = None
+    _dark_heist_set_beat(h, d)
+    save(s); return jsonify({"ok": True})
+
+@app.route('/api/dark/heist_choice', methods=['POST'])
+def api_dark_heist_choice():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; h = d.get("heist")
+    if not h or h.get("stage") != "run": return jsonify({"error": "No job running."}), 400
+    if h.get("clutch"): return jsonify({"error": "Handle the clutch first."}), 400
+    defn = DARK_HEISTS[h["key"]]; phase = h["phase"]; idx = h["idx"]
+    if phase == "getaway": beat = defn["getaway"]
+    elif phase == "greed": beat = defn.get("greed", [])[idx]
+    else: beat = defn["beats"][idx]
+    ci = int((request.json or {}).get("choice", 0))
+    if ci < 0 or ci >= len(beat["choices"]): return jsonify({"error": "Pick a move."}), 400
+    opt = beat["choices"][ci]
+    if (random.random() * 100) < _dark_heist_chance(h, d, opt):
+        _dark_heist_resolve_beat(s, d, h, defn, ci, "win")
+    else:
+        # The roll failed — let the player decide: take the loss, or go for a clutch.
+        h["clutch"] = {"ci": ci, "crit": bool(opt.get("crit")), "bad": opt.get("bad", 0),
+                       "label": opt.get("label", ""), "text": opt.get("clutch") or "It's going sideways — one shot to pull it back."}
+    save(s); return jsonify({"ok": True})
+
+@app.route('/api/dark/heist_clutch', methods=['POST'])
+def api_dark_heist_clutch():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; h = d.get("heist")
+    if not h or h.get("stage") != "run" or not h.get("clutch"): return jsonify({"error": "Nothing to clutch."}), 400
+    defn = DARK_HEISTS[h["key"]]; ci = h["clutch"]["ci"]
+    j = request.json or {}; go = bool(j.get("go"))
+    h["clutch"] = None
+    if not go:
+        _dark_heist_resolve_beat(s, d, h, defn, ci, "loss")          # take the smaller loss
+    elif j.get("result") == "hit":
+        _dark_heist_resolve_beat(s, d, h, defn, ci, "win")           # nailed it
+    else:
+        _dark_heist_resolve_beat(s, d, h, defn, ci, "fumble")        # blew it — bigger loss
+    save(s); return jsonify({"ok": True})
+
+@app.route('/api/dark/heist_cashout', methods=['POST'])
+def api_dark_heist_cashout():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; h = d.get("heist")
+    if not h or h.get("stage") != "run" or not h.get("secured"): return jsonify({"error": "Nothing secured to cash out yet."}), 400
+    if h["phase"] == "getaway": return jsonify({"error": "You're already on your way out."}), 400
+    h["phase"] = "getaway"; h["idx"] = 0
+    _dark_heist_set_beat(h, d)
+    save(s); return jsonify({"ok": True})
+
+@app.route('/api/dark/heist_close', methods=['POST'])
+def api_dark_heist_close():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    s["dark"]["heist"] = None
+    save(s); return jsonify({"ok": True})
+
+@app.route('/api/dark/heist_abort', methods=['POST'])
+def api_dark_heist_abort():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    h = s["dark"].get("heist")
+    if h and h.get("stage") == "plan": s["dark"]["heist"] = None
+    save(s); return jsonify({"ok": True})
 
 @app.route('/api/dark/collect_dealer', methods=['POST'])
 def api_dark_collect_dealer():
@@ -11428,9 +12006,15 @@ def api_redeem_code():
     if code in DARK_CREATOR_CODES:
         if s.get("mode") != "dark":
             return jsonify({"error": "Invalid code — try again!"}), 400   # stays secret in the legit game
+        rw = DARK_CREATOR_CODES[code]; d = s.setdefault("dark", {})
+        if rw.get("reset"):   # reusable dev resets — skip the one-time-use guard
+            if rw["reset"] == "heists":
+                d["heists_done"] = []; d["heist"] = None; d["heist_crew"] = []; d["next_heist_member"] = 1
+            s["log"].insert(0, {"day": s["day"], "type": "info", "text": f"Dark code — {rw['desc']}"})
+            save(s)
+            return jsonify({"success": True, "reward_desc": rw["desc"]})
         if code in s.get("redeemed_codes", []):
             return jsonify({"error": "Code already used!"}), 400
-        rw = DARK_CREATOR_CODES[code]; d = s.setdefault("dark", {})
         if "cred" in rw:
             d["cred"] = rw["cred"]; d["cred_xp"] = rw.get("xp", d.get("cred_xp", 0))
         if "dirty" in rw:
