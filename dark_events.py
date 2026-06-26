@@ -64,7 +64,6 @@ CREW_EVENTS = [
 
 DEALER_EVENTS = [
     {"i": "🔫", "t": "Your dealer got robbed at gunpoint on the corner.", "c": [["Cover his loss", "He's loyal.", {"cash": -2500}], ["'That's the job'", "He eats it, and the grudge.", {"s": "lose_held", "eheat": 4}]]},
-    {"i": "📦", "t": "A bulk buyer wants a discount for moving serious weight.", "c": [["Give the discount", "Volume's volume.", {"dirty": 2000}], ["Hold your price", "He walked.", {}]]},
     {"i": "🚓", "t": "Patrols just doubled on your dealer's corner.", "c": [["Move him to a new corner", "Off the radar.", {"cash": -800, "eheat": -12}], ["Hold the spot", "Risky.", {"eheat": 13}]]},
     {"i": "🌟", "t": "Your dealer built a loyal base — they only buy from him.", "c": [["Reward the hustle", "Sales climb.", {"dirty": 1800}]]},
     {"i": "🚑", "t": "A customer OD'd right on the corner.", "c": [["Lie low a few days", "Stay quiet.", {"eheat": -12}], ["Pay to make it disappear", "Handled, quietly.", {"cash": -2500}]]},

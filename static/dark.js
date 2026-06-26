@@ -1336,6 +1336,41 @@ const DARK = {
     `;
   },
 
+  // ── Bulk orders: wholesale deals you've accepted, filled from your stash (Deal tab) ──
+  bulkOrdersSection() {
+    const d = state.dark || {};
+    const orders = d.bulk_orders || [];
+    if (!orders.length) return '';
+    const stash = d.stash || {};
+    const cards = orders.map(o => {
+      const drug = this.DRUGS.find(x => x.key === o.drug) || { name: o.drug, icon: '📦' };
+      const have = stash[o.drug] || 0;
+      const ready = have >= o.amount;
+      const days = Math.max(0, (o.expires || 0) - (state.day || 0));
+      const pct = Math.min(100, Math.round(have / o.amount * 100));
+      return `<div class="dk-card" style="margin-bottom:8px;border-color:${ready ? '#4CAF50' : days <= 2 ? '#E0533D' : '#3a2024'}">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="dk-row-ic">📦</div>
+          <div style="flex:1"><b>${drug.icon} ${o.amount} ${drug.name}</b><div class="dk-muted" style="font-size:11px">${o.buyer}</div></div>
+          <div style="text-align:right"><div style="color:#E0533D;font-weight:800">${fmt(o.pay)}</div><div class="dk-muted" style="font-size:10px;color:${days <= 2 ? '#E0533D' : '#9a8a8a'}">${days}d left</div></div>
+        </div>
+        <div class="dk-muted" style="font-size:11px;margin-top:8px">Stash: ${have} / ${o.amount}</div>
+        <div class="dk-heat" style="margin-top:4px"><div class="dk-heat-fill" style="width:${pct}%;background:${ready ? '#4CAF50' : '#C0392B'}"></div></div>
+        <button class="dk-mini ${ready ? '' : 'dk-buy-off'}" style="width:100%;margin-top:9px" ${ready ? `onclick="DARK.bulkDeliver(${o.id})"` : 'disabled'}>${ready ? `📦 Deliver ${o.amount} ${drug.name} → ${fmt(o.pay)} dirty` : `Need ${o.amount - have} more ${drug.name}`}</button>
+      </div>`;
+    }).join('');
+    return `${this.sectionTitle('📦 Bulk Orders')}
+      <div class="dk-card"><p class="dk-p">Wholesale deals you've taken on. Cook up the full amount, then deliver it from your stash for <b style="color:#E0533D">double</b> the street price — before the buyer walks.</p></div>
+      ${cards}`;
+  },
+  async bulkDeliver(id) {
+    const r = await api('/dark/bulk_deliver', 'POST', { order_id: id });
+    if (r.error) { toast(r.error, 'error'); return; }
+    if (typeof sfx === 'object' && sfx.cash) sfx.cash();
+    await refreshState(); this.rerender();
+    toast(`Order filled — ${fmt(r.pay)} dirty from ${r.buyer}. 📦`, 'success');
+    (r.rank_msgs || []).forEach(m => toast(m, 'success'));
+  },
   pageDealers() {
     const d = state.dark || {};
     if (!d.corners_unlocked) {
@@ -1385,6 +1420,7 @@ const DARK = {
     }).join('') || `<div class="dk-muted" style="padding:8px 2px">No dealers yet — hire one to start moving product.</div>`;
     return `
       <button class="dk-sling-btn" onclick="DARK.openSling()">🎯 Sling Yourself <span>work the corner by hand · no heat</span></button>
+      ${this.bulkOrdersSection()}
       ${this.sectionTitle('Dealers')}
       <div class="dk-card"><p class="dk-p">Dealers move product into <b style="color:#E0533D">dirty money</b> on the street — up to <b>${this.dealerCap()}</b> units each per day. Keep them stocked, but pull their cash before the heat gets them. A bust takes everything they're holding.</p></div>
       <button class="dk-word" onclick="DARK.hireDealer()">🧢 Hire a dealer — ${fmt(hireCost)}</button>

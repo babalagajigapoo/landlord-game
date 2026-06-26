@@ -4647,6 +4647,7 @@ def _migrate_state(s):
             dk["watch"] = None; dk["heat"] = 0; dk["raid_pace"] = 0; dk["raid_days"] = 0
         dk.setdefault("hunt_introduced", False); dk.setdefault("cook_day", None); dk.setdefault("cooks_today", 0)
         dk.setdefault("sling_day", None); dk.setdefault("slings_today", 0)
+        dk.setdefault("bulk_orders", []); dk.setdefault("next_bulk_id", 1)
         dk.setdefault("fixer_washed_day", None); dk.setdefault("fixer_washed", 0)
         dk.setdefault("debt_active", False); dk.setdefault("debt_balance", 0); dk.setdefault("year_take", 0)
         dk.setdefault("debt_bill", 0); dk.setdefault("debt_paid", 0); dk.setdefault("debt_bill_year", None)
@@ -6523,12 +6524,8 @@ DARK_EVENTS = [
      "text": "One of your dealers got jumped on his corner. He wants to know if you'll cover what they took.",
      "choices": [{"label": "Make him whole", "result": "He's grateful. Loyalty bought cheap.", "effects": {"cash": -2500}},
                  {"label": "\"That's the job\"", "result": "He eats the loss — and the grudge.", "effects": {"heat": 4}, "special": "dealer_lose_held"}]},
-    {"key": "bulk_buyer", "icon": "🤝", "req": "lab",
-     "text": "A club promoter wants a bulk order — cash up front, no questions.",
-     "choices": [{"label": "Make the deal", "result": "Easiest money you've made all week.", "effects": {"dirty_money": 4000}},
-                 {"label": "Smells like a setup — pass", "result": "Maybe paranoid. Maybe alive.", "effects": {"heat": -3}}]},
-    {"key": "wall_cash", "icon": "💵", "req": "always",
-     "text": "Renovating one of your places, you found a roll of cash a previous tenant stashed in the wall.",
+    {"key": "wall_cash", "icon": "💵", "req": "lab",
+     "text": "Tearing into a wall at one of your labs, the crew turned up a roll of cash a previous tenant had stashed there.",
      "choices": [{"label": "Pocket it", "result": "Finders keepers — straight into your pocket.", "effects": {"cash": 1800}}]},
     {"key": "junkie", "icon": "💉", "req": "crew",
      "text": "One of your guys 'quality tested' a little too much of the product. Again.",
@@ -6553,12 +6550,167 @@ DARK_EVENTS = [
      "text": "Your supplier slips you a tip: a pallet of supplies 'fell off a truck.' Cheap.",
      "choices": [{"label": "Buy the load", "result": "Free supplies hit your stash.", "effects": {"cash": -1500}, "special": "free_supplies"},
                  {"label": "Pass", "result": "Too good to be true, usually is.", "effects": {}}]},
-    {"key": "quiet_week", "icon": "😌", "req": "always",
-     "text": "Quiet week on the block. The heat's died down on its own.",
-     "choices": [{"label": "Enjoy the calm", "result": "Things cool off.", "effects": {"heat": -12}}]},
     {"key": "old_debt", "icon": "💰", "req": "always",
      "text": "An old debt finally got paid back — in grimy, unmarked bills.",
      "choices": [{"label": "Take the dirty cash", "result": "Straight onto the pile that needs washing.", "effects": {"dirty_money": 3000}}]},
+
+    # ── ALWAYS (street life) ──
+    {"key": "traffic_stop", "icon": "🚦", "req": "always",
+     "text": "A cruiser lights you up on a side street — and there's weight in the car.",
+     "choices": [{"label": "Slip him a few hundred", "result": "He pockets it and waves you on.", "effects": {"cash": -600}},
+                 {"label": "Stay ice-cold and talk your way out", "result": "You walk — but he ran your plate.", "effects": {"heat": 5}}]},
+    {"key": "body_block", "icon": "🩸", "req": "always",
+     "text": "A rival turned up dead in your territory. Detectives are asking who runs these corners.",
+     "choices": [{"label": "Pay a witness to lose their memory", "result": "Nobody saw anything.", "effects": {"cash": -2500}},
+                 {"label": "Say nothing and let it ride", "result": "The questions keep coming.", "effects": {"heat": 7}}]},
+    {"key": "reporter", "icon": "📰", "req": "always",
+     "text": "A local reporter's writing a feature on 'the new crime wave.'",
+     "choices": [{"label": "Buy the editor a long lunch", "result": "The story quietly dies.", "effects": {"cash": -1500}},
+                 {"label": "Let it run", "result": "Your blocks are front-page now.", "effects": {"heat": 8}}]},
+    {"key": "old_connect", "icon": "🤝", "req": "always",
+     "text": "Someone you came up with is fresh out of prison and wants back in the life.",
+     "choices": [{"label": "Stake him, keep him close", "result": "He earns his keep fast.", "effects": {"cash": -2000, "dirty_money": 3500}},
+                 {"label": "Turn him away", "result": "He leaves bitter — and talking.", "effects": {"heat": 4}}]},
+    {"key": "tiger", "icon": "🐯", "req": "always",
+     "text": "A guy swears every real kingpin owns an exotic pet. He's got a tiger in a van.",
+     "choices": [{"label": "Buy the tiger", "result": "The crew names him Sergeant. Morale soars.", "effects": {"cash": -5000}},
+                 {"label": "Pass, obviously", "result": "Probably for the best.", "effects": {}}]},
+
+    # ── CREW ──
+    {"key": "crew_clipped", "icon": "⚰️", "req": "crew",
+     "text": "A rival crew gunned down one of your guys to send a message.",
+     "choices": [{"label": "Hit back, hard", "result": "You answer in blood. The streets are watching.", "effects": {"cash": -3000, "heat": 10}},
+                 {"label": "Eat it and regroup", "result": "The crew's rattled — and one of them bolts.", "effects": {}, "special": "lose_crew_member"}]},
+    {"key": "pinched", "icon": "🚔", "req": "crew",
+     "text": "One of your crew got picked up holding. Bail's set and his lawyer's calling.",
+     "choices": [{"label": "Post bail + lawyer", "result": "He walks, loyal as ever.", "effects": {"cash": -5000}},
+                 {"label": "Leave him in", "result": "He takes a deal — and a name with him.", "effects": {}, "special": "lose_crew_member"}]},
+    {"key": "crew_od", "icon": "💉", "req": "crew",
+     "text": "Your youngest runner OD'd in a trap house. He's alive — barely.",
+     "choices": [{"label": "Pay for a real clinic", "result": "He pulls through. He owes you everything.", "effects": {"cash": -2000}},
+                 {"label": "Cut him loose for the liability", "result": "You can't carry the weight.", "effects": {}, "special": "lose_crew_member"}]},
+    {"key": "crew_beef", "icon": "🔫", "req": "crew",
+     "text": "Two of your guys pulled guns on each other over a girl.",
+     "choices": [{"label": "Sit them down, settle it", "result": "Cooler heads — and a little cash — prevail.", "effects": {"cash": -800}},
+                 {"label": "Let them sort it themselves", "result": "One of them doesn't come back.", "effects": {}, "special": "lose_crew_member"}]},
+    {"key": "loyalty_test", "icon": "🤐", "req": "crew",
+     "text": "Word is somebody's been skimming. You're not sure who.",
+     "choices": [{"label": "Make an example of a suspect", "result": "Loud, ugly — but the skimming stops.", "effects": {"heat": 6}},
+                 {"label": "Look the other way", "result": "It keeps disappearing.", "effects": {"dirty_money": -2000}}]},
+    {"key": "crew_cookout", "icon": "🎂", "req": "crew",
+     "text": "The crew threw a surprise birthday party — bounce house and all. In a trap house.",
+     "choices": [{"label": "Let them have it", "result": "A happy crew is a careful crew.", "effects": {"cash": -400, "heat": -4}},
+                 {"label": "Shut it down", "result": "Buzzkill. Back to work.", "effects": {}}]},
+    {"key": "heavy_wants_on", "icon": "💪", "req": "crew",
+     "text": "A feared enforcer is looking for a new crew — and he likes your operation.",
+     "choices": [{"label": "Bring him on", "result": "Muscle like that opens doors.", "effects": {"cash": -3000}, "special": "gain_recruit"},
+                 {"label": "Can't afford the ego", "result": "He finds work elsewhere.", "effects": {}}]},
+    {"key": "funeral", "icon": "📿", "req": "crew",
+     "text": "An OG who taught you the game passed. The whole underworld will watch how you show up.",
+     "choices": [{"label": "Pay for a king's funeral", "result": "Your name carries weight now.", "effects": {"cash": -4000}},
+                 {"label": "Send flowers and stay low", "result": "Respectful, quiet, cheap.", "effects": {"heat": -3}}]},
+
+    # ── LAB ──
+    {"key": "bad_batch", "icon": "☣️", "req": "lab",
+     "text": "A whole cook came out wrong — it could make someone very sick, or worse.",
+     "choices": [{"label": "Dump it, eat the loss", "result": "Painful, but nobody dies on your product.", "effects": {}, "special": "lose_product"},
+                 {"label": "Cut it and move it anyway", "result": "Quick money — and people will talk.", "effects": {"dirty_money": 4000, "heat": 9}}]},
+    {"key": "neighbor_smell", "icon": "👃", "req": "lab",
+     "text": "Neighbors are calling the city about the chemical smell from one of your labs.",
+     "choices": [{"label": "Pay them off quietly", "result": "A little goodwill money goes a long way.", "effects": {"cash": -1800}},
+                 {"label": "Ignore it", "result": "The complaints pile up.", "effects": {"heat": 10}}]},
+    {"key": "master_cook", "icon": "⚗️", "req": "lab",
+     "text": "A legendary chemist will run a batch for you — for a steep cut.",
+     "choices": [{"label": "Hire him", "result": "Purest product you've ever moved.", "effects": {"cash": -6000, "dirty_money": 6000}, "special": "big_supplies"},
+                 {"label": "Too rich for now", "result": "Maybe next time.", "effects": {}}]},
+    {"key": "power_flag", "icon": "🔌", "req": "lab",
+     "text": "The power company flagged a lab's insane electricity draw.",
+     "choices": [{"label": "Bribe a meter reader", "result": "The numbers get 'adjusted.'", "effects": {"cash": -1200}},
+                 {"label": "Reroute it yourself", "result": "Sloppy job — somebody'll notice.", "effects": {"heat": 6}}]},
+    {"key": "stash_robbed", "icon": "🚪", "req": "lab",
+     "text": "Somebody kicked the door and cleaned out a lab while the crew slept.",
+     "choices": [{"label": "Track them down", "result": "You recover most of it — for a price.", "effects": {"cash": -1500}},
+                 {"label": "Write it off", "result": "Gone. All of it.", "effects": {}, "special": "lose_product"}]},
+    {"key": "raccoon", "icon": "🦝", "req": "lab",
+     "text": "A raccoon got into the lab and is 'sampling' the supply. It is not okay.",
+     "choices": [{"label": "Call animal control (discreetly)", "result": "Handled. Don't ask.", "effects": {"cash": -300}},
+                 {"label": "Let nature take its course", "result": "Chaos. Noise. A legend is born.", "effects": {"heat": 3}}]},
+    {"key": "cook_health", "icon": "🩺", "req": "lab",
+     "text": "Years of fumes caught up with your best cook. He needs to step back.",
+     "choices": [{"label": "Pay for treatment, keep him", "result": "He's loyal for life now.", "effects": {"cash": -3500}},
+                 {"label": "Replace him", "result": "The rookie ruins a batch learning the ropes.", "effects": {}, "special": "lose_product"}]},
+    {"key": "supplier_short", "icon": "📦", "req": "lab",
+     "text": "Your supplier's package came up light, and he's playing dumb.",
+     "choices": [{"label": "Send a message", "result": "He suddenly remembers — and makes it right.", "effects": {"dirty_money": 1500, "heat": 5}},
+                 {"label": "Find a new plug", "result": "Clean break, no drama.", "effects": {}}]},
+
+    # ── DEALER ──
+    {"key": "corner_shooting", "icon": "🔫", "req": "dealer",
+     "text": "Shots rang out on one of your corners. A customer caught a stray.",
+     "choices": [{"label": "Pay the family for silence", "result": "Grief money. It works.", "effects": {"cash": -3000}},
+                 {"label": "Let it blow over", "result": "The corner's hot now.", "effects": {"heat": 9}}]},
+    {"key": "wire_buyer", "icon": "🐀", "req": "dealer",
+     "text": "A dealer swears a regular buyer was 'acting like a cop.'",
+     "choices": [{"label": "Shut the corner for a few days", "result": "Lost sales, but safe.", "effects": {"dirty_money": -1500}},
+                 {"label": "Keep selling", "result": "You bet he was paranoid. Maybe.", "effects": {"heat": 8}}]},
+    {"key": "corner_war", "icon": "👑", "req": "dealer",
+     "text": "A rival crew is claiming one of your best corners.",
+     "choices": [{"label": "Defend it with muscle", "result": "You hold the block.", "effects": {"cash": -2000}},
+                 {"label": "Concede it", "result": "Not worth the bodies — this time.", "effects": {"dirty_money": -2500}}]},
+    {"key": "dealer_skim", "icon": "💵", "req": "dealer",
+     "text": "Your numbers are off. A dealer's been pocketing more than his cut.",
+     "choices": [{"label": "Confront him", "result": "He pays it back, plus interest.", "effects": {"dirty_money": 1200}},
+                 {"label": "Let it slide", "result": "He keeps skimming the till.", "effects": {}, "special": "dealer_lose_held"}]},
+    {"key": "customer_od", "icon": "🚑", "req": "dealer",
+     "text": "A buyer overdosed on a corner. There's an ambulance and a crowd.",
+     "choices": [{"label": "Move the dealer to a new spot", "result": "New corner, fresh start.", "effects": {"cash": -800}},
+                 {"label": "Hold the corner", "result": "Eyes everywhere now.", "effects": {"heat": 7}}]},
+    {"key": "loyalty_card", "icon": "🤑", "req": "dealer",
+     "text": "A dealer started a 'punch card — 10th rock free' to keep regulars. It's... working?",
+     "choices": [{"label": "Let the marketing genius cook", "result": "Repeat business is up.", "effects": {"dirty_money": 1500}},
+                 {"label": "Shut it down before it's evidence", "result": "No paper trail. Smart.", "effects": {}}]},
+    {"key": "dealer_arrested", "icon": "🚓", "req": "dealer",
+     "text": "One of your dealers got swept up in a corner raid.",
+     "choices": [{"label": "Lawyer him out", "result": "He's home by morning, grateful.", "effects": {"cash": -4000}},
+                 {"label": "Cut him loose", "result": "He's on his own now.", "effects": {}, "special": "lose_dealer"}]},
+    {"key": "snapchat", "icon": "📱", "req": "dealer",
+     "text": "A young dealer is advertising the menu on social media. Bold. Stupid.",
+     "choices": [{"label": "Confiscate the phone", "result": "Crisis averted.", "effects": {"cash": -200}},
+                 {"label": "Let him run it", "result": "Sales up — and so are the eyes.", "effects": {"dirty_money": 1000, "heat": 6}}]},
+
+    # ── BUSINESS / FRONTS ──
+    {"key": "audit", "icon": "📊", "req": "business",
+     "text": "The IRS flagged one of your fronts for a full audit.",
+     "choices": [{"label": "Hire a sharp accountant", "result": "The books come back spotless.", "effects": {"cash": -5000}},
+                 {"label": "Wing it", "result": "They're going line by line.", "effects": {"heat": 12}}]},
+    {"key": "front_torched", "icon": "🔥", "req": "business",
+     "text": "A rival torched one of your fronts as a warning.",
+     "choices": [{"label": "Rebuild and retaliate", "result": "You answer fire with fire.", "effects": {"cash": -4000, "heat": 8}},
+                 {"label": "Take the insurance, lay low", "result": "A tidy payout, no drama.", "effects": {"cash": 2500}}]},
+    {"key": "health_inspector", "icon": "🧾", "req": "business",
+     "text": "The health inspector found 'things' at the front. He wants a number.",
+     "choices": [{"label": "Pay him off", "result": "Everything's suddenly up to code.", "effects": {"cash": -1500}},
+                 {"label": "Fight the citation", "result": "Now there's a paper trail.", "effects": {"heat": 6}}]},
+    {"key": "loyal_manager", "icon": "🤵", "req": "business",
+     "text": "Your front manager's worked out perfectly — and figured out exactly what you do.",
+     "choices": [{"label": "Cut him in", "result": "Bought loyalty is still loyalty.", "effects": {"cash": -2000}},
+                 {"label": "Threaten him", "result": "Quiet now — but resentful.", "effects": {"heat": 5}}]},
+    {"key": "union", "icon": "💼", "req": "business",
+     "text": "Workers at the front are talking union. A vote means outside scrutiny.",
+     "choices": [{"label": "Quietly meet their demands", "result": "Happy workers ask no questions.", "effects": {"cash": -2500}},
+                 {"label": "Bust it up", "result": "Loud, and the labor board's curious.", "effects": {"heat": 7}}]},
+    {"key": "front_viral", "icon": "🎉", "req": "business",
+     "text": "Your laundromat's vintage machines went viral. There's a line around the block.",
+     "choices": [{"label": "Lean into it", "result": "Real customers — and real attention.", "effects": {"cash": 1800, "heat": 4}},
+                 {"label": "Keep it low-key", "result": "Stay boring, stay safe.", "effects": {}}]},
+    {"key": "skim_partner", "icon": "💰", "req": "business",
+     "text": "Your silent partner in the front is skimming the skim.",
+     "choices": [{"label": "Audit him hard", "result": "You claw back what's yours.", "effects": {"dirty_money": 2000}},
+                 {"label": "Let it go to keep the peace", "result": "The cost of doing business.", "effects": {"dirty_money": -1500}}]},
+    {"key": "city_shakedown", "icon": "🚧", "req": "business",
+     "text": "A city official will 'lose' the paperwork on your front — for a price.",
+     "choices": [{"label": "Pay the toll", "result": "The problem vanishes.", "effects": {"cash": -2000}},
+                 {"label": "Refuse on principle", "result": "He files everything. In triplicate.", "effects": {"heat": 9}}]},
 ]
 
 def _dark_eligible_events(s):
@@ -6568,9 +6720,60 @@ def _dark_eligible_events(s):
         "crew":     any(_dark_crew_members(d, c) for c in d.get("crews", [])),
         "lab":      any(p.get("lab") for p in s["properties"]),
         "dealer":   bool(d.get("dealers")),
-        "business": any((d.get("biz") or {}).get(k) for k in ("laundromat", "car_wash", "strip_club", "casino", "pizzeria")),
+        # "business" = an actual laundering FRONT (not the legit strip club) — that's what gets audited.
+        "business": any((d.get("biz") or {}).get(k) for k in DARK_LAUNDER),
     }
     return [e for e in DARK_EVENTS if has.get(e["req"])]
+
+# ── Bulk orders — a wholesale buyer wants 20–50 units of one of your top drugs, paying DOUBLE
+#    street value (dirty). Accept and it lives in the Deal tab until you deliver the full amount
+#    from your stash, or the buyer walks after a week. Only your 3 best makeable drugs get asked for.
+DARK_BULK_MIN        = 20
+DARK_BULK_MAX        = 50
+DARK_BULK_EXPIRE     = 7    # days the buyer will wait once you accept
+DARK_BULK_POOL_SIZE  = 3    # buyers only ever ask for your top-3 makeable drugs
+DARK_BULK_MAX_OPEN   = 5    # stop offering new ones past this many open (no hard cap on holding them)
+DARK_BULK_OFFER_CHANCE = 0.20
+DARK_BULK_BUYERS = [
+    "An out-of-town distributor", "A biker club's quartermaster", "A cartel middleman",
+    "A club promoter with deep pockets", "A crew from two cities over", "A 'businessman' in a sharp suit",
+    "A festival supplier", "An old plug looking to re-up", "A trap-house operator expanding turf",
+    "A guy who 'knows a guy'", "A dockworker moving weight", "A college connect with a big network",
+]
+
+def _dark_bulk_pool(s):
+    """The up-to-3 drugs a wholesale buyer will ask for: your highest-value makeable (cred-unlocked)."""
+    cred = s["dark"].get("cred", 1)
+    unlocked = [k for k, m in DARK_DRUGS.items() if m.get("cred_req", 99) <= cred]
+    unlocked.sort(key=lambda k: DARK_DRUGS[k].get("unit_value", 0), reverse=True)
+    return unlocked[:DARK_BULK_POOL_SIZE]
+
+def _dark_make_bulk_offer(s):
+    """Build a wholesale-order offer (as a pending_event with an attached order payload)."""
+    pool = _dark_bulk_pool(s)
+    if not pool: return None
+    drug = random.choice(pool); dm = DARK_DRUGS[drug]
+    amt = random.randint(DARK_BULK_MIN, DARK_BULK_MAX)
+    pay = dm.get("unit_value", 40) * amt * 2     # double street value, paid dirty on delivery
+    buyer = random.choice(DARK_BULK_BUYERS)
+    return {"key": "bulk_order", "icon": "📦", "kind": "bulk",
+            "text": f"{buyer} wants a bulk order: <b>{amt} units of {dm['name']}</b>, paying <b>${pay:,} dirty</b> on delivery. "
+                    f"Accept and you've got {DARK_BULK_EXPIRE} days to fill it from your stash.",
+            "choices": [{"label": f"Take the order — {amt} {dm['name']}", "result": "It's on your board in the Deal tab. Deliver when you've got the product.", "special": "bulk_accept"},
+                        {"label": "Pass", "result": "You wave them off.", "effects": {}}],
+            "order": {"buyer": buyer, "drug": drug, "amount": amt, "pay": pay}}
+
+def _dark_expire_bulk_orders(s, events):
+    d = s["dark"]; orders = d.get("bulk_orders", [])
+    if not orders: return
+    fresh = []
+    for o in orders:
+        if s["day"] >= o.get("expires", 0):
+            nm = DARK_DRUGS.get(o["drug"], {}).get("name", "product")
+            events.append({"type": "warning", "text": f"📦 {o.get('buyer','A buyer')} got tired of waiting — the {o['amount']} {nm} order fell through."})
+        else:
+            fresh.append(o)
+    d["bulk_orders"] = fresh
 
 def _dark_gen_home_market(s):
     # 3 buyable homes/day, refreshed each advance. Homes are just lab/rent locations now
@@ -7713,6 +7916,27 @@ def api_dark_collect_dealer():
     save(s)
     return jsonify({"ok": True, "collected": got})
 
+@app.route('/api/dark/bulk_deliver', methods=['POST'])
+def api_dark_bulk_deliver():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; oid = (request.json or {}).get("order_id")
+    o = next((x for x in d.get("bulk_orders", []) if x["id"] == oid), None)
+    if not o: return jsonify({"error": "No such order."}), 400
+    drug = o["drug"]; need = o["amount"]; nm = DARK_DRUGS.get(drug, {}).get("name", "product")
+    have = d.get("stash", {}).get(drug, 0)
+    if have < need:
+        return jsonify({"error": f"Need {need} {nm} to fill it — you've only got {have}. Cook more."}), 400
+    d["stash"][drug] = have - need
+    if d["stash"][drug] <= 0: d["stash"].pop(drug, None)
+    d["dirty_money"] = d.get("dirty_money", 0) + o["pay"]
+    d["year_take"] = d.get("year_take", 0) + o["pay"]      # gross take → the Fixer's cut
+    d["cred_xp"] = d.get("cred_xp", 0) + round(o["pay"] / 150)   # moving serious weight builds your name fast
+    d["bulk_orders"] = [x for x in d.get("bulk_orders", []) if x["id"] != oid]
+    msgs = []; _dark_award_cred(s, msgs)
+    save(s)
+    return jsonify({"ok": True, "pay": o["pay"], "buyer": o.get("buyer", ""), "rank_msgs": [m["text"] for m in msgs]})
+
 @app.route('/api/dark/advance', methods=['POST'])
 def api_dark_advance():
     s = load()
@@ -7868,7 +8092,13 @@ def api_dark_advance():
         e = random.choice(pool)
         ent["event"] = {"icon": e["i"], "text": e["t"], "choices": e["c"]}
         events.append({"type": "warning", "text": f"{e['i']} Something's come up — one of your operations is paused until you handle it."})
-    # A general street situation that needs your call (global choice modal).
+    _dark_expire_bulk_orders(s, events)   # wholesale buyers won't wait past their deadline
+    # A wholesale buyer comes calling (needs a lab to produce the weight; targets your top 3 drugs).
+    if not d.get("pending_event") and any(p.get("lab") for p in s["properties"]) \
+            and len(d.get("bulk_orders", [])) < DARK_BULK_MAX_OPEN and random.random() < DARK_BULK_OFFER_CHANCE:
+        offer = _dark_make_bulk_offer(s)
+        if offer: d["pending_event"] = offer
+    # Otherwise, a general street situation that needs your call (global choice modal).
     if not d.get("pending_event") and random.random() < 0.3:
         pool = _dark_eligible_events(s)
         if pool:
@@ -7965,6 +8195,35 @@ def api_dark_resolve_event():
         if pool:
             k = random.choice(pool); d.setdefault("supplies", {})[k] = d.get("supplies", {}).get(k, 0) + 1
             note = f"Picked up a free batch of {DARK_DRUGS[k]['name']} supplies."
+    elif sp == "big_supplies":
+        pool = [k for k, dm in DARK_DRUGS.items() if dm["cred_req"] <= d.get("cred", 1)]
+        if pool:
+            got = []
+            for _ in range(random.randint(2, 3)):
+                k = random.choice(pool); d.setdefault("supplies", {})[k] = d.get("supplies", {}).get(k, 0) + 1
+                got.append(DARK_DRUGS[k]["name"])
+            note = "Free supplies: " + ", ".join(got) + "."
+    elif sp == "lose_product":
+        labs = [p["lab"] for p in s["properties"] if p.get("lab") and p["lab"].get("product", 0) > 0]
+        if labs:
+            lab = random.choice(labs); before = lab["product"]; lab["product"] = before // 2
+            note = f"Lost {before - lab['product']} units of product."
+    elif sp == "gain_recruit":
+        used = _dark_used_names(d)
+        rid = d.get("next_recruit_id", 1); d["next_recruit_id"] = rid + 1
+        d.setdefault("roster", []).append({"id": rid, "name": _dark_make_name(used), "trait": "hothead", "crew_id": None})
+        note = "A heavy joined your roster — check the Crew tab."
+    elif sp == "lose_dealer":
+        if d.get("dealers"):
+            gone = random.choice(d["dealers"]); d["dealers"] = [x for x in d["dealers"] if x["id"] != gone["id"]]
+            note = f"Lost your dealer {gone.get('name', '?')}."
+    elif sp == "bulk_accept":
+        o = dict(ev.get("order") or {})
+        if o:
+            oid = d.get("next_bulk_id", 1); d["next_bulk_id"] = oid + 1
+            o["id"] = oid; o["expires"] = s["day"] + DARK_BULK_EXPIRE
+            d.setdefault("bulk_orders", []).append(o)
+            note = f"Order on the board — deliver {o['amount']} {DARK_DRUGS.get(o['drug'],{}).get('name','units')} from your stash by day {o['expires']}."
     d["pending_event"] = None
     save(s)
     return jsonify({"ok": True, "result": ch.get("result", ""), "icon": icon, "note": note,
