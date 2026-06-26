@@ -4646,6 +4646,7 @@ def _migrate_state(s):
         if dk.get("watch") and not dk["watch"].get("clues"):
             dk["watch"] = None; dk["heat"] = 0; dk["raid_pace"] = 0; dk["raid_days"] = 0
         dk.setdefault("hunt_introduced", False); dk.setdefault("cook_day", None); dk.setdefault("cooks_today", 0)
+        dk.setdefault("sling_day", None); dk.setdefault("slings_today", 0)
         dk.setdefault("fixer_washed_day", None); dk.setdefault("fixer_washed", 0)
         dk.setdefault("debt_active", False); dk.setdefault("debt_balance", 0); dk.setdefault("year_take", 0)
         dk.setdefault("debt_bill", 0); dk.setdefault("debt_paid", 0); dk.setdefault("debt_bill_year", None)
@@ -4662,6 +4663,7 @@ def _migrate_state(s):
         dk.setdefault("corners_unlocked", not dk["biz"].get("vending"))
         dk.setdefault("heists_done", []); dk.setdefault("heist_crew", []); dk.setdefault("heist", None)
         dk.setdefault("next_heist_member", 1); dk.setdefault("heist_takes", {})
+        dk.setdefault("heist_lockout", 0); dk.setdefault("heist_lockout_cred", 0)
         dk.setdefault("phil", None); dk.setdefault("phil_notified", False)
         if dk.get("heist_crew"): _dark_heist_ensure_pool(dk)   # repair old duplicated/partial pools
         if dk.get("club"): _dark_club_migrate(dk["club"])
@@ -4927,6 +4929,7 @@ DARK_SELFCOOK = {"reggie": 12, "beans": 12, "soft": 14, "hard": 15, "glass": 16,
 # value) — NOT a Fence supply (those are for crew batches). Limited to once per day.
 DARK_SELFCOOK_COST = {"reggie": 150, "beans": 325, "soft": 675, "hard": 1250, "glass": 2300, "tar": 4300}
 DARK_SELFCOOK_PER_DAY = 3   # hand-cooks allowed per day
+DARK_SLING_PER_DAY = 8      # hand-to-hand deals the player can work themselves per day
 DARK_FIXER_WASH_CAP = 15000  # most the Fixer will quick-wash per day (until you get your own front)
 DARK_FIXER_CUT = 0.15       # the Fixer's cut on a quick wash
 # The Fixer's debt — triggered at Pusher (cred 3). A looming $1B you can never clear;
@@ -4944,15 +4947,15 @@ def _dark_season(day):
 # tree unlocks at the cred levels in DARK_DRUGS[*]["cred_req"] (1/3/5/7/9/10). ──
 DARK_RANKS = [
     {"level": 1,  "name": "Corner Boy",  "xp": 0,     "perk": "Cooking Weed and working corners."},
-    {"level": 2,  "name": "Slinger",     "xp": 150,   "perk": "Dealers move more product per day."},
-    {"level": 3,  "name": "Pusher",      "xp": 400,   "perk": "💊 Pills unlocked."},
-    {"level": 4,  "name": "Lieutenant",  "xp": 800,   "perk": "Your name pulls weight — supplies cost less."},
-    {"level": 5,  "name": "Supplier",    "xp": 1400,  "perk": "❄️ Powder unlocked."},
-    {"level": 6,  "name": "Distributor", "xp": 2200,  "perk": "A cop on the payroll bleeds your heat down."},
-    {"level": 7,  "name": "Boss",        "xp": 3200,  "perk": "🪨 Rock unlocked."},
-    {"level": 8,  "name": "Underboss",   "xp": 4500,  "perk": "Dealers move even more; supplies cheaper still."},
-    {"level": 9,  "name": "Shot Caller", "xp": 6200,  "perk": "🧊 Glass unlocked."},
-    {"level": 10, "name": "Kingpin",     "xp": 8500,  "perk": "🛢️ Tar unlocked. You run this town."},
+    {"level": 2,  "name": "Slinger",     "xp": 280,   "perk": "Dealers move more product per day."},
+    {"level": 3,  "name": "Pusher",      "xp": 850,   "perk": "💊 Pills unlocked."},
+    {"level": 4,  "name": "Lieutenant",  "xp": 2250,  "perk": "Your name pulls weight — supplies cost less."},
+    {"level": 5,  "name": "Supplier",    "xp": 4500,  "perk": "❄️ Powder unlocked."},
+    {"level": 6,  "name": "Distributor", "xp": 7800,  "perk": "A cop on the payroll bleeds your heat down."},
+    {"level": 7,  "name": "Boss",        "xp": 12000, "perk": "🪨 Rock unlocked."},
+    {"level": 8,  "name": "Underboss",   "xp": 17500, "perk": "Dealers move even more; supplies cheaper still."},
+    {"level": 9,  "name": "Shot Caller", "xp": 24500, "perk": "🧊 Glass unlocked."},
+    {"level": 10, "name": "Kingpin",     "xp": 34000, "perk": "🛢️ Tar unlocked. You run this town."},
 ]
 
 # Dark-only creator codes (redeemed through the same box, but ONLY work while mode=='dark').
@@ -4997,6 +5000,9 @@ def _dark_award_cred(s, events):
     after = _dark_level_for_xp(d.get("cred_xp", 0))
     if after > before:
         d["cred"] = after
+        if d.get("heist_lockout", 0) > s.get("day", 1):   # ranking up shakes a post-bust score lockout
+            d["heist_lockout"] = 0
+            events.append({"type": "info", "text": "🎬 Word of your promotion travels — the heat off that botched score fades. The board's open again."})
         for lvl in range(before + 1, after + 1):
             r = _dark_rank(lvl)
             events.append({"type": "info", "text": f"📈 The Fixer: \"They're calling you a {r['name']} now.\" — {r['perk']}"})
@@ -5157,6 +5163,18 @@ def _dark_trigger_hunt(s, bump=40):
         cands.sort(key=lambda x: x[0], reverse=True)
         _dark_lock_watch(s, cands[0][1], None)
     d["heat"] = min(99, d.get("heat", 0) + bump)   # jump the clock, but never auto-raid the same day
+
+def _dark_apply_local_heat(s, n):
+    """Lay `n` heat on a RANDOM operation you actually run (lab / dealer / front). This is how
+    events 'draw heat' under the new model — it makes that op likelier to be Marsh's next target,
+    rather than touching the global raid countdown. No ops → the heat has nowhere to land."""
+    if not n: return
+    d = s["dark"]; biz = d.get("biz") or {}; ops = []
+    ops += [p["lab"] for p in s["properties"] if p.get("lab")]
+    ops += list(d.get("dealers", []))
+    ops += [v for k, v in (d.get("launder") or {}).items() if biz.get(k)]
+    if not ops: return
+    o = random.choice(ops); o["heat"] = max(0, min(100, o.get("heat", 0) + n))
 
 def _dark_do_raid(s, events):
     """The countdown hit 100 — Marsh raids the op he's been building a case on. If you shut it
@@ -6386,8 +6404,18 @@ DARK_HEISTS = {
 }
 DARK_HEIST_ORDER = ["checkcash", "jewelry", "armored", "bank", "casino", "bigone"]
 
+DARK_HEIST_LOCKOUT = 28   # days all scores go cold after a bust (one season-month); a level-up lifts it
+
 def _dark_heist_playable(key):
     return bool(DARK_HEISTS.get(key, {}).get("beats"))
+
+def _dark_scores_locked(s):
+    """After a busted score everything's too hot to touch for a month — unless you've ranked up
+    since (a level-up clears it, so the score you just unlocked AND the busted one are back)."""
+    d = s["dark"]
+    if d.get("heist_lockout", 0) <= s.get("day", 1): return False
+    if d.get("cred", 1) > d.get("heist_lockout_cred", 0): return False   # leveled up → lockout lifted
+    return True
 
 def _heist_member(d, mid):
     return next((m for m in d.get("heist_crew", []) if m["id"] == mid), None)
@@ -6453,7 +6481,11 @@ def _dark_heist_set_beat(h, d):
 def _dark_heist_finish(s, d, busted):
     h = d.get("heist");  defn = DARK_HEISTS.get(h["key"], {})
     if busted:
-        d["heat"] = min(100, d.get("heat", 0) + 25)
+        _dark_trigger_hunt(s, bump=40)        # getting caught mid-score puts Marsh onto your ops
+        # All scores go cold for a month (28 days) — unless you level up, which lifts it early
+        # (the score your new rank unlocks AND the one you busted both come back).
+        d["heist_lockout"] = s.get("day", 1) + DARK_HEIST_LOCKOUT
+        d["heist_lockout_cred"] = d.get("cred", 1)
         h["stage"] = "done"; h["outcome"] = "bust"
         h["final"] = {"your": 0, "cut": 0, "pot": 0}
         return
@@ -6462,9 +6494,8 @@ def _dark_heist_finish(s, d, busted):
     cut_pct = sum(m["cut"] for m in members if m)
     cut_amt = round(pot * cut_pct / 100.0)
     your = max(0, pot - cut_amt)
-    d["dirty_money"] = d.get("dirty_money", 0) + your
-    d["heat"] = min(100, d.get("heat", 0) + 8 + round(h.get("heat", 0) / 2))
-    d["cred_xp"] = d.get("cred_xp", 0) + round(your / 200)
+    d["dirty_money"] = d.get("dirty_money", 0) + your   # a clean getaway leaves no heat behind
+    d["cred_xp"] = d.get("cred_xp", 0) + round(your / 500)
     for m in members:
         if m: m["skill"] = min(6, m.get("skill", 1) + 1)
     d.setdefault("heists_done", []).append(h["key"])
@@ -6929,7 +6960,7 @@ def api_dark_self_cook():
     if units > 0:
         _dark_stash_add(d, drug, units)
         d["cred_xp"] = d.get("cred_xp", 0) + units            # cooking builds your rep
-    d["heat"] = min(100, d.get("heat", 0) + max(2, round(dm["base_heat"] * 0.7)))   # a hand-cook leaves a trace
+    # (a hand-cook in a vacant house leaves no standing operation for Marsh to watch — no heat)
     save(s)
     return jsonify({"ok": True, "yield": units, "botched": botched, "drug": drug, "cost": cost,
                     "cash": s["cash"], "cook_day": d["cook_day"], "cooks_today": d["cooks_today"],
@@ -7046,17 +7077,23 @@ def api_dark_sling():
     if not dm or qty <= 0: return jsonify({"error": "Bad deal."}), 400
     have = d.get("stash", {}).get(drug, 0)
     if have < qty: return jsonify({"error": "You're out of that."}), 400
+    today = s.get("day")
+    if d.get("sling_day") != today: d["sling_day"] = today; d["slings_today"] = 0   # new day → reset the counter
+    if d.get("slings_today", 0) >= DARK_SLING_PER_DAY:
+        return jsonify({"error": f"You've worked all {DARK_SLING_PER_DAY} of today's corners yourself — let your dealers handle the rest, or come back tomorrow."}), 400
     price = max(0, min(price, int(dm["unit_value"] * qty * 2)))   # sanity cap (anti-cheat)
+    d["slings_today"] = d.get("slings_today", 0) + 1
     d["stash"][drug] = have - qty
     if d["stash"][drug] <= 0: d["stash"].pop(drug, None)
     d["dirty_money"] = d.get("dirty_money", 0) + price
-    d["cred_xp"] = d.get("cred_xp", 0) + round(price / 40)   # active selling pays a bit more rep/$
+    d["cred_xp"] = d.get("cred_xp", 0) + round(price / 80)   # active selling pays a bit more rep/$
     d["year_take"] = d.get("year_take", 0) + price           # gross take → the Fixer's cut
     msgs = []
     _dark_award_cred(s, msgs)
     save(s)
     return jsonify({"ok": True, "dirty_money": d["dirty_money"], "cred": d.get("cred", 1),
                     "cred_xp": d.get("cred_xp", 0), "stash": d.get("stash", {}),
+                    "slings_today": d["slings_today"], "sling_left": max(0, DARK_SLING_PER_DAY - d["slings_today"]),
                     "rank_msgs": [m["text"] for m in msgs]})
 
 DARK_BRIBE_BASE = 4_000   # paying off the detective; climbs each time he's paid
@@ -7448,18 +7485,20 @@ def api_dark_vip_action():
             outcome = f"⚖️ {meta['name'].capitalize()} said too much over too many drinks. You've got leverage on him now."
         elif rw == "sell":
             pay = random.randint(2_000, 5_000)
+            s["cash"] = max(0, s.get("cash", 0) - pay)
             if random.random() < 0.25:
-                d["heat"] = min(100, d.get("heat", 0) + 10)
-                outcome = f"🐀 He took your ${pay:,} and fed you a line — that intel was garbage, and now he knows your face."
-                s["cash"] = max(0, s.get("cash", 0) - pay)
+                outcome = f"🐀 He took your ${pay:,} and fed you a line — that intel was garbage. Wasted money."
+            elif d.get("watch") and not _dark_clues_done(d):
+                new = _dark_clue_reveal(d, 1)
+                outcome = f"🐀 ${pay:,} loosened his tongue — " + (new[-1] if new else "but he had nothing new.")
             else:
-                s["cash"] = max(0, s.get("cash", 0) - pay)
-                if d.get("watch") and not d.get("watch_known"): d["watch_known"] = True
-                d["heat"] = max(0, d.get("heat", 0) - 8)
-                outcome = f"🐀 ${pay:,} loosened his tongue. Good intel — the case cooled and you know where Marsh is looking."
+                outcome = f"🐀 ${pay:,} loosened his tongue, but there's no open case for him to talk about right now."
         else:  # beat cop
-            d["heat"] = max(0, d.get("heat", 0) - 10)
-            outcome = "🍺 Just street gossip, but a friendly badge is worth having. The heat ticked down."
+            if d.get("watch") and not _dark_clues_done(d):
+                new = _dark_clue_reveal(d, 1)
+                outcome = "🍺 A friendly badge, a few beers — " + (new[-1] if new else "nothing new tonight, though.")
+            else:
+                outcome = "🍺 Just street gossip, but a friendly badge is always worth having."
     elif g["round"] >= 6:
         g["done"] = True; g["win"] = False
         outcome = "Last call — he's done talking for the night. You didn't get what you came for."
@@ -7521,6 +7560,9 @@ def api_dark_heist_start():
     if not defn: return jsonify({"error": "No such score."}), 400
     if d.get("heist"): return jsonify({"error": "You're already lining up a job."}), 400
     if key in d.get("heists_done", []): return jsonify({"error": "That score's already been pulled."}), 400
+    if _dark_scores_locked(s):
+        days = d.get("heist_lockout", 0) - s.get("day", 1)
+        return jsonify({"error": f"That last bust burned you — every score's cold for ~{max(1, days)} more day(s). Lay low, or rank up to shake it."}), 400
     if not _dark_heist_playable(key): return jsonify({"error": "That one's still in the works."}), 400
     if d.get("cred", 1) < defn["cred"]: return jsonify({"error": f"Unlocks at Street Cred {defn['cred']}."}), 400
     _dark_heist_ensure_pool(d)
@@ -7554,7 +7596,7 @@ def api_dark_heist_case():
     if aid in h.get("cased", []): return jsonify({"error": "You've already cased that angle."}), 400
     if s["cash"] < act["cost"]: return jsonify({"error": f"Need ${act['cost']:,} to case it."}), 400
     s["cash"] -= act["cost"]; h["case_bonus"] = h.get("case_bonus", 0) + act["bonus"]
-    h.setdefault("cased", []).append(aid); d["heat"] = min(100, d.get("heat", 0) + 2)
+    h.setdefault("cased", []).append(aid); h["heat"] = min(100, h.get("heat", 0) + 2)   # casing risk rides on the job, not your global heat
     save(s); return jsonify({"ok": True, "note": act["note"]})
 
 @app.route('/api/dark/heist_go', methods=['POST'])
@@ -7723,7 +7765,6 @@ def api_dark_advance():
             rented += 1
     if seized_ids:
         s["properties"] = [p for p in s["properties"] if p["id"] not in seized_ids]
-    if rented: d["heat"] = max(0, d.get("heat", 0) - rented * 3)
     # ── Dealers work product into dirty money — and rack up their own heat ──
     for dl in d.get("dealers", []):
         inv = dl.setdefault("inventory", {})
@@ -7745,7 +7786,7 @@ def api_dark_advance():
             if inv[dk] <= 0: del inv[dk]
         dl["held"] = dl.get("held", 0) + round(sold_val)
         dl["heat"] = min(100, dl.get("heat", 0) + sold_units * 1.8)   # heat = how much this corner draws Marsh
-        d["cred_xp"] = d.get("cred_xp", 0) + round(sold_val / 50)   # street rep grows as you move weight
+        d["cred_xp"] = d.get("cred_xp", 0) + round(sold_val / 150)   # street rep grows as you move weight
         d["year_take"] = d.get("year_take", 0) + round(sold_val)    # gross take → counts toward the Fixer's cut
     # ── Laundering — fronts wash dirty money into clean (needs a manager + a rate). ──
     laundered = 0; biz = d.get("biz") or {}; launder = d.setdefault("launder", {})
@@ -7779,7 +7820,7 @@ def api_dark_advance():
             d["dirty_money"] -= amount; ln["bank"] = ln.get("bank", 0) + amount; laundered += amount
             hr = meta["heat_rate"] * (0.4 if philhere else 1.0)   # Phil keeps the heat way down
             ln["heat"] = min(100, ln.get("heat", 0) + (amount / meta["cap"]) * hr)   # heat = Marsh's interest in this front
-            d["cred_xp"] = d.get("cred_xp", 0) + round(amount / 250)   # clean money builds your standing
+            d["cred_xp"] = d.get("cred_xp", 0) + round(amount / 800)   # clean money builds your standing
     if laundered:
         # Phil-run fronts sweep straight to cash; the rest pile up clean money you go collect.
         unswept = sum((d.get("launder") or {}).get(k, {}).get("bank", 0) for k in DARK_LAUNDER)
@@ -7867,9 +7908,10 @@ def api_dark_resolve_entity_event():
     label, result, eff = choices[idx][0], choices[idx][1], (choices[idx][2] or {})
     s["cash"] = max(0, s["cash"] + eff.get("cash", 0))
     d["dirty_money"] = max(0, d.get("dirty_money", 0) + eff.get("dirty", 0))
-    d["heat"] = max(0, min(100, d.get("heat", 0) + eff.get("heat", 0)))
-    if "eheat" in eff:
-        ent["heat"] = max(0, min(100, ent.get("heat", 0) + eff["eheat"]))
+    # The event is ON this op — its heat lands on THIS op's local heat (raising its watch odds),
+    # never the global raid countdown. "heat" and "eheat" both mean the same thing now.
+    hadd = eff.get("heat", 0) + eff.get("eheat", 0)
+    if hadd: ent["heat"] = max(0, min(100, ent.get("heat", 0) + hadd))
     sp = eff.get("s"); removed = False; note = ""
     if sp == "lose_crew" and kind == "lab":
         crew = _dark_crew_by_id(d, ent.get("crew_id")); members = _dark_crew_members(d, crew) if crew else []
@@ -7893,7 +7935,7 @@ def api_dark_resolve_entity_event():
         ent["event"] = None
     save(s)
     return jsonify({"ok": True, "result": result, "icon": icon, "note": note,
-                    "delta": {"cash": eff.get("cash", 0), "dirty": eff.get("dirty", 0), "heat": eff.get("heat", 0)}})
+                    "delta": {"cash": eff.get("cash", 0), "dirty": eff.get("dirty", 0), "heat": hadd}})
 
 @app.route('/api/dark/resolve_event', methods=['POST'])
 def api_dark_resolve_event():
@@ -7907,7 +7949,7 @@ def api_dark_resolve_event():
     ch = choices[idx]; eff = ch.get("effects", {}); icon = ev.get("icon", "❗")
     s["cash"] = max(0, s["cash"] + eff.get("cash", 0))
     d["dirty_money"] = max(0, d.get("dirty_money", 0) + eff.get("dirty_money", 0))
-    d["heat"] = max(0, min(100, d.get("heat", 0) + eff.get("heat", 0)))
+    _dark_apply_local_heat(s, eff.get("heat", 0))   # street event heat lands on a random op, not the global countdown
     sp = ch.get("special"); note = ""
     if sp == "lose_crew_member":
         roster = d.get("roster", [])

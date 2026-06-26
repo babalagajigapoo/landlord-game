@@ -128,18 +128,24 @@ const DARK = {
   },
   // Kingpin rank ladder (mirrors DARK_RANKS in app.py).
   RANKS: [
-    { level: 1,  name: 'Corner Boy',  xp: 0,    perk: 'Cooking Weed and working corners.' },
-    { level: 2,  name: 'Slinger',     xp: 150,  perk: 'Dealers move more product per day.' },
-    { level: 3,  name: 'Pusher',      xp: 400,  perk: '💊 Pills unlocked.' },
-    { level: 4,  name: 'Lieutenant',  xp: 800,  perk: 'Your name pulls weight — supplies cost less.' },
-    { level: 5,  name: 'Supplier',    xp: 1400, perk: '❄️ Powder unlocked.' },
-    { level: 6,  name: 'Distributor', xp: 2200, perk: 'A cop on the payroll bleeds your heat down.' },
-    { level: 7,  name: 'Boss',        xp: 3200, perk: '🪨 Rock unlocked.' },
-    { level: 8,  name: 'Underboss',   xp: 4500, perk: 'Dealers move even more; supplies cheaper still.' },
-    { level: 9,  name: 'Shot Caller', xp: 6200, perk: '🧊 Glass unlocked.' },
-    { level: 10, name: 'Kingpin',     xp: 8500, perk: '🛢️ Tar unlocked. You run this town.' },
+    { level: 1,  name: 'Corner Boy',  xp: 0,     perk: 'Cooking Weed and working corners.' },
+    { level: 2,  name: 'Slinger',     xp: 280,   perk: 'Dealers move more product per day.' },
+    { level: 3,  name: 'Pusher',      xp: 850,   perk: '💊 Pills unlocked.' },
+    { level: 4,  name: 'Lieutenant',  xp: 2250,  perk: 'Your name pulls weight — supplies cost less.' },
+    { level: 5,  name: 'Supplier',    xp: 4500,  perk: '❄️ Powder unlocked.' },
+    { level: 6,  name: 'Distributor', xp: 7800,  perk: 'A cop on the payroll bleeds your heat down.' },
+    { level: 7,  name: 'Boss',        xp: 12000, perk: '🪨 Rock unlocked.' },
+    { level: 8,  name: 'Underboss',   xp: 17500, perk: 'Dealers move even more; supplies cheaper still.' },
+    { level: 9,  name: 'Shot Caller', xp: 24500, perk: '🧊 Glass unlocked.' },
+    { level: 10, name: 'Kingpin',     xp: 34000, perk: '🛢️ Tar unlocked. You run this town.' },
   ],
   rank(lvl) { return this.RANKS.find(r => r.level === lvl) || this.RANKS[0]; },
+  SLING_PER_DAY: 8,   // hand-to-hand deals the player can work themselves per day (mirrors app.py)
+  slingLeft() {       // deals left today (server resets the count on a new day)
+    const d = state.dark || {};
+    const used = (d.sling_day === state.day) ? (d.slings_today || 0) : 0;
+    return Math.max(0, this.SLING_PER_DAY - used);
+  },
   supplyPrice(drug) {
     const base = (this.SUPPLIES[drug] || {}).cost || 0;
     const cred = (state.dark && state.dark.cred) || 1;
@@ -620,6 +626,11 @@ const DARK = {
     const cred = d.cred || 1, done = d.heists_done || [];
     return this.HEIST_ORDER.some(k => { const H = this.HEISTS[k]; return H.playable && cred >= H.cred && !done.includes(k); });
   },
+  scoresLocked() {   // a busted score freezes the whole board for ~a month, unless you've ranked up since
+    const d = state.dark || {};
+    if ((d.heist_lockout || 0) <= (state.day || 0)) return false;
+    return (d.cred || 1) <= (d.heist_lockout_cred || 0);
+  },
   nav() {
     const n = this.TABS.length;
     const idx = this.TABS.findIndex(t => t.key === this._tab);
@@ -982,13 +993,17 @@ const DARK = {
     if (!Object.keys(stash).some(k => stash[k] > 0)) {
       toast('Nothing to sling — cook some product first.', 'error'); return;
     }
+    if (this.slingLeft() <= 0) {
+      toast(`You've already worked all ${this.SLING_PER_DAY} of your corners today — let your dealers cover the rest, or come back tomorrow.`, 'error'); return;
+    }
     if (typeof sfx === 'object' && sfx.tap) sfx.tap();
-    this._sling = { custs: {}, nextId: 1, busy: false, earned: 0, xp: 0, deals: 0, spawnT: null, markerT: null };
+    this._sling = { custs: {}, nextId: 1, busy: false, earned: 0, xp: 0, deals: 0, left: this.slingLeft(), spawnT: null, markerT: null };
     let el = document.getElementById('dk-sling');
     if (!el) { el = document.createElement('div'); el.id = 'dk-sling'; document.body.appendChild(el); }
     el.innerHTML = `
       <div class="dk-sl-top">
         <div class="dk-sl-inv" id="dk-sl-inv"></div>
+        <div class="dk-sl-left" id="dk-sl-left"><span class="n">–</span><span class="l">deals left</span></div>
         <div class="dk-sl-right">
           <div class="dk-sl-tally" id="dk-sl-tally"></div>
           <button class="dk-sl-done" onclick="DARK.closeSling()">Done</button>
@@ -1018,14 +1033,24 @@ const DARK = {
     const inv = document.getElementById('dk-sl-inv'); if (inv) inv.innerHTML = chips;
     const t = document.getElementById('dk-sl-tally');
     if (t) t.innerHTML = `💵 ${fmt(sl.earned)} · ⭐ ${sl.xp} XP`;
+    const lc = document.getElementById('dk-sl-left');
+    if (lc) {
+      lc.className = 'dk-sl-left' + (sl.left <= 1 ? ' danger' : sl.left <= 3 ? ' warn' : '');
+      lc.innerHTML = `<span class="n">${sl.left}</span><span class="l">deals left</span>`;
+    }
   },
   slingSpawn() {
     const sl = this._sling; if (!sl || sl.busy) return;
     const area = document.getElementById('dk-sl-area'); if (!area) return;
+    const hint = document.getElementById('dk-sl-hint');
+    if (sl.left <= 0) {   // hit the daily cap — stop drawing buyers
+      clearInterval(sl.spawnT); sl.spawnT = null;
+      if (hint) hint.textContent = `That's all ${this.SLING_PER_DAY} deals for today — hit Done.`;
+      return;
+    }
     if (Object.keys(sl.custs).length >= 4) return;
     const stash = (state.dark && state.dark.stash) || {};
     const totalStock = Object.values(stash).reduce((a, b) => a + (b || 0), 0);
-    const hint = document.getElementById('dk-sl-hint');
     if (totalStock <= 0) { if (hint) hint.textContent = "You're cleaned out — hit Done."; return; }
     if (hint) hint.textContent = 'Tap a buyer — but only deal what you can cover.';
     // Buyers ask for ANY unlocked drug at ANY quantity — independent of your stock.
@@ -1138,11 +1163,13 @@ const DARK = {
   async slingCommit(drug, qty, price, tone) {
     const sl = this._sling; if (!sl) return;
     const r = await api('/dark/sling', 'POST', { drug, qty, price });
-    if (r.error) { toast(r.error, 'error'); this.slingResume(); return; }
+    if (r.error) { toast(r.error, 'error'); sl.left = 0; this.slingResume(); return; }
     // sync the fields the server changed (no full rerender — keeps the overlay alive)
     state.dark.stash = r.stash; state.dark.dirty_money = r.dirty_money;
     state.dark.cred = r.cred; state.dark.cred_xp = r.cred_xp;
-    sl.earned += price; sl.xp += Math.round(price / 40); sl.deals += 1;
+    state.dark.sling_day = state.day; state.dark.slings_today = r.slings_today;
+    sl.earned += price; sl.xp += Math.round(price / 80); sl.deals += 1;
+    sl.left = (r.sling_left != null) ? r.sling_left : Math.max(0, sl.left - 1);
     if (typeof sfx === 'object' && sfx.cash) sfx.cash();
     const msg = tone === 'green' ? `Talked them up to ${fmt(price)}! 🤝` : tone === 'low' ? `Sold low — ${fmt(price)}.` : `Sold for ${fmt(price)}.`;
     toast(msg, tone === 'low' ? 'info' : 'success');
@@ -2162,6 +2189,8 @@ const DARK = {
   },
   heistBoard(d, cash) {
     const cred = d.cred || 1, done = d.heists_done || [];
+    const frozen = this.scoresLocked();
+    const lockDays = Math.max(1, (d.heist_lockout || 0) - (state.day || 0));
     const cards = this.HEIST_ORDER.map(key => {
       const H = this.HEISTS[key], isDone = done.includes(key), locked = cred < H.cred, soon = !H.playable;
       const roles = H.roles.map(r => this.HEIST_ROLES[r].icon).join(' ');
@@ -2169,6 +2198,7 @@ const DARK = {
       if (isDone) { const t = (d.heist_takes || {})[key]; action = `<div class="dk-muted2" style="font-size:11px;margin-top:8px">✓ Pulled${(t != null) ? ` — banked <b style="color:#4CAF50">${fmt(t)}</b>` : ''} · gone for good.</div>`; }
       else if (locked) action = `<div class="dk-muted2" style="font-size:11px;margin-top:8px">🔒 Unlocks at Street Cred ${H.cred}</div>`;
       else if (soon) action = '<div class="dk-muted2" style="font-size:11px;margin-top:8px">🚧 In the works — coming soon.</div>';
+      else if (frozen) action = `<div class="dk-muted2" style="font-size:11px;margin-top:8px;color:#E0533D">❄️ Too hot — cold for ~${lockDays} day(s)</div>`;
       else action = `<button class="dk-mini" style="width:100%;margin-top:9px" onclick="DARK.startHeist('${key}')">Plan this score →</button>`;
       return `<div class="dk-card${(!isDone && !locked && !soon) ? ' dk-pcard' : ''}" style="margin-bottom:8px;${isDone ? 'opacity:.5' : ''}">
         <div class="dk-phead"><div class="dk-row-ic">${H.icon}</div><div class="dk-row-main">
@@ -2178,6 +2208,7 @@ const DARK = {
     return `<button class="dk-mini-x" style="margin-bottom:10px" onclick="DARK.go('home')">← Back</button>
       ${this.sectionTitle('💰 Scores')}
       <div class="dk-card"><p class="dk-p">One-time jobs — bigger scores unlock as your name grows. Build a crew, case the joint, then pull it: cash out safe, or push your luck for way more.</p></div>
+      ${frozen ? `<div class="dk-card" style="border-color:#E0533D;background:rgba(224,83,61,0.08)"><div style="font-size:12px;line-height:1.5">❄️ <b style="color:#E0533D">The board's cold.</b> That last job went bad — every score's too hot to touch for <b>~${lockDays} more day(s)</b>. Lay low and wait it out, or <b>rank up</b> to shake the heat and reopen the board.</div></div>` : ''}
       ${cards}`;
   },
   heistPlan(d, h, cash) {
@@ -2297,7 +2328,7 @@ const DARK = {
     const body = win
       ? `<div class="dk-evt-delta" style="margin:10px 0">Take ${fmt(f.pot)} − crew ${f.cut_pct}% (${fmt(f.cut)}) = <b style="color:#4CAF50">${fmt(f.your)}</b> dirty</div>
          <div class="dk-muted2" style="font-size:11px">Your crew leveled up. The loot's dirty — wash it through your fronts.</div>`
-      : `<div class="dk-muted2" style="font-size:12px;margin:10px 0">You got out empty-handed and the heat spiked. The crew scattered — but the job's still on the board to try again.</div>`;
+      : `<div class="dk-muted2" style="font-size:12px;margin:10px 0">You got out empty-handed, the crew scattered — and worse, <b style="color:#ff6b4d">Marsh caught the scent</b> and started watching one of your operations. Every score's <b>cold for about a month</b> now. Lay low, or rank up to reopen the board.</div>`;
     return `<div class="dk-card dk-incident" style="border-color:${win ? '#4CAF50' : '#ff4d2d'}">
       <div class="dk-incident-ic">${win ? '💰' : '🚨'}</div>
       <div class="dk-incident-t" style="color:${win ? '#4CAF50' : '#ff6b4d'}">${win ? 'Clean getaway' : 'It all went wrong'}</div>
@@ -2509,10 +2540,17 @@ const DARK = {
     .dk-sling-btn span{font-size:10px;font-weight:700;opacity:0.85;text-transform:uppercase;letter-spacing:0.4px}
     .dk-sling-btn:active{opacity:0.9}
     #dk-sling{position:fixed;inset:0;z-index:9400;background:#0c0608;display:flex;flex-direction:column;overflow:hidden}
-    .dk-sl-top{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid #2a1518;background:#0c0608}
-    .dk-sl-inv{flex:1;display:flex;flex-wrap:wrap;gap:5px}
+    .dk-sl-top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #2a1518;background:#0c0608}
+    .dk-sl-inv{display:flex;flex-wrap:wrap;gap:5px;justify-self:start}
     .dk-sl-chip{background:#1a1012;border:1px solid #3a2024;border-radius:7px;padding:4px 8px;font-size:13px;font-weight:800;color:#e8d9d9}
-    .dk-sl-right{display:flex;flex-direction:column;align-items:flex-end;gap:5px}
+    .dk-sl-left{justify-self:center;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;background:#0f1a0f;border:2px solid #4CAF50;border-radius:13px;padding:6px 18px;min-width:78px;box-shadow:0 0 16px rgba(76,175,80,0.35)}
+    .dk-sl-left .n{font-size:30px;font-weight:900;color:#fff}
+    .dk-sl-left .l{font-size:8.5px;font-weight:800;letter-spacing:0.7px;color:#9fcf9f;text-transform:uppercase;margin-top:3px}
+    .dk-sl-left.warn{background:#1a1206;border-color:#FFC83D;box-shadow:0 0 16px rgba(255,200,61,0.4)}
+    .dk-sl-left.warn .l{color:#d8b864}
+    .dk-sl-left.danger{background:#1a0a0a;border-color:#E0533D;box-shadow:0 0 18px rgba(224,83,61,0.5);animation:dkpulse 0.9s infinite}
+    .dk-sl-left.danger .l{color:#e0908a}
+    .dk-sl-right{display:flex;flex-direction:column;align-items:flex-end;gap:5px;justify-self:end}
     .dk-sl-tally{font-size:11px;font-weight:800;color:#4CAF50;white-space:nowrap}
     .dk-sl-done{background:#1a1012;border:1px solid #3a2024;color:#e8d9d9;font-weight:800;font-size:12px;padding:6px 14px;border-radius:8px;cursor:pointer}
     .dk-sl-area{position:relative;flex:1;overflow:hidden}
