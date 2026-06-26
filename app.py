@@ -4639,6 +4639,12 @@ def _migrate_state(s):
         dk.setdefault("lawyered", False); dk.setdefault("moved", False); dk.setdefault("lying_low", False)
         dk.setdefault("watch", None); dk.setdefault("watch_known", False)
         dk.setdefault("watch_quiet", 0); dk.setdefault("watch_since", 0); dk.setdefault("vip", False)
+        dk.setdefault("raid_cooldown", 0); dk.setdefault("raid_pace", 0); dk.setdefault("raid_days", 0)
+        for _ln in (dk.get("launder") or {}).values(): _ln.setdefault("bank", 0)
+        # The Hunt was reworked (heat = a per-op watch trigger + raid countdown). Any tail from
+        # the old model is reset to a clean slate so its stale heat isn't read as a countdown.
+        if dk.get("watch") and not dk["watch"].get("clues"):
+            dk["watch"] = None; dk["heat"] = 0; dk["raid_pace"] = 0; dk["raid_days"] = 0
         dk.setdefault("hunt_introduced", False); dk.setdefault("cook_day", None); dk.setdefault("cooks_today", 0)
         dk.setdefault("fixer_washed_day", None); dk.setdefault("fixer_washed", 0)
         dk.setdefault("debt_active", False); dk.setdefault("debt_balance", 0); dk.setdefault("year_take", 0)
@@ -4655,7 +4661,8 @@ def _migrate_state(s):
                          "vending":    len(s.get("vending_machines") or []) > 0}
         dk.setdefault("corners_unlocked", not dk["biz"].get("vending"))
         dk.setdefault("heists_done", []); dk.setdefault("heist_crew", []); dk.setdefault("heist", None)
-        dk.setdefault("next_heist_member", 1)
+        dk.setdefault("next_heist_member", 1); dk.setdefault("heist_takes", {})
+        dk.setdefault("phil", None); dk.setdefault("phil_notified", False)
         if dk.get("heist_crew"): _dark_heist_ensure_pool(dk)   # repair old duplicated/partial pools
         if dk.get("club"): _dark_club_migrate(dk["club"])
     return s
@@ -4858,6 +4865,7 @@ def api_dark_enter():
                  "biz": {}, "corners_unlocked": True, "homes_bought": 0,
                  "raid_in": None, "bribes": 0, "lawyered": False, "moved": False, "lying_low": False,
                  "watch": None, "watch_known": False, "watch_quiet": 0, "watch_since": 0, "vip": False,
+                 "raid_cooldown": 0, "raid_pace": 0, "raid_days": 0,
                  "hunt_introduced": False, "pending_event": None}
     s["dark"]["recruits"] = _dark_gen_recruits(s["dark"], 10)   # faces on the street to hire
     _dark_gen_home_market(s)                                    # more homes you can buy later
@@ -5025,99 +5033,220 @@ def _dark_debt_tick(s, events):
         d["fixer_event"] = {"kind": "warn", "bill": bill}
         events.append({"type": "warning", "text": f"🕴️ The Fixer wants his cut: ${bill:,} by Winter 28. Don't be short."})
 
+def _dark_watch_candidates(s):
+    """Every operation Marsh could lock onto, paired with its current local heat. The strip
+    club is a legit business — it's not on the list. Heat = how much each op is exposing itself."""
+    d = s["dark"]; biz = d.get("biz") or {}; launder = d.get("launder") or {}; out = []
+    for p in s["properties"]:
+        if p.get("lab"):
+            out.append((p["lab"].get("heat", 0), {"kind": "lab", "ref": p["id"],
+                        "name": f"the {p.get('type', 'house')} in {p.get('neighborhood', 'town')}"}))
+    for dl in d.get("dealers", []):
+        out.append((dl.get("heat", 0), {"kind": "dealer", "ref": dl["id"], "name": f"your dealer {dl.get('name', '?')}"}))
+    for key in DARK_LAUNDER:
+        if biz.get(key):
+            out.append((launder.get(key, {}).get("heat", 0), {"kind": "front", "ref": key, "name": f"the {DARK_LAUNDER[key]['name']}"}))
+    return out
+
+def _dark_watch_entity(s, w):
+    """Resolve a watch descriptor to ('kind', the live object) — or None if it no longer exists."""
+    if not w: return None
+    d = s["dark"]; kind = w.get("kind"); ref = w.get("ref")
+    if kind == "lab":
+        p = next((x for x in s["properties"] if x.get("id") == ref and x.get("lab")), None)
+        return ("lab", p) if p else None
+    if kind == "dealer":
+        dl = next((x for x in d.get("dealers", []) if x["id"] == ref), None)
+        return ("dealer", dl) if dl else None
+    if kind == "front":
+        return ("front", (d.get("launder") or {}).get(ref)) if (d.get("biz") or {}).get(ref) else None
+    return None
+
+def _dark_watch_chance(heat):
+    """Daily chance an op draws Marsh's eye: 25%+ heat → 10%, +10% per extra 25% tier (100% → 40%)."""
+    h = min(int(heat or 0), 100)
+    return (h // 25) * 0.10 if h >= DARK_WATCH_MIN_HEAT else 0.0
+
+def _dark_op_dirty(s, w):
+    """Is the watched op actively running something illegal right now? Shutting it down (lab: no
+    crew/no batch · dealer: paused · front: washing off) makes it clean, so a raid finds nothing."""
+    ent = _dark_watch_entity(s, w)
+    if not ent or ent[1] is None: return False
+    kind, obj = ent
+    if kind == "lab":   return bool(obj["lab"].get("crew_id")) or bool(obj["lab"].get("batch"))
+    if kind == "dealer": return not obj.get("paused") and sum((obj.get("inventory") or {}).values()) > 0
+    if kind == "front": return bool(obj.get("manager")) and obj.get("rate", 0) > 0
+    return False
+
+def _dark_first_name(name):
+    """Just the first name off a full name for an early clue: \"Tony 'Bull' Russo\" → 'Tony'."""
+    parts = (name or "").strip().split()
+    return parts[0] if parts else "someone"
+
+def _dark_build_clues(s, w):
+    """Ordered clue pool for the watched op, vague → specific. Later clues actually pin down
+    which one it is, so with multiple ops of a kind the details (size, product, name) triangulate."""
+    d = s["dark"]; ent = _dark_watch_entity(s, w); kind = (w or {}).get("kind")
+    if not ent or ent[1] is None: return []
+    _, obj = ent
+    if kind == "lab":
+        lab = obj["lab"]; crew = _dark_crew_by_id(d, lab.get("crew_id"))
+        members = _dark_crew_members(d, crew) if crew else []
+        size = len(members); drug = (DARK_DRUGS.get(lab.get("drug")) or {}).get("name", "something")
+        hood = obj.get("neighborhood", "town"); ptype = obj.get("type", "house")
+        cook = members[0].get("name") if members else None
+        crew_desc = "a one-man operation" if size == 1 else (f"a crew of about {size}" if size else "a small crew")
+        cl = ["He's working a house, not a corner — somebody's cooking for you.",
+              f"Word is it's {crew_desc} running it.",
+              f"Whatever they're making in there, it's {drug}."]
+        if cook:
+            cl.append(f"Marsh got a first name off an informant — the cook goes by {_dark_first_name(cook)}. No last name yet.")
+            cl.append(f"He's got the cook's full name now: {cook}.")
+        cl.append(f"He's got the address — it's the {ptype} over in {hood}.")
+        return cl
+    if kind == "dealer":
+        inv = obj.get("inventory") or {}
+        main = max(inv, key=inv.get) if inv else None
+        drug = (DARK_DRUGS.get(main) or {}).get("name", "product"); name = obj.get("name", "your guy")
+        return ["He's watching a corner — a street dealer of yours, not a house.",
+                f"The guy's mostly moving {drug}.",
+                f"Marsh has a first name for him — {_dark_first_name(name)}.",
+                f"It's {name}. Marsh has his whole routine down."]
+    if kind == "front":
+        key = w.get("ref"); meta = DARK_LAUNDER.get(key, {})
+        fname = meta.get("name", "a front"); ftype = meta.get("kind_label", fname)
+        return ["He pulled financial records on one of your cash businesses.",
+                "An accountant's flagged it — the numbers at one of your fronts don't add up.",
+                f"It's a {ftype} — a cash-heavy spot.",
+                f"He's subpoenaed the books on {fname}."]
+    return []
+
+def _dark_clue_reveal(d, n=1):
+    """Surface the next n clues from the watched op's pool. Returns the newly revealed lines."""
+    w = d.get("watch")
+    if not w: return []
+    pool = w.get("clues") or []; found = w.get("found", 0)
+    new = pool[found:found + n]
+    w["found"] = min(len(pool), found + n)
+    return new
+
+def _dark_clues_done(d):
+    w = d.get("watch") or {}
+    return bool(w.get("clues")) and w.get("found", 0) >= len(w["clues"])
+
+def _dark_lock_watch(s, w, events=None):
+    """Marsh commits to one op: build its clue pool, roll a hidden 5–10 day raid pace, start the
+    countdown (the top-right Heat) at zero."""
+    d = s["dark"]
+    w = dict(w); w["clues"] = _dark_build_clues(s, w); w["found"] = 0
+    d["watch"] = w; d["watch_known"] = False
+    days = random.randint(DARK_RAID_MIN_DAYS, DARK_RAID_MAX_DAYS)
+    d["raid_days"] = days; d["raid_pace"] = 100.0 / days; d["heat"] = 0
+    d["lawyered"] = False; d["moved"] = False
+    if events is not None:
+        events.append({"type": "warning", "text": f"🕵️ The Fixer: \"{random.choice(DARK_MARSH_LOCK_LINES)}\""})
+
+def _dark_trigger_hunt(s, bump=40):
+    """Story-beat shortcut: drag Marsh's attention onto your hottest op (or shove the countdown
+    forward if he's already locked on). Used by sting/betrayal events."""
+    d = s["dark"]
+    if d.get("cred", 1) < 2: return
+    if not d.get("watch"):
+        cands = [(h, w) for (h, w) in _dark_watch_candidates(s) if h > 5]
+        if not cands: return
+        cands.sort(key=lambda x: x[0], reverse=True)
+        _dark_lock_watch(s, cands[0][1], None)
+    d["heat"] = min(99, d.get("heat", 0) + bump)   # jump the clock, but never auto-raid the same day
+
 def _dark_do_raid(s, events):
-    """The raid lands. Seizes your hottest lab + hottest dealer + loose cash/stash,
-    softened by 'lawyer up' (skip one charge, half the cash) and 'move the product'
-    (stash + dirty money safe). Then the heat dies down."""
+    """The countdown hit 100 — Marsh raids the op he's been building a case on. If you shut it
+    down in time it's clean and you walk; if it's still running it gets drained. A lawyer beats
+    the charge (op survives), and moving product saves loose cash/stash."""
     d = s["dark"]; lawyered = d.get("lawyered"); moved = d.get("moved"); hit = []
-    labs    = sorted([p for p in s["properties"] if p.get("lab")], key=lambda p: p["lab"].get("heat", 0), reverse=True)
-    dealers = sorted(d.get("dealers", []), key=lambda x: x.get("heat", 0), reverse=True)
-    seize_lab, seize_dealer = bool(labs), bool(dealers)
-    if lawyered and seize_lab and seize_dealer:   # your lawyer beats one charge — they take the hotter target only
-        if labs[0]["lab"].get("heat", 0) >= dealers[0].get("heat", 0): seize_dealer = False
-        else: seize_lab = False
-    if seize_lab and labs:
-        p = labs[0]; cid = p["lab"].get("crew_id")
-        d["roster"] = [m for m in d.get("roster", []) if m.get("crew_id") != cid]
-        d["crews"]  = [c for c in d.get("crews", []) if c["id"] != cid]
-        s["properties"] = [x for x in s["properties"] if x["id"] != p["id"]]
-        hit.append(f"the {p.get('type','lab')} lab + crew")
-    if seize_dealer and dealers:
-        dl = dealers[0]
-        d["dealers"] = [x for x in d.get("dealers", []) if x["id"] != dl["id"]]
-        hit.append(f"your dealer {dl.get('name','?')}")
+    w = d.get("watch"); ent = _dark_watch_entity(s, w); dirty = _dark_op_dirty(s, w); op_saved = False
+    if ent and ent[1] is not None and dirty:
+        kind, obj = ent
+        if lawyered:
+            op_saved = True   # the charge that would've taken the operation gets beaten
+        elif kind == "lab":
+            cid = obj["lab"].get("crew_id")
+            d["roster"] = [m for m in d.get("roster", []) if m.get("crew_id") != cid]
+            d["crews"]  = [c for c in d.get("crews", []) if c["id"] != cid]
+            s["properties"] = [x for x in s["properties"] if x["id"] != obj["id"]]
+            hit.append("the lab, its crew, and all the product")
+        elif kind == "dealer":
+            d["dealers"] = [x for x in d.get("dealers", []) if x["id"] != obj["id"]]
+            hit.append(f"your dealer {obj.get('name', '?')} (and what he was holding)")
+        elif kind == "front":
+            key = w["ref"]; bank = obj.get("bank", 0)
+            (d.get("biz") or {})[key] = False; (d.get("launder") or {}).pop(key, None)
+            if d.get("phil") and d["phil"].get("front") == key: d["phil"]["front"] = None
+            hit.append(f"the {DARK_LAUNDER.get(key, {}).get('name', 'front')}" + (f" + ${bank:,} uncollected" if bank else ""))
     if not moved:
         grab = d.get("dirty_money", 0) // (2 if lawyered else 1)
-        if grab: d["dirty_money"] -= grab; hit.append(f"${grab:,} dirty")
+        if grab: d["dirty_money"] -= grab; hit.append(f"${grab:,} loose dirty cash")
         if d.get("stash"): d["stash"] = {}; hit.append("your stash")
-    d["heat"] = 30; d["raid_in"] = None; d["lawyered"] = False; d["moved"] = False
-    if hit:
-        events.append({"type": "negative", "text": f"🚨 RAID — {DARK_DETECTIVE} kicked the door in. Lost: {', '.join(hit)}. The case cools off… for now."})
+    where = (w or {}).get("name", "your operation")
+    if not dirty and ent and ent[1] is not None:
+        events.append({"type": "info", "text": f"🚨 RAID — {DARK_DETECTIVE} hit {where}… and found a clean, legit operation. You'd shut it down in time. He leaves empty-handed."})
+    elif hit:
+        extra = " Your lawyer beat the main charge — the operation survives." if op_saved else ""
+        events.append({"type": "negative", "text": f"🚨 RAID — {DARK_DETECTIVE} hit {where}. Lost: {', '.join(hit)}.{extra}"})
     else:
-        events.append({"type": "info", "text": f"🚨 The raid came up empty — you'd cleared out in time. {DARK_DETECTIVE} leaves with nothing."})
-    d["watch"] = None; d["watch_known"] = False; d["watch_quiet"] = 0   # case resets after the hit
+        events.append({"type": "info", "text": f"🚨 The raid came up empty — {DARK_DETECTIVE} leaves with nothing."})
+    # Case closes; Marsh backs off for a cooldown before he can lock onto anything new.
+    d["watch"] = None; d["watch_known"] = False; d["heat"] = 0
+    d["lawyered"] = False; d["moved"] = False; d["raid_pace"] = 0; d["raid_days"] = 0
+    d["raid_cooldown"] = s["day"] + DARK_RAID_COOLDOWN
 
-def _dark_pick_watch(s):
-    """Marsh picks one operation to tail — a running-capable lab, framed as the house or a crew member on it."""
+def _dark_hunt_tick(s, events):
+    """End-of-day Hunt: pick a target (heat-tier roll), run the raid countdown, drip clues."""
     d = s["dark"]
-    labs = [p for p in s["properties"] if p.get("lab") and p["lab"].get("crew_id") is not None]
-    if not labs: return None
-    p = random.choice(labs)
-    members = _dark_crew_members(d, _dark_crew_by_id(d, p["lab"].get("crew_id")))
-    if members and random.random() < 0.5:
-        m = random.choice(members)
-        return {"kind": "crew", "prop_id": p["id"], "name": m.get("name", "your guy"), "house": p.get("type", "house")}
-    return {"kind": "house", "prop_id": p["id"], "name": p.get("type", "house"), "house": p.get("type", "house")}
-
-def _dark_watch_label(w):
-    if not w: return ""
-    if w.get("kind") == "crew": return f"tailing {w['name']} — who works the {w['house']}"
-    return f"watching the {w['name']}"
-
-def _dark_hunt_watch(s, events):
-    """End-of-day: Marsh's target tracking (pick / give up / switch / reveal)."""
-    d = s["dark"]; biz = d.get("biz") or {}
-    if d.get("cred", 1) < 2:        # Hunt not active yet — Marsh isn't tailing anyone
-        if d.get("watch"): d["watch"] = None; d["watch_known"] = False; d["watch_quiet"] = 0
+    if d.get("cred", 1) < 2:        # still small-time — no case builds
+        if d.get("watch"): d["watch"] = None
+        d["heat"] = 0; return
+    # Post-raid cooldown: he's looking the other way for a few days.
+    if s["day"] < d.get("raid_cooldown", 0):
+        d["heat"] = 0; return
+    w = d.get("watch")
+    if w and not _dark_watch_entity(s, w):   # the watched thing is fully gone (dismantled/sold)
+        d["watch"] = None; d["heat"] = 0; w = None
+    if not w:
+        # Each Watched rolls to draw his eye; the hottest one that triggers becomes the target.
+        triggered = [(h, c) for (h, c) in _dark_watch_candidates(s) if random.random() < _dark_watch_chance(h)]
+        if triggered:
+            triggered.sort(key=lambda x: x[0], reverse=True)
+            _dark_lock_watch(s, triggered[0][1], events)
+        else:
+            d["heat"] = 0
         return
-    h = d.get("heat", 0); w = d.get("watch")
-    if h < DARK_WATCH_MIN_HEAT:                       # case cold → no active tail
-        if w: d["watch"] = None; d["watch_known"] = False; d["watch_quiet"] = 0
-        return
-    if w:                                             # watched op may have vanished
-        p = next((x for x in s["properties"] if x.get("id") == w.get("prop_id")), None)
-        if not p or not p.get("lab"):
-            d["watch"] = None; d["watch_known"] = False; d["watch_quiet"] = 0; w = None
-    if not w:                                         # pick a fresh target
-        nw = _dark_pick_watch(s)
-        if nw:
-            d["watch"] = nw; d["watch_known"] = False; d["watch_quiet"] = 0; d["watch_since"] = s["day"]
-            events.append({"type": "warning", "text": f"🕵️ The Fixer: \"{random.choice(DARK_MARSH_WATCH_LINES)}\""})
-        return
-    p = next((x for x in s["properties"] if x.get("id") == w.get("prop_id")), None)
-    running = bool(p and p.get("lab") and p["lab"].get("batch"))
-    if running:
-        d["watch_quiet"] = 0
+    # ── He's locked on: the countdown climbs (lie-low buys a day), clues sharpen, then the raid. ──
+    if d.get("lying_low"):
+        events.append({"type": "info", "text": f"🛌 You lay low — the case sat still today. {DARK_DETECTIVE} made no progress."})
     else:
-        d["watch_quiet"] = d.get("watch_quiet", 0) + 1
-        if d["watch_quiet"] >= DARK_WATCH_GIVEUP:     # quiet too long → he moves on
-            d["watch"] = None; d["watch_known"] = False; d["watch_quiet"] = 0
-            events.append({"type": "info", "text": f"😮‍💨 The Fixer: \"{random.choice(DARK_MARSH_GIVEUP_LINES)}\""})
-            return
-    if s["day"] - d.get("watch_since", 0) >= DARK_WATCH_RETARGET:   # he re-evaluates
-        nw = _dark_pick_watch(s)
-        if nw and nw.get("prop_id") != w.get("prop_id"):
-            d["watch"] = nw; d["watch_known"] = False; d["watch_quiet"] = 0; d["watch_since"] = s["day"]
-            events.append({"type": "warning", "text": "🕵️ The Fixer: \"Marsh shifted his attention — he's onto something else of yours now.\""})
-            return
-        d["watch_since"] = s["day"]
-    if not d.get("watch_known"):                      # passive intel reveal (crew/payroll, not the club)
-        chance = 0.0
-        if any(m.get("trait") == "connected" for m in d.get("roster", [])): chance += 0.12
-        if d.get("cred", 1) >= 6: chance += 0.08      # bent cop on the payroll
-        if chance and random.random() < chance:
-            d["watch_known"] = True
-            events.append({"type": "info", "text": f"🔎 Intel (a whisper from your people): Marsh is {_dark_watch_label(d['watch'])}. Pause that operation."})
+        step = d.get("raid_pace", 12) * random.uniform(0.85, 1.15)
+        d["heat"] = min(100, d.get("heat", 0) + step)
+    h = d.get("heat", 0)
+    # Clues sharpen with the countdown: a guaranteed clue roughly every 20%.
+    target = min(len(w.get("clues", [])), int(h // 20))
+    if w.get("found", 0) < target:
+        new = _dark_clue_reveal(d, target - w.get("found", 0))
+        if new: events.append({"type": "info", "text": "🗂️ New lead in the case file: " + new[-1]})
+    # Connected crew whisper a clue.
+    if not _dark_clues_done(d) and any(m.get("trait") == "connected" for m in d.get("roster", [])) \
+            and random.random() < DARK_CLUE_CREW_CHANCE:
+        new = _dark_clue_reveal(d, 1)
+        if new: events.append({"type": "info", "text": "👂 One of your connected people heard something: " + new[-1]})
+    # A dealer flags a weird buyer — only when the target actually is a dealer.
+    if not _dark_clues_done(d) and w.get("kind") == "dealer" and random.random() < DARK_CLUE_DEAL_CHANCE:
+        new = _dark_clue_reveal(d, 1)
+        if new: events.append({"type": "warning", "text": "🧢 One of your dealers flagged a buyer who smelled like a cop: " + new[-1]})
+    # Free ambient news headline.
+    if not _dark_clues_done(d) and random.random() < DARK_CLUE_NEWS_CHANCE:
+        new = _dark_clue_reveal(d, 1)
+        if new: events.append({"type": "info", "text": random.choice(DARK_NEWS_HEADLINES) + " " + new[-1]})
+    if d.get("heat", 0) >= 100:
+        _dark_do_raid(s, events)
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  THE STRIP CLUB — a LEGIT business you actively run. Dancers + the bar pull in
@@ -5415,14 +5544,11 @@ def _dark_club_tick(s, events):
     base = 6 + sum(1 for x in workers if x.get("quirk") in ("heatmag", "viral")) - classy
     base -= 1 if up.get("back", 0) else 0
     base -= 2 if up.get("license", 0) else 0
-    c["heat"] = min(120, max(0, c.get("heat", 0) + max(0, base - min(secr, 7))))
+    # Club heat = how much it's drawing the vice squad's eye (feeds Marsh's watch — a vice raid
+    # now only comes if he picks the club and you don't cool it). Capped at 100.
+    c["heat"] = min(100, max(0, c.get("heat", 0) + max(0, base - min(secr, 7))))
     bent = sum(1 for L in c.get("leverage", []) if L.get("kind") == "bent_cop")
     if bent: d["heat"] = max(0, d.get("heat", 0) - 3 * bent)
-    if c["heat"] >= 100:                          # vice raid
-        ds = c.get("dancers", []); lose = max(1, len(ds) // 2)
-        c["dancers"] = ds[lose:]
-        c["rep"] = max(0, c.get("rep", 0) - 30); c["heat"] = 40
-        events.append({"type": "negative", "text": f"🚨 Vice raided the club — {lose} dancer(s) scattered and the club's name took a hit."})
     # ── A connected patron drifts into the VIP room (the intel minigame). ──
     if up.get("vip", 0) > 0 and not c.get("vip_patron") and not c.get("vip_game") and (s["day"] - c.get("vip_day", 0)) >= 5:
         c["vip_patron"] = True; c["vip_day"] = s["day"]
@@ -5586,9 +5712,8 @@ def _dark_story_resolve(s, c, x, choice):
             if choice == 0:
                 if x.get("loyalty", 60) >= 60: cash(25000); rep(6); ended = True; msg = "Mercedes delivered — a whale party that printed money. She's earned her keep. 🐳"
                 else:
-                    heat(30); left = True
-                    if d.get("raid_in") is None and d.get("cred", 1) >= 2: d["raid_in"] = DARK_RAID_DAYS
-                    msg = "The 'whale' was a sting. Mercedes set you up and vanished — the heat's through the roof."
+                    left = True; _dark_trigger_hunt(s, bump=40)   # the sting puts Marsh onto your hottest op
+                    msg = "The 'whale' was a sting. Mercedes set you up and vanished — Marsh is moving on one of your operations now."
             else: cash(2000); ended = True; msg = "You kept Mercedes on a short leash. No windfall, but no knife in your back either."
     elif k == "lola":
         if b == 0:
@@ -5783,58 +5908,107 @@ DARK_TRAITS = {
 _DARK_TRAIT_WEIGHTS = {"green_thumb": 6, "pill_cook": 3, "cutter": 2, "rock_cook": 1, "chemist": 1, "tar_boiler": 1,
                        "workhorse": 3, "ghost": 3, "loyal": 3, "hothead": 3, "connected": 3, "sloppy": 3,
                        "lookout": 3, "lucky": 2, "junkie": 3, "smooth": 3}
-_DARK_RECRUIT_NAMES = ["Tony", "Vince", "Marco", "Sal", "Rico", "Benny", "Dom", "Carlo", "Joey", "Nico", "Frankie",
-                       "Lou", "Gus", "Paulie", "Mickey", "Dee", "Manny", "Hector", "Reggie", "Omar", "Trey", "Cyrus",
-                       "Big Mike", "Slim", "Ace", "Doc", "Tank", "Razor", "Smiley", "Lefty", "Bishop", "Diego",
-                       "Marcus", "Jamal", "Vito", "Knuckles", "Spider"]
+# ── Crew/dealer names are generated FIRST × LAST (+ an occasional mob nickname), then
+#    deduped against everyone you already know — so you'll basically never see a repeat. ──
+_DARK_FIRST_NAMES = [
+    "Tony", "Vince", "Marco", "Sal", "Rico", "Benny", "Dom", "Carlo", "Joey", "Nico", "Frankie", "Lou", "Gus",
+    "Paulie", "Mickey", "Manny", "Vito", "Sonny", "Angelo", "Gino", "Bruno", "Aldo", "Enzo", "Luca", "Matteo",
+    "Rocco", "Sergio", "Dario", "Carmine", "Salvatore", "Lorenzo", "Giovanni", "Cosmo", "Silvio", "Renzo", "Fredo",
+    "Augie", "Vinnie", "Sammy", "Mario", "Gianni", "Tito", "Eddie", "Charlie", "Johnny", "Ray", "Pete", "Stevie",
+    "Gabe", "Marty", "Dean", "Moe", "Hank", "Bobby", "Donnie", "Tommy", "Jimmy", "Georgie", "Richie", "Nicky",
+    "Petey", "Jerry", "Frank", "Mike", "Joe", "Chris", "Danny", "Marcus", "Jamal", "Omar", "Hector", "Diego",
+    "Reggie", "Trey", "Cyrus", "Bishop", "Andre", "Darnell", "Tyrese", "Malik", "Deshawn", "Terrence", "Maurice",
+    "Leon", "Curtis", "Jerome", "Devon", "Rashad", "Kareem", "Otis", "Clyde", "Roscoe", "Theo", "Ramon", "Carlos",
+    "Javier", "Miguel", "Luis", "Tomas", "Rafael", "Emilio", "Cesar", "Pablo", "Sergei", "Dmitri", "Yuri", "Viktor",
+    "Ivan", "Nikolai", "Boris", "Anton", "Mikhail", "Stavros", "Niko", "Dimitri"]
+_DARK_LAST_NAMES = [
+    "Russo", "Gambino", "Marino", "Romano", "Bianchi", "Esposito", "Ricci", "Greco", "Costa", "Conti", "Marchetti",
+    "De Luca", "Moretti", "Barbieri", "Fontana", "Caruso", "Ferrari", "Galli", "Lombardi", "Mancini", "Rizzo",
+    "Santoro", "Vitale", "Colombo", "Gallo", "Leone", "Longo", "Martini", "Palumbo", "Parisi", "Serra", "Villa",
+    "Fiore", "Sorrentino", "Gentile", "Pellegrino", "Carbone", "Valentino", "Castellano", "Genovese", "Bonanno",
+    "Lucchese", "Profaci", "Maranzano", "Scarpa", "Persico", "Falcone", "Borsellino", "Provenzano", "Cutolo", "Spada",
+    "Williams", "Johnson", "Brown", "Davis", "Jackson", "Carter", "Robinson", "Mitchell", "Coleman", "Hayes",
+    "Brooks", "Reed", "Bell", "Ward", "Cooper", "Foster", "Greene", "Powell", "Bryant", "Watkins", "Holloway",
+    "Sanders", "Garcia", "Hernandez", "Lopez", "Gonzalez", "Ramirez", "Torres", "Flores", "Rivera", "Morales",
+    "Ortiz", "Castillo", "Vega", "Reyes", "Delgado", "Mendez", "Petrov", "Volkov", "Sokolov", "Ivanov", "Kozlov",
+    "Novak", "Kowalski", "Nowak", "Papadopoulos", "O'Brien", "Sullivan", "Kelly", "Murphy", "Walsh", "Doyle",
+    "Burke", "Quinn", "McKenna", "Donovan", "Flynn", "Brennan"]
+_DARK_NICKNAMES = ["Knuckles", "Slim", "Ace", "Doc", "Tank", "Razor", "Smiley", "Lefty", "Spider", "Fingers",
+                   "Bugsy", "Lucky", "Tiny", "Bull", "Ghost", "Bones", "Snake", "The Chin", "Three-Fingers",
+                   "Whitey", "Cadillac", "Pretty Boy", "The Hammer", "Icepick", "Mad Dog", "Curly", "Fish",
+                   "Tubby", "Junior", "Sticks", "Goldie", "Nails", "Two-Times", "Sneaks", "Bishop", "Gigs"]
+
+def _dark_used_names(d):
+    used = set()
+    for coll in ((d or {}).get("roster", []), (d or {}).get("recruits", []), (d or {}).get("dealers", [])):
+        for x in coll:
+            if x.get("name"): used.add(x["name"])
+    return used
+
+def _dark_make_name(used):
+    """One fresh FIRST LAST (sometimes FIRST 'Nick' LAST), avoiding anything already in `used`."""
+    nm = None
+    for _ in range(60):
+        first = random.choice(_DARK_FIRST_NAMES); last = random.choice(_DARK_LAST_NAMES)
+        nm = f"{first} '{random.choice(_DARK_NICKNAMES)}' {last}" if random.random() < 0.16 else f"{first} {last}"
+        if nm not in used: break
+    used.add(nm)
+    return nm
 
 def _dark_gen_recruits(d, n=10):
-    pool = [t for t, w in _DARK_TRAIT_WEIGHTS.items() for _ in range(w)]
-    out = []
-    for _ in range(n):
+    cred = d.get("cred", 1)
+    # Guarantee EXACTLY ONE cook for each drug you've unlocked — no more, no fewer.
+    cooks = [t for t, m in DARK_TRAITS.items()
+             if m.get("knows") and DARK_DRUGS.get(m["knows"], {}).get("cred_req", 99) <= cred]
+    # The rest of the list is personality/skill traits only — never a second cook of any kind.
+    fillers = [t for t, w in _DARK_TRAIT_WEIGHTS.items() if not DARK_TRAITS.get(t, {}).get("knows") for _ in range(w)]
+    out = []; used = _dark_used_names(d)
+    def add(trait):
         rid = d.get("next_recruit_id", 1); d["next_recruit_id"] = rid + 1
-        out.append({"id": rid, "name": random.choice(_DARK_RECRUIT_NAMES), "trait": random.choice(pool)})
+        out.append({"id": rid, "name": _dark_make_name(used), "trait": trait})
+    for t in cooks: add(t)
+    while len(out) < n and fillers: add(random.choice(fillers))
+    random.shuffle(out)
     return out
 
 # Crew roles. hire = one-time clean-cash cost; wage = clean cash/day while employed.
 DARK_SWAT_HEAT = 100   # per-home heat that triggers a raid
 
-# ── THE HUNT — global heat is the detective's case strength. It creeps up the more
-# (and hotter) you operate; cross the threshold and a raid gets scheduled a few days
-# out (telegraphed) — scramble to cool it or soften the blow. ──
-DARK_DETECTIVE      = "Det. Marsh"
-DARK_RAID_THRESHOLD = 85    # case strength that schedules a raid
-DARK_RAID_SAFE      = 65    # get below this before the clock runs out → raid called off
-DARK_RAID_DAYS      = 3     # countdown length once a raid's scheduled
-DARK_HUNT_TIERS = [(85, "Closing In", "#E0533D"), (65, "Building a Case", "#FF8A3D"),
-                   (40, "Sniffing Around", "#FFC83D"), (0, "Cold", "#4CAF50")]
-# The Watch: once warm, Marsh tails ONE operation. Running it while watched piles on heat;
-# pausing it makes him lose the lead. You learn the target via intel (mole / VIP lounge).
-DARK_WATCH_MIN_HEAT = 40    # case must be at least "Sniffing Around" for him to pick a target
-DARK_WATCH_BONUS    = 7     # extra heat/day on a watched lab that keeps cooking
-DARK_WATCH_GIVEUP   = 3     # quiet days on the watched op before he moves on
-DARK_WATCH_RETARGET = 12    # days before he re-evaluates and may switch targets
-DARK_INTEL_COST     = 5_000     # buy a tip from a precinct mole
-DARK_VIP_COST       = 60_000    # build the strip-club VIP lounge (intel engine)
-DARK_VIP_WORK_COST  = 6_000     # work the VIP room for a guaranteed tip
-DARK_VIP_INTEL_CHANCE = 0.35    # passive daily chance the lounge reveals the watch target
-DARK_STRIPCLUB_EARN = 1_500     # dirty money/day the club pulls in on its own
+# ── THE HUNT ──────────────────────────────────────────────────────────────────
+# Each Watched operation (lab / dealer / front) builds LOCAL heat as it runs — harder
+# and faster you push it, the hotter. That heat is the daily chance Marsh locks onto it
+# as his single target: 25%+ heat → 10%, and +10% more for every extra 25% (100% → 40%).
+# He watches ONE op at a time. Once he's locked on, the top-right Heat becomes a 5–10 day
+# RAID COUNTDOWN that climbs each day; at 100% he raids that op. You piece together which
+# op it is from CLUES (they sharpen as the countdown climbs), then shut it down before the
+# raid — lab: no crew/no batch · dealer: paused · front: washing off. The raid still comes,
+# but if there's nothing illegal running there, you walk untouched. If it's still dirty,
+# it gets drained: lab → crew + product + house; dealer → busted; front → uncollected
+# cash + the business itself (rebuy + rehire). The strip club is legit — it's NOT Watched.
+DARK_DETECTIVE       = "Det. Marsh"
+DARK_WATCH_MIN_HEAT  = 25      # an op must be at least this hot to draw his eye at all
+DARK_RAID_MIN_DAYS   = 5       # fastest the countdown fills once he's locked on
+DARK_RAID_MAX_DAYS   = 10      # slowest
+DARK_RAID_COOLDOWN   = 6       # days after a raid before he can lock onto a new target
+DARK_INTEL_COST      = 25_000  # the mole's tip — a sharp clue, but it costs real money now
+DARK_VIP_COST        = 60_000  # build the strip-club VIP lounge (intel engine)
+DARK_VIP_WORK_COST   = 6_000   # work the VIP room for a guaranteed clue
+DARK_VIP_INTEL_CHANCE = 0.35   # passive daily chance the lounge turns up a clue
+DARK_STRIPCLUB_EARN  = 1_500   # dirty money/day the club pulls in on its own
+DARK_CLUE_CREW_CHANCE = 0.18   # daily: a Connected crew member whispers a clue
+DARK_CLUE_NEWS_CHANCE = 0.12   # daily: a local news headline drops a vague category clue
+DARK_CLUE_DEAL_CHANCE = 0.22   # daily (only if the target is a dealer): a dealer flags a buyer
 
-DARK_MARSH_WATCH_LINES = [   # what the Fixer hears when Marsh picks a new target
-    "Marsh pulled someone's file today. He's onto one of your spots.",
-    "Word is Marsh started a surveillance log. One of your operations is on it.",
-    "Marsh has been parked somewhere with a camera. Wish I knew where.",
-    "A detective's been asking around your blocks again. Marsh.",
+DARK_MARSH_LOCK_LINES = [   # the Fixer's word when Marsh picks a fresh target (vague)
+    "Marsh pulled a file today — he's locked onto one of your spots. Start working the case.",
+    "Word is Marsh opened a surveillance log on one of your operations. The clock's running now.",
+    "A detective started building a case on one of your spots. Marsh. Figure out which one — fast.",
 ]
-DARK_MARSH_GIVEUP_LINES = [
-    "Marsh gave up the stakeout — nothing was moving. He's looking elsewhere.",
-    "Quiet spot, bored cop. Marsh moved on.",
+DARK_NEWS_HEADLINES = [   # free ambient clue delivery — vague, sets the mood
+    "📰 Local news: \"POLICE ANNOUNCE CRACKDOWN ON ORGANIZED CRIME.\"",
+    "📰 Local news: \"TASK FORCE TARGETS ILLEGAL OPERATIONS DOWNTOWN.\"",
+    "📰 Local news: \"DETECTIVE VOWS ARRESTS BY MONTH'S END.\"",
 ]
-
-def _dark_hunt_tier(h):
-    for lo, label, col in DARK_HUNT_TIERS:
-        if h >= lo: return label, col
-    return "Cold", "#4CAF50"
 
 def _dark_heat_tier(h):
     if h >= DARK_SWAT_HEAT: return "swat"
@@ -5862,7 +6036,8 @@ def _dark_stash_add(d, drug, units):
     st[drug] = st.get(drug, 0) + units
 
 DARK_DEALER_CAP = 12   # units a dealer moves per day (see _dark_dealer_cap for cred scaling)
-DARK_BIZ_PRICE  = {"laundromat": 50_000, "car_wash": 300_000, "strip_club": 200_000, "pizzeria": 130_000}
+DARK_BIZ_PRICE  = {"laundromat": 50_000, "car_wash": 300_000, "strip_club": 200_000, "pizzeria": 130_000,
+                   "autolot": 600_000, "construction": 1_200_000}
 DARK_CASINO_COST = 75_000   # convert a carried-over arcade into a casino
 
 # Laundering fronts — wash dirty money into clean. cap = dirty $/day cleaned per rate level;
@@ -5870,11 +6045,25 @@ DARK_CASINO_COST = 75_000   # convert a carried-over arcade into a casino
 # A clean ladder: cheaper fronts wash less and run hotter; the premium front washes the
 # most and is the safest per push. (cap = dirty $/day per rate level; rate is 0-3.)
 DARK_LAUNDER = {
-    "laundromat": {"name": "Laundromat",            "icon": "🧼", "cap": 2000, "hire": 4_000,  "wage": 200, "heat_rate": 9},
-    "pizzeria":   {"name": "Famiglia's Pizzeria",   "icon": "🍕", "cap": 4500, "hire": 8_000,  "wage": 500, "heat_rate": 7},
-    "car_wash":   {"name": "Car Wash",              "icon": "🚗", "cap": 8000, "hire": 12_000, "wage": 850, "heat_rate": 5},
+    "laundromat":   {"name": "Laundromat",          "kind_label": "laundromat",       "icon": "🧼", "cap": 2000,  "hire": 4_000,  "wage": 200,  "heat_rate": 9},
+    "pizzeria":     {"name": "Famiglia's Pizzeria", "kind_label": "pizzeria",         "icon": "🍕", "cap": 4500,  "hire": 8_000,  "wage": 500,  "heat_rate": 7},
+    "car_wash":     {"name": "Car Wash",            "kind_label": "car wash",         "icon": "🚗", "cap": 8000,  "hire": 12_000, "wage": 850,  "heat_rate": 5},
+    "autolot":      {"name": "Big Al's Used Autos", "kind_label": "used-car lot",     "icon": "🚙", "cap": 13000, "hire": 18_000, "wage": 1300, "heat_rate": 4},
+    "construction": {"name": "Apex Contracting",    "kind_label": "contracting firm", "icon": "🏗️", "cap": 20000, "hire": 30_000, "wage": 2000, "heat_rate": 3},
 }
 DARK_VENDING_PAYOUT = 80_000   # cousin Vinny buys the vending business
+
+# ── Phil, the front Enforcer. Old contractor from your house-flipping days; now he
+#    parks himself at one front, eats any event, slows the heat, and never lets it
+#    boil over to a raid — all for a token $100/day. Offered at Street Cred 3. ──
+DARK_PHIL_WAGE = 100
+DARK_PHIL_LINES = [
+    "🧰 Phil had a quiet word with the health inspector at the {front}. Handled.",
+    "🧰 Phil walked a nosy detective back to his car — the {front}'s fine.",
+    "🧰 Somebody came around the {front} asking questions. Phil saw them off.",
+    "🧰 Phil smoothed over a problem at the {front} before it was a problem.",
+    "🧰 A situation at the {front} just… sorted itself out. That's Phil.",
+]
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  SCORES — one-time heists. Bigger targets unlock by Street Cred. Assemble a crew
@@ -6279,6 +6468,7 @@ def _dark_heist_finish(s, d, busted):
     for m in members:
         if m: m["skill"] = min(6, m.get("skill", 1) + 1)
     d.setdefault("heists_done", []).append(h["key"])
+    d.setdefault("heist_takes", {})[h["key"]] = your   # remember what this score banked
     h["stage"] = "done"; h["outcome"] = "win"
     h["final"] = {"your": your, "cut": cut_amt, "pot": pot, "cut_pct": cut_pct}
 
@@ -6468,6 +6658,19 @@ def api_dark_disband_crew():
     d["crews"] = [c for c in d.get("crews", []) if c["id"] != cid]
     save(s)
     return jsonify({"ok": True})
+
+@app.route('/api/dark/rename_crew', methods=['POST'])
+def api_dark_rename_crew():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; data = request.json or {}
+    crew = _dark_crew_by_id(d, data.get("crew_id"))
+    if not crew: return jsonify({"error": "No such crew."}), 400
+    name = (data.get("name") or "").strip()
+    if not name: return jsonify({"error": "Give the crew a name."}), 400
+    crew["name"] = name[:24]   # keep it tidy on the cards
+    save(s)
+    return jsonify({"ok": True, "name": crew["name"]})
 
 @app.route('/api/dark/assign_lab', methods=['POST'])
 def api_dark_assign_lab():
@@ -6786,7 +6989,7 @@ def api_dark_hire_dealer():
     if s["cash"] < cost: return jsonify({"error": f"Need ${cost:,} to bring a dealer on."}), 400
     s["cash"] -= cost
     did = d.get("next_dealer_id", 1); d["next_dealer_id"] = did + 1
-    d.setdefault("dealers", []).append({"id": did, "name": random.choice(_DARK_RECRUIT_NAMES),
+    d.setdefault("dealers", []).append({"id": did, "name": _dark_make_name(_dark_used_names(d)),
                                         "inventory": {}, "held": 0, "heat": 0})
     save(s)
     return jsonify({"ok": True})
@@ -6864,25 +7067,26 @@ DARK_MOVE_COST   = 3_000
 def api_dark_hunt_action():
     s = load()
     if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
-    d = s["dark"]; act = (request.json or {}).get("action"); raid = d.get("raid_in") is not None
+    d = s["dark"]; act = (request.json or {}).get("action"); raid = bool(d.get("watch"))
     if act == "lie_low":
         if d.get("lying_low"): return jsonify({"error": "You're already set to lie low."}), 400
         d["lying_low"] = True
-        save(s); return jsonify({"ok": True, "msg": "You'll keep everything quiet — advance to lie low."})
+        save(s); return jsonify({"ok": True, "msg": "You'll keep everything quiet — advance to stall the case a day."})
     if act == "bribe":
+        if not raid: return jsonify({"error": f"{DARK_DETECTIVE} hasn't got an open case to bury right now."}), 400
         cost = DARK_BRIBE_BASE + 1500 * d.get("bribes", 0)
         if s["cash"] < cost: return jsonify({"error": f"Need ${cost:,} to pay {DARK_DETECTIVE} off."}), 400
         s["cash"] -= cost; d["bribes"] = d.get("bribes", 0) + 1
-        d["heat"] = max(0, d.get("heat", 0) - 35)
-        save(s); return jsonify({"ok": True, "msg": f"Paid off {DARK_DETECTIVE} — the case cools."})
+        d["heat"] = max(0, d.get("heat", 0) - 35)   # knocks the raid countdown back a few days
+        save(s); return jsonify({"ok": True, "msg": f"Paid off {DARK_DETECTIVE} — bought yourself some days."})
     if act == "lawyer":
         if not raid: return jsonify({"error": "Nothing to lawyer up for right now."}), 400
         if d.get("lawyered"): return jsonify({"error": "Your lawyer's already on retainer."}), 400
         if s["cash"] < DARK_LAWYER_COST: return jsonify({"error": f"Need ${DARK_LAWYER_COST:,} for a lawyer."}), 400
         s["cash"] -= DARK_LAWYER_COST; d["lawyered"] = True
-        save(s); return jsonify({"ok": True, "msg": "Lawyer's on retainer — a raid will hurt less."})
+        save(s); return jsonify({"ok": True, "msg": "Lawyer's on retainer — if they raid, he'll beat the charge."})
     if act == "move":
-        if not raid: return jsonify({"error": "No raid coming — nothing to move yet."}), 400
+        if not raid: return jsonify({"error": "No case open — nothing to move yet."}), 400
         if d.get("moved"): return jsonify({"error": "Product's already stashed safe."}), 400
         if s["cash"] < DARK_MOVE_COST: return jsonify({"error": f"Need ${DARK_MOVE_COST:,} for a mover."}), 400
         s["cash"] -= DARK_MOVE_COST; d["moved"] = True
@@ -6894,12 +7098,25 @@ def api_dark_buy_intel():
     s = load()
     if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
     d = s["dark"]
-    if not d.get("watch"): return jsonify({"error": "Marsh isn't tailing anything specific right now."}), 400
-    if d.get("watch_known"): return jsonify({"error": "You already know what he's watching."}), 400
+    if not d.get("watch"): return jsonify({"error": "Marsh isn't building a case on anything right now."}), 400
+    if _dark_clues_done(d): return jsonify({"error": "Your mole's got nothing new — you already know exactly what he's after."}), 400
     if s["cash"] < DARK_INTEL_COST: return jsonify({"error": f"Need ${DARK_INTEL_COST:,} for the mole's tip."}), 400
-    s["cash"] -= DARK_INTEL_COST; d["watch_known"] = True
+    s["cash"] -= DARK_INTEL_COST; new = _dark_clue_reveal(d, 1)
     save(s)
-    return jsonify({"ok": True, "msg": f"Mole's tip: Marsh is {_dark_watch_label(d['watch'])}. Pause it."})
+    return jsonify({"ok": True, "msg": "Mole's tip — " + (new[-1] if new else "nothing new, sorry.")})
+
+@app.route('/api/dark/collect_front', methods=['POST'])
+def api_dark_collect_front():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; key = (request.json or {}).get("key")
+    ln = (d.get("launder") or {}).get(key)
+    if not ln: return jsonify({"error": "No such front."}), 400
+    got = ln.get("bank", 0)
+    if got <= 0: return jsonify({"error": "Nothing clean to collect here yet."}), 400
+    s["cash"] += got; ln["bank"] = 0
+    save(s)
+    return jsonify({"ok": True, "collected": got})
 
 @app.route('/api/dark/build_vip', methods=['POST'])
 def api_dark_build_vip():
@@ -6946,19 +7163,6 @@ def api_dark_dancer_story():
     save(s)
     return jsonify({"ok": True, "msg": msg})
 
-@app.route('/api/dark/club_security', methods=['POST'])
-def api_dark_club_security():
-    s = load()
-    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
-    c = s["dark"].get("club")
-    if not c: return jsonify({"error": "You don't run a club."}), 400
-    lvl = c.get("security", 0)
-    if lvl >= len(DARK_CLUB_SECURITY_COST): return jsonify({"error": "Security's maxed out."}), 400
-    cost = DARK_CLUB_SECURITY_COST[lvl]
-    if s["cash"] < cost: return jsonify({"error": f"Need ${cost:,} to beef up security."}), 400
-    s["cash"] -= cost; c["security"] = lvl + 1
-    save(s)
-    return jsonify({"ok": True, "level": c["security"]})
 
 @app.route('/api/dark/club_lounge', methods=['POST'])
 def api_dark_club_lounge():
@@ -6969,9 +7173,9 @@ def api_dark_club_lounge():
     offer = c["lounge_offer"]; choice = (request.json or {}).get("choice")
     msg = ""
     if choice == "listen":
-        if d.get("watch") and not d.get("watch_known"):
-            d["watch_known"] = True
-            msg = f"Lounge chatter paid off — Marsh is {_dark_watch_label(d['watch'])}. Pause that operation."
+        if d.get("watch") and not _dark_clues_done(d):
+            new = _dark_clue_reveal(d, 1)
+            msg = "Lounge chatter paid off — " + (new[-1] if new else "but nothing new tonight.")
         else:
             c["rep"] = min(100, c.get("rep", 0) + 6)
             msg = "No case talk tonight — but you worked the room. The club's name is the better for it."
@@ -6997,10 +7201,13 @@ def api_dark_club_leverage():
     lev = next((L for L in c.get("leverage", []) if L.get("kind") == "da"), None)
     if not lev: return jsonify({"error": "You've got no DA or judge in your pocket to make a call."}), 400
     who = lev["who"]; Who = who[:1].upper() + who[1:]
-    if d.get("raid_in") is not None:
-        d["raid_in"] = None; msg = f"{Who} made the raid disappear. {DARK_DETECTIVE} is fuming."
+    if d.get("watch"):
+        d["watch"] = None; d["watch_known"] = False; d["heat"] = 0
+        d["raid_pace"] = 0; d["raid_days"] = 0; d["lawyered"] = False; d["moved"] = False
+        d["raid_cooldown"] = s["day"] + DARK_RAID_COOLDOWN
+        msg = f"{Who} made the whole case disappear. {DARK_DETECTIVE} is fuming — and back to square one."
     else:
-        d["heat"] = max(0, d.get("heat", 0) - 30); msg = f"{Who} buried some paperwork — the case cooled hard."
+        msg = f"{Who} owes you one — but there's no case open to bury right now."
     c["leverage"] = [L for L in c["leverage"] if L is not lev]   # one-time use
     save(s)
     return jsonify({"ok": True, "msg": msg})
@@ -7013,11 +7220,10 @@ def api_dark_work_vip():
     if not ((d.get("biz") or {}).get("strip_club") and d.get("vip")): return jsonify({"error": "Build the VIP lounge first."}), 400
     if s["cash"] < DARK_VIP_WORK_COST: return jsonify({"error": f"Need ${DARK_VIP_WORK_COST:,} to work the room."}), 400
     s["cash"] -= DARK_VIP_WORK_COST
-    if d.get("watch") and not d.get("watch_known"):
-        d["watch_known"] = True
-        save(s); return jsonify({"ok": True, "msg": f"You worked the VIP room — Marsh is {_dark_watch_label(d['watch'])}. Pause it."})
-    d["heat"] = max(0, d.get("heat", 0) - 8)
-    save(s); return jsonify({"ok": True, "msg": "You greased a badge in the lounge — the case cooled a little."})
+    if d.get("watch") and not _dark_clues_done(d):
+        new = _dark_clue_reveal(d, 1)
+        save(s); return jsonify({"ok": True, "msg": "You worked the VIP room — " + (new[-1] if new else "but nothing new tonight.")})
+    save(s); return jsonify({"ok": True, "msg": "You greased a badge in the lounge — but there's no open case to dig on."})
 
 # ── Strip-club operations: upgrades, staff, the bar, incidents, and the VIP minigame ──
 def _club_or_err():
@@ -7221,25 +7427,22 @@ def api_dark_vip_action():
     if g["susp"] >= 100:
         g["done"] = True; g["win"] = False
         if t == "undercover":
-            d["heat"] = min(100, d.get("heat", 0) + 25)
-            if d.get("raid_in") is None and d.get("cred", 1) >= 2: d["raid_in"] = DARK_RAID_DAYS
-            outcome = "🚨 He was undercover — and you tipped your hand. He made a call on the way out. Heat's spiking."
+            _dark_trigger_hunt(s, bump=40)   # he made a call — Marsh swings onto your hottest op
+            outcome = "🚨 He was undercover — and you tipped your hand. He made a call on the way out. Marsh is moving on one of your spots."
         else:
-            d["heat"] = min(100, d.get("heat", 0) + 12)
-            outcome = "He clammed up and left rattled. Whatever he knew, it's locked up tight now — and the room's hotter for it."
+            outcome = "He clammed up and left rattled. Whatever he knew, it's locked up tight now."
     elif g["intel"] >= 100:
         g["done"] = True; g["win"] = True
         rw = meta["reward"]
         if rw == "trap":
-            d["heat"] = min(100, d.get("heat", 0) + 20)
-            outcome = "🎣 You pushed him for everything — and walked right into it. That was no regular. The heat just jumped."
+            _dark_trigger_hunt(s, bump=30)   # that was no regular — you walked into it
+            outcome = "🎣 You pushed him for everything — and walked right into it. That was no regular. Marsh just moved on one of your spots."
         elif rw == "watch":
-            if d.get("watch") and not d.get("watch_known"):
-                d["watch_known"] = True
-                outcome = f"🔎 You got it out of him: Marsh is {_dark_watch_label(d['watch'])}. Pause that operation."
+            if d.get("watch") and not _dark_clues_done(d):
+                new = _dark_clue_reveal(d, 1)
+                outcome = "🔎 You got it out of him — " + (new[-1] if new else "but nothing new tonight.")
             else:
-                d["heat"] = max(0, d.get("heat", 0) - 12)
-                outcome = "🔎 He let slip the detective's got nothing solid on you right now. Breathing room — the case cooled."
+                outcome = "🔎 He let slip the detective's got nothing solid right now. Nothing to act on."
         elif rw == "leverage_da":
             c.setdefault("leverage", []).append({"kind": "da", "who": meta["name"]})
             outcome = f"⚖️ {meta['name'].capitalize()} said too much over too many drinks. You've got leverage on him now."
@@ -7431,6 +7634,30 @@ def api_dark_heist_abort():
     if h and h.get("stage") == "plan": s["dark"]["heist"] = None
     save(s); return jsonify({"ok": True})
 
+@app.route('/api/dark/hire_phil', methods=['POST'])
+def api_dark_hire_phil():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; biz = d.get("biz") or {}
+    if d.get("phil"): return jsonify({"error": "Phil's already on the payroll."}), 400
+    if sum(1 for k in DARK_LAUNDER if biz.get(k)) < 2:
+        return jsonify({"error": "Phil hasn't come around yet."}), 400
+    front = next((k for k in DARK_LAUNDER if biz.get(k)), None)   # park him on a front right away
+    d["phil"] = {"front": front}
+    save(s); return jsonify({"ok": True, "msg": "Phil's on the crew. Good to have him back. 🧰"})
+
+@app.route('/api/dark/phil_assign', methods=['POST'])
+def api_dark_phil_assign():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; biz = d.get("biz") or {}
+    if not d.get("phil"): return jsonify({"error": "You haven't brought Phil on."}), 400
+    front = (request.json or {}).get("front")
+    if front in (None, "", "off"): d["phil"]["front"] = None
+    elif front in DARK_LAUNDER and biz.get(front): d["phil"]["front"] = front
+    else: return jsonify({"error": "You don't run that front."}), 400
+    save(s); return jsonify({"ok": True})
+
 @app.route('/api/dark/collect_dealer', methods=['POST'])
 def api_dark_collect_dealer():
     s = load()
@@ -7451,7 +7678,6 @@ def api_dark_advance():
     d = s["dark"]; events = []
     seized_ids = []; rented = 0
     lying = d.get("lying_low")     # "lie low" day — everything goes quiet and cools (set by a Hunt scramble)
-    watched_id = (d.get("watch") or {}).get("prop_id")   # the lab Marsh is tailing (heats up faster)
     for p in s["properties"]:
         lab = p.get("lab")
         if lab:
@@ -7483,9 +7709,8 @@ def api_dark_advance():
             sl = sum(1 for m in members if m.get("trait") == "sloppy")
             # heat accrues by cook speed (faster = hotter); ghosts cool it, sloppy stokes it
             hmult = max(0.4, 1 - 0.25 * gh + 0.2 * sl)
-            lab["heat"] = lab.get("heat", 0) + drug["base_heat"] * DARK_BATCH_HEAT.get(speed, 1.3) * hmult
-            if p["id"] == watched_id:     # Marsh is documenting this exact spot — it heats up fast
-                lab["heat"] = min(120, lab["heat"] + DARK_WATCH_BONUS)
+            # Local heat = how much this lab is drawing Marsh's eye (his watch target is weighted by it).
+            lab["heat"] = min(100, lab.get("heat", 0) + drug["base_heat"] * DARK_BATCH_HEAT.get(speed, 1.3) * hmult)
             batch["days_left"] = batch.get("days_left", 1) - 1
             if batch["days_left"] <= 0:                          # batch done — big drop of product
                 lab["product"] = lab.get("product", 0) + batch.get("yield", 0)
@@ -7494,19 +7719,12 @@ def api_dark_advance():
                 d["cred_xp"] = d.get("cred_xp", 0) + batch.get("yield", 0)   # cooking builds rep too
                 events.append({"type": "info", "text": f"✅ Batch ready at the {p.get('type','lab')} — {batch.get('yield',0)} units of {drug['name']}. The crew wants their cut: ${fee:,}."})
                 lab["batch"] = None
-            if lab["heat"] >= DARK_SWAT_HEAT:
-                seized_ids.append(p["id"])
-                d["roster"] = [m for m in d.get("roster", []) if m.get("crew_id") != crew["id"]]   # crew arrested
-                d["crews"]  = [c for c in d.get("crews", []) if c["id"] != crew["id"]]
-                d["heat"]   = min(100, d.get("heat", 0) + 15)
-                events.append({"type": "negative", "text": f"🚨 SWATTED — the {p.get('type','house')} in {p.get('neighborhood','town')} got raided. The house, the lab, {lab.get('product',0)} units, and the whole crew — gone."})
         elif p.get("rented"):
             rented += 1
     if seized_ids:
         s["properties"] = [p for p in s["properties"] if p["id"] not in seized_ids]
     if rented: d["heat"] = max(0, d.get("heat", 0) - rented * 3)
     # ── Dealers work product into dirty money — and rack up their own heat ──
-    busted = []
     for dl in d.get("dealers", []):
         inv = dl.setdefault("inventory", {})
         if dl.get("event"):          # dealer's got a problem — frozen until you handle it
@@ -7526,19 +7744,22 @@ def api_dark_advance():
             inv[dk] -= take; sold_units += take; to_sell -= take
             if inv[dk] <= 0: del inv[dk]
         dl["held"] = dl.get("held", 0) + round(sold_val)
-        dl["heat"] = dl.get("heat", 0) + sold_units * 1.8
+        dl["heat"] = min(100, dl.get("heat", 0) + sold_units * 1.8)   # heat = how much this corner draws Marsh
         d["cred_xp"] = d.get("cred_xp", 0) + round(sold_val / 50)   # street rep grows as you move weight
         d["year_take"] = d.get("year_take", 0) + round(sold_val)    # gross take → counts toward the Fixer's cut
-        if dl["heat"] >= 100: busted.append(dl)
-    for dl in busted:
-        d["dealers"] = [x for x in d.get("dealers", []) if x["id"] != dl["id"]]
-        d["heat"] = min(100, d.get("heat", 0) + 10)
-        events.append({"type": "negative", "text": f"🚔 BUSTED — your dealer {dl.get('name','?')} got picked up. ${dl.get('held',0):,} dirty money and their stash — seized."})
     # ── Laundering — fronts wash dirty money into clean (needs a manager + a rate). ──
     laundered = 0; biz = d.get("biz") or {}; launder = d.setdefault("launder", {})
     for key, meta in DARK_LAUNDER.items():
         if not biz.get(key): continue
         ln = launder.setdefault(key, {"manager": False, "heat": 0, "rate": 0})
+        philhere = bool(d.get("phil") and d["phil"].get("front") == key)
+        if philhere:
+            if s.get("cash", 0) >= DARK_PHIL_WAGE: s["cash"] -= DARK_PHIL_WAGE   # Phil's token wage
+            if ln.get("bank", 0) > 0:                  # Phil collects the front's takings for you
+                s["cash"] += ln["bank"]; ln["bank"] = 0
+            if ln.get("event"):                       # Phil quietly handles whatever came up
+                ln["event"] = None
+                events.append({"type": "info", "text": random.choice(DARK_PHIL_LINES).format(front=meta["name"])})
         if ln.get("event"):          # front's got a situation — washing frozen until handled
             continue
         if lying:                    # laying low: front sits quiet, cools
@@ -7546,6 +7767,8 @@ def api_dark_advance():
         if not ln.get("manager") or ln.get("rate", 0) <= 0:
             ln["heat"] = max(0, ln.get("heat", 0) - 8)   # idle: cools off
             continue
+        if philhere and ln.get("heat", 0) >= 70:     # Phil eases off a day to keep it from boiling over
+            ln["heat"] = max(0, ln.get("heat", 0) - 14); continue
         if s["cash"] < meta["wage"]:
             ln["manager"] = False
             events.append({"type": "warning", "text": f"💸 Couldn't make payroll — the {meta['name']} manager walked."})
@@ -7553,47 +7776,22 @@ def api_dark_advance():
         s["cash"] -= meta["wage"]   # daily upkeep
         amount = min(d.get("dirty_money", 0), meta["cap"] * ln["rate"])
         if amount > 0:
-            d["dirty_money"] -= amount; s["cash"] += amount; laundered += amount
-            ln["heat"] = ln.get("heat", 0) + (amount / meta["cap"]) * meta["heat_rate"]
+            d["dirty_money"] -= amount; ln["bank"] = ln.get("bank", 0) + amount; laundered += amount
+            hr = meta["heat_rate"] * (0.4 if philhere else 1.0)   # Phil keeps the heat way down
+            ln["heat"] = min(100, ln.get("heat", 0) + (amount / meta["cap"]) * hr)   # heat = Marsh's interest in this front
             d["cred_xp"] = d.get("cred_xp", 0) + round(amount / 250)   # clean money builds your standing
-        if ln["heat"] >= 100:
-            biz[key] = False; launder[key] = {"manager": False, "heat": 0, "rate": 0}
-            d["heat"] = min(100, d.get("heat", 0) + 12)
-            events.append({"type": "negative", "text": f"🚔 The {meta['name']} got raided — the laundering op and the business, gone."})
     if laundered:
-        events.append({"type": "info", "text": f"🧼 Washed ${laundered:,} clean."})
-    bleed = _dark_heat_bleed(d)   # bent-cop perk (Distributor+) quietly cools your global heat
+        # Phil-run fronts sweep straight to cash; the rest pile up clean money you go collect.
+        unswept = sum((d.get("launder") or {}).get(k, {}).get("bank", 0) for k in DARK_LAUNDER)
+        tail = f" — ${unswept:,} waiting at your fronts to collect." if unswept else "."
+        events.append({"type": "info", "text": f"🧼 Washed ${laundered:,} clean{tail}"})
+    bleed = _dark_heat_bleed(d)   # bent-cop perk (Distributor+) quietly drags the raid countdown
     if bleed: d["heat"] = max(0, d.get("heat", 0) - bleed)
-    if lying: d["lying_low"] = False
-    # ── THE HUNT — only active once you've made a name (Street Cred 2+). Below that
-    # you're small-time: no case builds, giving new players room to get on their feet. ──
-    if d.get("cred", 1) < 2:
-        d["heat"] = 0   # stay off the radar while you're a nobody
-    else:
-        if lying:
-            d["heat"] = max(0, d.get("heat", 0) - 25)   # a quiet day cools the case hard
-        else:
-            op_heat = sum(p["lab"].get("heat", 0) for p in s["properties"] if p.get("lab"))
-            op_heat += sum(x.get("heat", 0) for x in d.get("dealers", []))
-            op_heat += sum(v.get("heat", 0) for v in (d.get("launder") or {}).values())
-            d["heat"] = min(100, d.get("heat", 0) + round(op_heat / 150))   # investigation creep
-        h = d.get("heat", 0)
-        if d.get("raid_in") is None:
-            if h >= DARK_RAID_THRESHOLD:
-                d["raid_in"] = DARK_RAID_DAYS
-                events.append({"type": "negative", "text": f"🚨 The Fixer: \"{DARK_DETECTIVE} is putting a raid together. You've got about {DARK_RAID_DAYS} days — cool it down or get ready.\""})
-        else:
-            if h < DARK_RAID_SAFE:
-                d["raid_in"] = None; d["lawyered"] = False; d["moved"] = False
-                events.append({"type": "info", "text": f"😮‍💨 The Fixer: \"The case fell apart — {DARK_DETECTIVE} backed off. You're clear, for now.\""})
-            else:
-                d["raid_in"] -= 1
-                if d["raid_in"] <= 0:
-                    _dark_do_raid(s, events)
-                else:
-                    events.append({"type": "warning", "text": f"🚨 Raid in {d['raid_in']} day{'s' if d['raid_in'] != 1 else ''} — {DARK_DETECTIVE} is closing in."})
     _dark_club_tick(s, events)    # strip-club income, reputation, heat, VIP lounge
-    _dark_hunt_watch(s, events)   # Marsh's tailing (only once the Hunt's live)
+    # ── THE HUNT — local heat draws Marsh onto ONE op; the top-right Heat is the raid
+    # countdown that follows. Only live once you've made a name (Street Cred 2+). ──
+    _dark_hunt_tick(s, events)    # reads lying_low to stall the countdown, so clear it AFTER
+    if lying: d["lying_low"] = False
     s["day"] += 1
     # Put-the-word-out refresh lands the next day with a fresh ~10 recruits.
     if d.get("recruits_refresh_day") and s["day"] >= d["recruits_refresh_day"]:
@@ -7618,10 +7816,11 @@ def api_dark_advance():
     for dl in d.get("dealers", []):
         if not dl.get("event"):
             ent_pool.append(("dealer", dl, DEALER_EVENTS))
+    phil_front = (d.get("phil") or {}).get("front")
     for key in DARK_LAUNDER:
-        if biz.get(key):
+        if biz.get(key) and key != phil_front:   # Phil's front is off the table — he handles it
             ln = launder.setdefault(key, {"manager": False, "heat": 0, "rate": 0})
-            if not ln.get("event"):
+            if not ln.get("event") and LAUNDER_EVENTS.get(key):
                 ent_pool.append(("front", ln, LAUNDER_EVENTS[key]))
     if ent_pool and random.random() < 0.45:
         _, ent, pool = random.choice(ent_pool)
@@ -7635,6 +7834,10 @@ def api_dark_advance():
             ev = random.choice(pool)
             d["pending_event"] = {"key": ev["key"], "icon": ev["icon"], "text": ev["text"], "choices": ev["choices"]}
     _dark_award_cred(s, events)   # rank up if the day's hustle pushed cred_xp over a threshold
+    # Phil comes looking for you once you're running enough fronts to need a man on them (2+).
+    if not d.get("phil") and not d.get("phil_notified") and sum(1 for k in DARK_LAUNDER if biz.get(k)) >= 2:
+        d["phil_notified"] = True
+        events.append({"type": "info", "text": "📞 There's a big fella waiting outside one of your fronts — says he used to work for you. (Cash tab)"})
     _dark_debt_tick(s, events)    # the Fixer's yearly cut: lock on Winter 1, settle on the year-roll
     # The Hunt switches on the first time you hit Street Cred 2 — one-time heads-up.
     hunt_intro = False

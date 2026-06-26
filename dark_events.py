@@ -214,4 +214,34 @@ _PIZZERIA = [
     {"i": "🍕", "t": "You hosted a pizza-eating contest and the place was mobbed.", "c": [["Soak up the crowd", "Cover and cash.", {"cash": 1000, "eheat": -5}]]},
 ]
 
-LAUNDER_EVENTS = {"laundromat": _LAUNDRO, "car_wash": _CARWASH, "pizzeria": _PIZZERIA}
+_AUTOLOT = [
+    {"i": "🚗", "t": "A customer recognized one of your 'clean' cars off a police bulletin.", "c": [["Buy his silence", "He drives off happy.", {"cash": -3000, "eheat": -8}], ["Brush it off", "He took a photo.", {"eheat": 14}]]},
+    {"i": "📉", "t": "An auditor wants to walk the dealership's sales ledger.", "c": [["Grease him", "Books look immaculate.", {"cash": -3500, "eheat": -10}], ["Let him dig", "He's circling now.", {"eheat": 14}]]},
+    {"i": "🍋", "t": "A lemon you sold came back with a furious owner and a lawyer.", "c": [["Settle quietly", "Goes away.", {"cash": -2500}], ["Fight it", "Ugly and loud.", {"eheat": 10}]]},
+    {"i": "🕵️", "t": "A guy's been test-driving cars all day — reeks of undercover.", "c": [["Hand him a 'deal' to send him off", "He leaves grinning.", {"cash": -1500, "eheat": -6}], ["Refuse him", "He lingers.", {"eheat": 12}]]},
+    {"i": "🚙", "t": "A car you sold for cash turned up at a crime scene — towed back to your lot.", "c": [["Quietly scrap it", "No trace.", {"cash": -1200, "eheat": -6}], ["Leave it parked", "Risky.", {"eheat": 13}]]},
+    {"i": "🏷️", "t": "Someone clocked the odometer rollbacks across your inventory.", "c": [["Pay them off", "Handled.", {"cash": -2000, "eheat": -7}], ["Deny everything", "They're talking.", {"eheat": 11}]]},
+    {"i": "🔑", "t": "A repo crew dropped three 'repossessions' on your lot — no paperwork.", "c": [["Wash them through", "Free inventory to sell.", {"cash": 2500, "eheat": 7}], ["Turn them away", "Cleaner that way.", {"eheat": -4}]]},
+    {"i": "📋", "t": "The DMV flagged your title paperwork.", "c": [["Pay a clerk to fix it", "Titles clear.", {"cash": -2200, "eheat": -9}], ["Risk it", "A flag's a flag.", {"eheat": 12}]]},
+    {"i": "💵", "t": "Your top salesman's been pocketing cash deposits.", "c": [["Replace him", "Clean slate.", {}], ["Dock his pay", "He behaves.", {"cash": 800}]]},
+    {"i": "📺", "t": "Local news wants a piece on your too-good-to-be-true deals.", "c": [["Decline", "Fewer eyes.", {"eheat": -4}], ["Lean into it", "Great cover, lots of attention.", {"cash": 1500, "eheat": 9}]]},
+    {"i": "💰", "t": "Your dirty manager wants a raise to keep quiet.", "c": [["Pay up", "Loyalty bought.", {"cash": -2000, "eheat": -5}], ["Refuse", "He's resentful.", {"eheat": 9}]]},
+    {"i": "🌊", "t": "Too many all-cash sales — the lot's starting to look obvious.", "c": [["Throttle the wash", "Less suspicious.", {"eheat": -11}], ["Keep moving metal", "Greedy.", {"eheat": 13}]]},
+]
+_CONSTRUCTION = [
+    {"i": "🦺", "t": "An OSHA inspector showed up unannounced at the job site.", "c": [["Slip him an envelope", "All up to code.", {"cash": -3500, "eheat": -9}], ["Comply fully", "Slow and scrutinized.", {"eheat": 12}]]},
+    {"i": "🧱", "t": "A pallet of materials 'fell off a truck' — dirt cheap.", "c": [["Take the load", "Padding the invoices nicely.", {"cash": 3000, "eheat": 6}], ["Pass", "Too clean to risk.", {"eheat": -4}]]},
+    {"i": "📊", "t": "The city's auditing your wildly inflated invoices.", "c": [["Grease the auditor", "Numbers approved.", {"cash": -4000, "eheat": -10}], ["Let them dig", "Dangerous.", {"eheat": 15}]]},
+    {"i": "👷", "t": "A worker got hurt on a ghost project and is threatening to talk.", "c": [["Settle quietly", "He signs and leaves.", {"cash": -3000, "eheat": -7}], ["Stonewall him", "He's angry.", {"eheat": 12}]]},
+    {"i": "🏛️", "t": "A permit clerk noticed your 'projects' that never break ground.", "c": [["Pay him off", "Permits keep flowing.", {"cash": -2500, "eheat": -8}], ["Ignore it", "He filed a note.", {"eheat": 11}]]},
+    {"i": "🪙", "t": "The union rep wants a 'contribution' to look the other way.", "c": [["Contribute", "Labor peace.", {"cash": -3000, "eheat": -6}], ["Refuse", "Trouble on site.", {"eheat": 10}]]},
+    {"i": "🕵️", "t": "A 'building inspector' is asking very specific questions.", "c": [["Comp him a consulting fee", "He moves along.", {"cash": -2000, "eheat": -6}], ["Send him off", "He'll be back.", {"eheat": 12}]]},
+    {"i": "💼", "t": "Your foreman's skimming the payroll padding.", "c": [["Replace him", "Clean slate.", {}], ["Dock his cut", "He falls in line.", {"cash": 1000}]]},
+    {"i": "🏗️", "t": "A rival contractor's spreading word that you're a front.", "c": [["Discredit him", "His name's mud now.", {"cash": -2500, "eheat": -5}], ["Let it ride", "The rumor spreads.", {"eheat": 10}]]},
+    {"i": "🚜", "t": "A concrete pour ran way over on a project that doesn't exist.", "c": [["Eat the cost", "Books stay believable.", {"cash": -1800}], ["Cut corners", "Cheap and shady.", {"eheat": 8}]]},
+    {"i": "💰", "t": "Your foreman wants hush money.", "c": [["Pay up", "He's loyal.", {"cash": -2500, "eheat": -5}], ["Refuse", "Resentful.", {"eheat": 9}]]},
+    {"i": "🌊", "t": "Too much 'revenue' for the work actually being done — it's obvious.", "c": [["Throttle the wash", "Less suspicious.", {"eheat": -11}], ["Keep billing", "Greedy.", {"eheat": 13}]]},
+]
+
+LAUNDER_EVENTS = {"laundromat": _LAUNDRO, "car_wash": _CARWASH, "pizzeria": _PIZZERIA,
+                  "autolot": _AUTOLOT, "construction": _CONSTRUCTION}

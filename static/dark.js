@@ -23,12 +23,12 @@ const DARK = {
 
   // Trait display data (mirrors DARK_TRAITS in app.py). "knows" = the drug this person can cook.
   TRAITS: {
-    green_thumb: { name: 'Green Thumb',   icon: '🌿', knows: 'Weed',   cooks: 'reggie', cost: 2500  },
-    pill_cook:   { name: 'Pill Cook',     icon: '💊', knows: 'Pills',  cooks: 'beans',  cost: 5000  },
-    cutter:      { name: 'Cutter',        icon: '❄️', knows: 'Powder', cooks: 'soft',   cost: 8000  },
-    rock_cook:   { name: 'Rock Cook',     icon: '🪨', knows: 'Rock',   cooks: 'hard',   cost: 11000 },
-    chemist:     { name: 'Chemist',       icon: '🧪', knows: 'Glass',  cooks: 'glass',  cost: 15000 },
-    tar_boiler:  { name: 'Tar Boiler',    icon: '🛢️', knows: 'Tar',    cooks: 'tar',    cost: 20000 },
+    green_thumb: { name: 'Green Thumb',   icon: '🌿', knows: 'Weed',   verb: 'Grows',   cooks: 'reggie', cost: 2500  },
+    pill_cook:   { name: 'Pill Cook',     icon: '💊', knows: 'Pills',  verb: 'Presses', cooks: 'beans',  cost: 5000  },
+    cutter:      { name: 'Cutter',        icon: '❄️', knows: 'Powder', verb: 'Cuts',    cooks: 'soft',   cost: 8000  },
+    rock_cook:   { name: 'Rock Cook',     icon: '🪨', knows: 'Rock',   verb: 'Cooks',   cooks: 'hard',   cost: 11000 },
+    chemist:     { name: 'Chemist',       icon: '🧪', knows: 'Glass',  verb: 'Cooks',   cooks: 'glass',  cost: 15000 },
+    tar_boiler:  { name: 'Tar Boiler',    icon: '🛢️', knows: 'Tar',    verb: 'Boils',   cooks: 'tar',    cost: 20000 },
     workhorse:   { name: 'Workhorse',     icon: '🐂', cost: 3500, desc: 'Faster production' },
     ghost:       { name: 'Ghost',         icon: '👻', cost: 4000, desc: 'Less heat' },
     loyal:       { name: 'Loyal',         icon: '🤝', cost: 3500, desc: "Won't snitch" },
@@ -151,9 +151,11 @@ const DARK = {
     return 8 + (cred >= 2 ? 2 : 0) + (cred >= 8 ? 3 : 0);
   },
   LAUNDER: {
-    laundromat: { name: 'Laundromat',          icon: '🧼', cap: 2000, hire: 4000,  wage: 200, price: 50000 },
-    pizzeria:   { name: "Famiglia's Pizzeria", icon: '🍕', cap: 4500, hire: 8000,  wage: 500, price: 130000 },
-    car_wash:   { name: 'Car Wash',            icon: '🚗', cap: 8000, hire: 12000, wage: 850, price: 300000 },
+    laundromat:   { name: 'Laundromat',          icon: '🧼', cap: 2000,  hire: 4000,  wage: 200,  price: 50000 },
+    pizzeria:     { name: "Famiglia's Pizzeria", icon: '🍕', cap: 4500,  hire: 8000,  wage: 500,  price: 130000 },
+    car_wash:     { name: 'Car Wash',            icon: '🚗', cap: 8000,  hire: 12000, wage: 850,  price: 300000 },
+    autolot:      { name: "Big Al's Used Autos", icon: '🚙', cap: 13000, hire: 18000, wage: 1300, price: 600000 },
+    construction: { name: 'Apex Contracting',    icon: '🏗️', cap: 20000, hire: 30000, wage: 2000, price: 1200000 },
   },
 
   // ── Enter / exit ──────────────────────────────────────────────────────────
@@ -370,14 +372,66 @@ const DARK = {
   rerender() {
     const root = document.getElementById('dark-root');
     if (!root) return;
+    // Track tab changes so the page can slide in and the nav pill can spring across.
+    const prevTab = this._renderTab;
+    this._pageChanged = (prevTab !== undefined && prevTab !== this._tab);
+    this._navFrom = prevTab;
     // Rebuilding innerHTML wipes the scroll container, so preserve where the
     // player was (e.g. expanding a club accordion shouldn't jump to the top).
     const prev = root.querySelector('.dk-content');
     const top = (this._scrollTop != null) ? this._scrollTop : (prev ? prev.scrollTop : 0);
     this._scrollTop = null;
     root.innerHTML = this.render();
+    this._renderTab = this._tab;
     const next = root.querySelector('.dk-content');
     if (next && top) next.scrollTop = top;
+    // Spring the nav pill to the active tab.
+    const ind = document.getElementById('dk-nav-ind');
+    if (ind) {
+      const idx = this.TABS.findIndex(t => t.key === this._tab);
+      requestAnimationFrame(() => { ind.style.opacity = idx >= 0 ? 1 : 0; if (idx >= 0) ind.style.transform = `translateX(${idx * 100}%)`; });
+    }
+    this._animResources();
+  },
+  // Roll the header resource counters from their old value to the new one, with a
+  // green/red flash + floating delta when they change.
+  _animResources() {
+    const root = document.getElementById('dark-root'); if (!root) return;
+    const prev = this._prevRes || {}, cur = {};
+    root.querySelectorAll('.dk-res-val[data-to]').forEach(el => {
+      const res = el.dataset.res, to = +el.dataset.to;
+      cur[res] = to;
+      const fmtRes = (n) => res === 'heat' ? (Math.round(n) + '%') : fmt(Math.round(n));
+      const from = (prev[res] != null) ? prev[res] : to;
+      if (from === to) { el.textContent = fmtRes(to); return; }
+      const cell = el.closest('.dk-res-cell'), diff = to - from;
+      if (cell) {
+        cell.classList.remove('dk-flash-up', 'dk-flash-down'); void cell.offsetWidth;
+        cell.classList.add(diff > 0 ? 'dk-flash-up' : 'dk-flash-down');
+        const f = document.createElement('div');
+        f.className = 'dk-float ' + (diff > 0 ? 'up' : 'down');
+        f.textContent = (diff > 0 ? '+' : '−') + (res === 'heat' ? Math.abs(diff) + '%' : fmt(Math.abs(diff)));
+        cell.appendChild(f); setTimeout(() => f.remove(), 1100);
+      }
+      const t0 = performance.now(), dur = 500;
+      const step = (t) => { const k = Math.min(1, (t - t0) / dur); el.textContent = fmtRes(from + (to - from) * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(step); };
+      requestAnimationFrame(step);
+    });
+    this._prevRes = cur;
+    // The Fixer's debt — roll the full number down (you paid) or up (you missed).
+    const dnum = root.querySelector('.dk-debt-num[data-to]');
+    if (dnum) {
+      const to = +dnum.dataset.to, from = (this._prevDebt != null) ? this._prevDebt : to;
+      const f = (n) => '$' + Math.round(n).toLocaleString('en-US');
+      if (from !== to) {
+        const card = dnum.closest('.dk-debt-card');
+        if (card) { card.classList.remove('dk-flash-up', 'dk-flash-down'); void card.offsetWidth; card.classList.add(to > from ? 'dk-flash-down' : 'dk-flash-up'); }
+        const t0 = performance.now(), dur = 1100;
+        const step = (t) => { const k = Math.min(1, (t - t0) / dur); dnum.textContent = f(from + (to - from) * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(step); };
+        requestAnimationFrame(step);
+      } else dnum.textContent = f(to);
+      this._prevDebt = to;
+    } else { this._prevDebt = null; }
   },
 
   // What carried over — read straight from the shared state (no duplication).
@@ -395,8 +449,9 @@ const DARK = {
     return `
     <div class="dk-app">
       ${this.header()}
-      <div class="dk-content">${this.page()}</div>
+      <div class="dk-content${this._pageChanged ? ' dk-page-in' : ''}">${this.page()}</div>
       ${this.nav()}
+      <div class="dk-grain"></div>
     </div>
     ${this.eventModal()}`;
   },
@@ -414,6 +469,16 @@ const DARK = {
     this.rerender();
   },
   eventModal() {
+    // Phil's introduction — the old contractor wants back in.
+    if (this._philOpen) {
+      return `<div class="dk-evt-overlay"><div class="dk-evt-card">
+        <div class="dk-evt-icon">🧰</div>
+        <div class="dk-evt-text" style="text-align:left">You step out back and there he is — <b>Phil</b>, grinning under a hard hat he doesn't need anymore. He did every renovation on your rental houses back when you were going straight: hauled drywall, patched roofs, never once asked a question.<br><br>"Heard you got into… <i>other things</i>." He cracks his knuckles, easy as you like. "Always liked working with you. Figured you could use a guy who keeps the trouble away from your places."<br><br>He's not wrong. Phil parks on one front, handles whatever crawls out of the woodwork, and keeps the heat off it — all for gas money. $100 a night.</div>
+        <div class="dk-evt-choices">
+          <button class="dk-evt-choice" onclick="DARK.hirePhil()"><b>Bring Phil on</b></button>
+          <button class="dk-evt-choice" onclick="DARK.closePhil()">Not right now</button>
+        </div></div></div>`;
+    }
     // The outcome of a street/operation event the player just resolved — shows what happened.
     if (this._evtResult) {
       const R = this._evtResult, chips = this.fmtDelta(R.delta, R.note);
@@ -514,8 +579,8 @@ const DARK = {
 
   header() {
     const d = state.dark || {};
-    const cell = (lbl, val, col) =>
-      `<div class="dk-res-cell"><div class="dk-res-lbl">${lbl}</div><div class="dk-res-val" style="color:${col}">${val}</div></div>`;
+    const cell = (lbl, res, to, col) =>
+      `<div class="dk-res-cell"><div class="dk-res-lbl">${lbl}</div><div class="dk-res-val${res === 'heat' && to >= 70 ? ' dk-heat-danger' : ''}" data-res="${res}" data-to="${to}" style="color:${col}">${res === 'heat' ? (to + '%') : fmt(to)}</div></div>`;
     const stash = d.stash || {};
     const keys = Object.keys(stash).filter(k => (stash[k] || 0) > 0);
     const total = keys.reduce((a, k) => a + (stash[k] || 0), 0);
@@ -536,9 +601,9 @@ const DARK = {
         </div>
       </div>
       <div class="dk-res">
-        ${cell('💵 Clean',  fmt(state.cash || 0),    '#4CAF50')}
-        ${cell('🧼 Dirty',  fmt(d.dirty_money || 0), '#E0533D')}
-        ${cell('🔥 Heat',   (d.heat || 0) + '%',     '#FF8A3D')}
+        ${cell('💵 Clean', 'cash',  state.cash || 0,    '#4CAF50')}
+        ${cell('🧼 Dirty', 'dirty', d.dirty_money || 0, '#E0533D')}
+        ${cell('🔥 Heat',  'heat',  d.heat || 0,        '#FF8A3D')}
       </div>
       <div class="dk-stashbar" onclick="DARK.toggleStash()">
         <span>📦 Inventory${total ? ` · ${total} units` : ''}</span>
@@ -556,8 +621,14 @@ const DARK = {
     return this.HEIST_ORDER.some(k => { const H = this.HEISTS[k]; return H.playable && cred >= H.cred && !done.includes(k); });
   },
   nav() {
-    const tabs = this.heistAvailable() ? this.TABS.concat([{ key: 'scores', icon: '💰', label: 'Scores' }]) : this.TABS;
-    return `<div class="dk-nav">${tabs.map(t => `
+    const n = this.TABS.length;
+    const idx = this.TABS.findIndex(t => t.key === this._tab);
+    const fromKey = (this._navFrom != null) ? this._navFrom : this._tab;
+    const fromIdx = this.TABS.findIndex(t => t.key === fromKey);
+    const startIdx = fromIdx >= 0 ? fromIdx : (idx >= 0 ? idx : 0);
+    return `<div class="dk-nav">
+      <div class="dk-nav-ind" id="dk-nav-ind" style="width:${100 / n}%;transform:translateX(${startIdx * 100}%);opacity:${idx >= 0 ? 1 : 0}"></div>
+      ${this.TABS.map(t => `
       <button class="dk-nav-btn ${this._tab === t.key ? 'active' : ''}" onclick="DARK.go('${t.key}')">
         <span class="dk-nav-ic">${t.icon}</span><span>${t.label}</span>
       </button>`).join('')}</div>`;
@@ -616,8 +687,8 @@ const DARK = {
       <div class="dk-evt-icon">🕵️</div>
       <div class="dk-evt-text" style="text-align:left">
         <b style="font-size:15px">You've made a name for yourself.</b><br><br>
-        Word just reached you: a detective — <b>${this.DETECTIVE}</b> — has opened a case on your operation. From now on, the more (and hotter) you run, the harder he digs.<br><br>
-        Keep an eye on <b>The Hunt</b> on your home screen — pause what he's watching, lie low, or pay him off, or you'll get raided.
+        Word just reached you: a detective — <b>${this.DETECTIVE}</b> — has taken an interest. The hotter an operation runs, the likelier he locks onto it — and he'll only watch <b>one at a time.</b><br><br>
+        Once he's locked on, the <b>Heat</b> up top becomes a raid countdown. Work clues in <b>The Hunt</b> on your home screen to figure out <b>which</b> operation he's after, then <b>shut it down</b> before the countdown runs out — the raid finds nothing if there's nothing running.
       </div>
       <div class="dk-evt-choices"><button class="dk-evt-choice" onclick="DARK.closeHuntIntro()">Let him try.</button></div>
     </div>`;
@@ -671,10 +742,11 @@ const DARK = {
       ? `<button class="dk-mini" style="width:100%;margin-top:9px;opacity:.8" disabled>⚔️ Strike Back at the Fixer <span class="dk-muted2">· coming soon</span></button>` : '';
     return `
       ${this.sectionTitle("The Fixer's Debt")}
-      <div class="dk-card dk-pcard" style="border-color:#7A1A1E">
-        <div class="dk-phead"><div class="dk-row-ic">🕴️</div>
-          <div class="dk-row-main"><div class="dk-row-title">The House always collects</div><div class="dk-muted">You owe <b style="color:#E0533D">${fmt(bal)}</b></div></div></div>
-        ${body}${strike}
+      <div class="dk-card dk-debt-card" style="border-color:#7A1A1E;text-align:center">
+        <div class="dk-debt-lbl">🕴️ The Marker · what you owe the House</div>
+        <div class="dk-debt-num" data-to="${bal}">$${Math.round(bal).toLocaleString('en-US')}</div>
+        <div class="dk-muted2" style="font-size:10px;margin-top:3px">Chip away at it if you can — but miss a payment and it only grows.</div>
+        <div style="text-align:left;margin-top:12px">${body}${strike}</div>
       </div>`;
   },
   async payFixer() {
@@ -736,9 +808,23 @@ const DARK = {
     await refreshState(); this.rerender(); toast('Crew formed. 👥', 'success');
   },
   async disbandCrew(id) {
+    const crew = (state.dark.crews || []).find(c => c.id === id);
+    const working = crew && crew.home_id != null;
+    const msg = working
+      ? "Disband this crew? They'll be pulled off the lab (any batch in progress is lost and the lab is torn down) and sent back to the payroll."
+      : "Disband this crew? The members go back to the payroll, ready to re-crew.";
+    if (!confirm(msg)) return;
     const r = await api('/dark/disband_crew', 'POST', { crew_id: id });
     if (r.error) { toast(r.error, 'error'); return; }
-    await refreshState(); this.rerender();
+    await refreshState(); this.rerender(); toast('Crew disbanded — members back on the payroll. 👥', 'success');
+  },
+  async renameCrew(id) {
+    const crew = (state.dark.crews || []).find(c => c.id === id);
+    const name = (prompt('Name this crew:', crew ? crew.name : '') || '').trim();
+    if (!name) return;
+    const r = await api('/dark/rename_crew', 'POST', { crew_id: id, name });
+    if (r.error) { toast(r.error, 'error'); return; }
+    await refreshState(); this.rerender(); toast('Crew renamed. ✏️', 'success');
   },
   async assignLab(crewId, propId, drug) {
     const r = await api('/dark/assign_lab', 'POST', { crew_id: crewId, prop_id: propId, drug });
@@ -799,11 +885,11 @@ const DARK = {
   },
 
   heatTier(h) {
-    h = h || 0;
-    if (h >= 100) return { label: 'RAIDED', col: '#ff2d2d' };
-    if (h >= 75)  return { label: 'Raid imminent', col: '#ff4d2d' };
+    h = h || 0;   // local heat = how much this operation is drawing the detective's eye
+    if (h >= 100) return { label: 'Red hot', col: '#ff2d2d' };
+    if (h >= 75)  return { label: 'Drawing heat', col: '#ff4d2d' };
     if (h >= 50)  return { label: 'Hot', col: '#FF8A3D' };
-    if (h >= 25)  return { label: 'Watched', col: '#FFC83D' };
+    if (h >= 25)  return { label: 'Noticed', col: '#FFC83D' };
     return { label: 'Quiet', col: '#4CAF50' };
   },
   crewCooks(crewId) {   // Set of drug keys this crew can cook (from members' knowledge traits)
@@ -1092,6 +1178,12 @@ const DARK = {
     if (r.error) { toast(r.error, 'error'); return; }
     await refreshState(); this.rerender();
   },
+  async collectFront(key) {
+    const r = await api('/dark/collect_front', 'POST', { key });
+    if (r.error) { toast(r.error, 'error'); return; }
+    await refreshState(); this.rerender();
+    if (r.collected) toast(`Collected ${fmt(r.collected)} clean.`, 'success');
+  },
   _secOpen: { buy: false, owned: true },
   toggleSec(k) { this._secOpen[k] = !this._secOpen[k]; this.rerender(); },
   _homeTab: 'vacant',
@@ -1125,7 +1217,7 @@ const DARK = {
     const wordOut  = d.recruits_refresh_day && d.recruits_refresh_day > (state.day || 0);
     const traitLine = (tk) => {
       const t = this.TRAITS[tk] || { name: tk, icon: '❓' };
-      const extra = t.knows ? `<span class="dk-knows">🍳 cooks ${t.knows}</span>` : (t.desc ? `· ${t.desc}` : '');
+      const extra = t.knows ? `<span class="dk-knows">${t.icon} ${t.verb || 'Makes'} ${t.knows}</span>` : (t.desc ? `· ${t.desc}` : '');
       return `<b>${t.name}</b> ${extra}`;
     };
     const recruitRows = recruits.map(r => {
@@ -1144,24 +1236,25 @@ const DARK = {
       return `<div class="dk-card" style="margin-bottom:8px">
         <div style="display:flex;align-items:center;gap:8px">
           <div style="flex:1"><b>${c.name}</b> <span class="dk-muted">· ${members.length} ppl · ${working ? '🧪 on a lab' : '😴 idle'}</span></div>
-          ${working ? '' : `<button class="dk-x" onclick="DARK.disbandCrew(${c.id})">✕</button>`}
+          <button class="dk-x" title="Rename crew" onclick="DARK.renameCrew(${c.id})">✏️</button>
+          <button class="dk-x" title="Disband crew" onclick="DARK.disbandCrew(${c.id})">✕</button>
         </div>
         <div class="dk-muted" style="margin-top:4px">${members.map(m => `${(this.TRAITS[m.trait] || {}).icon || '🧑'} ${m.name}`).join('  ·  ')}</div>
         <div style="margin-top:6px">${cooks.length ? cooks.map(n => `<span class="dk-knows">🍳 ${n}</span>`).join(' ') : '<span class="dk-muted">⚠ no cook — this crew can\'t make anything yet</span>'}</div>
       </div>`;
     }).join('') || `<div class="dk-muted" style="padding:8px 2px">No crews yet — pick 3–5 from your payroll below.</div>`;
-    const rosterRows = roster.map(m => {
-      const inCrew = m.crew_id != null;
+    const free = roster.filter(m => m.crew_id == null);   // already-crewed members live under "Your Crews"
+    const rosterRows = free.map(m => {
       const seld = this._sel.includes(m.id);
-      return `<div class="dk-row ${seld ? 'dk-sel' : ''}" ${inCrew ? '' : `onclick="DARK.toggleSel(${m.id})"`} style="${inCrew ? 'opacity:0.5' : 'cursor:pointer'}">
+      return `<div class="dk-row ${seld ? 'dk-sel' : ''}" onclick="DARK.toggleSel(${m.id})" style="cursor:pointer">
         <div class="dk-row-ic">${(this.TRAITS[m.trait] || {}).icon || '🧑'}</div>
         <div class="dk-row-main">
-          <div class="dk-row-title">${m.name}${inCrew ? ' <span class="dk-tag">in a crew</span>' : (seld ? ' <span class="dk-tag" style="background:#C0392B;color:#fff">picked</span>' : '')}</div>
+          <div class="dk-row-title">${m.name}${seld ? ' <span class="dk-tag" style="background:#C0392B;color:#fff">picked</span>' : ''}</div>
           <div class="dk-muted">${traitLine(m.trait)}</div>
         </div>
-        ${inCrew ? '' : `<button class="dk-x" onclick="event.stopPropagation();DARK.dismissRoster(${m.id})">✕</button>`}
+        <button class="dk-x" onclick="event.stopPropagation();DARK.dismissRoster(${m.id})">✕</button>
       </div>`;
-    }).join('') || `<div class="dk-muted" style="padding:8px 2px">No one on your payroll — hire from the street below.</div>`;
+    }).join('') || `<div class="dk-muted" style="padding:8px 2px">${roster.length ? "Everyone's in a crew — recruit more below to build another." : "No one on your payroll — hire from the street below."}</div>`;
     const formBar = this._sel.length
       ? `<button class="dk-form ${this._sel.length < 3 ? 'dk-buy-off' : ''}" ${this._sel.length < 3 ? 'disabled' : 'onclick="DARK.formCrew()"'}>👥 Form crew from ${this._sel.length} ${this._sel.length < 3 ? '(need 3+)' : 'picked'}</button>`
       : '';
@@ -1170,7 +1263,7 @@ const DARK = {
       <div class="dk-card"><p class="dk-p">Recruit off the street, then group <b>3–5</b> into a crew. A crew can only cook a drug if a member <b>knows</b> it (the 🍳 tags). Put a crew on a home in the Property tab to start a lab.</p></div>
       ${this.sectionTitle(`Your Crews (${crews.length})`)}
       ${crewRows}
-      ${this.sectionTitle(`Payroll (${roster.length}) — tap to pick`)}
+      ${this.sectionTitle(`Payroll (${free.length}) — tap to pick`)}
       <div class="dk-list">${rosterRows}</div>
       ${formBar}
       <button class="dk-word ${wordOut ? 'dk-buy-off' : ''}" style="margin-top:14px" ${wordOut ? 'disabled' : 'onclick="DARK.putWordOut()"'}>
@@ -1339,14 +1432,15 @@ const DARK = {
   },
   toggleLadder() { this._ladderOpen = !this._ladderOpen; if (typeof sfx === 'object' && sfx.tap) sfx.tap(); this.rerender(); },
 
-  // ── The Hunt — the detective's case (global heat) + scramble actions ──
+  // ── The Hunt — Marsh locks onto ONE hot op, the top-right Heat is the raid countdown,
+  //    you read clues to ID it, then shut it down before the countdown hits 100%. ──
   DETECTIVE: 'Det. Marsh',
-  RAID_SAFE: 65,
-  huntTier(h) {
-    if (h >= 85) return ['Closing In', '#E0533D'];
-    if (h >= 65) return ['Building a Case', '#FF8A3D'];
-    if (h >= 40) return ['Sniffing Around', '#FFC83D'];
-    return ['Cold', '#4CAF50'];
+  INTEL_COST: 25000,
+  huntTier(h) {   // progress of the raid countdown once he's locked on
+    if (h >= 80) return ['Raid imminent', '#ff2d2d'];
+    if (h >= 55) return ['Closing in', '#E0533D'];
+    if (h >= 30) return ['Building the case', '#FF8A3D'];
+    return ['Case just opened', '#FFC83D'];
   },
   huntCard() {
     const d = state.dark || {};
@@ -1354,55 +1448,74 @@ const DARK = {
       return `${this.sectionTitle('The Hunt')}
         <div class="dk-card"><div class="dk-muted" style="font-size:12px;line-height:1.5">🕵️ Nobody's watching you yet — you're too small to register. Make a name for yourself (<b>Street Cred 2</b>) and a detective will take an interest.</div></div>`;
     }
-    const h = Math.round(d.heat || 0);
-    const [label, col] = this.huntTier(h);
-    const raid = d.raid_in;
     const bribeCost = 4000 + 1500 * (d.bribes || 0);
     const act = (a, label, sub, done) => `<button class="dk-hunt-act ${done ? 'done' : ''}" ${done ? 'disabled' : `onclick="DARK.huntAction('${a}')"`}><span>${label}</span><span class="dk-hunt-sub">${sub}</span></button>`;
-    let body = `
-      <div style="display:flex;align-items:baseline;justify-content:space-between">
-        <div><span style="font-size:17px">🕵️</span> <b>${this.DETECTIVE}</b></div>
-        <span style="color:${col};font-weight:800;font-size:12px">${label} · ${h}%</span>
-      </div>
-      <div class="dk-heat" style="margin-top:8px"><div class="dk-heat-fill" style="width:${h}%;background:${col}"></div></div>`;
-    // ── The Watch: who/what Marsh is tailing (hidden until you have intel) ──
     const w = d.watch;
-    if (w) {
-      if (d.watch_known) {
-        const lab = w.kind === 'crew' ? `tailing <b>${w.name}</b> — who works the <b>${w.house}</b>` : `watching the <b>${w.name}</b>`;
-        body += `<div class="dk-hunt-watch known">👁️ Marsh is ${lab}. <b style="color:#E0533D">Pause that operation</b> and he'll lose the lead.</div>`;
-      } else {
-        const vip = (d.biz || {}).strip_club && d.vip;
-        body += `<div class="dk-hunt-watch">🕵️ Marsh is tailing one of your operations — <b>you don't know which.</b>
-          <div class="dk-hunt-acts" style="margin-top:8px">
-            <button class="dk-hunt-act" onclick="DARK.buyIntel()"><span>🔎 Buy Intel</span><span class="dk-hunt-sub">${fmt(5000)} · mole</span></button>
-            ${vip ? `<button class="dk-hunt-act" onclick="DARK.workVip()"><span>💋 Work VIP</span><span class="dk-hunt-sub">${fmt(6000)} · lounge</span></button>`
-                  : `<button class="dk-hunt-act done" disabled><span>💋 VIP Lounge</span><span class="dk-hunt-sub">coming soon</span></button>`}
-          </div></div>`;
-      }
+    // ── No open case: a clean status line. The hotter you run an op, the likelier he locks on. ──
+    if (!w) {
+      const cooldown = (d.raid_cooldown || 0) > (state.day || 0);
+      let body = `<div class="dk-hunt-head"><div><span style="font-size:17px">🕵️</span> <b>${this.DETECTIVE}</b></div>
+        <span style="color:#4CAF50;font-weight:800;font-size:12px">${cooldown ? 'Looking elsewhere' : 'No open case'}</span></div>`;
+      body += cooldown
+        ? `<div class="dk-muted" style="margin-top:8px;font-size:12px;line-height:1.5">He just made his move — he's chasing other things for now. Use the breathing room.</div>`
+        : `<div class="dk-muted" style="margin-top:8px;font-size:12px;line-height:1.5">Marsh isn't onto anything of yours right now. The hotter an operation runs, the likelier he locks onto it — keep them cool and you stay clear. The moment he opens a case, it'll show up here.</div>`;
+      return `${this.sectionTitle('The Hunt')}<div class="dk-card">${body}</div>`;
     }
-    if (raid != null) {
-      body += `<div class="dk-hunt-raid">
-        <div class="dk-hunt-raid-t">🚨 RAID IN ${raid} DAY${raid === 1 ? '' : 'S'}</div>
-        <div class="dk-muted" style="font-size:11px;margin-bottom:9px">Cool the case below ${this.RAID_SAFE}% to call it off — or soften the blow.</div>
-        <div class="dk-hunt-acts">
-          ${act('lie_low', '🛌 Lie Low', d.lying_low ? '✓ tomorrow' : 'quiet day', d.lying_low)}
-          ${act('bribe', '💰 Pay Off', fmt(bribeCost))}
-          ${act('lawyer', '⚖️ Lawyer Up', d.lawyered ? '✓ retained' : fmt(8000), d.lawyered)}
-          ${act('move', '📦 Move Product', d.moved ? '✓ stashed' : fmt(3000), d.moved)}
-        </div></div>`;
-    } else {
-      const note = h >= 65 ? "They're connecting your operations — cool it down."
-                 : h >= 40 ? "Someone's been asking questions. Keep it low."
-                 : "Nobody's looking your way. Stay sharp.";
-      body += `<div class="dk-muted" style="margin-top:8px;font-size:12px">${note}</div>
-        <div class="dk-hunt-acts" style="margin-top:9px">
-          ${act('lie_low', '🛌 Lie Low', d.lying_low ? '✓ tomorrow' : 'quiet day · −heat', d.lying_low)}
-          ${act('bribe', '💰 Pay Off', fmt(bribeCost))}
-        </div>`;
+    // ── Active case: the raid countdown + the case file + scramble. ──
+    const h = Math.round(d.heat || 0);
+    const [label, col] = this.huntTier(h);
+    const total = (w.clues || []).length, found = total ? (w.found || 0) : 0;
+    const idd = total && found >= total;
+    const vip = (d.biz || {}).strip_club && d.vip;
+    let body = `
+      <div class="dk-hunt-head"><div><span style="font-size:17px">🕵️</span> <b>${this.DETECTIVE}</b> <span class="dk-muted" style="font-size:11px">— case open</span></div>
+        <span style="color:${col};font-weight:800;font-size:12px">${label}</span></div>
+      <div class="dk-muted" style="font-size:10px;margin-top:9px;letter-spacing:.6px">🚨 RAID COUNTDOWN</div>
+      <div class="dk-heat" style="margin-top:4px"><div class="dk-heat-fill" style="width:${h}%;background:${col}"></div></div>
+      <div style="text-align:right;color:${col};font-weight:800;font-size:12px;margin-top:2px">${h}%</div>
+      <div class="dk-hunt-watch ${idd ? 'known' : ''}">
+        ${idd ? `🎯 He's built his case on <b>${w.name}</b>. <b style="color:#E0533D">Shut it down</b> before the countdown hits 100% — the raid still comes, but it finds nothing.`
+              : `🕵️ Marsh has a case open on one of your operations — <b>you don't know which yet.</b> Work your sources and read the clues.`}
+        <button class="dk-mini" style="width:100%;margin-top:8px" onclick="DARK.openClues()">📁 Open case file${found ? ` · ${found} clue${found === 1 ? '' : 's'}` : ''}</button>
+      </div>`;
+    if (!idd) {
+      body += `<div class="dk-hunt-acts" style="margin-top:9px">
+        <button class="dk-hunt-act" onclick="DARK.buyIntel()"><span>🔎 Mole Tip</span><span class="dk-hunt-sub">${fmt(this.INTEL_COST)} · sharp clue</span></button>
+        ${vip ? `<button class="dk-hunt-act" onclick="DARK.workVip()"><span>💋 Work VIP</span><span class="dk-hunt-sub">${fmt(6000)} · lounge</span></button>`
+              : `<button class="dk-hunt-act done" disabled><span>💋 VIP Lounge</span><span class="dk-hunt-sub">need a club</span></button>`}
+      </div>`;
     }
-    return `${this.sectionTitle('The Hunt')}<div class="dk-card" style="border-color:${raid != null ? '#E0533D' : '#3a2024'}">${body}</div>`;
+    body += `<div class="dk-hunt-raid">
+      <div class="dk-muted" style="font-size:11px;margin-bottom:9px">The raid's coming regardless — shut the right op down to dodge it, or buy time and soften the blow.</div>
+      <div class="dk-hunt-acts">
+        ${act('lie_low', '🛌 Lie Low', d.lying_low ? '✓ stalls a day' : 'stall the case', d.lying_low)}
+        ${act('bribe', '💰 Pay Off', `${fmt(bribeCost)} · buy days`)}
+        ${act('lawyer', '⚖️ Lawyer Up', d.lawyered ? '✓ retained' : fmt(8000), d.lawyered)}
+        ${act('move', '📦 Move Product', d.moved ? '✓ stashed' : fmt(3000), d.moved)}
+      </div></div>`;
+    return `${this.sectionTitle('The Hunt')}<div class="dk-card" style="border-color:#E0533D">${body}</div>`;
   },
+  openClues() {
+    const d = state.dark || {}, w = d.watch; if (!w) return;
+    if (typeof sfx === 'object' && sfx.tap) sfx.tap();
+    const clues = w.clues || [], found = w.found || 0, idd = clues.length && found >= clues.length;
+    const rows = clues.map((c, i) => i < found
+      ? `<div class="dk-clue in" style="animation-delay:${0.15 + i * 0.1}s"><span class="dk-clue-n">${i + 1}</span><span>${c}</span></div>`
+      : `<div class="dk-clue locked"><span class="dk-clue-n">${i + 1}</span><span class="dk-muted">🔒 Lead not yet uncovered…</span></div>`
+    ).join('');
+    let el = document.getElementById('dk-clues'); if (!el) { el = document.createElement('div'); el.id = 'dk-clues'; document.body.appendChild(el); }
+    el.className = 'dk-evt-overlay'; el.style.zIndex = '9750';
+    el.innerHTML = `<div class="dk-case">
+      <div class="dk-case-stamp">CONFIDENTIAL</div>
+      <div class="dk-case-head">🗂️ THE CASE FILE<span style="display:block;font-weight:400;font-size:11px;color:#9a8a8a;margin-top:3px">${this.DETECTIVE} — open investigation. What you've pieced together:</span></div>
+      <div class="dk-case-body">${rows || '<div class="dk-muted" style="text-align:center">No leads yet. Work your sources — a mole tip, the VIP room, connected crew, or just time.</div>'}</div>
+      ${idd ? `<div class="dk-case-id">🎯 IT'S ${(w.name || '').toUpperCase()} — SHUT IT DOWN</div>`
+            : `<div class="dk-muted" style="font-size:11px;text-align:center;margin-top:11px">${found}/${clues.length} leads pieced together — keep digging.</div>`}
+      <button class="dk-evt-choice" style="margin-top:13px" onclick="DARK.closeClues()">Close the file</button>
+    </div>`;
+    el.style.display = 'flex';
+  },
+  closeClues() { const el = document.getElementById('dk-clues'); if (el) el.remove(); },
   async huntAction(a) {
     const r = await api('/dark/hunt_action', 'POST', { action: a });
     if (r.error) { toast(r.error, 'error'); return; }
@@ -1437,12 +1550,6 @@ const DARK = {
     if (r.error) { toast(r.error, 'error'); return; }
     this._dancerStory = null;
     await refreshState(); this.rerender(); if (r.msg) toast(r.msg, 'info');
-  },
-  async clubSecurity() {
-    const r = await api('/dark/club_security', 'POST');
-    if (r.error) { toast(r.error, 'error'); return; }
-    if (typeof sfx === 'object' && sfx.purchase) sfx.purchase();
-    await refreshState(); this.rerender(); toast('Beefed up the door. 💪', 'success');
   },
   async clubLounge(choice) {
     const r = await api('/dark/club_lounge', 'POST', { choice });
@@ -1698,20 +1805,27 @@ const DARK = {
       const ln = launder[key] || { manager: false, heat: 0, rate: 0 };
       const tier = this.heatTier(ln.heat); const hp = Math.min(100, Math.round(ln.heat || 0));
       const labels = ['Off', 'Low', 'Med', 'High'];
+      const philhere = !!(d.phil && d.phil.front === key);
+      const goldTrim = philhere ? 'border-color:#FFC83D;box-shadow:0 0 12px rgba(255,200,61,0.35)' : '';
+      const philTag = philhere ? ' <span style="color:#FFC83D;font-size:11px">🧰 Phil</span>' : '';
       if (!ln.manager) {
         const poor = cash < meta.hire;
-        return `<div class="dk-card dk-pcard"><div class="dk-phead"><div class="dk-row-ic">${meta.icon}</div>
-          <div class="dk-row-main"><div class="dk-row-title">${meta.name}</div><div class="dk-muted">Washes up to ${fmt(meta.cap)}/day per level. Needs a dirty manager.</div></div></div>
+        return `<div class="dk-card dk-pcard" style="${goldTrim}"><div class="dk-phead"><div class="dk-row-ic">${meta.icon}</div>
+          <div class="dk-row-main"><div class="dk-row-title">${meta.name}${philTag}</div><div class="dk-muted">Washes up to ${fmt(meta.cap)}/day per level. Needs a dirty manager.</div></div></div>
           <button class="dk-mini ${poor ? 'dk-buy-off' : ''}" style="width:100%;margin-top:9px" ${poor ? 'disabled' : `onclick="DARK.hireManager('${key}')"`}>🧑‍💼 Hire dirty manager — ${fmt(meta.hire)}</button></div>`;
       }
       const rates = [0, 1, 2, 3].map(rt => `<button class="dk-rate ${ln.rate === rt ? 'active' : ''}" onclick="DARK.setLaunderRate('${key}',${rt})">${labels[rt]}</button>`).join('');
       const ev = ln.event;
-      return `<div class="dk-card dk-pcard" style="border-color:${ev ? '#E0533D' : tier.col + '66'}">
+      return `<div class="dk-card dk-pcard" style="${philhere ? goldTrim : ('border-color:' + (ev ? '#E0533D' : tier.col + '66'))}">
         <div class="dk-phead"><div class="dk-row-ic">${meta.icon}</div>
-          <div class="dk-row-main"><div class="dk-row-title">${meta.name} ${ev ? '<span style="color:#E0533D;font-size:11px">⚠ paused</span>' : ''}</div><div class="dk-muted">Up to ${fmt(meta.cap * (ln.rate || 1))}/day at this rate</div></div></div>
+          <div class="dk-row-main"><div class="dk-row-title">${meta.name} ${ev ? '<span style="color:#E0533D;font-size:11px">⚠ paused</span>' : ''}${philTag}</div><div class="dk-muted">Up to ${fmt(meta.cap * (ln.rate || 1))}/day at this rate</div></div></div>
         ${ev ? this.evtHandle('front', key, ev, 'Washing paused') : ''}
-        <div style="display:flex;justify-content:space-between;font-size:10px;margin-top:9px"><span class="dk-muted">BUSINESS HEAT</span><span style="color:${tier.col};font-weight:800">${hp}% · ${tier.label}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;margin-top:9px"><span class="dk-muted">BUSINESS HEAT — Marsh's interest</span><span style="color:${tier.col};font-weight:800">${hp}% · ${tier.label}</span></div>
         <div class="dk-heat"><div class="dk-heat-fill" style="width:${hp}%;background:${tier.col}"></div></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px"><span class="dk-muted" style="font-size:11px">💵 CLEAN — uncollected</span><b style="color:#4CAF50">${fmt(ln.bank || 0)}</b></div>
+        ${philhere
+          ? `<div class="dk-muted2" style="font-size:11px;margin-top:4px">🧰 Phil banks the takings for you automatically.</div>`
+          : `<button class="dk-mini" style="width:100%;margin-top:6px" ${(ln.bank || 0) > 0 ? `onclick="DARK.collectFront('${key}')"` : 'disabled'}>${(ln.bank || 0) > 0 ? `💵 Collect ${fmt(ln.bank)}` : 'Nothing to collect yet'}</button>`}
         <div class="dk-lbl">Wash rate — more = faster clean + more heat · $${meta.wage}/day upkeep</div>
         <div class="dk-rates">${rates}</div>
         <button class="dk-mini-x" onclick="DARK.fireManager('${key}')">Let the manager go</button>
@@ -1743,11 +1857,43 @@ const DARK = {
       ${this.debtPanel()}
       ${fixerCard}
       ${this.sectionTitle('Laundering Fronts')}
-      ${frontCard('laundromat')}${frontCard('car_wash')}${frontCard('pizzeria')}
+      ${this.philSection(d)}
+      ${frontCard('laundromat')}${frontCard('pizzeria')}${frontCard('car_wash')}${frontCard('autolot')}${frontCard('construction')}
       ${this.soon('The Underworld Bank', 'Loan shark, offshore shells, street rep. Coming soon.')}
     `;
   },
 
+  philSection(d) {
+    const FR = this.LAUNDER, biz = d.biz || {};
+    const owned = Object.keys(FR).filter(k => biz[k]);
+    if (!d.phil) {
+      if (owned.length < 2) return '';
+      return `<button class="dk-phil-offer" onclick="DARK.openPhil()">??? <span>someone's waiting outside</span></button>`;
+    }
+    const cur = d.phil.front;
+    const chip = (k, l) => `<button class="dk-aschip ${cur === k ? 'on' : ''}" onclick="DARK.philAssign('${k}')">${l}</button>`;
+    const chips = owned.map(k => chip(k, FR[k].name)).join('') + `<button class="dk-aschip ${!cur ? 'on' : ''}" onclick="DARK.philAssign('off')">Bench</button>`;
+    const where = cur ? `On the <b>${FR[cur].name}</b> — handling it.` : '<span style="color:#ff8a3d">Benched — put him on a front.</span>';
+    return `<div class="dk-card dk-pcard" style="border-color:#FFC83D;margin-bottom:8px">
+      <div class="dk-phead"><div class="dk-row-ic">🧰</div><div class="dk-row-main"><div class="dk-row-title">Phil · Enforcer</div><div class="dk-muted" style="font-size:11px">${where}</div></div></div>
+      <div class="dk-muted2" style="font-size:10px;margin:6px 0 7px">Eats any event on his front, keeps the heat way down, and never lets it boil over to a raid. $100/night while working.</div>
+      <div class="dk-lbl">ASSIGN TO</div><div class="dk-assign">${chips}</div>
+    </div>`;
+  },
+  openPhil() { this._philOpen = true; this.rerender(); },
+  closePhil() { this._philOpen = false; this.rerender(); },
+  async hirePhil() {
+    const r = await api('/dark/hire_phil', 'POST');
+    if (r.error) { toast(r.error, 'error'); return; }
+    this._philOpen = false;
+    if (typeof sfx === 'object' && sfx.purchase) sfx.purchase();
+    await refreshState(); this.rerender(); if (r.msg) toast(r.msg, 'success');
+  },
+  async philAssign(front) {
+    const r = await api('/dark/phil_assign', 'POST', { front });
+    if (r.error) { toast(r.error, 'error'); return; }
+    await refreshState(); this.rerender();
+  },
   secRating(c) {
     let r = (c.bouncers || []).filter(b => b.assign === 'door' || b.assign === 'floor').reduce((a, b) => a + (b.muscle || 1), 0);
     r += 2 * ((c.upgrades || {}).security || 0);
@@ -2020,7 +2166,7 @@ const DARK = {
       const H = this.HEISTS[key], isDone = done.includes(key), locked = cred < H.cred, soon = !H.playable;
       const roles = H.roles.map(r => this.HEIST_ROLES[r].icon).join(' ');
       let action;
-      if (isDone) action = '<div class="dk-muted2" style="font-size:11px;margin-top:8px">✓ Already pulled — gone for good.</div>';
+      if (isDone) { const t = (d.heist_takes || {})[key]; action = `<div class="dk-muted2" style="font-size:11px;margin-top:8px">✓ Pulled${(t != null) ? ` — banked <b style="color:#4CAF50">${fmt(t)}</b>` : ''} · gone for good.</div>`; }
       else if (locked) action = `<div class="dk-muted2" style="font-size:11px;margin-top:8px">🔒 Unlocks at Street Cred ${H.cred}</div>`;
       else if (soon) action = '<div class="dk-muted2" style="font-size:11px;margin-top:8px">🚧 In the works — coming soon.</div>';
       else action = `<button class="dk-mini" style="width:100%;margin-top:9px" onclick="DARK.startHeist('${key}')">Plan this score →</button>`;
@@ -2216,7 +2362,7 @@ const DARK = {
     .dk-brand{font-family:'Rubik Dirt',cursive;font-size:17px;color:#fff;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
     .dk-rank{font-family:'Inter',sans-serif;font-size:10px;font-weight:700;color:#f0c0c0;letter-spacing:0.5px;text-transform:uppercase}
     .dk-res{display:flex;gap:8px;margin-top:9px}
-    .dk-res-cell{flex:1;background:rgba(0,0,0,0.28);border-radius:8px;padding:5px 8px}
+    .dk-res-cell{flex:1;position:relative;background:rgba(0,0,0,0.28);border-radius:8px;padding:5px 8px}
     .dk-res-lbl{font-size:9px;color:#c9a9a9;text-transform:uppercase;letter-spacing:0.4px}
     .dk-res-val{font-size:15px;font-weight:800;line-height:1.2}
     .dk-stashbar{display:flex;justify-content:space-between;align-items:center;background:rgba(0,0,0,0.28);border-radius:8px;padding:7px 10px;margin-top:8px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;-webkit-tap-highlight-color:transparent}
@@ -2291,6 +2437,12 @@ const DARK = {
     .dk-clutch-marker{position:absolute;top:-2px;bottom:-2px;width:5px;background:#FFC83D;box-shadow:0 0 9px #FFC83D;animation:dkclutch .9s linear infinite alternate}
     .dk-clutch-marker.crit{animation-duration:.62s}
     @keyframes dkclutch{from{left:0}to{left:calc(100% - 5px)}}
+    .dk-debt-card{position:relative}
+    .dk-debt-lbl{font-size:9px;font-weight:800;letter-spacing:1px;color:#c9a9a9;text-transform:uppercase}
+    .dk-debt-num{font-size:25px;font-weight:900;color:#E0533D;letter-spacing:.5px;margin-top:6px;font-variant-numeric:tabular-nums;text-shadow:0 0 14px rgba(224,83,61,0.45);line-height:1.1;word-break:break-all}
+    .dk-phil-offer{width:100%;margin-bottom:9px;background:linear-gradient(180deg,rgba(255,200,61,0.20),rgba(255,200,61,0.04));border:1px solid #FFC83D;color:#FFC83D;font-weight:800;font-size:17px;letter-spacing:3px;padding:14px;border-radius:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;animation:dkphil 1.2s ease-in-out infinite}
+    .dk-phil-offer span{display:block;font-size:10px;font-weight:600;letter-spacing:.4px;color:#d8b25e;margin-top:3px}
+    @keyframes dkphil{0%,100%{box-shadow:0 0 4px rgba(255,200,61,0.25)}50%{box-shadow:0 0 18px rgba(255,200,61,0.7)}}
     .dk-crewrow{display:flex;gap:7px}
     .dk-crewcard{flex:1;background:#1a1012;border:1px solid #3a2024;border-radius:10px;padding:10px 5px 9px;text-align:center;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:border-color .12s}
     .dk-crewcard.on{border-color:#C0392B;background:linear-gradient(180deg,rgba(192,57,43,0.20),#1a1012);box-shadow:0 0 0 1px #C0392B inset}
@@ -2316,10 +2468,30 @@ const DARK = {
     .dk-soon-tag{font-size:9px;font-weight:800;color:#C0392B;text-transform:uppercase;letter-spacing:0.5px}
     .dk-soon-title{font-size:13px;font-weight:800;margin-top:3px}
     .dk-wake{width:100%;margin-top:18px;background:none;border:1px solid #3a2024;color:#9a8a8a;padding:12px;border-radius:10px;font-size:13px;cursor:pointer;line-height:1.4}
-    .dk-nav{flex-shrink:0;display:flex;background:#0a0506;border-top:1px solid #2a1418;padding-bottom:env(safe-area-inset-bottom,0px)}
-    .dk-nav-btn{flex:1;background:none;border:none;color:#7a6a6a;padding:8px 2px 9px;font-size:10px;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;border-top:2px solid transparent;-webkit-tap-highlight-color:transparent}
+    .dk-nav{flex-shrink:0;display:flex;position:relative;background:#0a0506;border-top:1px solid #2a1418;padding-bottom:env(safe-area-inset-bottom,0px)}
+    .dk-nav-ind{position:absolute;top:0;bottom:env(safe-area-inset-bottom,0px);left:0;border-top:2.5px solid #C0392B;background:linear-gradient(180deg,rgba(192,57,43,0.30),rgba(192,57,43,0.04));box-shadow:0 0 14px rgba(192,57,43,0.45);pointer-events:none;z-index:0;transition:transform .34s cubic-bezier(0.34,1.25,0.64,1),opacity .2s ease}
+    .dk-nav-btn{flex:1;position:relative;z-index:1;background:none;border:none;color:#7a6a6a;padding:9px 2px 10px;font-size:10px;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;-webkit-tap-highlight-color:transparent;transition:color .2s,transform .08s}
+    .dk-nav-btn:active{transform:scale(.9)}
     .dk-nav-ic{font-size:20px;line-height:1}
-    .dk-nav-btn.active{color:#fff;border-top-color:#C0392B;background:linear-gradient(180deg,rgba(192,57,43,0.18),transparent)}
+    .dk-nav-btn.active{color:#fff}
+    .dk-nav-btn.active .dk-nav-ic{animation:dkbounce .42s cubic-bezier(0.34,1.4,0.64,1)}
+    @keyframes dkbounce{0%{transform:translateY(0)}45%{transform:translateY(-5px) scale(1.12)}100%{transform:translateY(0)}}
+    .dk-page-in{animation:dkpagein .28s ease}
+    @keyframes dkpagein{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+    .dk-heat-danger{animation:dkheat 1.1s ease-in-out infinite}
+    @keyframes dkheat{0%,100%{text-shadow:none}50%{text-shadow:0 0 11px #ff3d2d;color:#ff5a3d}}
+    .dk-flash-up{animation:dkflashup .65s ease}
+    .dk-flash-down{animation:dkflashdown .65s ease}
+    @keyframes dkflashup{0%,100%{box-shadow:none}40%{box-shadow:0 0 13px rgba(76,175,80,.7),inset 0 0 0 1px #4CAF50}}
+    @keyframes dkflashdown{0%,100%{box-shadow:none}40%{box-shadow:0 0 13px rgba(255,77,45,.7),inset 0 0 0 1px #ff4d2d}}
+    .dk-float{position:absolute;top:0;right:7px;font-size:12px;font-weight:800;pointer-events:none;animation:dkfloat 1.05s ease-out forwards}
+    .dk-float.up{color:#5ad15a}.dk-float.down{color:#ff6b6b}
+    @keyframes dkfloat{0%{opacity:0;transform:translateY(2px)}18%{opacity:1}100%{opacity:0;transform:translateY(-22px)}}
+    .dk-grain{position:absolute;inset:0;pointer-events:none;z-index:40;background:radial-gradient(ellipse 125% 130% at 50% 42%,transparent 58%,rgba(0,0,0,0.5))}
+    .dk-grain::after{content:'';position:absolute;inset:0;opacity:.05;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+    .dk-header{position:relative;overflow:hidden}
+    .dk-header::after{content:'';position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 82% 130%,rgba(255,70,45,0.28),transparent 55%);animation:dkember 5s ease-in-out infinite}
+    @keyframes dkember{0%,100%{opacity:.35}50%{opacity:.85}}
     .dk-evt-overlay{position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;padding:24px}
     .dk-evt-card{max-width:380px;width:100%;background:#160a0c;border:1px solid #C0392B;border-radius:14px;padding:22px 18px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,0.6)}
     .dk-evt-icon{font-size:44px;line-height:1;margin-bottom:10px}
@@ -2372,6 +2544,19 @@ const DARK = {
     .dk-hunt-sub{font-size:9px;font-weight:700;color:#9a8a8a;text-transform:uppercase;letter-spacing:0.3px}
     .dk-hunt-watch{margin-top:10px;padding:10px;border:1px dashed #6a5a5a;border-radius:9px;background:rgba(255,255,255,0.02);font-size:12px;color:#cbb6b6;line-height:1.45}
     .dk-hunt-watch.known{border-style:solid;border-color:#E0533D;background:rgba(224,83,61,0.08);color:#e8d9d9}
+    .dk-hunt-head{display:flex;align-items:baseline;justify-content:space-between}
+    /* ── The case file (clues modal) ── */
+    .dk-case{position:relative;width:min(92vw,420px);max-height:84vh;overflow-y:auto;background:linear-gradient(170deg,#e8dec6,#d9cdaf);color:#2a2018;border-radius:6px;padding:20px 18px 18px;box-shadow:0 24px 60px rgba(0,0,0,0.6);transform-origin:top center;animation:dkcaseopen .5s cubic-bezier(0.34,1.15,0.64,1) both;border-top:14px solid #c9b98f}
+    @keyframes dkcaseopen{0%{opacity:0;transform:perspective(900px) rotateX(-78deg) translateY(-14px)}100%{opacity:1;transform:perspective(900px) rotateX(0) translateY(0)}}
+    .dk-case-stamp{position:absolute;top:30px;right:14px;transform:rotate(11deg);border:2px solid #b23b2e;color:#b23b2e;font-weight:900;font-size:11px;letter-spacing:1.5px;padding:3px 7px;border-radius:3px;opacity:.62;pointer-events:none}
+    .dk-case-head{font-weight:900;font-size:17px;letter-spacing:.5px;color:#1c150e;border-bottom:2px solid #b9a980;padding-bottom:9px;margin-bottom:11px}
+    .dk-case-body{display:flex;flex-direction:column;gap:8px}
+    .dk-clue{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;line-height:1.4;background:rgba(255,255,255,0.5);border-left:3px solid #8a7d5a;padding:8px 9px;border-radius:3px}
+    .dk-clue.in{opacity:0;animation:dkcluein .4s ease both}
+    @keyframes dkcluein{0%{opacity:0;transform:translateX(-10px)}100%{opacity:1;transform:translateX(0)}}
+    .dk-clue.locked{background:rgba(0,0,0,0.04);border-left-color:#bdb190;font-style:italic}
+    .dk-clue-n{flex:0 0 auto;width:18px;height:18px;border-radius:50%;background:#8a7d5a;color:#f3ecd9;font-size:10px;font-weight:900;display:flex;align-items:center;justify-content:center;margin-top:1px}
+    .dk-case-id{margin-top:13px;text-align:center;font-weight:900;font-size:13px;letter-spacing:.5px;color:#fff;background:#b23b2e;padding:9px;border-radius:5px;box-shadow:0 3px 10px rgba(178,59,46,0.4)}
     .dk-brandrow{display:flex;align-items:center;justify-content:space-between;gap:8px}
     .dk-hdr-btns{display:flex;gap:6px;flex:0 0 auto}
     .dk-hdr-btn{width:31px;height:31px;border-radius:8px;border:1px solid #3a2024;background:#1a1012;color:#e8d9d9;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}
