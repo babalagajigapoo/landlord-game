@@ -4654,6 +4654,7 @@ def _migrate_state(s):
                          "arcade_had": bool((s.get("arcade") or {}).get("unlocked")),
                          "vending":    len(s.get("vending_machines") or []) > 0}
         dk.setdefault("corners_unlocked", not dk["biz"].get("vending"))
+        if dk.get("club"): _dark_club_migrate(dk["club"])
     return s
 
 def load():
@@ -4881,12 +4882,12 @@ def api_dark_wake():
 # Street Cred to unlock (gated gradually). base_yield = product units/day at production
 # level 1; base_heat = heat added to that home/day at level 1; unit_value = $ (dirty)/unit.
 DARK_DRUGS = {
-    "reggie": {"name": "Weed",   "icon": "🌿", "tier": 1, "cred_req": 1,  "base_yield": 3, "base_heat": 3,  "unit_value": 40},
-    "beans":  {"name": "Pills",  "icon": "💊", "tier": 2, "cred_req": 3,  "base_yield": 3, "base_heat": 5,  "unit_value": 90},
-    "soft":   {"name": "Powder", "icon": "❄️", "tier": 3, "cred_req": 5,  "base_yield": 3, "base_heat": 8,  "unit_value": 160},
-    "hard":   {"name": "Rock",   "icon": "🪨", "tier": 4, "cred_req": 7,  "base_yield": 3, "base_heat": 12, "unit_value": 280},
-    "glass":  {"name": "Glass",  "icon": "🧊", "tier": 5, "cred_req": 9,  "base_yield": 4, "base_heat": 17, "unit_value": 480},
-    "tar":    {"name": "Tar",    "icon": "🛢️", "tier": 6, "cred_req": 10, "base_yield": 4, "base_heat": 24, "unit_value": 800},
+    "reggie": {"name": "Weed",   "icon": "🌿", "tier": 1, "cred_req": 1,  "base_yield": 3, "base_heat": 3,  "unit_value": 110},
+    "beans":  {"name": "Pills",  "icon": "💊", "tier": 2, "cred_req": 3,  "base_yield": 3, "base_heat": 5,  "unit_value": 220},
+    "soft":   {"name": "Powder", "icon": "❄️", "tier": 3, "cred_req": 5,  "base_yield": 3, "base_heat": 8,  "unit_value": 370},
+    "hard":   {"name": "Rock",   "icon": "🪨", "tier": 4, "cred_req": 7,  "base_yield": 3, "base_heat": 12, "unit_value": 590},
+    "glass":  {"name": "Glass",  "icon": "🧊", "tier": 5, "cred_req": 9,  "base_yield": 4, "base_heat": 17, "unit_value": 910},
+    "tar":    {"name": "Tar",    "icon": "🛢️", "tier": 6, "cred_req": 10, "base_yield": 4, "base_heat": 24, "unit_value": 1450},
 }
 
 # Drug-making EQUIPMENT — one bundled set per drug (no individual ingredients). Bought
@@ -4915,7 +4916,7 @@ DARK_SELFCOOK = {"reggie": 12, "beans": 12, "soft": 14, "hard": 15, "glass": 16,
 # value) — NOT a Fence supply (those are for crew batches). Limited to once per day.
 DARK_SELFCOOK_COST = {"reggie": 150, "beans": 325, "soft": 675, "hard": 1250, "glass": 2300, "tar": 4300}
 DARK_SELFCOOK_PER_DAY = 3   # hand-cooks allowed per day
-DARK_FIXER_WASH_CAP = 8000  # most the Fixer will quick-wash per day
+DARK_FIXER_WASH_CAP = 15000  # most the Fixer will quick-wash per day (until you get your own front)
 DARK_FIXER_CUT = 0.15       # the Fixer's cut on a quick wash
 # The Fixer's debt — triggered at Pusher (cred 3). A looming $1B you can never clear;
 # each year he takes a cut of your GROSS take, locked on Winter 1, due Winter 28.
@@ -4964,9 +4965,9 @@ def _dark_level_for_xp(xp):
     return lvl
 
 def _dark_dealer_cap(d):
-    # Base 8/day, +2 at Slinger (2), +3 more at Underboss (8) → bigger pipes as you rise.
+    # Base 12/day, +4 at Slinger (2), +5 more at Underboss (8) → product moves fast as you rise.
     cred = d.get("cred", 1)
-    return 8 + (2 if cred >= 2 else 0) + (3 if cred >= 8 else 0)
+    return 12 + (4 if cred >= 2 else 0) + (5 if cred >= 8 else 0)
 
 def _dark_supply_price(drug, d):
     base = (DARK_SUPPLIES.get(drug) or {}).get("cost", 0)
@@ -4987,13 +4988,18 @@ def _dark_award_cred(s, events):
         for lvl in range(before + 1, after + 1):
             r = _dark_rank(lvl)
             events.append({"type": "info", "text": f"📈 The Fixer: \"They're calling you a {r['name']} now.\" — {r['perk']}"})
-        if after >= 3 and not d.get("debt_active"):     # Pusher → the Fixer calls in the marker
-            d["debt_active"] = True
-            d["debt_balance"] = DARK_DEBT_TOTAL
-            d["year_take"] = 0
-            seasonIdx, _, year = _dark_season(s.get("day", 1))
-            d["debt_first_year"] = year + 1 if seasonIdx == 3 else year   # hit Pusher in Winter → first bill is next year
-            d["fixer_event"] = {"kind": "intro"}
+
+def _dark_activate_debt(s):
+    """The Fixer calls in his marker — triggered the day you open your own laundering front
+    (you no longer need his quick-wash, so now he wants what he's owed)."""
+    d = s["dark"]
+    if d.get("debt_active"): return
+    d["debt_active"] = True
+    d["debt_balance"] = DARK_DEBT_TOTAL
+    d["year_take"] = 0
+    seasonIdx, _, year = _dark_season(s.get("day", 1))
+    d["debt_first_year"] = year + 1 if seasonIdx == 3 else year   # open a front in Winter → first bill is next year
+    d["fixer_event"] = {"kind": "intro"}
 
 def _dark_debt_tick(s, events):
     """Per advanced day: settle last year's bill when the year rolls, lock the new one on Winter 1."""
@@ -5065,10 +5071,8 @@ def _dark_watch_label(w):
     return f"watching the {w['name']}"
 
 def _dark_hunt_watch(s, events):
-    """End-of-day: strip-club income + intel, and Marsh's target tracking (pick / give up / switch / reveal)."""
+    """End-of-day: Marsh's target tracking (pick / give up / switch / reveal)."""
     d = s["dark"]; biz = d.get("biz") or {}
-    if biz.get("strip_club"):
-        d["dirty_money"] = d.get("dirty_money", 0) + DARK_STRIPCLUB_EARN   # the club earns on its own
     if d.get("cred", 1) < 2:        # Hunt not active yet — Marsh isn't tailing anyone
         if d.get("watch"): d["watch"] = None; d["watch_known"] = False; d["watch_quiet"] = 0
         return
@@ -5103,14 +5107,652 @@ def _dark_hunt_watch(s, events):
             events.append({"type": "warning", "text": "🕵️ The Fixer: \"Marsh shifted his attention — he's onto something else of yours now.\""})
             return
         d["watch_since"] = s["day"]
-    if not d.get("watch_known"):                      # passive intel reveal
-        chance = (DARK_VIP_INTEL_CHANCE if (biz.get("strip_club") and d.get("vip")) else 0.0)
+    if not d.get("watch_known"):                      # passive intel reveal (crew/payroll, not the club)
+        chance = 0.0
         if any(m.get("trait") == "connected" for m in d.get("roster", [])): chance += 0.12
         if d.get("cred", 1) >= 6: chance += 0.08      # bent cop on the payroll
         if chance and random.random() < chance:
             d["watch_known"] = True
-            src = "VIP-lounge chatter" if (biz.get("strip_club") and d.get("vip")) else "a whisper from your people"
-            events.append({"type": "info", "text": f"🔎 Intel ({src}): Marsh is {_dark_watch_label(d['watch'])}. Pause that operation."})
+            events.append({"type": "info", "text": f"🔎 Intel (a whisper from your people): Marsh is {_dark_watch_label(d['watch'])}. Pause that operation."})
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  THE STRIP CLUB — a LEGIT business you actively run. Dancers + the bar pull in
+#  modest CLEAN income (you pay the staff out of it); bouncers keep heat and trouble
+#  down; nightly incidents freeze the club until handled; and the VIP room is a
+#  read-the-patron minigame that buys you intel on the Hunt.
+# ══════════════════════════════════════════════════════════════════════════════
+DARK_CLUB_DANCER_CAP  = 6
+DARK_CLUB_BOUNCER_CAP = 4
+DARK_CLUB_COMPROMISE  = {"cop": 8_000, "da": 18_000}
+DARK_CLUB_NAMES = ["Roxy", "Cherry", "Lola", "Diamond", "Jade", "Bambi", "Crystal", "Star",
+                   "Ginger", "Mercedes", "Candy", "Vixen", "Destiny", "Angel", "Porsha", "Sapphire"]
+DARK_CLUB_PATRONS = {"cop": ["a precinct sergeant", "a vice detective", "a beat captain"],
+                     "da":  ["an assistant DA", "a city councilman", "a sitting judge"]}
+DARK_CLUB_WHY = ["putting herself through nursing school", "saving to open her own salon",
+                 "a single mom with two kids at home", "new in town and dead broke",
+                 "paying off her brother's debts", "dancing her way out of a bad scene",
+                 "in it for the money and the attention", "an art student who needs the rent"]
+DARK_CLUB_QUIRKS = {
+    "viral":     {"name": "Goes Viral",      "icon": "📱", "desc": "Huge online following — packs the room, but the attention runs hot."},
+    "student":   {"name": "Law Student",     "icon": "📚", "desc": "Sharp and discreet — reads people well in the VIP room."},
+    "heatmag":   {"name": "Trouble Follows", "icon": "🌶️", "desc": "Pulls big tips — and the wrong kind of attention."},
+    "denmother": {"name": "Den Mother",      "icon": "🧁", "desc": "Keeps the other girls happy — lifts the whole floor's mood."},
+    "showpony":  {"name": "Showstopper",     "icon": "🎀", "desc": "A signature act that owns the main stage."},
+}
+DARK_CLUB_SPECS = {"stage": "Stage", "floor": "Floor", "vip": "VIP"}
+# Star ladder: (min level, title, icon). A dancer's draw climbs with her level (to cap 7),
+# and titles carry perks in the tick — Headliners cool the room, Stars+ build the name faster.
+DARK_CLUB_TITLES = [(1, "Rookie", "🌱"), (2, "Regular", "💃"), (4, "Headliner", "✨"),
+                    (6, "Star", "🌟"), (8, "Legend", "👑")]
+def _dark_club_title(level):
+    t = DARK_CLUB_TITLES[0]
+    for entry in DARK_CLUB_TITLES:
+        if level >= entry[0]: t = entry
+    return t   # (min_level, name, icon)
+# Personal goals — each dancer is working toward something; she fills a goal bar as she
+# works, and hitting it triggers a milestone choice (send-off / House Mom / re-sign).
+DARK_CLUB_GOALS = ["open her own salon", "pay off her student loans", "buy her mom a house",
+                   "save a real nest egg", "get her kid into a good school", "fund her own business",
+                   "get out of the life clean", "put a down payment on a place of her own",
+                   "bankroll her music career", "finish her degree"]
+DARK_BOUNCER_NAMES = ["Tank", "Diesel", "Bruno", "Moose", "Vince", "Knuckles", "Tiny", "Hammer",
+                      "Rocco", "Sal", "Big Mike", "Curtis", "Ox", "Dutch"]
+DARK_BOUNCER_ARCH = {
+    "excon":  {"name": "Ex-Con",        "icon": "⛓️", "desc": "All muscle — but the badge knows his face (a little extra heat)."},
+    "expat":  {"name": "Ex-Cop",        "icon": "👮", "desc": "Spots an undercover from across the room. Costs more."},
+    "gentle": {"name": "Gentle Giant",  "icon": "🧸", "desc": "Calms trouble without a scene — keeps heat down."},
+    "pro":    {"name": "Pro",           "icon": "🕶️", "desc": "Solid, reliable all-rounder."},
+}
+# Each upgrade is tiered: (label, cost) per tier. All bought with CLEAN cash.
+DARK_CLUB_UPGRADES = {
+    "stage":    {"name": "Main Stage",       "icon": "🎤", "desc": "Lifts how much your dancers pull each night.",
+                 "tiers": [("LED stage & new poles", 60_000), ("Mirrored multi-pole stage", 140_000)]},
+    "bar":      {"name": "The Bar",          "icon": "🍸", "desc": "Opens a drink-sales income stream you tune yourself.",
+                 "tiers": [("Build a full bar", 45_000), ("Top-shelf cocktail lounge", 120_000)]},
+    "vip":      {"name": "VIP / Champagne Room", "icon": "🥂", "desc": "Where you read connected patrons for intel on the Hunt.",
+                 "tiers": [("Private champagne room", 80_000), ("VIP balcony", 180_000)]},
+    "sound":    {"name": "Sound & Lighting", "icon": "🔊", "desc": "Boosts reputation and kills dead nights.",
+                 "tiers": [("Pro rig + resident DJ", 50_000)]},
+    "security": {"name": "Security Suite",   "icon": "📹", "desc": "Backs your bouncers, cools heat, prevents some incidents.",
+                 "tiers": [("Cameras & an office", 40_000), ("Full surveillance", 95_000)]},
+    "license":  {"name": "Liquor License",   "icon": "📜", "desc": "A clean legal face — lowers the club's baseline heat.",
+                 "tiers": [("Get it on the books", 55_000)]},
+    "back":     {"name": "Back Entrance",    "icon": "🚪", "desc": "Discreet in-and-out for VIPs — less heat from the back rooms.",
+                 "tiers": [("Private parking & door", 35_000)]},
+}
+DARK_BAR_PRICE = {
+    "water": {"name": "Watered down", "mult": 1.55, "rep": -1, "desc": "Fat margins — but a sharp customer might notice."},
+    "std":   {"name": "Standard pour", "mult": 1.0,  "rep": 0,  "desc": "Honest drinks, honest money."},
+    "top":   {"name": "Top-shelf",    "mult": 0.7,  "rep": +1, "desc": "Thin margins, but the room loves it."},
+}
+DARK_BARTENDER_NAMES = ["Tony", "Gina", "Rick", "Manny", "Lou", "Dom"]
+# VIP minigame patron archetypes. `topics` = the angle that gets them talking;
+# `reward` = what extracting their intel does. `risk` rises the deeper/wronger you push.
+DARK_VIP_TYPES = {
+    "beat":      {"name": "an off-duty beat cop", "tell": "keeps glancing at the door like he's still on shift",
+                  "topic": "the neighborhood", "reward": "cool", "susp": 3},
+    "vice":      {"name": "a vice detective",     "tell": "nurses one drink and watches the room more than the stage",
+                  "topic": "open cases",    "reward": "watch", "susp": 7},
+    "da":        {"name": "an assistant DA",      "tell": "name-drops the courthouse and flashes an expensive watch",
+                  "topic": "the courthouse", "reward": "leverage_da", "susp": 5},
+    "snitch":    {"name": "a nervous informant",  "tell": "sits with his back to the wall and won't give his name",
+                  "topic": "street talk",    "reward": "sell", "susp": 4},
+    "undercover":{"name": "a friendly regular",   "tell": "asks a few too many friendly questions about the owner",
+                  "topic": "the business",   "reward": "trap", "susp": 9},
+}
+DARK_VIP_TOPICS = {"the neighborhood": "beat", "open cases": "vice", "the courthouse": "da",
+                   "street talk": "snitch", "the business": "undercover"}
+
+# ── THE CAST: six fixed, hand-written dancers. You bring them on one at a time;
+#    once all six are in, the roster's closed (no more hiring, no firing). Each has a
+#    3-beat scripted story arc with moral choices. A beat fires on a nightly roll and
+#    PAUSES that dancer (she stops earning) until you handle it — separate from the
+#    whole-club incidents (those live on c["event"] and freeze everything). ──────────
+DARK_DANCERS = {
+    "roxy": {"name": "Roxy", "draw": 4, "charm": 3, "quirk": "denmother", "cost": 24000,
+        "blurb": "Pushing 40, fifteen years on the pole. Breaks in the new girls and keeps the peace. Saving to buy her own bar and get out with her dignity.",
+        "arc": [
+            {"icon": "🦵", "text": "Roxy's knee blew out mid-set — she's backstage on the floor, gritting through it.",
+             "choices": ["Pay for the surgery", "Hand her painkillers, keep her working", "Move her to training the new girls"]},
+            {"icon": "👯", "text": "A newer girl is openly gunning for Roxy's spot, running her mouth backstage.",
+             "choices": ["Back Roxy", "Side with the young blood", "Make them work it out"]},
+            {"icon": "🍸", "text": "Roxy found a little bar for sale. She's asking you to cosign the loan — her way out of the life.",
+             "choices": ["Invest in her dream", "Talk her out of it", "Keep her on as House Mom"]},
+        ]},
+    "jade": {"name": "Jade", "draw": 3, "charm": 4, "quirk": "student", "cost": 18000,
+        "blurb": "Twenty-two, pre-law, dancing nights to cover tuition — and terrified of being recognized. Sharp, guarded, always watching.",
+        "arc": [
+            {"icon": "🎓", "text": "A regular at the rail just locked eyes with Jade — it's her law professor.",
+             "choices": ["Help her slip out the back", "Do nothing", "Lean on the professor"]},
+            {"icon": "📸", "text": "Someone snapped a photo of Jade and is threatening to send it to her school unless they're paid.",
+             "choices": ["Pay the blackmail", "Send a bouncer to handle it", "Call their bluff"]},
+            {"icon": "⚖️", "text": "Jade's days from passing the bar and leaving the life for good. She's come to say goodbye.",
+             "choices": ["Throw her a real sendoff", "Guilt her into staying"]},
+        ]},
+    "bambi": {"name": "Brittany “Bambi”", "draw": 5, "charm": 3, "quirk": "heatmag", "cost": 30000,
+        "blurb": "Early twenties, your biggest draw when she's on — and a liability when she's not. She's fighting a pill habit.",
+        "arc": [
+            {"icon": "💊", "text": "Bambi showed up wrecked — pinned pupils, can barely stand. The crowd's already filling in.",
+             "choices": ["Send her home to sober up", "Push her on stage anyway", "Cut her off the party crowd"]},
+            {"icon": "🚬", "text": "You clocked it — Bambi's dealer has been working your club, keeping her hooked.",
+             "choices": ["86 the dealer for good", "Look the other way", "Quietly buy out her debt"]},
+            {"icon": "🏥", "text": "Bambi OD'd in the dressing room. She pulled through, scared straight, and is begging for help.",
+             "choices": ["Pay for proper rehab", "Get her into outpatient help", "You can't keep carrying her"]},
+        ]},
+    "mercedes": {"name": "Mercedes", "draw": 5, "charm": 3, "quirk": "showpony", "cost": 28000,
+        "blurb": "Late twenties, the top earner, always running an angle. Cunning, charming, loyal to cash first.",
+        "arc": [
+            {"icon": "💸", "text": "You caught Mercedes skimming from the bar take — bold as you like.",
+             "choices": ["Dock her pay & warn her", "Take a cut and say nothing", "Make her your collections muscle"]},
+            {"icon": "💋", "text": "A rival club is dangling double the money to poach Mercedes.",
+             "choices": ["Match the offer", "Let her walk", "Try to earn her loyalty"]},
+            {"icon": "🐳", "text": "Mercedes says she's been grooming a whale for a massive private party — the score of the year. She needs you to trust her play.",
+             "choices": ["Let her run it", "Keep her on a short leash"]},
+        ]},
+    "lola": {"name": "Lola", "draw": 3, "charm": 3, "quirk": None, "cost": 18000,
+        "blurb": "Mid-twenties, sweet and a little reckless, always tangled up with the wrong man. Warm, big-hearted, in over her head.",
+        "arc": [
+            {"icon": "💢", "text": "Lola's violent ex is at the door, drunk and raging, demanding to see her.",
+             "choices": ["Have the bouncers walk him out", "Quietly ban him", "Let her handle it herself"]},
+            {"icon": "🩸", "text": "Lola's new man is leaning on her — and now on you — for a cut of the club's money.",
+             "choices": ["Shut it down hard", "Pay him off", "Let him hang around"]},
+            {"icon": "🥀", "text": "Lola's planning to run off with him — and you both know how that story ends.",
+             "choices": ["Stage an intervention", "Give her cash to get away clean", "Let her go"]},
+        ]},
+    "destiny": {"name": "Destiny", "draw": 3, "charm": 2, "quirk": "viral", "cost": 16000,
+        "blurb": "Twenty, phone always out, wants to be famous more than anything. Bubbly, attention-hungry, a little naive. Her chihuahua keeps turning up backstage.",
+        "arc": [
+            {"icon": "📱", "text": "A clip of Destiny's set blew up overnight — there's a line forming around the block.",
+             "choices": ["Lean in — promote the club", "Keep it low-key", "Monetize it properly"]},
+            {"icon": "🤳", "text": "A promoter wants Destiny for a string of out-of-town appearances.",
+             "choices": ["Let her go do it", "Hold her to her shifts", "Negotiate a cut"]},
+            {"icon": "🌟", "text": "A manager wants to take Destiny solo and make her famous.",
+             "choices": ["Bless her exit", "Make her your headline face", "Warn her it's a scam"]},
+        ]},
+}
+DARK_DANCER_ORDER = ["destiny", "jade", "lola", "roxy", "mercedes", "bambi"]
+
+def _dark_make_dancer(c, key):
+    spec = DARK_DANCERS[key]
+    c["next_id"] = c.get("next_id", 1) + 1
+    return {"id": c["next_id"] - 1, "key": key, "name": spec["name"], "draw": spec["draw"],
+            "charm": spec["charm"], "quirk": spec.get("quirk"), "loyalty": 60,
+            "level": 1, "xp": 0, "wage": spec["draw"] * 65, "manager": False,
+            "beat": 0, "event": None, "away_until": None, "done": False}
+
+def _dark_bouncer(c):
+    c["next_id"] = c.get("next_id", 1) + 1
+    arch = random.choice(list(DARK_BOUNCER_ARCH))
+    muscle = random.randint(2, 4); eye = random.randint(1, 3)
+    if arch == "excon":  muscle = min(5, muscle + 1)
+    if arch == "expat":  eye = min(5, eye + 2)
+    if arch == "gentle": eye = min(5, eye + 1)
+    return {"id": c["next_id"] - 1, "name": random.choice(DARK_BOUNCER_NAMES), "arch": arch,
+            "muscle": muscle, "eye": eye, "loyalty": random.randint(50, 75),
+            "level": 1, "assign": "off", "wage": 130 + muscle * 35}
+
+def _dark_club_refresh(c):
+    # Recruits = the cast members you haven't brought on yet (and who haven't left).
+    hired = set(c.get("roster_keys", []))
+    c["recruits"] = [k for k in DARK_DANCER_ORDER if k not in hired]
+    while len(c.get("bouncer_recruits", [])) < 2:
+        c["bouncer_recruits"].append(_dark_bouncer(c))
+
+def _dark_club_migrate(c):
+    """Backfill the richer club schema onto saves made before the operations overhaul."""
+    c.setdefault("rep", 45); c.setdefault("heat", 0); c.setdefault("next_id", 1)
+    c.setdefault("dancers", []); c.setdefault("recruits", []); c.setdefault("leverage", [])
+    c.setdefault("bouncers", []); c.setdefault("bouncer_recruits", []); c.setdefault("roster_keys", [])
+    c.setdefault("upgrades", {k: 0 for k in DARK_CLUB_UPGRADES})
+    for k in DARK_CLUB_UPGRADES: c["upgrades"].setdefault(k, 0)
+    if c.get("security"): c["upgrades"]["security"] = max(c["upgrades"]["security"], min(2, c.pop("security")))
+    c.setdefault("bar", {"price": "std", "bartender": None, "signature": None})
+    c.setdefault("door", "balanced")
+    c.setdefault("event", None); c.setdefault("vip_patron", False); c.setdefault("vip_game", None)
+    c.setdefault("vip_day", 0); c.setdefault("last_gross", 0); c.setdefault("last_wages", 0); c.setdefault("last_net", 0)
+    c.pop("lounge_offer", None); c.pop("lounge_day", None)
+    # Saves made before the named-cast overhaul had randomly-generated dancers — reset to the
+    # fresh cast (a clean slate for the scripted arcs).
+    if any("key" not in x for x in c.get("dancers", [])):
+        c["dancers"] = []; c["roster_keys"] = []
+    for x in c.get("dancers", []):
+        x.setdefault("charm", 2); x.setdefault("loyalty", 60); x.setdefault("level", 1); x.setdefault("xp", 0)
+        x.setdefault("wage", x.get("draw", 1) * 65); x.setdefault("manager", False)
+        x.setdefault("beat", 0); x.setdefault("event", None); x.setdefault("away_until", None); x.setdefault("done", False)
+        for dead in ("spec", "assign", "why", "goal", "goal_prog", "stamina", "mood"): x.pop(dead, None)
+    _dark_club_refresh(c)
+
+def _dark_club_init(d):
+    c = {"rep": 45, "heat": 0, "next_id": 1, "dancers": [], "recruits": [], "roster_keys": [], "leverage": [],
+         "bouncers": [], "bouncer_recruits": [], "upgrades": {k: 0 for k in DARK_CLUB_UPGRADES},
+         "bar": {"price": "std", "bartender": None, "signature": None}, "door": "balanced",
+         "event": None, "vip_patron": False, "vip_game": None, "vip_day": 0,
+         "last_gross": 0, "last_wages": 0, "last_net": 0}
+    _dark_club_refresh(c)
+    d["club"] = c
+
+def _dark_club_secrating(c):
+    """Effective security: bouncers on the door/floor + the camera suite."""
+    r = sum(b.get("muscle", 1) for b in c.get("bouncers", []) if b.get("assign") in ("door", "floor"))
+    r += 2 * c.get("upgrades", {}).get("security", 0)
+    if c.get("door") == "strict": r += 2
+    if c.get("door") == "loose":  r -= 2
+    return max(0, r)
+
+def _dark_club_workers(c, day=None):
+    """Dancers actually on the floor earning tonight — excludes the House Mom, anyone
+    paused by her own story event, and anyone away for a few days."""
+    out = []
+    for x in c.get("dancers", []):
+        if x.get("manager") or x.get("event"): continue
+        if day is not None and x.get("away_until") and day < x["away_until"]: continue
+        out.append(x)
+    return out
+
+def _dark_club_tick(s, events):
+    """Each advanced day: clean income (net of wages), reputation, heat/raid, dancer wear,
+    the weekly VIP patron, and a chance of a club incident that freezes the floor."""
+    d = s["dark"]
+    if not (d.get("biz") or {}).get("strip_club"): return
+    c = d.get("club")
+    if not c: _dark_club_init(d); c = d["club"]
+    _dark_club_migrate(c)
+    if c.get("event"):                 # an unhandled incident: the club is shut until you deal with it
+        return
+    up = c["upgrades"]; rep = c.get("rep", 0); day = s["day"]
+    # ── Dancers come back from being sidelined a few days. ──
+    for x in c.get("dancers", []):
+        if x.get("away_until") and day >= x["away_until"]:
+            x["away_until"] = None
+            events.append({"type": "info", "text": f"💃 {x['name']} is back on the floor."})
+    workers = _dark_club_workers(c, day)
+    managers = [x for x in c.get("dancers", []) if x.get("manager")]
+    # ── Gross take: dancers on the floor (× reputation) + bar sales + a House Mom lift. ──
+    stage_mult = 1 + 0.18 * up.get("stage", 0)
+    gross = 0.0
+    for x in workers:
+        gross += x.get("draw", 1) * 175 * (0.45 + rep / 200.0) * stage_mult
+    if managers: gross *= 1.15                       # a House Mom keeps the floor tight
+    if up.get("bar", 0) > 0:
+        pr = DARK_BAR_PRICE.get(c["bar"].get("price", "std"), DARK_BAR_PRICE["std"])
+        bar_inc = up["bar"] * 220 * pr["mult"] * (0.5 + rep / 150.0)
+        if c["bar"].get("bartender"): bar_inc *= 1.15
+        gross += bar_inc
+    gross = round(gross)
+    # ── Wages: you pay the dancers, the House Mom, and the door out of the take. ──
+    wages = sum(x.get("wage", x.get("draw", 1) * 65) for x in workers)
+    wages += sum(x.get("wage", 250) for x in managers)
+    wages += sum(b.get("wage", 150) for b in c.get("bouncers", []) if b.get("assign") != "off")
+    if up.get("bar", 0) > 0 and c["bar"].get("bartender"): wages += 200
+    net = gross - wages
+    s["cash"] = s.get("cash", 0) + net          # CLEAN money — a legit business
+    c["last_gross"], c["last_wages"], c["last_net"] = gross, wages, net
+    # ── Dancer progression: loyalty + XP → levels (draw grows, title climbs). ──
+    denmother = any(x.get("quirk") == "denmother" for x in workers)
+    for x in workers:
+        x["loyalty"] = min(100, x.get("loyalty", 60) + (2 if denmother else 1))
+        x["xp"] = x.get("xp", 0) + 1
+        if x["xp"] >= x.get("level", 1) * 4:
+            x["xp"] = 0; x["level"] = x.get("level", 1) + 1
+            if x.get("draw", 1) < 7: x["draw"] += 1
+            x["wage"] = x.get("wage", x["draw"] * 65) + 25
+            ttl = _dark_club_title(x["level"])
+            events.append({"type": "info", "text": f"{ttl[2]} {x['name']} leveled up to {ttl[1]} — she's pulling bigger crowds now."})
+    # ── Reputation (Stars+ build the name faster). ──
+    pr_rep = DARK_BAR_PRICE.get(c["bar"].get("price", "std"), {}).get("rep", 0) if up.get("bar", 0) > 0 else 0
+    star_rep = sum(1 for x in workers if x.get("level", 1) >= 6)
+    if workers:
+        c["rep"] = min(100, rep + 2 + up.get("sound", 0) + pr_rep + star_rep)
+    else:
+        c["rep"] = max(0, rep - 1)
+    # ── Heat (Headliners+ pull a classier crowd that cools the room). ──
+    secr = _dark_club_secrating(c)
+    classy = sum(1 for x in workers if x.get("level", 1) >= 4)
+    base = 6 + sum(1 for x in workers if x.get("quirk") in ("heatmag", "viral")) - classy
+    base -= 1 if up.get("back", 0) else 0
+    base -= 2 if up.get("license", 0) else 0
+    c["heat"] = min(120, max(0, c.get("heat", 0) + max(0, base - min(secr, 7))))
+    bent = sum(1 for L in c.get("leverage", []) if L.get("kind") == "bent_cop")
+    if bent: d["heat"] = max(0, d.get("heat", 0) - 3 * bent)
+    if c["heat"] >= 100:                          # vice raid
+        ds = c.get("dancers", []); lose = max(1, len(ds) // 2)
+        c["dancers"] = ds[lose:]
+        c["rep"] = max(0, c.get("rep", 0) - 30); c["heat"] = 40
+        events.append({"type": "negative", "text": f"🚨 Vice raided the club — {lose} dancer(s) scattered and the club's name took a hit."})
+    # ── A connected patron drifts into the VIP room (the intel minigame). ──
+    if up.get("vip", 0) > 0 and not c.get("vip_patron") and not c.get("vip_game") and (s["day"] - c.get("vip_day", 0)) >= 5:
+        c["vip_patron"] = True; c["vip_day"] = s["day"]
+        events.append({"type": "info", "text": "🥂 Someone connected just slipped into the VIP room — go read them (Biz → Strip Club)."})
+    # ── ONE drama per night: either a dancer's story beat (pauses just her) OR a
+    #    whole-club operational incident (freezes everything). Never both — so the two
+    #    systems can't collide. The whole-club incident only fires if no dancer beat does. ──
+    arc_of = lambda x: DARK_DANCERS.get(x.get("key", ""), {}).get("arc", [])
+    story_pool = [x for x in c.get("dancers", [])
+                  if not x.get("manager") and not x.get("done") and not x.get("event")
+                  and not (x.get("away_until") and day < x["away_until"])
+                  and x.get("beat", 0) < len(arc_of(x))]
+    # Operational incidents come first and scale HARD with how weak your door is:
+    # no security ⇒ ~28%/night; a well-staffed, trained door ⇒ ~5%.
+    inc_chance = max(0.05, 0.28 - 0.03 * secr)
+    story_chance = 0.18 if story_pool else 0.0
+    roll = random.random()
+    if roll < inc_chance:                          # a whole-club operational incident
+        _dark_club_spawn_event(s, c, events)
+    elif roll < inc_chance + story_chance:         # else a dancer's story advances tonight
+        x = random.choice(story_pool)
+        beat = arc_of(x)[x.get("beat", 0)]
+        x["event"] = {"icon": beat["icon"], "text": beat["text"], "choices": list(beat["choices"])}
+        events.append({"type": "warning", "text": f"{beat['icon']} {x['name']} has pulled you aside — she's off the floor until you hear her out (Biz → Strip Club)."})
+
+# ── Club incidents: each freezes the floor until you tap "Handle it". Outcomes scale
+#    with your bouncers (security rating) and what you've built. ────────────────────
+DARK_CLUB_EVENTS = {
+    "fight":     {"icon": "🥊", "tag": "bad",    "text": "A brawl just kicked off by the main stage — drinks flying, a girl screaming.",
+                  "choices": ["Send the bouncers in", "Let it burn out", "86 the whole table"]},
+    "vice":      {"icon": "🕵️", "tag": "bad",    "text": "A man at the bar keeps flashing a badge and asking your dancers about the back rooms.",
+                  "choices": ["Comp him and smooth it over", "Throw him out", "Make a call (leverage)"]},
+    "underage":  {"icon": "🪪", "tag": "bad",    "text": "A regular pulls you aside — that girl you just waved in looked way underage.",
+                  "choices": ["Quietly walk her out and pay him off", "Call his bluff"]},
+    "marshal":   {"icon": "🚒", "tag": "bad",    "text": "Fire marshal at the door doing a count — you're well over capacity tonight.",
+                  "choices": ["Slip him some cash", "Clear the floor for the night"]},
+    "whale":     {"icon": "🧾", "tag": "bad",    "text": "A big spender is trying to walk out on a ${amt:,} tab.",
+                  "choices": ["Have a bouncer collect", "Comp it and keep him sweet"]},
+    "poach":     {"icon": "💋", "tag": "bad",    "text": "A rival club sent muscle to poach {who} right off your floor.",
+                  "choices": ["Match their offer", "Stand firm with your bouncers", "Let her walk"]},
+    "barcaught": {"icon": "🍸", "tag": "bad",    "text": "A whale just realized his top-shelf is watered down and he's making a scene.",
+                  "choices": ["Comp the table and apologize", "Brush it off"]},
+    "celeb":     {"icon": "🌟", "tag": "good",   "text": "A local celebrity just rolled in with an entourage and a camera crew.",
+                  "choices": ["Comp the VIP and let them flex", "Charge them full freight"]},
+    "bachelor":  {"icon": "🎉", "tag": "good",   "text": "A huge bachelor party wants to book out the whole place.",
+                  "choices": ["Go all-in — pull the girls to the party", "Run standard service"]},
+    "talent":    {"icon": "🌹", "tag": "good",   "text": "A stunning dancer walked in looking for a spot — she wants a ${amt:,} signing bonus.",
+                  "choices": ["Pay the bonus and sign her", "Pass on her"]},
+    "briefcase": {"icon": "💼", "tag": "quirky", "text": "Housekeeping found a briefcase stuffed with ${amt:,} in the VIP room.",
+                  "choices": ["Keep it", "Track down whoever left it"]},
+    "viral":     {"icon": "📱", "tag": "quirky", "text": "{who} blew up online overnight — there's a line forming around the block.",
+                  "choices": ["Lean all the way into the hype", "Keep it low-key"]},
+    "raise":     {"icon": "💰", "tag": "dancer", "text": "{who} pulls you aside — she wants a bigger cut, says she's earned it.",
+                  "choices": ["Give her the raise", "Talk her down", "Flat-out refuse"]},
+    "burnout":   {"icon": "😮‍💨", "tag": "dancer", "text": "{who} is feeling burnt out and unappreciated — she's hinting she might walk.",
+                  "choices": ["Give her a night and some respect", "Tell her to suck it up"]},
+    "trouble":   {"icon": "🆘", "tag": "dancer", "text": "{who} is in a jam outside the club and quietly asks you for help.",
+                  "choices": ["Help her out (${amt:,})", "Stay out of it"]},
+}
+
+def _dark_club_pick_dancer(c):
+    ds = [x for x in c.get("dancers", []) if not x.get("manager")]
+    return random.choice(ds) if ds else None
+
+def _dark_club_spawn_milestone(s, c, dancer, events):
+    """A dancer hit her personal goal — freeze the floor for the player's call."""
+    ttl = _dark_club_title(dancer.get("level", 1))
+    c["event"] = {"key": "milestone", "icon": "🎯", "dancer_id": dancer["id"], "amt": 0,
+                  "choices": ["Throw her a sendoff — let her leave on top",
+                              "Talk her into staying as your House Mom",
+                              "Re-sign her with a raise"],
+                  "text": f"{dancer['name']} ({ttl[1]}) just hit her goal — she's finally saved enough to {dancer.get('goal', 'move on')}. She's wondering what comes next."}
+    events.append({"type": "info", "text": f"🎯 {dancer['name']} reached her life goal — there's a decision waiting at the club."})
+
+def _dark_club_spawn_event(s, c, events):
+    # Whole-club OPERATIONAL incidents only — these never target the named cast (the cast
+    # has its own scripted per-dancer stories), so the two systems can't collide.
+    up = c.get("upgrades", {})
+    door_eye = max([b.get("eye", 0) for b in c.get("bouncers", []) if b.get("assign") == "door"] or [0])
+    pool = ["fight", "vice", "marshal", "whale", "celeb", "bachelor", "briefcase"]
+    if door_eye < 3: pool.append("underage")              # a sharp door bouncer keeps minors out entirely
+    if up.get("bar", 0) > 0 and c.get("bar", {}).get("price") == "water": pool.append("barcaught")
+    key = random.choice(pool)
+    meta = DARK_CLUB_EVENTS[key]
+    ev = {"key": key, "icon": meta["icon"], "choices": list(meta["choices"])}
+    amt = {"whale": random.randint(2_000, 6_000),
+           "briefcase": random.randint(3_000, 9_000)}.get(key, 0)
+    ev["amt"] = amt
+    ev["text"] = meta["text"].format(amt=amt, who="one of your girls")
+    c["event"] = ev
+    events.append({"type": "warning", "text": f"{meta['icon']} Something's gone down at the club — it's shut until you handle it (Biz tab)."})
+
+def _dark_story_resolve(s, c, x, choice):
+    """Resolve one beat of a dancer's scripted arc. Returns a result line."""
+    d = s["dark"]; k = x.get("key"); b = x.get("beat", 0); nm = x["name"]
+    def cash(n): s["cash"] = s.get("cash", 0) + n
+    def rep(n):  c["rep"]  = min(100, max(0, c.get("rep", 0) + n))
+    def heat(n): c["heat"] = min(120, max(0, c.get("heat", 0) + n))
+    def loy(n):  x["loyalty"] = min(100, max(0, x.get("loyalty", 60) + n))
+    def away(days): x["away_until"] = s["day"] + days
+    secr = _dark_club_secrating(c)
+    x["event"] = None
+    left = ended = False
+    msg = "Handled."
+    if k == "roxy":
+        if b == 0:
+            if choice == 0: cash(-12000); away(6); loy(20); msg = "You covered Roxy's surgery. She's out about a week — and she'll never forget it."
+            elif choice == 1: loy(-12); heat(4); msg = "Roxy gutted it out on painkillers. That knee's a time bomb now."
+            else: loy(8); msg = "You moved Roxy to breaking in the new girls — easier on the body, and the floor's better for it."
+        elif b == 1:
+            if choice == 0: loy(12); msg = "You backed Roxy. The young one fell back in line."
+            elif choice == 1: loy(-18); rep(2); msg = "You sided with youth. Roxy took it like a slap."
+            else: loy(6); rep(4); msg = "You made them work it out — Roxy took the kid under her wing."
+        else:
+            if choice == 0: cash(-20000); rep(12); left = True; msg = "You cosigned Roxy's bar. She left to run it — and still sends her regulars your way. 🥂"
+            elif choice == 1: loy(-10); ended = True; msg = "You talked Roxy out of it. She stayed — but something in her dimmed."
+            else: x["manager"] = True; loy(100); ended = True; msg = "Roxy hung up her heels to run your floor as House Mom. 🧁"
+    elif k == "jade":
+        if b == 0:
+            if choice == 0: loy(12); msg = "You slipped Jade out the back before he clocked her. She's shaken but grateful."
+            elif choice == 1: away(3); loy(-6); msg = "You did nothing. Jade panicked and didn't show for a few nights."
+            else: heat(-10); loy(-15); msg = "You leaned on the professor — he'll stay quiet. Jade's disgusted you used her like that."
+        elif b == 1:
+            if choice == 0: cash(-6000); loy(8); msg = "You paid the blackmail. It's handled — for now."
+            elif choice == 1:
+                if secr >= 3: loy(15); heat(6); msg = "Your bouncer had a quiet word. The photo's gone and Jade's loyal for life."
+                else: heat(14); loy(5); msg = "Short-handed, it got ugly — the photo's gone but you drew heat doing it."
+            else:
+                if random.random() < 0.5: loy(6); msg = "You called the bluff — it blew over. Jade dodged a bullet."
+                else: away(4); loy(-10); rep(-3); msg = "The bluff backfired — the photo got out. Jade went to ground for days."
+        else:
+            if choice == 0:
+                c.setdefault("leverage", []).append({"kind": "da", "who": "Jade, now a defense attorney"})
+                rep(6); left = True; msg = "You sent Jade off in style. She passed the bar — and a lawyer who owes you is worth more than any dancer. ⚖️"
+            else: loy(-20); ended = True; msg = "You guilted Jade into staying. She dances with dead eyes now."
+    elif k == "bambi":
+        if b == 0:
+            if choice == 0: away(3); loy(8); msg = "You sent Bambi home to sober up. Lost the night, but it was the right call."
+            elif choice == 1: cash(4000); heat(10); loy(-10); msg = "You pushed her on stage anyway. Huge night — and you just made it all worse."
+            else: loy(-6); heat(-4); msg = "You cut Bambi off the party crowd. She's furious, but it helps."
+        elif b == 1:
+            if choice == 0: heat(4); loy(12); msg = "You 86'd the dealer for good. Bambi's got a real shot now."
+            elif choice == 1: cash(3000); heat(14); loy(-8); msg = "You looked away. She stays lit and packs the house — and your heat climbs."
+            else: cash(-5000); loy(15); msg = "You quietly bought out her debt and cut the dealer loose. She's stunned anyone cared."
+        else:
+            if choice == 0: cash(-15000); away(14); loy(100); x["draw"] = min(7, x.get("draw", 5) + 1); ended = True; msg = "You paid for real rehab. Two weeks later she's back — clean, glowing, your most loyal girl. A genuine comeback. ✨"
+            elif choice == 1: cash(-6000); loy(20); ended = True; msg = "You got Bambi into outpatient help. It's fragile, but she's fighting — and she's still yours."
+            else: rep(-8); left = True; msg = "You couldn't keep carrying her. Bambi spiraled out and disappeared. That one's going to sit with you."
+    elif k == "mercedes":
+        if b == 0:
+            if choice == 0: loy(-8); cash(1000); msg = "You docked her and warned her. Mercedes respects strength — but she's sore about it."
+            elif choice == 1: loy(10); heat(2); msg = "You took a cut and said nothing. She's loyal now — and theft is the house culture."
+            else: cash(2500); heat(6); loy(6); msg = "You made Mercedes your collections muscle. Deadbeats pay up now — and the room knows it."
+        elif b == 1:
+            if choice == 0: cash(-8000); loy(12); msg = "You matched the offer. Mercedes is staying — money talks."
+            elif choice == 1: left = True; heat(5); msg = "You let Mercedes walk. She knows too much about your operation to feel good about it."
+            else:
+                if x.get("loyalty", 60) >= 70: loy(10); msg = "You appealed to loyalty — and you'd earned it. Mercedes turned the rival down flat."
+                else: loy(-5); msg = "You asked for loyalty you hadn't earned. Mercedes just smiled and said she'd think about it."
+        else:
+            if choice == 0:
+                if x.get("loyalty", 60) >= 60: cash(25000); rep(6); ended = True; msg = "Mercedes delivered — a whale party that printed money. She's earned her keep. 🐳"
+                else:
+                    heat(30); left = True
+                    if d.get("raid_in") is None and d.get("cred", 1) >= 2: d["raid_in"] = DARK_RAID_DAYS
+                    msg = "The 'whale' was a sting. Mercedes set you up and vanished — the heat's through the roof."
+            else: cash(2000); ended = True; msg = "You kept Mercedes on a short leash. No windfall, but no knife in your back either."
+    elif k == "lola":
+        if b == 0:
+            if choice == 0:
+                if secr >= 3: loy(15); msg = "Your bouncers walked the ex out hard. Lola's safe, and she knows who kept her that way."
+                else: heat(10); loy(6); msg = "You tried to walk him out short-handed — it got loud. He's gone, but it drew eyes."
+            elif choice == 1: loy(8); msg = "You quietly put him on the do-not-admit list. Lola breathes easier."
+            else: away(4); loy(-8); msg = "You let her handle it. She was terrified and didn't surface for days."
+        elif b == 1:
+            if choice == 0: heat(12); loy(14); msg = "You shut his little shakedown down hard. He's furious — but Lola's not his to sell."
+            elif choice == 1: cash(-5000); loy(4); msg = "You paid him off to go away. For now."
+            else: heat(16); loy(-10); cash(2000); msg = "You let him hang around. He runs her and brings trouble through your doors."
+        else:
+            if choice == 0:
+                if x.get("loyalty", 60) >= 60: loy(10); ended = True; msg = "Your intervention got through. Lola saw him for what he is and stayed."
+                else: left = True; msg = "She didn't want to hear it. Lola ran off with him anyway."
+            elif choice == 1: cash(-8000); rep(5); left = True; msg = "You gave Lola the money to get away clean — from him, and from you. She'll make it. 🕊️"
+            else: left = True; msg = "You let Lola go. You both knew how it would end."
+    elif k == "destiny":
+        if b == 0:
+            if choice == 0: rep(14); heat(10); msg = "You leaned all the way in. The club's the hottest ticket in town — and a lot more eyes are on it."
+            elif choice == 1: loy(-6); msg = "You kept it low-key. Destiny's crushed you didn't run with her moment."
+            else: cash(5000); rep(5); loy(6); msg = "You monetized it right — merch, cover, the works. Everybody won."
+        elif b == 1:
+            if choice == 0: away(5); rep(8); msg = "You let Destiny go do the appearances. She's away a few days — and comes back with serious buzz."
+            elif choice == 1: loy(-12); msg = "You held Destiny to her shifts. She did them, resenting every one."
+            else: cash(4000); loy(5); msg = "You negotiated a cut of the appearances. Good money, happy girl."
+        else:
+            if choice == 0: rep(15); left = True; msg = "You blessed Destiny's exit. She went solo and famous — and the club's the place that made her. 🌟"
+            elif choice == 1: rep(5); loy(10); x["draw"] = min(7, x.get("draw", 3) + 1); ended = True; msg = "You made Destiny your headline face. She's a star, and she's yours."
+            else:
+                if x.get("loyalty", 60) >= 50: loy(15); ended = True; msg = "You warned Destiny it was a scam — and she listened. She owes you one."
+                else: left = True; rep(-3); msg = "You warned her, but she didn't listen. The 'manager' fleeced her and she's gone."
+    # advance her arc
+    if left:
+        c["dancers"] = [dd for dd in c.get("dancers", []) if dd["id"] != x["id"]]
+    elif ended:
+        x["done"] = True
+    else:
+        x["beat"] = b + 1
+        if x["beat"] >= len(DARK_DANCERS.get(k, {}).get("arc", [])): x["done"] = True
+    return msg
+
+def _dark_club_resolve_event(s, c, choice):
+    """Apply the outcome of the player's choice. Returns a result line for the toast."""
+    ev = c.get("event")
+    if not ev: return "Nothing to handle."
+    key = ev.get("key"); amt = ev.get("amt", 0); secr = _dark_club_secrating(c)
+    did = ev.get("dancer_id"); dancer = next((x for x in c.get("dancers", []) if x["id"] == did), None) if did else None
+    nm = dancer["name"] if dancer else "she"
+    def heat(n): c["heat"] = min(120, max(0, c.get("heat", 0) + n))
+    def rep(n):  c["rep"]  = min(100, max(0, c.get("rep", 0) + n))
+    def cash(n): s["cash"] = s.get("cash", 0) + n
+    msg = "Handled."
+    if key == "fight":
+        if choice == 0:
+            if secr >= 4: rep(5); msg = "Your bouncers had it broken up before the next song. Clean."
+            else: hurt = random.randint(2_000, 6_000); cash(-hurt); heat(10); msg = f"Short-handed at the door — someone got hurt and it cost you ${hurt:,} to keep quiet."
+        elif choice == 1:
+            rep(-6)
+            if dancer: dancer["loyalty"] = max(0, dancer.get("loyalty", 60) - 8)
+            msg = "You let it run its course. The place got trashed and the girls were rattled."
+        else:
+            rep(4); msg = "You 86'd the whole table. Lost their tab, but the room respects a tight house."
+    elif key == "vice":
+        if choice == 0: cash(-2_000); heat(-15); msg = "A comped bottle and a charming girl, and he forgot why he came. Heat cooled."
+        elif choice == 1: heat(18); msg = "You threw him out. He'll remember the place — heat's up."
+        else:
+            lev = next((L for L in c.get("leverage", []) if L.get("kind") in ("da", "bent_cop")), None)
+            if lev: c["leverage"] = [L for L in c["leverage"] if L is not lev]; heat(-25); msg = f"One call to {lev['who']} and the badge suddenly had somewhere else to be."
+            else: heat(20); msg = "You've got nobody in your pocket to call — he left unhappy and the heat climbed."
+    elif key == "underage":
+        if choice == 0: cash(-random.randint(1_000, 3_000)); heat(4); msg = "Walked her out a side door and slipped the regular a few bills. Contained."
+        else: heat(25); rep(-5); msg = "You called his bluff. He wasn't bluffing — that's a serious problem now."
+    elif key == "marshal":
+        if choice == 0: b = random.randint(3_000, 7_000); cash(-b); msg = f"${b:,} in his back pocket and the count came out fine."
+        else: rep(-2); heat(-6); msg = "You cleared the floor and ate the lost night. Safe, at least."
+    elif key == "whale":
+        if choice == 0:
+            if secr >= 3: cash(amt); rep(2); msg = f"Your bouncer had a quiet word. He paid the ${amt:,} — with a tip."
+            else: cash(amt // 2); heat(12); msg = f"It turned into a shoving match. You got half (${amt//2:,}) and some heat."
+        else: rep(3); msg = "You comped the tab with a smile. He left a loyal big spender."
+    elif key == "poach":
+        if choice == 0:
+            if dancer: dancer["wage"] = dancer.get("wage", 200) + 60; dancer["loyalty"] = min(100, dancer.get("loyalty", 60) + 20)
+            msg = f"You matched the offer. {nm} is staying — for now."
+        elif choice == 1:
+            if secr >= 4: rep(4); msg = f"Your muscle walked the rival's guy out. {nm} stayed and the street noticed."
+            else:
+                if dancer: c["dancers"] = [x for x in c["dancers"] if x["id"] != did]
+                heat(8); msg = f"Without the muscle to back it up, {nm} took the better offer and walked."
+        else:
+            if dancer: c["dancers"] = [x for x in c["dancers"] if x["id"] != did]
+            msg = f"You let {nm} go. No hard feelings."
+    elif key == "barcaught":
+        if choice == 0: cash(-random.randint(1_500, 3_500)); rep(-2); msg = "You comped the table and apologized. Damage controlled."
+        else: rep(-10); msg = "You brushed him off. Word gets around — the club's name took a hit."
+    elif key == "celeb":
+        if choice == 0: cash(-random.randint(1_000, 3_000)); rep(12); msg = "You comped the VIP and let them put on a show. The exposure's worth a fortune."
+        else: cash(random.randint(4_000, 8_000)); msg = "You charged full freight. Good money — but they won't be back."
+    elif key == "bachelor":
+        if choice == 0: cash(random.randint(7_000, 13_000)); rep(-3); msg = "You went all-in on the party. Huge night — the stage suffered for it."
+        else: cash(random.randint(3_000, 6_000)); rep(1); msg = "Solid, steady service. Everyone left happy."
+    elif key == "talent":
+        if choice == 0:
+            if s.get("cash", 0) >= amt and len(c.get("dancers", [])) < DARK_CLUB_DANCER_CAP:
+                cash(-amt); nd = _dark_club_dancer(c, draw=random.randint(4, 5)); nd["assign"] = "stage"
+                c["dancers"].append(nd); msg = f"You paid the bonus. {nd['name']} (⭐{nd['draw']}) starts tonight on the main stage."
+            elif len(c.get("dancers", [])) >= DARK_CLUB_DANCER_CAP: msg = "No room on the roster — you had to pass."
+            else: msg = f"You couldn't cover the ${amt:,} bonus. She moved on."
+        else: msg = "You passed. She'll find a stage somewhere."
+    elif key == "briefcase":
+        if choice == 0: cash(amt); heat(15); msg = f"You kept the ${amt:,}. Could've been a setup — the heat says someone's watching."
+        else: rep(6); msg = "You returned it to the right people. That kind of goodwill is worth more than cash."
+    elif key == "viral":
+        if choice == 0: rep(12); heat(10); msg = f"You leaned into {nm}'s viral moment. Packed house — and a lot more eyes on the place."
+        else: rep(3); msg = "You kept it low-key. A nice little bump, no drama."
+    elif key == "raise":
+        if choice == 0:
+            if dancer: dancer["wage"] = dancer.get("wage", 200) + 50; dancer["loyalty"] = min(100, dancer.get("loyalty", 60) + 15)
+            msg = f"You gave {nm} the raise. She's loyal and lit up about it."
+        elif choice == 1:
+            if dancer: dancer["loyalty"] = max(0, dancer.get("loyalty", 60) + random.choice([-5, 5]))
+            msg = f"You talked {nm} down. We'll see if it holds."
+        else:
+            if dancer: dancer["loyalty"] = max(0, dancer.get("loyalty", 60) - 20)
+            msg = f"You refused flat-out. {nm} is not happy."
+    elif key == "burnout":
+        if choice == 0:
+            if dancer: dancer["loyalty"] = min(100, dancer.get("loyalty", 60) + 14)
+            msg = f"You gave {nm} a night and made her feel valued. She won't forget it."
+        else:
+            if dancer: dancer["loyalty"] = max(0, dancer.get("loyalty", 60) - 18)
+            rep(-2); msg = f"You told {nm} to suck it up. The set was flat and she resents it."
+    elif key == "milestone":
+        if not dancer:
+            msg = "She'd already moved on."
+        elif choice == 0:                       # sendoff — she leaves on top
+            c["dancers"] = [x for x in c.get("dancers", []) if x["id"] != did]
+            rep(10); msg = f"You threw {nm} a proper sendoff and let her go out on top. The whole club loved it. (+rep)"
+        elif choice == 1:                       # promote to House Mom
+            dancer["manager"] = True; dancer["assign"] = "manager"; dancer["loyalty"] = 100
+            dancer["goal_prog"] = 0
+            msg = f"{nm} hung up her heels to run the floor as your House Mom — she lifts the whole room now."
+        else:                                   # re-sign with a raise + a fresh goal
+            dancer["loyalty"] = min(100, dancer.get("loyalty", 60) + 25)
+            dancer["wage"] = dancer.get("wage", 200) + 40
+            dancer["goal"] = random.choice(DARK_CLUB_GOALS); dancer["goal_prog"] = 0
+            if dancer.get("draw", 1) < 7: dancer["draw"] += 1
+            msg = f"You re-signed {nm} with a raise. New goal, bigger draw — she's not going anywhere."
+    elif key == "trouble":
+        if choice == 0:
+            cash(-amt)
+            if dancer: dancer["loyalty"] = min(100, dancer.get("loyalty", 60) + 25)
+            msg = f"You helped {nm} out of the ${amt:,} jam. She's loyal to you for life now."
+        else:
+            if dancer: dancer["loyalty"] = max(0, dancer.get("loyalty", 60) - 15)
+            msg = f"You stayed out of it. {nm} understands — but she remembers, too."
+    c["event"] = None
+    return msg
+
+# ── VIP room minigame: read the patron, loosen their tongue, extract Hunt intel. ──
+def _dark_vip_start(c):
+    weights = ["beat", "beat", "vice", "vice", "da", "snitch", "undercover"]
+    t = random.choice(weights)
+    c["vip_patron"] = False
+    c["vip_game"] = {"type": t, "comfort": 15, "susp": DARK_VIP_TYPES[t]["susp"], "intel": 0,
+                     "round": 0, "revealed": False, "done": False}
 
 # Criminal traits — each recruit has exactly ONE. "knows" traits gate which drug a crew
 # can cook (a crew needs a member who knows the target drug). The rest are skill/personality
@@ -5215,16 +5857,18 @@ def _dark_stash_add(d, drug, units):
     st = d.setdefault("stash", {})
     st[drug] = st.get(drug, 0) + units
 
-DARK_DEALER_CAP = 8   # units a dealer moves per day
-DARK_BIZ_PRICE  = {"laundromat": 250_000, "car_wash": 600_000, "strip_club": 600_000, "pizzeria": 200_000}
+DARK_DEALER_CAP = 12   # units a dealer moves per day (see _dark_dealer_cap for cred scaling)
+DARK_BIZ_PRICE  = {"laundromat": 50_000, "car_wash": 300_000, "strip_club": 200_000, "pizzeria": 130_000}
 DARK_CASINO_COST = 75_000   # convert a carried-over arcade into a casino
 
 # Laundering fronts — wash dirty money into clean. cap = dirty $/day cleaned per rate level;
 # hire = one-time dirty-manager fee; wage = daily upkeep while washing; heat_rate scales business heat.
+# A clean ladder: cheaper fronts wash less and run hotter; the premium front washes the
+# most and is the safest per push. (cap = dirty $/day per rate level; rate is 0-3.)
 DARK_LAUNDER = {
-    "laundromat": {"name": "Laundromat",            "icon": "🧼", "cap": 1500, "hire": 5_000,  "wage": 250, "heat_rate": 7},
-    "car_wash":   {"name": "Car Wash",              "icon": "🚗", "cap": 3000, "hire": 8_000,  "wage": 450, "heat_rate": 8},
-    "pizzeria":   {"name": "Famiglia's Pizzeria",   "icon": "🍕", "cap": 6000, "hire": 12_000, "wage": 800, "heat_rate": 9},
+    "laundromat": {"name": "Laundromat",            "icon": "🧼", "cap": 2000, "hire": 4_000,  "wage": 200, "heat_rate": 9},
+    "pizzeria":   {"name": "Famiglia's Pizzeria",   "icon": "🍕", "cap": 4500, "hire": 8_000,  "wage": 500, "heat_rate": 7},
+    "car_wash":   {"name": "Car Wash",              "icon": "🚗", "cap": 8000, "hire": 12_000, "wage": 850, "heat_rate": 5},
 }
 DARK_VENDING_PAYOUT = 80_000   # cousin Vinny buys the vending business
 
@@ -5248,13 +5892,13 @@ DARK_EVENTS = [
      "text": "One of your dealers got jumped on his corner. He wants to know if you'll cover what they took.",
      "choices": [{"label": "Make him whole", "result": "He's grateful. Loyalty bought cheap.", "effects": {"cash": -2500}},
                  {"label": "\"That's the job\"", "result": "He eats the loss — and the grudge.", "effects": {"heat": 4}, "special": "dealer_lose_held"}]},
-    {"key": "bulk_buyer", "icon": "🤝", "req": "always",
+    {"key": "bulk_buyer", "icon": "🤝", "req": "lab",
      "text": "A club promoter wants a bulk order — cash up front, no questions.",
      "choices": [{"label": "Make the deal", "result": "Easiest money you've made all week.", "effects": {"dirty_money": 4000}},
                  {"label": "Smells like a setup — pass", "result": "Maybe paranoid. Maybe alive.", "effects": {"heat": -3}}]},
     {"key": "wall_cash", "icon": "💵", "req": "always",
-     "text": "Tearing out a wall, your crew found a roll of cash a previous tenant stashed.",
-     "choices": [{"label": "Pocket it", "result": "Finders keepers.", "effects": {"cash": 1800}}]},
+     "text": "Renovating one of your places, you found a roll of cash a previous tenant stashed in the wall.",
+     "choices": [{"label": "Pocket it", "result": "Finders keepers — straight into your pocket.", "effects": {"cash": 1800}}]},
     {"key": "junkie", "icon": "💉", "req": "crew",
      "text": "One of your guys 'quality tested' a little too much of the product. Again.",
      "choices": [{"label": "Dock his cut", "result": "He grumbles, but gets the message.", "effects": {"cash": 300}},
@@ -5274,7 +5918,7 @@ DARK_EVENTS = [
      "text": "A rival crew is muscling onto one of your corners.",
      "choices": [{"label": "Push back hard", "result": "You hold the block — loudly.", "effects": {"heat": 8, "cash": 1200}},
                  {"label": "Give them the corner", "result": "Not worth the bodies. This time.", "effects": {"dirty_money": -1500}}]},
-    {"key": "cartel_tip", "icon": "📦", "req": "always",
+    {"key": "cartel_tip", "icon": "📦", "req": "lab",
      "text": "Your supplier slips you a tip: a pallet of supplies 'fell off a truck.' Cheap.",
      "choices": [{"label": "Buy the load", "result": "Free supplies hit your stash.", "effects": {"cash": -1500}, "special": "free_supplies"},
                  {"label": "Pass", "result": "Too good to be true, usually is.", "effects": {}}]},
@@ -5581,6 +6225,9 @@ def api_dark_buy_business():
     if biz.get(key): return jsonify({"error": "You already run that."}), 400
     if s["cash"] < price: return jsonify({"error": f"Need ${price:,}."}), 400
     s["cash"] -= price; biz[key] = True
+    if key == "strip_club" and not d.get("club"): _dark_club_init(d)
+    if key in DARK_LAUNDER and not d.get("debt_active"):   # first laundering front → the Fixer calls in his marker
+        _dark_activate_debt(s)
     save(s)
     return jsonify({"ok": True})
 
@@ -5682,6 +6329,7 @@ def api_dark_fixer_wash():
     s = load()
     if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
     d = s["dark"]; today = s.get("day")
+    if d.get("debt_active"): return jsonify({"error": "The Fixer's done washing for you — you've got your own front now (and a marker to pay)."}), 400
     if d.get("fixer_washed_day") != today: d["fixer_washed_day"] = today; d["fixer_washed"] = 0
     remaining = max(0, DARK_FIXER_WASH_CAP - d.get("fixer_washed", 0))
     amount = min(d.get("dirty_money", 0), remaining)
@@ -5852,8 +6500,100 @@ def api_dark_build_vip():
     if d.get("vip"): return jsonify({"error": "The VIP lounge is already open."}), 400
     if s["cash"] < DARK_VIP_COST: return jsonify({"error": f"Need ${DARK_VIP_COST:,} to build the VIP lounge."}), 400
     s["cash"] -= DARK_VIP_COST; d["vip"] = True
+    if not d.get("club"): _dark_club_init(d)
     save(s)
     return jsonify({"ok": True})
+
+@app.route('/api/dark/club_hire', methods=['POST'])
+def api_dark_club_hire():
+    s, c, err = _club_or_err()
+    if err: return err
+    if c.get("event"): return _club_frozen(c)
+    key = (request.json or {}).get("key")
+    if key not in DARK_DANCERS: return jsonify({"error": "No such dancer."}), 400
+    if key in c.get("roster_keys", []): return jsonify({"error": "She's already part of the story."}), 400
+    cost = DARK_DANCERS[key]["cost"]
+    if s["cash"] < cost: return jsonify({"error": f"Need ${cost:,} to bring her on."}), 400
+    s["cash"] -= cost
+    c.setdefault("roster_keys", []).append(key)
+    c["dancers"].append(_dark_make_dancer(c, key)); _dark_club_refresh(c)
+    save(s)
+    return jsonify({"ok": True, "msg": f"{DARK_DANCERS[key]['name']} starts tonight. 💃"})
+
+@app.route('/api/dark/club_fire', methods=['POST'])
+def api_dark_club_fire():
+    # The cast is fixed — you don't fire your girls; their stories play out instead.
+    return jsonify({"error": "These six are family — you don't fire them. Their stories play out on their own."}), 400
+
+@app.route('/api/dark/dancer_story', methods=['POST'])
+def api_dark_dancer_story():
+    s, c, err = _club_or_err()
+    if err: return err
+    j = request.json or {}
+    x = next((dd for dd in c.get("dancers", []) if dd["id"] == j.get("id")), None)
+    if not x or not x.get("event"): return jsonify({"error": "Nothing to handle for her right now."}), 400
+    msg = _dark_story_resolve(s, c, x, int(j.get("choice", 0)))
+    save(s)
+    return jsonify({"ok": True, "msg": msg})
+
+@app.route('/api/dark/club_security', methods=['POST'])
+def api_dark_club_security():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    c = s["dark"].get("club")
+    if not c: return jsonify({"error": "You don't run a club."}), 400
+    lvl = c.get("security", 0)
+    if lvl >= len(DARK_CLUB_SECURITY_COST): return jsonify({"error": "Security's maxed out."}), 400
+    cost = DARK_CLUB_SECURITY_COST[lvl]
+    if s["cash"] < cost: return jsonify({"error": f"Need ${cost:,} to beef up security."}), 400
+    s["cash"] -= cost; c["security"] = lvl + 1
+    save(s)
+    return jsonify({"ok": True, "level": c["security"]})
+
+@app.route('/api/dark/club_lounge', methods=['POST'])
+def api_dark_club_lounge():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; c = d.get("club")
+    if not c or not c.get("lounge_offer"): return jsonify({"error": "Nobody worth working in the lounge right now."}), 400
+    offer = c["lounge_offer"]; choice = (request.json or {}).get("choice")
+    msg = ""
+    if choice == "listen":
+        if d.get("watch") and not d.get("watch_known"):
+            d["watch_known"] = True
+            msg = f"Lounge chatter paid off — Marsh is {_dark_watch_label(d['watch'])}. Pause that operation."
+        else:
+            c["rep"] = min(100, c.get("rep", 0) + 6)
+            msg = "No case talk tonight — but you worked the room. The club's name is the better for it."
+    elif choice == "compromise":
+        cost = DARK_CLUB_COMPROMISE.get(offer["kind"], 10_000)
+        if s["cash"] < cost: return jsonify({"error": f"Need ${cost:,} to set the trap (drinks, a room, a camera)."}), 400
+        s["cash"] -= cost
+        kind = "bent_cop" if offer["kind"] == "cop" else "da"
+        c.setdefault("leverage", []).append({"kind": kind, "who": offer["who"]})
+        msg = f"You've got {offer['who']} in your pocket now."
+    else:
+        msg = "You let them drink in peace. For now."
+    c["lounge_offer"] = None
+    save(s)
+    return jsonify({"ok": True, "msg": msg})
+
+@app.route('/api/dark/club_leverage', methods=['POST'])
+def api_dark_club_leverage():
+    s = load()
+    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
+    d = s["dark"]; c = d.get("club")
+    if not c: return jsonify({"error": "You don't run a club."}), 400
+    lev = next((L for L in c.get("leverage", []) if L.get("kind") == "da"), None)
+    if not lev: return jsonify({"error": "You've got no DA or judge in your pocket to make a call."}), 400
+    who = lev["who"]; Who = who[:1].upper() + who[1:]
+    if d.get("raid_in") is not None:
+        d["raid_in"] = None; msg = f"{Who} made the raid disappear. {DARK_DETECTIVE} is fuming."
+    else:
+        d["heat"] = max(0, d.get("heat", 0) - 30); msg = f"{Who} buried some paperwork — the case cooled hard."
+    c["leverage"] = [L for L in c["leverage"] if L is not lev]   # one-time use
+    save(s)
+    return jsonify({"ok": True, "msg": msg})
 
 @app.route('/api/dark/work_vip', methods=['POST'])
 def api_dark_work_vip():
@@ -5868,6 +6608,250 @@ def api_dark_work_vip():
         save(s); return jsonify({"ok": True, "msg": f"You worked the VIP room — Marsh is {_dark_watch_label(d['watch'])}. Pause it."})
     d["heat"] = max(0, d.get("heat", 0) - 8)
     save(s); return jsonify({"ok": True, "msg": "You greased a badge in the lounge — the case cooled a little."})
+
+# ── Strip-club operations: upgrades, staff, the bar, incidents, and the VIP minigame ──
+def _club_or_err():
+    s = load()
+    if s.get("mode") != "dark": return None, None, (jsonify({"error": "Not on the dark side."}), 400)
+    c = s["dark"].get("club")
+    if not c: return None, None, (jsonify({"error": "You don't run a club."}), 400)
+    _dark_club_migrate(c)
+    return s, c, None
+
+def _club_frozen(c):
+    return jsonify({"error": "There's a situation at the club — handle it first."}), 400
+
+@app.route('/api/dark/club_upgrade', methods=['POST'])
+def api_dark_club_upgrade():
+    s, c, err = _club_or_err()
+    if err: return err
+    if c.get("event"): return _club_frozen(c)
+    key = (request.json or {}).get("key"); meta = DARK_CLUB_UPGRADES.get(key)
+    if not meta: return jsonify({"error": "No such upgrade."}), 400
+    cur = c["upgrades"].get(key, 0)
+    if cur >= len(meta["tiers"]): return jsonify({"error": "That's already maxed out."}), 400
+    label, cost = meta["tiers"][cur]
+    if s["cash"] < cost: return jsonify({"error": f"Need ${cost:,} for that."}), 400
+    s["cash"] -= cost; c["upgrades"][key] = cur + 1
+    if key == "vip": s["dark"]["vip"] = True       # keep the Hunt-tab quick-action in sync
+    save(s); return jsonify({"ok": True, "msg": f"{meta['icon']} {label} — done."})
+
+@app.route('/api/dark/dancer_assign', methods=['POST'])
+def api_dark_dancer_assign():
+    s, c, err = _club_or_err()
+    if err: return err
+    if c.get("event"): return _club_frozen(c)
+    j = request.json or {}; did = j.get("id"); slot = j.get("slot")
+    if slot not in ("stage", "floor", "vip", "off"): return jsonify({"error": "Bad slot."}), 400
+    if slot == "vip" and c["upgrades"].get("vip", 0) <= 0: return jsonify({"error": "Build the VIP room first."}), 400
+    x = next((d for d in c.get("dancers", []) if d["id"] == did), None)
+    if not x: return jsonify({"error": "No such dancer."}), 400
+    x["assign"] = slot
+    save(s); return jsonify({"ok": True})
+
+@app.route('/api/dark/club_door', methods=['POST'])
+def api_dark_club_door():
+    s, c, err = _club_or_err()
+    if err: return err
+    pol = (request.json or {}).get("policy")
+    if pol not in ("strict", "balanced", "loose"): return jsonify({"error": "Bad policy."}), 400
+    c["door"] = pol
+    save(s); return jsonify({"ok": True})
+
+@app.route('/api/dark/bouncer_hire', methods=['POST'])
+def api_dark_bouncer_hire():
+    s, c, err = _club_or_err()
+    if err: return err
+    if c.get("event"): return _club_frozen(c)
+    if len(c.get("bouncers", [])) >= DARK_CLUB_BOUNCER_CAP: return jsonify({"error": "Your security team's full."}), 400
+    bid = (request.json or {}).get("id")
+    b = next((x for x in c.get("bouncer_recruits", []) if x["id"] == bid), None)
+    if not b: return jsonify({"error": "He's already taken another job."}), 400
+    cost = b["muscle"] * 7_000 + b["eye"] * 4_000
+    if s["cash"] < cost: return jsonify({"error": f"Need ${cost:,} to bring him on."}), 400
+    s["cash"] -= cost
+    c["bouncer_recruits"] = [x for x in c["bouncer_recruits"] if x["id"] != bid]
+    b["assign"] = "door"; c["bouncers"].append(b); _dark_club_refresh(c)
+    save(s); return jsonify({"ok": True})
+
+@app.route('/api/dark/bouncer_fire', methods=['POST'])
+def api_dark_bouncer_fire():
+    s, c, err = _club_or_err()
+    if err: return err
+    bid = (request.json or {}).get("id")
+    c["bouncers"] = [x for x in c.get("bouncers", []) if x["id"] != bid]
+    save(s); return jsonify({"ok": True})
+
+@app.route('/api/dark/bouncer_assign', methods=['POST'])
+def api_dark_bouncer_assign():
+    s, c, err = _club_or_err()
+    if err: return err
+    j = request.json or {}; bid = j.get("id"); slot = j.get("slot")
+    if slot not in ("door", "floor", "vip", "off"): return jsonify({"error": "Bad slot."}), 400
+    b = next((x for x in c.get("bouncers", []) if x["id"] == bid), None)
+    if not b: return jsonify({"error": "No such bouncer."}), 400
+    b["assign"] = slot
+    save(s); return jsonify({"ok": True})
+
+@app.route('/api/dark/bouncer_train', methods=['POST'])
+def api_dark_bouncer_train():
+    s, c, err = _club_or_err()
+    if err: return err
+    if c.get("event"): return _club_frozen(c)
+    j = request.json or {}; bid = j.get("id"); stat = j.get("stat")
+    if stat not in ("muscle", "eye"): return jsonify({"error": "Train what?"}), 400
+    b = next((x for x in c.get("bouncers", []) if x["id"] == bid), None)
+    if not b: return jsonify({"error": "No such bouncer."}), 400
+    if b.get(stat, 1) >= 5: return jsonify({"error": "He's maxed there."}), 400
+    cost = b.get("level", 1) * 12_000
+    if s["cash"] < cost: return jsonify({"error": f"Need ${cost:,} to train him up."}), 400
+    s["cash"] -= cost; b[stat] = b.get(stat, 1) + 1; b["level"] = b.get("level", 1) + 1; b["wage"] = b.get("wage", 150) + 30
+    save(s); return jsonify({"ok": True, "msg": f"{b['name']} put in the work — {stat} up."})
+
+@app.route('/api/dark/bar_set', methods=['POST'])
+def api_dark_bar_set():
+    s, c, err = _club_or_err()
+    if err: return err
+    pr = (request.json or {}).get("price")
+    if pr not in DARK_BAR_PRICE: return jsonify({"error": "Bad price."}), 400
+    if c["upgrades"].get("bar", 0) <= 0: return jsonify({"error": "Build the bar first."}), 400
+    c["bar"]["price"] = pr
+    save(s); return jsonify({"ok": True})
+
+@app.route('/api/dark/bar_hire', methods=['POST'])
+def api_dark_bar_hire():
+    s, c, err = _club_or_err()
+    if err: return err
+    if c.get("event"): return _club_frozen(c)
+    if c["upgrades"].get("bar", 0) <= 0: return jsonify({"error": "Build the bar first."}), 400
+    if c["bar"].get("bartender"): return jsonify({"error": "You've already got a bartender."}), 400
+    if s["cash"] < 12_000: return jsonify({"error": "Need $12,000 to hire a bartender."}), 400
+    s["cash"] -= 12_000
+    c["bar"]["bartender"] = {"name": random.choice(DARK_BARTENDER_NAMES), "upsell": random.randint(2, 4)}
+    save(s); return jsonify({"ok": True, "msg": "Hired a bartender — drink sales just got a lift."})
+
+@app.route('/api/dark/bar_fire', methods=['POST'])
+def api_dark_bar_fire():
+    s, c, err = _club_or_err()
+    if err: return err
+    c["bar"]["bartender"] = None
+    save(s); return jsonify({"ok": True})
+
+@app.route('/api/dark/bar_signature', methods=['POST'])
+def api_dark_bar_signature():
+    s, c, err = _club_or_err()
+    if err: return err
+    if c["upgrades"].get("bar", 0) <= 0: return jsonify({"error": "Build the bar first."}), 400
+    name = (str((request.json or {}).get("name") or "")).strip()[:28]
+    if not name: return jsonify({"error": "Give the drink a name."}), 400
+    first = not c["bar"].get("signature")
+    c["bar"]["signature"] = name
+    if first: c["rep"] = min(100, c.get("rep", 0) + 5)
+    save(s); return jsonify({"ok": True, "msg": f'"{name}" is on the menu.' + (" The room's buzzing." if first else "")})
+
+@app.route('/api/dark/club_event', methods=['POST'])
+def api_dark_club_event():
+    s, c, err = _club_or_err()
+    if err: return err
+    if not c.get("event"): return jsonify({"error": "Nothing to handle right now."}), 400
+    choice = (request.json or {}).get("choice", 0)
+    msg = _dark_club_resolve_event(s, c, int(choice))
+    save(s); return jsonify({"ok": True, "msg": msg})
+
+@app.route('/api/dark/vip_start', methods=['POST'])
+def api_dark_vip_start():
+    s, c, err = _club_or_err()
+    if err: return err
+    if c.get("event"): return _club_frozen(c)
+    if c["upgrades"].get("vip", 0) <= 0: return jsonify({"error": "Build the VIP room first."}), 400
+    if not c.get("vip_patron"): return jsonify({"error": "Nobody worth working in the VIP room right now."}), 400
+    if c.get("vip_game"): return jsonify({"error": "You're already in there with someone."}), 400
+    _dark_vip_start(c)
+    save(s); return jsonify({"ok": True})
+
+@app.route('/api/dark/vip_action', methods=['POST'])
+def api_dark_vip_action():
+    s, c, err = _club_or_err()
+    if err: return err
+    g = c.get("vip_game")
+    if not g: return jsonify({"error": "There's nobody in the VIP room."}), 400
+    j = request.json or {}; action = j.get("action")
+    d = s["dark"]; t = g["type"]; meta = DARK_VIP_TYPES[t]
+    if action == "close":
+        c["vip_game"] = None; save(s); return jsonify({"ok": True})
+    if g.get("done"): return jsonify({"ok": True, "game": g})
+    if action == "leave":
+        c["vip_game"] = None
+        save(s); return jsonify({"ok": True, "left": True, "msg": "You read the room and stepped back out. Sometimes that's the smart play."})
+    if action == "dancer":
+        x = next((dd for dd in c.get("dancers", []) if dd["id"] == j.get("id")), None)
+        if not x: return jsonify({"error": "Send which girl?"}), 400
+        ch = x.get("charm", 2)
+        g["comfort"] = min(100, g["comfort"] + ch * 9)
+        g["susp"] = max(0, g["susp"] - ch * 2)
+        if t == "undercover": g["susp"] += 4          # he keeps probing no matter how charming she is
+        g["round"] += 1
+    elif action == "bottle":
+        if s["cash"] < 1_500: return jsonify({"error": "Need $1,500 for a bottle."}), 400
+        s["cash"] -= 1_500
+        g["comfort"] = min(100, g["comfort"] + 22); g["susp"] = max(0, g["susp"] - 4); g["round"] += 1
+    elif action == "steer":
+        topic = j.get("topic")
+        if topic not in DARK_VIP_TOPICS: return jsonify({"error": "Steer toward what?"}), 400
+        if DARK_VIP_TOPICS[topic] == t:
+            g["intel"] = min(100, g["intel"] + round(35 * g["comfort"] / 100.0) + 10); g["susp"] += meta["susp"]
+        else:
+            g["susp"] += 18; g["intel"] = min(100, g["intel"] + 2)
+        g["round"] += 1
+    else:
+        return jsonify({"error": "Bad action."}), 400
+    if g["comfort"] >= 40: g["revealed"] = True       # enough rapport to clock his tell
+    # ── Resolve outcome. ──
+    outcome = None
+    if g["susp"] >= 100:
+        g["done"] = True; g["win"] = False
+        if t == "undercover":
+            d["heat"] = min(100, d.get("heat", 0) + 25)
+            if d.get("raid_in") is None and d.get("cred", 1) >= 2: d["raid_in"] = DARK_RAID_DAYS
+            outcome = "🚨 He was undercover — and you tipped your hand. He made a call on the way out. Heat's spiking."
+        else:
+            d["heat"] = min(100, d.get("heat", 0) + 12)
+            outcome = "He clammed up and left rattled. Whatever he knew, it's locked up tight now — and the room's hotter for it."
+    elif g["intel"] >= 100:
+        g["done"] = True; g["win"] = True
+        rw = meta["reward"]
+        if rw == "trap":
+            d["heat"] = min(100, d.get("heat", 0) + 20)
+            outcome = "🎣 You pushed him for everything — and walked right into it. That was no regular. The heat just jumped."
+        elif rw == "watch":
+            if d.get("watch") and not d.get("watch_known"):
+                d["watch_known"] = True
+                outcome = f"🔎 You got it out of him: Marsh is {_dark_watch_label(d['watch'])}. Pause that operation."
+            else:
+                d["heat"] = max(0, d.get("heat", 0) - 12)
+                outcome = "🔎 He let slip the detective's got nothing solid on you right now. Breathing room — the case cooled."
+        elif rw == "leverage_da":
+            c.setdefault("leverage", []).append({"kind": "da", "who": meta["name"]})
+            outcome = f"⚖️ {meta['name'].capitalize()} said too much over too many drinks. You've got leverage on him now."
+        elif rw == "sell":
+            pay = random.randint(2_000, 5_000)
+            if random.random() < 0.25:
+                d["heat"] = min(100, d.get("heat", 0) + 10)
+                outcome = f"🐀 He took your ${pay:,} and fed you a line — that intel was garbage, and now he knows your face."
+                s["cash"] = max(0, s.get("cash", 0) - pay)
+            else:
+                s["cash"] = max(0, s.get("cash", 0) - pay)
+                if d.get("watch") and not d.get("watch_known"): d["watch_known"] = True
+                d["heat"] = max(0, d.get("heat", 0) - 8)
+                outcome = f"🐀 ${pay:,} loosened his tongue. Good intel — the case cooled and you know where Marsh is looking."
+        else:  # beat cop
+            d["heat"] = max(0, d.get("heat", 0) - 10)
+            outcome = "🍺 Just street gossip, but a friendly badge is worth having. The heat ticked down."
+    elif g["round"] >= 6:
+        g["done"] = True; g["win"] = False
+        outcome = "Last call — he's done talking for the night. You didn't get what you came for."
+    if g.get("done"): g["outcome"] = outcome
+    save(s); return jsonify({"ok": True, "game": g})
 
 @app.route('/api/dark/collect_dealer', methods=['POST'])
 def api_dark_collect_dealer():
@@ -6030,7 +7014,8 @@ def api_dark_advance():
                     _dark_do_raid(s, events)
                 else:
                     events.append({"type": "warning", "text": f"🚨 Raid in {d['raid_in']} day{'s' if d['raid_in'] != 1 else ''} — {DARK_DETECTIVE} is closing in."})
-    _dark_hunt_watch(s, events)   # strip-club income always; Marsh's tailing only once the Hunt's live
+    _dark_club_tick(s, events)    # strip-club income, reputation, heat, VIP lounge
+    _dark_hunt_watch(s, events)   # Marsh's tailing (only once the Hunt's live)
     s["day"] += 1
     # Put-the-word-out refresh lands the next day with a fresh ~10 recruits.
     if d.get("recruits_refresh_day") and s["day"] >= d["recruits_refresh_day"]:
@@ -6096,7 +7081,7 @@ def api_dark_resolve_entity_event():
     elif kind == "front":
         ent = (d.get("launder") or {}).get(ref)
     if not ent or not ent.get("event"): return jsonify({"error": "Nothing to handle."}), 400
-    choices = ent["event"].get("choices", [])
+    choices = ent["event"].get("choices", []); icon = ent["event"].get("icon", "❗")
     if not isinstance(idx, int) or idx < 0 or idx >= len(choices): return jsonify({"error": "Pick an option."}), 400
     label, result, eff = choices[idx][0], choices[idx][1], (choices[idx][2] or {})
     s["cash"] = max(0, s["cash"] + eff.get("cash", 0))
@@ -6104,27 +7089,30 @@ def api_dark_resolve_entity_event():
     d["heat"] = max(0, min(100, d.get("heat", 0) + eff.get("heat", 0)))
     if "eheat" in eff:
         ent["heat"] = max(0, min(100, ent.get("heat", 0) + eff["eheat"]))
-    sp = eff.get("s"); removed = False
+    sp = eff.get("s"); removed = False; note = ""
     if sp == "lose_crew" and kind == "lab":
         crew = _dark_crew_by_id(d, ent.get("crew_id")); members = _dark_crew_members(d, crew) if crew else []
         if members:
             gone = random.choice(members); d["roster"] = [m for m in d.get("roster", []) if m["id"] != gone["id"]]
+            note = f"{gone.get('name', 'A crew member')} is gone."
     elif sp == "lose_product" and kind == "lab":
-        ent["product"] = ent.get("product", 0) // 2
+        before = ent.get("product", 0); ent["product"] = before // 2; note = f"Lost {before - ent['product']} units of product."
     elif sp == "bonus_product" and kind == "lab":
-        ent["product"] = ent.get("product", 0) + 15
+        ent["product"] = ent.get("product", 0) + 15; note = "Gained 15 units of product."
     elif sp == "lose_held" and kind == "dealer":
-        ent["held"] = 0
+        ent["held"] = 0; note = "The dealer's cash is gone."
     elif sp == "free_supplies":
         pool = [k for k, dm in DARK_DRUGS.items() if dm["cred_req"] <= d.get("cred", 1)]
         if pool:
             k = random.choice(pool); d.setdefault("supplies", {})[k] = d.get("supplies", {}).get(k, 0) + 1
+            note = f"Free {DARK_DRUGS[k]['name']} supplies added."
     elif sp == "bust" and kind == "dealer":
-        d["dealers"] = [x for x in d.get("dealers", []) if x["id"] != ref]; removed = True
+        d["dealers"] = [x for x in d.get("dealers", []) if x["id"] != ref]; removed = True; note = "The dealer got busted — he's gone."
     if not removed:
         ent["event"] = None
     save(s)
-    return jsonify({"ok": True, "result": result})
+    return jsonify({"ok": True, "result": result, "icon": icon, "note": note,
+                    "delta": {"cash": eff.get("cash", 0), "dirty": eff.get("dirty", 0), "heat": eff.get("heat", 0)}})
 
 @app.route('/api/dark/resolve_event', methods=['POST'])
 def api_dark_resolve_event():
@@ -6135,26 +7123,29 @@ def api_dark_resolve_event():
     idx = (request.json or {}).get("choice", 0)
     choices = ev.get("choices", [])
     if not isinstance(idx, int) or idx < 0 or idx >= len(choices): return jsonify({"error": "Pick an option."}), 400
-    ch = choices[idx]; eff = ch.get("effects", {})
+    ch = choices[idx]; eff = ch.get("effects", {}); icon = ev.get("icon", "❗")
     s["cash"] = max(0, s["cash"] + eff.get("cash", 0))
     d["dirty_money"] = max(0, d.get("dirty_money", 0) + eff.get("dirty_money", 0))
     d["heat"] = max(0, min(100, d.get("heat", 0) + eff.get("heat", 0)))
-    sp = ch.get("special")
+    sp = ch.get("special"); note = ""
     if sp == "lose_crew_member":
         roster = d.get("roster", [])
         if roster:
             gone = random.choice(roster)
             d["roster"] = [x for x in roster if x["id"] != gone["id"]]
+            note = f"{gone.get('name', 'A crew member')} is gone."
     elif sp == "dealer_lose_held":
         holders = [x for x in d.get("dealers", []) if x.get("held", 0) > 0]
-        if holders: random.choice(holders)["held"] = 0
+        if holders: random.choice(holders)["held"] = 0; note = "A dealer lost the cash he was holding."
     elif sp == "free_supplies":
         pool = [k for k, dm in DARK_DRUGS.items() if dm["cred_req"] <= d.get("cred", 1)]
         if pool:
             k = random.choice(pool); d.setdefault("supplies", {})[k] = d.get("supplies", {}).get(k, 0) + 1
+            note = f"Picked up a free batch of {DARK_DRUGS[k]['name']} supplies."
     d["pending_event"] = None
     save(s)
-    return jsonify({"ok": True, "result": ch.get("result", "")})
+    return jsonify({"ok": True, "result": ch.get("result", ""), "icon": icon, "note": note,
+                    "delta": {"cash": eff.get("cash", 0), "dirty": eff.get("dirty_money", 0), "heat": eff.get("heat", 0)}})
 
 @app.route('/api/market', methods=['GET', 'POST'])
 def api_market():

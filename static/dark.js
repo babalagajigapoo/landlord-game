@@ -50,7 +50,7 @@ const DARK = {
     { key: 'glass',  name: 'Glass',  icon: '🧊', cred: 9  },
     { key: 'tar',    name: 'Tar',    icon: '🛢️', cred: 10 },
   ],
-  DRUG_VALUE: { reggie: 40, beans: 90, soft: 160, hard: 280, glass: 480, tar: 800 },  // street value/unit
+  DRUG_VALUE: { reggie: 110, beans: 220, soft: 370, hard: 590, glass: 910, tar: 1450 },  // street value/unit
   COOK_COST:  { reggie: 150, beans: 325, soft: 675, hard: 1250, glass: 2300, tar: 4300 },  // hand-cook ingredient cost (cash)
   SUPPLIES: {
     reggie: { name: 'Weed Supplies',   icon: '🌱', cost: 1000  },
@@ -61,6 +61,52 @@ const DARK = {
     tar:    { name: 'Tar Supplies',    icon: '🛢️', cost: 22000 },
   },
   BATCH_DAYS: { 1: 5, 2: 3, 3: 2 },
+  // ── Strip-club lookup tables (mirror the backend defs in app.py). ──
+  CLUBSPEC: { stage: 'Stage', floor: 'Floor', vip: 'VIP' },
+  CLUBTITLES: [[1, 'Rookie', '🌱'], [2, 'Regular', '💃'], [4, 'Headliner', '✨'], [6, 'Star', '🌟'], [8, 'Legend', '👑']],
+  // The fixed cast (mirror of DARK_DANCERS in app.py — for the hire cards). Stories themselves come from the backend on the dancer's event.
+  DANCERS_INFO: {
+    roxy:     { name: 'Roxy', draw: 4, quirk: 'denmother', cost: 24000, blurb: "Pushing 40, fifteen years on the pole. Breaks in the new girls and keeps the peace. Saving to buy her own bar." },
+    jade:     { name: 'Jade', draw: 3, quirk: 'student', cost: 18000, blurb: "Twenty-two, pre-law, dancing nights to cover tuition — and terrified of being recognized." },
+    bambi:    { name: 'Brittany “Bambi”', draw: 5, quirk: 'heatmag', cost: 30000, blurb: "Your biggest draw when she's on, a liability when she's not. She's fighting a pill habit." },
+    mercedes: { name: 'Mercedes', draw: 5, quirk: 'showpony', cost: 28000, blurb: "Late twenties, the top earner, always running an angle. Loyal to cash first." },
+    lola:     { name: 'Lola', draw: 3, quirk: null, cost: 18000, blurb: "Sweet and a little reckless, always tangled up with the wrong man." },
+    destiny:  { name: 'Destiny', draw: 3, quirk: 'viral', cost: 16000, blurb: "Twenty, phone always out, wants to be famous more than anything. The chihuahua comes too." },
+  },
+  CLUBQUIRKS: {
+    viral:     { icon: '📱', desc: 'Goes viral — packs the room, but runs hot.' },
+    student:   { icon: '📚', desc: 'Law student — sharp and discreet in the VIP room.' },
+    heatmag:   { icon: '🌶️', desc: 'Trouble follows her — big tips, big attention.' },
+    denmother: { icon: '🧁', desc: 'Den mother — lifts the whole floor\'s mood.' },
+    showpony:  { icon: '🎀', desc: 'Showstopper — owns the main stage.' },
+  },
+  BOUNCERARCH: {
+    excon:  { icon: '⛓️', name: 'Ex-Con' },
+    expat:  { icon: '👮', name: 'Ex-Cop' },
+    gentle: { icon: '🧸', name: 'Gentle Giant' },
+    pro:    { icon: '🕶️', name: 'Pro' },
+  },
+  BARPRICE: {
+    water: 'Watered down — fat margins, but a sharp customer might notice (rep risk).',
+    std:   'Standard pour — honest drinks, honest money.',
+    top:   'Top-shelf — thin margins, but the room loves it (rep up).',
+  },
+  VIPTELL: {
+    beat:       { name: 'an off-duty beat cop', tell: 'keeps glancing at the door like he\'s still on shift.' },
+    vice:       { name: 'a vice detective',     tell: 'nurses one drink and watches the room more than the stage.' },
+    da:         { name: 'an assistant DA',      tell: 'name-drops the courthouse and flashes an expensive watch.' },
+    snitch:     { name: 'a nervous informant',  tell: 'sits with his back to the wall and won\'t give his name.' },
+    undercover: { name: 'a "friendly regular"', tell: 'asks a few too many questions about who owns the place.' },
+  },
+  CLUBUPGRADES: {
+    stage:    { name: 'Main Stage',           icon: '🎤', desc: 'Lifts how much your dancers pull each night.',          tiers: [['LED stage & new poles', 60000], ['Mirrored multi-pole stage', 140000]] },
+    bar:      { name: 'The Bar',              icon: '🍸', desc: 'Opens a drink-sales income stream you tune yourself.',  tiers: [['Build a full bar', 45000], ['Top-shelf cocktail lounge', 120000]] },
+    vip:      { name: 'VIP / Champagne Room', icon: '🥂', desc: 'Read connected patrons for intel on the Hunt.',         tiers: [['Private champagne room', 80000], ['VIP balcony', 180000]] },
+    sound:    { name: 'Sound & Lighting',     icon: '🔊', desc: 'Boosts reputation and kills dead nights.',              tiers: [['Pro rig + resident DJ', 50000]] },
+    security: { name: 'Security Suite',       icon: '📹', desc: 'Backs your bouncers, cools heat, prevents incidents.',  tiers: [['Cameras & an office', 40000], ['Full surveillance', 95000]] },
+    license:  { name: 'Liquor License',       icon: '📜', desc: 'A clean legal face — lowers baseline heat.',            tiers: [['Get it on the books', 55000]] },
+    back:     { name: 'Back Entrance',        icon: '🚪', desc: 'Discreet in-and-out for VIPs — less back-room heat.',    tiers: [['Private parking & door', 35000]] },
+  },
   // Kingpin rank ladder (mirrors DARK_RANKS in app.py).
   RANKS: [
     { level: 1,  name: 'Corner Boy',  xp: 0,    perk: 'Cooking Weed and working corners.' },
@@ -86,9 +132,9 @@ const DARK = {
     return 8 + (cred >= 2 ? 2 : 0) + (cred >= 8 ? 3 : 0);
   },
   LAUNDER: {
-    laundromat: { name: 'Laundromat',          icon: '🧼', cap: 1500, hire: 5000,  wage: 250, price: 250000 },
-    car_wash:   { name: 'Car Wash',            icon: '🚗', cap: 3000, hire: 8000,  wage: 450, price: 600000 },
-    pizzeria:   { name: "Famiglia's Pizzeria", icon: '🍕', cap: 6000, hire: 12000, wage: 800, price: 200000 },
+    laundromat: { name: 'Laundromat',          icon: '🧼', cap: 2000, hire: 4000,  wage: 200, price: 50000 },
+    pizzeria:   { name: "Famiglia's Pizzeria", icon: '🍕', cap: 4500, hire: 8000,  wage: 500, price: 130000 },
+    car_wash:   { name: 'Car Wash',            icon: '🚗', cap: 8000, hire: 12000, wage: 850, price: 300000 },
   },
 
   // ── Enter / exit ──────────────────────────────────────────────────────────
@@ -181,7 +227,7 @@ const DARK = {
   // ── The Level-11 dilemma — the yes/no offer that opens the door to the dark side ──
   maybeOffer() {
     if (!state || state.mode === 'dark') return;
-    if ((state.level ?? 0) < 11) return;                 // the crossroads is Level 11
+    if ((state.level ?? 0) < 11) { this._offeredThisSession = false; return; }   // below the crossroads (new game / reset) → re-arm the offer
     if (this._dilemmaOpen || this._offeredThisSession) return;
     const mo = document.getElementById('modal-overlay');
     if (mo && mo.classList.contains('open')) {           // a modal's up (e.g. the level-up popup) — wait it out, then knock
@@ -202,15 +248,30 @@ const DARK = {
     this._ensureStyle();
     this._dilemmaOpen = true;
     if (typeof sfx === 'object' && sfx.infoOpen) sfx.infoOpen();
+    var maxLvl = (typeof MAX_LEVEL !== 'undefined' ? MAX_LEVEL : 14);
+    var second = (state && (state.level ?? 0) >= maxLvl);   // second offer once you've topped out the legit game
+    var label, text, hint, decline;
+    if (second) {
+      label = 'He came back';
+      text = `You turned him down once. Most people only get the one knock — but here you are, <b>topped out</b>: the biggest the straight world will ever let you be. And still capped. Still answering to someone.<br><br>The man in the sharp suit is in your office again. "Offer stands," he says. "It's the only door left that leads anywhere — the rest of your story's on the other side of it. I won't ask a third time."`;
+      hint = '↪ Going off the books is how the game\'s story continues.';
+      decline = 'Not yet';
+    } else {
+      label = 'A knock at the door';
+      text = `Eleven levels of grind, and the city finally knows your name. So why does it still feel like <i>scraping</i>?<br><br>There's a man waiting in your office you never let in — sharp suit, no appointment. He says he can put you in a different kind of empire. One that doesn't answer to anyone. One <b>off the books</b>.`;
+      hint = '';
+      decline = 'Not tonight';
+    }
     let el = document.getElementById('dk-dilemma'); if (!el) { el = document.createElement('div'); el.id = 'dk-dilemma'; document.body.appendChild(el); }
     el.className = 'dk-evt-overlay'; el.style.zIndex = '9750';
     el.innerHTML = `<div class="dk-descent-card">
       <div class="dk-evt-icon">🕴️</div>
-      <div class="dk-descent-fixer">A knock at the door</div>
-      <div class="dk-descent-text">Eleven levels of grind, and the city finally knows your name. So why does it still feel like <i>scraping</i>?<br><br>There's a man waiting in your office you never let in — sharp suit, no appointment. He says he can put you in a different kind of empire. One that doesn't answer to anyone. One <b>off the books</b>.</div>
+      <div class="dk-descent-fixer">${label}</div>
+      <div class="dk-descent-text">${text}</div>
+      ${hint ? `<div style="font-size:11px;color:#FFC83D;text-align:center;margin:-4px 0 14px;font-weight:700">${hint}</div>` : ''}
       <div class="dk-evt-choices">
         <button class="dk-evt-choice" onclick="DARK.acceptDilemma()">🚬 Hear him out…</button>
-        <button class="dk-evt-choice" style="background:#3a2024" onclick="DARK.declineDilemma()">Not tonight</button>
+        <button class="dk-evt-choice" style="background:#3a2024" onclick="DARK.declineDilemma()">${decline}</button>
       </div>
     </div>`;
     el.style.display = 'flex';
@@ -284,11 +345,20 @@ const DARK = {
   go(tab) {
     this._tab = tab;
     if (typeof sfx === 'object' && sfx.tap) sfx.tap();
+    this._scrollTop = 0;            // a real tab switch starts at the top
     this.rerender();
   },
   rerender() {
     const root = document.getElementById('dark-root');
-    if (root) root.innerHTML = this.render();
+    if (!root) return;
+    // Rebuilding innerHTML wipes the scroll container, so preserve where the
+    // player was (e.g. expanding a club accordion shouldn't jump to the top).
+    const prev = root.querySelector('.dk-content');
+    const top = (this._scrollTop != null) ? this._scrollTop : (prev ? prev.scrollTop : 0);
+    this._scrollTop = null;
+    root.innerHTML = this.render();
+    const next = root.querySelector('.dk-content');
+    if (next && top) next.scrollTop = top;
   },
 
   // What carried over — read straight from the shared state (no duplication).
@@ -325,6 +395,43 @@ const DARK = {
     this.rerender();
   },
   eventModal() {
+    // The outcome of a street/operation event the player just resolved — shows what happened.
+    if (this._evtResult) {
+      const R = this._evtResult, chips = this.fmtDelta(R.delta, R.note);
+      return `<div class="dk-evt-overlay"><div class="dk-evt-card">
+        <div class="dk-evt-icon">${R.icon || '✔'}</div>
+        <div class="dk-evt-text">${R.result || 'Done.'}</div>
+        ${chips ? `<div class="dk-evt-delta">${chips}</div>` : ''}
+        <div class="dk-evt-choices"><button class="dk-evt-choice" onclick="DARK.clearEvtResult()">Continue</button></div>
+      </div></div>`;
+    }
+    // A dancer's story beat the player chose to handle — blocks the screen until resolved.
+    if (this._dancerStory != null) {
+      const club = state.dark && state.dark.club;
+      const x = club && (club.dancers || []).find(d => d.id === this._dancerStory);
+      if (x && x.event) {
+        const choices = (x.event.choices || []).map((lbl, i) => `<button class="dk-evt-choice" onclick="DARK.resolveDancerStory(${i})">${lbl}</button>`).join('');
+        return `<div class="dk-evt-overlay"><div class="dk-evt-card">
+          <div class="dk-evt-icon">${x.event.icon || '❗'}</div>
+          <div class="dk-evt-text"><b>${x.name}</b><br>${x.event.text}</div>
+          <div class="dk-evt-choices">${choices}</div>
+        </div></div>`;
+      }
+      this._dancerStory = null;
+    }
+    // A club incident the player chose to handle — blocks the screen until resolved.
+    if (this._clubEvtOpen) {
+      const cev = state.dark && state.dark.club && state.dark.club.event;
+      if (cev) {
+        const choices = (cev.choices || []).map((lbl, i) => `<button class="dk-evt-choice" onclick="DARK.resolveClubEvent(${i})">${lbl}</button>`).join('');
+        return `<div class="dk-evt-overlay"><div class="dk-evt-card">
+          <div class="dk-evt-icon">${cev.icon || '⚠️'}</div>
+          <div class="dk-evt-text">${cev.text}</div>
+          <div class="dk-evt-choices">${choices}</div>
+        </div></div>`;
+      }
+      this._clubEvtOpen = false;
+    }
     // Entity event (a specific lab / dealer / front) takes priority — array-choice format.
     if (this._evt) {
       const ev = this.entityEvent(this._evt.kind, this._evt.ref);
@@ -348,19 +455,33 @@ const DARK = {
     </div></div>`;
   },
   async resolveEvent(idx) {
+    const ev = state.dark && state.dark.pending_event;
+    const icon = ev ? ev.icon : '❗';
     const r = await api('/dark/resolve_event', 'POST', { choice: idx });
     if (r.error) { toast(r.error, 'error'); return; }
+    this._evtResult = { icon: r.icon || icon, result: r.result, delta: r.delta, note: r.note };
     await refreshState(); this.rerender();
-    if (r.result) toast(r.result, 'info');
   },
   async resolveEntityEvent(idx) {
     if (!this._evt) return;
     const { kind, ref } = this._evt;
+    const ev = this.entityEvent(kind, ref); const icon = ev ? ev.icon : '❗';
     const r = await api('/dark/resolve_entity_event', 'POST', { kind, ref, choice: idx });
     if (r.error) { toast(r.error, 'error'); return; }
     this._evt = null;
+    this._evtResult = { icon: r.icon || icon, result: r.result, delta: r.delta, note: r.note };
     await refreshState(); this.rerender();
-    if (r.result) toast(r.result, 'info');
+  },
+  clearEvtResult() { this._evtResult = null; this.rerender(); },
+  // Format an event's outcome deltas into a one-line summary of what changed.
+  fmtDelta(d, note) {
+    d = d || {}; const parts = [];
+    const m = (n, ic, pos) => `<span style="color:${(n > 0) === pos ? '#4CAF50' : '#ff6b6b'}">${ic} ${n > 0 ? '+' : '−'}${fmt(Math.abs(n))}</span>`;
+    if (d.cash) parts.push(m(d.cash, '💵', true));
+    if (d.dirty) parts.push(m(d.dirty, '🧼', true));
+    if (d.heat) parts.push(`<span style="color:${d.heat > 0 ? '#ff8a3d' : '#4CAF50'}">🔥 ${d.heat > 0 ? '+' : '−'}${Math.abs(d.heat)}%</span>`);
+    if (note) parts.push(`<span class="dk-muted2">${note}</span>`);
+    return parts.join(' · ');
   },
   // The "⚠ tap to handle" banner shown on a paused entity's card.
   evtHandle(kind, ref, ev, sub) {
@@ -545,7 +666,7 @@ const DARK = {
     let icon = '🕴️', body = '';
     if (ev.kind === 'intro') {
       icon = '🕴️';
-      body = `<b style="font-size:15px">Well, well. Look who made <span style="color:#C0392B">Pusher</span>.</b><br><br>"Knew you had it in you. Which means it's time we talked about what you owe me." He taps the contract — Article V, circled in red.<br><br>You owe the House <b>${fmt(1000000000)}</b>. You'll never clear it — that's rather the point. Every year, on <b>Winter 1</b>, I'll name my cut: <b>15% of everything you made</b>. Have it by <b>Winter 28</b>… or my boys come collect.`;
+      body = `<b style="font-size:15px">So — you've gone and got <span style="color:#C0392B">your own front</span>.</b><br><br>"Means you don't need me washing your money anymore. Which means it's time we talked about what you owe me." He taps the contract — Article V, circled in red.<br><br>You owe the House <b>${fmt(1000000000)}</b>. You'll never clear it — that's rather the point. Every year, on <b>Winter 1</b>, I'll name my cut: <b>15% of everything you made</b>. Have it by <b>Winter 28</b>… or my boys come collect.`;
     } else if (ev.kind === 'warn') {
       body = `<b style="font-size:15px">"Time to settle up."</b><br><br>The Fixer wants <b style="color:#E0533D">${fmt(ev.bill || 0)}</b> by <b>Winter 28</b>. Pay him from the Cash tab — and don't come up short.`;
     } else if (ev.kind === 'goons') {
@@ -1266,6 +1387,115 @@ const DARK = {
     if (r.error) { toast(r.error, 'error'); return; }
     await refreshState(); this.rerender(); toast('VIP lounge open — the chatter starts flowing. 💋', 'success');
   },
+  async hireDancer(key) {
+    const r = await api('/dark/club_hire', 'POST', { key });
+    if (r.error) { toast(r.error, 'error'); return; }
+    if (typeof sfx === 'object' && sfx.purchase) sfx.purchase();
+    await refreshState(); this.rerender(); if (r.msg) toast(r.msg, 'success');
+  },
+  openDancerStory(id) { this._dancerStory = id; this.rerender(); },
+  async resolveDancerStory(idx) {
+    const id = this._dancerStory;
+    const r = await api('/dark/dancer_story', 'POST', { id, choice: idx });
+    if (r.error) { toast(r.error, 'error'); return; }
+    this._dancerStory = null;
+    await refreshState(); this.rerender(); if (r.msg) toast(r.msg, 'info');
+  },
+  async clubSecurity() {
+    const r = await api('/dark/club_security', 'POST');
+    if (r.error) { toast(r.error, 'error'); return; }
+    if (typeof sfx === 'object' && sfx.purchase) sfx.purchase();
+    await refreshState(); this.rerender(); toast('Beefed up the door. 💪', 'success');
+  },
+  async clubLounge(choice) {
+    const r = await api('/dark/club_lounge', 'POST', { choice });
+    if (r.error) { toast(r.error, 'error'); return; }
+    await refreshState(); this.rerender(); if (r.msg) toast(r.msg, 'info');
+  },
+  async clubLeverage() {
+    const r = await api('/dark/club_leverage', 'POST');
+    if (r.error) { toast(r.error, 'error'); return; }
+    await refreshState(); this.rerender(); if (r.msg) toast(r.msg, 'success');
+  },
+  async buyUpgrade(key) {
+    const r = await api('/dark/club_upgrade', 'POST', { key });
+    if (r.error) { toast(r.error, 'error'); return; }
+    if (typeof sfx === 'object' && sfx.purchase) sfx.purchase();
+    await refreshState(); this.rerender(); if (r.msg) toast(r.msg, 'success');
+  },
+  async assignDancer(id, slot) {
+    const r = await api('/dark/dancer_assign', 'POST', { id, slot });
+    if (r.error) { toast(r.error, 'error'); return; }
+    await refreshState(); this.rerender();
+  },
+  async setDoor(policy) {
+    const r = await api('/dark/club_door', 'POST', { policy });
+    if (r.error) { toast(r.error, 'error'); return; }
+    await refreshState(); this.rerender();
+  },
+  async hireBouncer(id) {
+    const r = await api('/dark/bouncer_hire', 'POST', { id });
+    if (r.error) { toast(r.error, 'error'); return; }
+    if (typeof sfx === 'object' && sfx.purchase) sfx.purchase();
+    await refreshState(); this.rerender(); toast('On the door tonight. 💪', 'success');
+  },
+  async fireBouncer(id) {
+    const r = await api('/dark/bouncer_fire', 'POST', { id });
+    if (r.error) { toast(r.error, 'error'); return; }
+    await refreshState(); this.rerender();
+  },
+  async assignBouncer(id, slot) {
+    const r = await api('/dark/bouncer_assign', 'POST', { id, slot });
+    if (r.error) { toast(r.error, 'error'); return; }
+    await refreshState(); this.rerender();
+  },
+  async trainBouncer(id, stat) {
+    const r = await api('/dark/bouncer_train', 'POST', { id, stat });
+    if (r.error) { toast(r.error, 'error'); return; }
+    if (typeof sfx === 'object' && sfx.purchase) sfx.purchase();
+    await refreshState(); this.rerender(); if (r.msg) toast(r.msg, 'success');
+  },
+  async barSet(price) {
+    const r = await api('/dark/bar_set', 'POST', { price });
+    if (r.error) { toast(r.error, 'error'); return; }
+    await refreshState(); this.rerender();
+  },
+  async barHire() {
+    const r = await api('/dark/bar_hire', 'POST');
+    if (r.error) { toast(r.error, 'error'); return; }
+    if (typeof sfx === 'object' && sfx.purchase) sfx.purchase();
+    await refreshState(); this.rerender(); if (r.msg) toast(r.msg, 'success');
+  },
+  async barFire() {
+    const r = await api('/dark/bar_fire', 'POST');
+    if (r.error) { toast(r.error, 'error'); return; }
+    await refreshState(); this.rerender();
+  },
+  async barSignature() {
+    const name = (typeof prompt === 'function') ? prompt('Name your house cocktail:') : '';
+    if (!name || !name.trim()) return;
+    const r = await api('/dark/bar_signature', 'POST', { name: name.trim() });
+    if (r.error) { toast(r.error, 'error'); return; }
+    await refreshState(); this.rerender(); if (r.msg) toast(r.msg, 'success');
+  },
+  openClubEvt() { this._clubEvtOpen = true; this.rerender(); },
+  async resolveClubEvent(idx) {
+    const r = await api('/dark/club_event', 'POST', { choice: idx });
+    if (r.error) { toast(r.error, 'error'); return; }
+    this._clubEvtOpen = false;
+    await refreshState(); this.rerender(); if (r.msg) toast(r.msg, 'info');
+  },
+  async vipStart() {
+    const r = await api('/dark/vip_start', 'POST');
+    if (r.error) { toast(r.error, 'error'); return; }
+    await refreshState(); this.rerender();
+  },
+  async vipAction(action, extra) {
+    const r = await api('/dark/vip_action', 'POST', Object.assign({ action }, extra || {}));
+    if (r.error) { toast(r.error, 'error'); return; }
+    await refreshState(); this.rerender();
+    if (r.msg) toast(r.msg, 'info');
+  },
 
   pageProperties() {
     const d = state.dark || {};
@@ -1451,10 +1681,19 @@ const DARK = {
       </div>`;
     };
     const fday = (d.fixer_washed_day === state.day) ? (d.fixer_washed || 0) : 0;
-    const fLeft = Math.max(0, 8000 - fday);
+    const fLeft = Math.max(0, 15000 - fday);
     const fAmt = Math.min(d.dirty_money || 0, fLeft);
     const fNet = Math.round(fAmt * 0.85);
     const fOk = fAmt > 0;
+    // The Fixer only quick-washes until you open your own front (which is when his marker comes due).
+    const fixerCard = d.debt_active ? '' : `
+      ${this.sectionTitle("The Fixer's Quick-Wash")}
+      <div class="dk-card dk-pcard">
+        <div class="dk-phead"><div class="dk-row-ic">🕴️</div>
+          <div class="dk-row-main"><div class="dk-row-title">The Fixer</div><div class="dk-muted">Instant, no front needed. He takes <b>15%</b> · up to <b>${fmt(15000)}/day</b>.</div></div></div>
+        <div class="dk-muted2" style="margin-top:7px;font-size:11px">${fmt(fLeft)} left to wash with him today</div>
+        <button class="dk-mini ${fOk ? '' : 'dk-buy-off'}" style="width:100%;margin-top:8px" ${fOk ? 'onclick="DARK.fixerWash()"' : 'disabled'}>${fOk ? `🧼 Wash ${fmt(fAmt)} → get ${fmt(fNet)}` : ((d.dirty_money || 0) <= 0 ? 'No dirty money to wash' : 'Maxed out with the Fixer today')}</button>
+      </div>`;
     return `
       ${this.sectionTitle('Cash')}
       <div class="dk-grid2">
@@ -1462,34 +1701,288 @@ const DARK = {
         ${this.stat('🧼 Dirty Money', fmt(d.dirty_money || 0), '#E0533D')}
       </div>
       <div class="dk-card" style="margin-top:10px">
-        <p class="dk-p">Dirty money's useless until it's washed. No front yet? The Fixer will wash it for you — for a cut.</p>
+        <p class="dk-p">${d.debt_active ? "Dirty money's useless until it's washed — run it through your own fronts below." : "Dirty money's useless until it's washed. No front yet? The Fixer will wash it for you — for a cut, up to $15k a day."}</p>
       </div>
       ${this.debtPanel()}
-      ${this.sectionTitle("The Fixer's Quick-Wash")}
-      <div class="dk-card dk-pcard">
-        <div class="dk-phead"><div class="dk-row-ic">🕴️</div>
-          <div class="dk-row-main"><div class="dk-row-title">The Fixer</div><div class="dk-muted">Instant, no front needed. He takes <b>15%</b> · up to <b>${fmt(8000)}/day</b>.</div></div></div>
-        <div class="dk-muted2" style="margin-top:7px;font-size:11px">${fmt(fLeft)} left to wash with him today</div>
-        <button class="dk-mini ${fOk ? '' : 'dk-buy-off'}" style="width:100%;margin-top:8px" ${fOk ? 'onclick="DARK.fixerWash()"' : 'disabled'}>${fOk ? `🧼 Wash ${fmt(fAmt)} → get ${fmt(fNet)}` : ((d.dirty_money || 0) <= 0 ? 'No dirty money to wash' : 'Maxed out with the Fixer today')}</button>
-      </div>
+      ${fixerCard}
       ${this.sectionTitle('Laundering Fronts')}
       ${frontCard('laundromat')}${frontCard('car_wash')}${frontCard('pizzeria')}
       ${this.soon('The Underworld Bank', 'Loan shark, offshore shells, street rep. Coming soon.')}
     `;
   },
 
+  secRating(c) {
+    let r = (c.bouncers || []).filter(b => b.assign === 'door' || b.assign === 'floor').reduce((a, b) => a + (b.muscle || 1), 0);
+    r += 2 * ((c.upgrades || {}).security || 0);
+    if (c.door === 'strict') r += 2;
+    if (c.door === 'loose') r -= 2;
+    return Math.max(0, r);
+  },
+  clubPanel() {
+    const d = state.dark || {}, c = d.club, cash = state.cash || 0;
+    if (!c) return '';
+    if (c.event) {   // an incident has the club frozen until it's handled
+      return `
+        ${this.dancerVid()}
+        ${this.clubStatus(c)}
+        <div class="dk-card dk-incident">
+          <div class="dk-incident-ic">${c.event.icon || '⚠️'}</div>
+          <div class="dk-incident-t">Trouble at the club</div>
+          <div class="dk-muted" style="margin:6px 0 13px;font-size:13px;line-height:1.45">${c.event.text}</div>
+          <button class="dk-advance" style="margin:0" onclick="DARK.openClubEvt()">Handle it →</button>
+          <div class="dk-muted2" style="font-size:11px;margin-top:9px">The club's shut down until you deal with this.</div>
+        </div>`;
+    }
+    return `
+      ${this.dancerVid()}
+      ${this.clubStatus(c)}
+      ${this.vipSection(c, cash)}
+      ${this.accordion('dancers', '💃', 'Dancers', (c.dancers || []).length + '/6', this.dancersSection(c, cash))}
+      ${this.accordion('security', '🛡️', 'Security', 'rating ' + this.secRating(c), this.securitySection(c, cash))}
+      ${this.accordion('bar', '🍸', 'The Bar', (c.upgrades || {}).bar > 0 ? 'open' : 'locked', this.barSection(c, cash))}
+      ${this.accordion('reno', '🧱', 'Renovations', 'upgrades', this.renoSection(c, cash))}
+      ${this.leverageSection(c)}`;
+  },
+  clubStatus(c) {
+    const rp = Math.round(c.rep || 0), chp = Math.min(100, Math.round(c.heat || 0)), ctier = this.heatTier(c.heat || 0);
+    const net = c.last_net || 0;
+    const doorChip = (k, l) => `<button class="dk-aschip ${(c.door || 'balanced') === k ? 'on' : ''}" onclick="DARK.setDoor('${k}')">${l}</button>`;
+    const sub = c.last_gross ? `<span style="color:${net >= 0 ? '#4CAF50' : '#ff6b6b'};font-weight:800">${net >= 0 ? '+' : ''}${fmt(net)}</span> clean last night · ${fmt(c.last_gross)} take − ${fmt(c.last_wages)} wages`
+      : 'Put dancers on the floor and advance a day to open.';
+    return `
+      ${this.sectionTitle('💋 The Velvet Room')}
+      <div class="dk-card dk-pcard">
+        <div class="dk-phead"><div class="dk-row-ic">💋</div><div class="dk-row-main"><div class="dk-row-title">The Velvet Room</div><div class="dk-muted" style="font-size:11px">${sub}</div></div></div>
+        <div class="dk-clbar"><span class="dk-muted">REPUTATION</span><span style="font-weight:800;color:#E0533D">${rp}%</span></div>
+        <div class="dk-heat"><div class="dk-heat-fill" style="width:${rp}%;background:#C0392B"></div></div>
+        <div class="dk-clbar"><span class="dk-muted">CLUB HEAT · ${ctier.label}</span><span style="color:${ctier.col};font-weight:800">${chp}%</span></div>
+        <div class="dk-heat"><div class="dk-heat-fill" style="width:${chp}%;background:${ctier.col}"></div></div>
+        <div class="dk-lbl">DOOR POLICY</div>
+        <div class="dk-assign">${doorChip('strict', 'Strict')}${doorChip('balanced', 'Balanced')}${doorChip('loose', 'Loose')}</div>
+        <div class="dk-muted2" style="font-size:10px;margin-top:5px">Strict = less heat, fewer customers. Loose = more cash, more trouble.</div>
+      </div>`;
+  },
+  accordion(key, icon, title, sub, body) {
+    const open = this._clubSec === key;
+    return `<button class="dk-acc ${open ? 'open' : ''}" onclick="DARK.clubSec('${key}')">
+      <span><span style="font-size:15px">${icon}</span> <b>${title}</b> <span class="dk-muted2" style="font-size:11px;font-weight:600">${sub}</span></span>
+      <span>${open ? '▾' : '▸'}</span></button>
+      ${open ? `<div class="dk-acc-body">${body}</div>` : ''}`;
+  },
+  clubSec(k) { this._clubSec = (this._clubSec === k ? null : k); this.rerender(); },
+  clubTitle(lv) { let t = this.CLUBTITLES[0]; this.CLUBTITLES.forEach(e => { if ((lv || 1) >= e[0]) t = e; }); return t; },
+  dancersSection(c, cash) {
+    const stars = (n) => '⭐'.repeat(n || 0);
+    const day = state.day || 0;
+    const rows = (c.dancers || []).map(x => {
+      const q = x.quirk ? this.CLUBQUIRKS[x.quirk] : null;
+      const info = this.DANCERS_INFO[x.key] || {};
+      if (x.event) {   // paused by her own story until you handle it
+        const txt = x.event.text.length > 64 ? x.event.text.slice(0, 61) + '…' : x.event.text;
+        return `<div class="dk-dancer dk-dancer-evt">
+          <div class="dk-dancer-top"><div><b>${x.name}</b>${q ? ` <span title="${q.desc}">${q.icon}</span>` : ''}</div></div>
+          <button class="dk-evt-handle" onclick="DARK.openDancerStory(${x.id})">
+            <span class="dk-evt-handle-t">${x.event.icon || '⚠'} ${txt}</span>
+            <span class="dk-evt-handle-s">She's off the floor · tap to handle her</span></button>
+        </div>`;
+      }
+      if (x.manager) {
+        return `<div class="dk-dancer dk-housemom">
+          <div class="dk-dancer-top"><div>🧁 <b>${x.name}</b> <span class="dk-title">House Mom</span></div></div>
+          <div class="dk-muted2" style="font-size:10px;margin-top:3px">Runs the floor — <b>+15%</b> to the club's take and keeps the girls loyal.</div>
+        </div>`;
+      }
+      const t = this.clubTitle(x.level);
+      const away = x.away_until && day < x.away_until;
+      const status = away ? `<span style="color:#FFC83D;font-weight:700">✈ Away — back in ${x.away_until - day} day${(x.away_until - day) !== 1 ? 's' : ''}</span>`
+        : (x.done ? '<span class="dk-muted2">Her story\'s been told — she\'s here for good.</span>' : 'On the floor, making money.');
+      return `<div class="dk-dancer${away ? ' dk-away' : ''}">
+        <div class="dk-dancer-top"><div><b>${x.name}</b> ${stars(x.draw)} <span class="dk-title">${t[2]} ${t[1]}</span>${q ? ` <span title="${q.desc}">${q.icon}</span>` : ''}</div></div>
+        <div class="dk-muted2" style="font-size:10px;margin:1px 0 6px">${info.blurb || ''}</div>
+        <div class="dk-minibar"><span>❤</span><div class="dk-heat" style="flex:1"><div class="dk-heat-fill" style="width:${x.loyalty || 0}%;background:#E0533D"></div></div></div>
+        <div class="dk-muted2" style="font-size:10px;margin-top:4px">${status}</div>
+      </div>`;
+    }).join('');
+    const recruitCards = (c.recruits || []).map(key => {
+      const info = this.DANCERS_INFO[key] || {}; const poor = cash < info.cost;
+      const qi = info.quirk ? (this.CLUBQUIRKS[info.quirk] || {}).icon || '' : '';
+      return `<div class="dk-card" style="padding:10px 11px;margin-bottom:7px">
+        <div class="dk-dancer-top"><div><b>${info.name}</b> ${stars(info.draw)}${qi ? ` ${qi}` : ''}</div></div>
+        <div class="dk-muted2" style="font-size:10px;margin:3px 0 8px">${info.blurb || ''}</div>
+        <button class="dk-mini ${poor ? 'dk-buy-off' : ''}" style="width:100%" ${poor ? 'disabled' : `onclick="DARK.hireDancer('${key}')"`}>Bring her on — ${fmt(info.cost)}</button>
+      </div>`;
+    }).join('');
+    const intro = `<div class="dk-muted2" style="font-size:11px;margin-bottom:8px">Six women, six stories. Bring them on one at a time — once all six are in, that's your cast for good (<b>no firing</b>). Each levels up and has her own arc; when something comes up she steps off the floor until you deal with it.</div>`;
+    const recruitsBlock = (c.recruits || []).length
+      ? `<div class="dk-lbl">LOOKING FOR WORK</div>${recruitCards}`
+      : '<div class="dk-lbl">YOUR CAST</div><div class="dk-muted2" style="font-size:11px">All six are in. This is your family now.</div>';
+    return `${intro}${rows}${recruitsBlock}`;
+  },
+  securitySection(c, cash) {
+    const vipOn = (c.upgrades || {}).vip > 0;
+    const arch = (a) => this.BOUNCERARCH[a] || { icon: '🕶️', name: 'Pro' };
+    const slot = (b, k, l) => `<button class="dk-aschip ${(b.assign || 'off') === k ? 'on' : ''}" onclick="DARK.assignBouncer(${b.id},'${k}')">${l}</button>`;
+    const rows = (c.bouncers || []).map(b => {
+      const a = arch(b.arch), tcost = (b.level || 1) * 12000, mMax = b.muscle >= 5, eMax = b.eye >= 5;
+      return `<div class="dk-dancer">
+        <div class="dk-dancer-top"><div>${a.icon} <b>${b.name}</b> <span class="dk-muted2" style="font-size:10px">${a.name} · Lv${b.level || 1}</span></div><button class="dk-x" onclick="DARK.fireBouncer(${b.id})">✕</button></div>
+        <div class="dk-muted2" style="font-size:10px;margin:1px 0 6px">💪 Muscle ${b.muscle} · 👁 Eye ${b.eye} · ${fmt(b.wage || 150)}/night</div>
+        <div class="dk-assign">${slot(b, 'door', 'Door')}${slot(b, 'floor', 'Floor')}${vipOn ? slot(b, 'vip', 'VIP') : ''}${slot(b, 'off', 'Off')}</div>
+        <div class="dk-assign" style="margin-top:5px">
+          <button class="dk-aschip ${(mMax || cash < tcost) ? 'dk-buy-off' : ''}" ${(!mMax && cash >= tcost) ? `onclick="DARK.trainBouncer(${b.id},'muscle')"` : 'disabled'}>${mMax ? '💪 Maxed' : `+💪 ${fmt(tcost)}`}</button>
+          <button class="dk-aschip ${(eMax || cash < tcost) ? 'dk-buy-off' : ''}" ${(!eMax && cash >= tcost) ? `onclick="DARK.trainBouncer(${b.id},'eye')"` : 'disabled'}>${eMax ? '👁 Maxed' : `+👁 ${fmt(tcost)}`}</button>
+        </div>
+      </div>`;
+    }).join('') || '<div class="dk-muted" style="font-size:12px">No security — the club\'s wide open to trouble.</div>';
+    const canHire = (c.bouncers || []).length < 4;
+    const recruits = (c.bouncer_recruits || []).map(b => { const a = arch(b.arch), cost = b.muscle * 7000 + b.eye * 4000, poor = cash < cost; return `<button class="dk-rate ${(!canHire || poor) ? 'dk-buy-off' : ''}" style="flex:0 0 auto" ${(canHire && !poor) ? `onclick="DARK.hireBouncer(${b.id})"` : 'disabled'}>${a.icon} ${b.name} 💪${b.muscle}/👁${b.eye} · ${fmt(cost)}</button>`; }).join('');
+    return `<div class="dk-muted2" style="font-size:11px;margin-bottom:7px">More & stronger bouncers on the <b>door</b> cut heat and shut down incidents before they blow up. A sharp <b>👁 Eye</b> on the door spots cops &amp; underage.</div>${rows}<div class="dk-lbl">FOR HIRE</div><div class="dk-rates" style="flex-wrap:wrap;gap:6px">${recruits}</div>`;
+  },
+  barSection(c, cash) {
+    if ((c.upgrades || {}).bar <= 0) return '<div class="dk-muted" style="font-size:12px">No bar yet. Build it under <b>Renovations</b> to open drink sales you can tune.</div>';
+    const pr = (c.bar || {}).price || 'std';
+    const pchip = (k, l) => `<button class="dk-aschip ${pr === k ? 'on' : ''}" onclick="DARK.barSet('${k}')">${l}</button>`;
+    const bt = (c.bar || {}).bartender;
+    const btHtml = bt
+      ? `<div class="dk-row" style="padding:6px 0"><div class="dk-row-main">🧑‍🍳 <b>${bt.name}</b> <span class="dk-muted2">upsell ✨${bt.upsell} · +15% sales</span></div><button class="dk-x" onclick="DARK.barFire()">✕</button></div>`
+      : `<button class="dk-mini ${cash < 12000 ? 'dk-buy-off' : ''}" style="width:100%" ${cash < 12000 ? 'disabled' : 'onclick="DARK.barHire()"'}>Hire a bartender — ${fmt(12000)} (+15% drink sales)</button>`;
+    const sig = (c.bar || {}).signature;
+    return `
+      <div class="dk-lbl">PRICING</div>
+      <div class="dk-assign">${pchip('water', 'Watered')}${pchip('std', 'Standard')}${pchip('top', 'Top-shelf')}</div>
+      <div class="dk-muted2" style="font-size:10px;margin-top:5px">${this.BARPRICE[pr] || ''}</div>
+      <div class="dk-lbl">BARTENDER</div>${btHtml}
+      <div class="dk-lbl">SIGNATURE DRINK</div>
+      ${sig ? `<div class="dk-row" style="padding:6px 0"><div class="dk-row-main">🍸 <b>${sig}</b></div><button class="dk-mini" style="width:auto;padding:7px 11px" onclick="DARK.barSignature()">Rename</button></div>`
+        : '<button class="dk-mini" style="width:100%" onclick="DARK.barSignature()">🍸 Name your house cocktail (+rep)</button>'}`;
+  },
+  vipSection(c, cash) {
+    if ((c.upgrades || {}).vip <= 0) return '';
+    const g = c.vip_game;
+    if (g) return this.vipGame(c, g, cash);
+    if (c.vip_patron) return `<div class="dk-card dk-vip"><div class="dk-vip-h">🥂 The VIP Room</div><div class="dk-muted" style="font-size:12px;margin:5px 0 11px;line-height:1.45">Someone connected is in the back, a few drinks deep. Read them right and you'll know exactly where the detective is looking.</div><button class="dk-advance" style="margin:0" onclick="DARK.vipStart()">Go read them →</button></div>`;
+    return `<div class="dk-card dk-vip"><div class="dk-vip-h">🥂 The VIP Room</div><div class="dk-muted" style="font-size:12px;margin-top:5px">Quiet for now. Someone worth knowing wanders in every few nights.</div></div>`;
+  },
+  vipGame(c, g, cash) {
+    const meter = (l, v, col) => `<div class="dk-minibar"><span style="width:74px;font-size:10px">${l}</span><div class="dk-heat" style="flex:1"><div class="dk-heat-fill" style="width:${Math.min(100, v)}%;background:${col}"></div></div></div>`;
+    if (g.done) {
+      return `<div class="dk-card dk-vip">
+        <div class="dk-vip-h">🥂 VIP Room</div>
+        <div class="dk-evt-text" style="margin:9px 0;font-size:13px">${g.outcome || ''}</div>
+        <button class="dk-mini" style="width:100%" onclick="DARK.vipAction('close')">Close out</button></div>`;
+    }
+    const tell = this.VIPTELL[g.type] || {};
+    const who = g.revealed ? `<b>${tell.name || 'someone'}</b> — he ${tell.tell || ''}` : 'A stranger in an expensive suit. Hard to read yet — buy a round and get him comfortable.';
+    const dbtns = (c.dancers || []).length ? (c.dancers || []).map(x => `<button class="dk-rate" style="flex:0 0 auto" onclick="DARK.vipAction('dancer',{id:${x.id}})">${x.name} ✨${x.charm || 1}</button>`).join('') : '<span class="dk-muted2" style="font-size:11px">No dancers to send in.</span>';
+    const topics = ['the neighborhood', 'open cases', 'the courthouse', 'street talk', 'the business'];
+    const tbtns = topics.map(t => `<button class="dk-rate" style="flex:0 0 auto" onclick="DARK.vipAction('steer',{topic:'${t}'})">${t}</button>`).join('');
+    return `<div class="dk-card dk-vip">
+      <div class="dk-vip-h">🥂 Working the VIP Room <span class="dk-muted2" style="font-size:10px;font-weight:600">round ${g.round || 0}/6</span></div>
+      <div class="dk-muted" style="font-size:12px;margin:6px 0 10px;line-height:1.45">${who}</div>
+      ${meter('Comfort', g.comfort, '#4CAF50')}
+      ${meter('Suspicion', g.susp, '#ff4d2d')}
+      ${meter('Intel', g.intel, '#FFC83D')}
+      <div class="dk-lbl">SEND A GIRL OVER</div><div class="dk-rates" style="flex-wrap:wrap;gap:6px">${dbtns}</div>
+      <div class="dk-lbl">STEER THE TALK TOWARD…</div><div class="dk-rates" style="flex-wrap:wrap;gap:6px">${tbtns}</div>
+      <div style="display:flex;gap:6px;margin-top:10px">
+        <button class="dk-mini ${cash < 1500 ? 'dk-buy-off' : ''}" ${cash < 1500 ? 'disabled' : "onclick=\"DARK.vipAction('bottle')\""}>🍾 Comp a bottle · ${fmt(1500)}</button>
+        <button class="dk-mini-x" style="margin:0;flex:1" onclick="DARK.vipAction('leave')">Step out</button>
+      </div>
+      <div class="dk-muted2" style="font-size:10px;margin-top:8px">Fill <b>Intel</b> before <b>Suspicion</b> maxes. Wrong topic = he gets nervous. If he smells like a setup — step out.</div>
+    </div>`;
+  },
+  renoSection(c, cash) {
+    const U = this.CLUBUPGRADES, up = c.upgrades || {};
+    return `<div class="dk-muted2" style="font-size:11px;margin-bottom:8px">Spend clean cash to grow the club. Each upgrade pays off in income, heat, or intel.</div>` +
+      Object.keys(U).map(k => {
+        const meta = U[k], cur = up[k] || 0, max = meta.tiers.length, done = cur >= max;
+        const next = done ? null : meta.tiers[cur], poor = next && cash < next[1];
+        return `<div class="dk-card" style="margin-bottom:7px;padding:11px 12px">
+          <div style="display:flex;align-items:center;gap:9px">
+            <div class="dk-row-ic">${meta.icon}</div>
+            <div class="dk-row-main"><div class="dk-row-title">${meta.name} ${cur ? `<span class="dk-tag">Lv ${cur}/${max}</span>` : ''}</div><div class="dk-muted" style="font-size:11px">${meta.desc}</div></div>
+          </div>
+          ${done ? '<div class="dk-muted2" style="font-size:11px;margin-top:8px">✓ Fully upgraded.</div>'
+            : `<button class="dk-mini ${poor ? 'dk-buy-off' : ''}" style="width:100%;margin-top:8px" ${poor ? 'disabled' : `onclick="DARK.buyUpgrade('${k}')"`}>${next[0]} — ${fmt(next[1])}</button>`}
+        </div>`;
+      }).join('');
+  },
+  leverageSection(c) {
+    const cap = (w) => w ? w[0].toUpperCase() + w.slice(1) : w;
+    if (!(c.leverage || []).length) return '';
+    const items = (c.leverage || []).map(L => L.kind === 'bent_cop'
+      ? `<div class="dk-muted" style="font-size:12px;padding:3px 0">👮 ${cap(L.who)} — on the payroll, quietly bleeding your heat.</div>`
+      : `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:3px 0;font-size:12px;color:#e8d9d9">⚖️ ${cap(L.who)} — owes you a favor.<button class="dk-mini" style="width:auto;padding:6px 10px" onclick="DARK.clubLeverage()">Make the call</button></div>`).join('');
+    return `${this.sectionTitle('Your Leverage')}<div class="dk-card">${items}<div class="dk-muted2" style="font-size:10px;margin-top:6px">A DA or judge can make a pending raid vanish — or cool a hot case. One use each.</div></div>`;
+  },
+  dancerVid() {
+    return `<div class="dk-dancer-banner"><span class="dk-live">● LIVE</span>
+<svg viewBox="0 0 680 470" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" role="img" aria-label="A dancer on the pole">
+<defs>
+<linearGradient id="dkd-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1a0714"/><stop offset="0.55" stop-color="#0c0410"/><stop offset="1" stop-color="#050207"/></linearGradient>
+<linearGradient id="dkd-pole" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3a3a44"/><stop offset="0.4" stop-color="#9aa0ad"/><stop offset="0.55" stop-color="#cdd2da"/><stop offset="0.7" stop-color="#7c818c"/><stop offset="1" stop-color="#2c2c34"/></linearGradient>
+<linearGradient id="dkd-floor" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#150611"/><stop offset="1" stop-color="#070309"/></linearGradient>
+</defs>
+<rect x="0" y="0" width="680" height="470" fill="url(#dkd-bg)"/>
+<ellipse cx="360" cy="250" rx="220" ry="240" fill="#ff2e88" opacity="0.05"/>
+<ellipse cx="360" cy="250" rx="150" ry="200" fill="#ff2e88" opacity="0.06"/>
+<ellipse cx="360" cy="230" rx="90" ry="160" fill="#ff5ea8" opacity="0.07"/>
+<rect x="0" y="402" width="680" height="68" fill="url(#dkd-floor)"/>
+<ellipse cx="372" cy="408" rx="190" ry="22" fill="#ff2e88" opacity="0.13"/>
+<ellipse cx="372" cy="408" rx="95" ry="12" fill="#ff84bd" opacity="0.16"/>
+<rect x="333" y="34" width="7" height="372" rx="3.5" fill="url(#dkd-pole)"/>
+<rect x="335.4" y="34" width="1.5" height="372" rx="0.75" fill="#eef1f6" opacity="0.85"/>
+<circle cx="336.5" cy="40" r="6" fill="#cdd2da" opacity="0.5"/>
+<g id="dkd-pelvis">
+<animateTransform attributeName="transform" type="rotate" values="-4 388 252; 4 388 252; -4 388 252" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1" dur="5s" repeatCount="indefinite"/>
+<g><animateTransform attributeName="transform" type="rotate" values="0 391 256; -22 391 256; 0 391 256" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1" dur="5s" repeatCount="indefinite"/>
+<line x1="391" y1="256" x2="393" y2="324" stroke="#0a0512" stroke-width="13" stroke-linecap="round"/>
+<g><animateTransform attributeName="transform" type="rotate" values="-4 393 324; -14 393 324; -4 393 324" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1" dur="5s" repeatCount="indefinite"/>
+<line x1="393" y1="324" x2="399" y2="396" stroke="#0a0512" stroke-width="10" stroke-linecap="round"/>
+<path d="M399,396 l-15,3 l3,5 l14,-3 z" fill="#0a0512"/>
+<line x1="395" y1="332" x2="399" y2="388" stroke="#ff3d93" stroke-width="1.6" stroke-linecap="round" opacity="0.4"/></g></g>
+<g><animateTransform attributeName="transform" type="rotate" values="4 385 256; -4 385 256; 4 385 256" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1" dur="5s" repeatCount="indefinite"/>
+<line x1="385" y1="256" x2="387" y2="326" stroke="#060309" stroke-width="14" stroke-linecap="round"/>
+<g><animateTransform attributeName="transform" type="rotate" values="-1 387 326; 1 387 326; -1 387 326" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1" dur="5s" repeatCount="indefinite"/>
+<line x1="387" y1="326" x2="388" y2="398" stroke="#060309" stroke-width="11" stroke-linecap="round"/>
+<path d="M388,398 l-19,4 l3,6 l17,-4 z" fill="#060309"/></g></g>
+<path d="M379,213 C375,224 374,238 380,252 C383,257 388,258 392,256 C398,257 404,250 406,238 C408,224 405,216 396,213 C390,210 384,210 379,213 Z" fill="#060309"/>
+<g><animateTransform attributeName="transform" type="rotate" values="5 386 214; -4 386 214; 5 386 214" keyTimes="0;0.55;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1" dur="5s" repeatCount="indefinite"/>
+<path d="M382,156 C375,160 368,170 366,182 C365,190 370,198 376,206 C378,210 379,212 380,214 L395,214 C394,196 394,174 389,158 C387,154 385,154 382,156 Z" fill="#060309"/>
+<path d="M378,182 C375,194 377,204 381,210" fill="none" stroke="#ff3d93" stroke-width="1.8" stroke-linecap="round" opacity="0.32"/>
+<g><animateTransform attributeName="transform" type="rotate" values="-4 384 152; 4 384 152; -4 384 152" keyTimes="0;0.62;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1" dur="5s" repeatCount="indefinite"/>
+<line x1="383" y1="156" x2="382" y2="140" stroke="#060309" stroke-width="11" stroke-linecap="round"/>
+<circle cx="381" cy="122" r="17" fill="#060309"/>
+<path d="M393,112 C406,118 410,135 406,158 C402,150 397,140 393,130 C391,124 391,118 393,112 Z" fill="#0a0512"/></g>
+<g><animateTransform attributeName="transform" type="rotate" values="-4 383 158; 4 383 158; -4 383 158" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1" dur="5s" repeatCount="indefinite"/>
+<line x1="383" y1="158" x2="364" y2="130" stroke="#060309" stroke-width="10" stroke-linecap="round"/>
+<g><animateTransform attributeName="transform" type="rotate" values="4 364 130; -4 364 130; 4 364 130" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1" dur="5s" repeatCount="indefinite"/>
+<line x1="364" y1="130" x2="339" y2="106" stroke="#060309" stroke-width="9" stroke-linecap="round"/></g></g>
+<g><animateTransform attributeName="transform" type="rotate" values="10 386 160; -12 386 160; 10 386 160" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1" dur="5s" repeatCount="indefinite"/>
+<line x1="386" y1="160" x2="402" y2="182" stroke="#0a0512" stroke-width="10" stroke-linecap="round"/>
+<g><animateTransform attributeName="transform" type="rotate" values="12 402 182; -6 402 182; 12 402 182" keyTimes="0;0.55;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1" dur="5s" repeatCount="indefinite"/>
+<line x1="402" y1="182" x2="410" y2="210" stroke="#0a0512" stroke-width="8" stroke-linecap="round"/></g></g>
+</g></g>
+</svg></div>`;
+  },
+  setBizTab(t) { this._bizTab = t; this.rerender(); },
   pageBusinesses() {
-    const soon = (icon, title, body) => `<div class="dk-card" style="margin-bottom:8px;opacity:.92">
-      <div style="display:flex;align-items:center;gap:10px">
-        <div class="dk-row-ic">${icon}</div>
-        <div class="dk-row-main"><div class="dk-row-title">${title} <span style="font-size:9px;font-weight:800;color:#FFC83D;border:1px solid #FFC83D66;border-radius:5px;padding:1px 5px;vertical-align:middle;text-transform:uppercase;letter-spacing:.5px">Soon</span></div><div class="dk-muted">${body}</div></div>
-      </div></div>`;
+    const d = state.dark || {}, biz = d.biz || {}, cash = state.cash || 0;
+    const tab = this._bizTab || 'club';
+    const tb = (key, label) => `<button class="dk-htab ${tab === key ? 'active' : ''}" onclick="DARK.setBizTab('${key}')">${label}</button>`;
+    let body;
+    if (tab === 'club') {
+      body = biz.strip_club ? this.clubPanel()
+        : `${this.sectionTitle('💋 Strip Club')}${this.dancerVid()}<div class="dk-card dk-pcard"><div class="dk-phead"><div class="dk-row-ic">💋</div><div class="dk-row-main"><div class="dk-row-title">Strip Club</div><div class="dk-muted">A cash earner — and its VIP lounge becomes your ear on the cops.</div></div></div><button class="dk-mini" style="width:100%;margin-top:9px" ${cash < 200000 ? 'disabled' : "onclick=\"DARK.buyBusiness('strip_club')\""}>Buy — ${fmt(200000)}</button></div>`;
+    } else if (tab === 'casino') {
+      body = this.soon('🎰 Underground Casino', 'Rig the tables and rake the house — a pure money-maker. Coming soon.');
+    } else {
+      body = this.soon('🔧 Chop Shop', 'Strip stolen cars for parts — steady dirty cash off the street. Coming soon.');
+    }
     return `
       ${this.sectionTitle('Business')}
-      <div class="dk-card"><p class="dk-p">Your <b>earners</b> — the muscle of the operation. They'll pull in money on their own (and the club becomes your ear on the cops) once they open up. Laundering fronts live over in the <b>Cash</b> tab.</p></div>
-      ${soon('💋', 'Strip Club', 'A cash earner — and its VIP lounge becomes your ear on the cops in The Hunt.')}
-      ${soon('🎰', 'Underground Casino', 'Rig the tables and rake the house — a pure money-maker.')}
-      ${soon('🔧', 'Chop Shop', 'Strip stolen cars for parts — steady dirty cash off the street.')}
+      <div class="dk-htabs">${tb('club', '💋 Strip Club')}${tb('casino', '🎰 Casino')}${tb('chop', '🔧 Chop Shop')}</div>
+      ${body}
     `;
   },
 
@@ -1580,6 +2073,32 @@ const DARK = {
     .dk-cal-bar{height:5px;background:#2a1418;border-radius:3px;margin-top:7px;overflow:hidden}
     .dk-cal-bar>div{height:100%;background:#C0392B;border-radius:3px}
     .dk-tag{font-size:9px;font-weight:800;color:#0c0608;background:#9a8a8a;border-radius:5px;padding:1px 5px;vertical-align:middle}
+    .dk-clbar{display:flex;justify-content:space-between;font-size:10px;margin-top:9px}
+    .dk-assign{display:flex;gap:5px;flex-wrap:wrap}
+    .dk-aschip{background:#1a1012;border:1px solid #3a2024;color:#cbb6b6;font-weight:700;font-size:11px;padding:6px 10px;border-radius:7px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+    .dk-aschip.on{background:#C0392B;border-color:#C0392B;color:#fff}
+    .dk-aschip.dk-buy-off{opacity:.4}
+    .dk-acc{width:100%;display:flex;justify-content:space-between;align-items:center;background:#160a0c;border:1px solid #3a2024;border-radius:10px;padding:12px 13px;margin-top:8px;color:#e8d9d9;cursor:pointer;-webkit-tap-highlight-color:transparent}
+    .dk-acc.open{border-color:#C0392B;border-bottom-left-radius:0;border-bottom-right-radius:0;margin-bottom:0}
+    .dk-acc-body{background:#120709;border:1px solid #3a2024;border-top:none;border-radius:0 0 10px 10px;padding:12px 13px}
+    .dk-dancer{background:#1a1012;border:1px solid #2e1a1d;border-radius:9px;padding:9px 11px;margin-bottom:8px}
+    .dk-title{display:inline-block;font-size:9px;font-weight:800;color:#FFC83D;background:rgba(255,200,61,0.12);border:1px solid #FFC83D55;border-radius:5px;padding:1px 6px;vertical-align:middle;letter-spacing:.3px}
+    .dk-housemom{border-color:#c9893d;background:linear-gradient(180deg,rgba(201,137,61,0.12),#1a1012)}
+    .dk-housemom .dk-title{color:#f0b86a;border-color:#c9893d}
+    .dk-away{opacity:.62}
+    .dk-dancer-evt{border-color:#ff4d2d;background:linear-gradient(180deg,rgba(255,77,45,0.10),#1a1012)}
+    .dk-evt-delta{font-size:13px;font-weight:800;margin:10px 0 2px;line-height:1.6}
+    .dk-dancer-top{display:flex;justify-content:space-between;align-items:center}
+    .dk-minibar{display:flex;align-items:center;gap:7px;margin-top:4px;font-size:11px;color:#9a8a8a}
+    .dk-vip{margin-bottom:8px;border-color:#7a4a2a}
+    .dk-vip-h{font-weight:800;font-size:14px;color:#FFC83D}
+    .dk-incident{border-color:#ff4d2d;text-align:center;padding:18px 16px}
+    .dk-incident-ic{font-size:40px;line-height:1}
+    .dk-incident-t{font-weight:800;font-size:16px;margin-top:8px;color:#ff6b4d}
+    .dk-dancer-banner{position:relative;width:100%;aspect-ratio:680/470;border-radius:12px;overflow:hidden;border:1px solid #5a2430;margin-bottom:10px;background:#0a0410;line-height:0;box-shadow:inset 0 0 30px rgba(0,0,0,0.5)}
+    .dk-dancer-banner svg{width:100%;height:100%;display:block}
+    .dk-live{position:absolute;top:8px;left:9px;z-index:2;font-size:9px;font-weight:800;letter-spacing:0.6px;color:#fff;background:rgba(192,57,43,0.85);padding:3px 7px;border-radius:5px;line-height:1;animation:dkpulse 2s ease-in-out infinite}
+    @keyframes dkpulse{0%,100%{opacity:1}50%{opacity:0.45}}
     .dk-soon{background:rgba(192,57,43,0.07);border:1px dashed #5a2024;border-radius:10px;padding:12px 13px;margin-top:10px}
     .dk-soon-tag{font-size:9px;font-weight:800;color:#C0392B;text-transform:uppercase;letter-spacing:0.5px}
     .dk-soon-title{font-size:13px;font-weight:800;margin-top:3px}
@@ -1887,7 +2406,7 @@ function applyGameMode() {
     }
     if (DARK._inSettings) { root.style.display = 'none'; return; }   // viewing the real settings page — keep the overlay tucked away (survives refreshState)
     root.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;height:100vh;height:100dvh;z-index:9000;background:#0c0608;display:flex;justify-content:center';
-    root.innerHTML = DARK.render();
+    DARK.rerender();   // go through rerender so scroll position is preserved (e.g. after a purchase → refreshState)
   } else {
     root.style.display = 'none';
     root.innerHTML = '';
