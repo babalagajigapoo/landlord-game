@@ -4637,6 +4637,7 @@ def _migrate_state(s):
         dk.setdefault("pending_event", None)
         dk.setdefault("raid_in", None); dk.setdefault("bribes", 0)
         dk.setdefault("lawyered", False); dk.setdefault("moved", False); dk.setdefault("lying_low", False)
+        dk.setdefault("lielow_used", False); dk.setdefault("mole_day", None)
         dk.setdefault("watch", None); dk.setdefault("watch_known", False)
         dk.setdefault("watch_quiet", 0); dk.setdefault("watch_since", 0); dk.setdefault("vip", False)
         dk.setdefault("raid_cooldown", 0); dk.setdefault("raid_pace", 0); dk.setdefault("raid_days", 0)
@@ -4666,6 +4667,8 @@ def _migrate_state(s):
         dk.setdefault("next_heist_member", 1); dk.setdefault("heist_takes", {})
         dk.setdefault("heist_lockout", 0); dk.setdefault("heist_lockout_cred", 0)
         dk.setdefault("phil", None); dk.setdefault("phil_notified", False)
+        if (dk.get("biz") or {}).get("casino") and not dk.get("casino"): _dark_casino_init(dk)
+        if dk.get("casino"): _dark_casino_migrate(dk["casino"])
         if dk.get("heist_crew"): _dark_heist_ensure_pool(dk)   # repair old duplicated/partial pools
         if dk.get("club"): _dark_club_migrate(dk["club"])
     return s
@@ -5053,6 +5056,7 @@ def _dark_watch_candidates(s):
     for key in DARK_LAUNDER:
         if biz.get(key):
             out.append((launder.get(key, {}).get("heat", 0), {"kind": "front", "ref": key, "name": f"the {DARK_LAUNDER[key]['name']}"}))
+    # The casino is OFF the Hunt entirely — a protected late-game launderer (no watchful eyes).
     return out
 
 def _dark_watch_entity(s, w):
@@ -5145,11 +5149,12 @@ def _dark_lock_watch(s, w, events=None):
     """Marsh commits to one op: build its clue pool, roll a hidden 5–10 day raid pace, start the
     countdown (the top-right Heat) at zero."""
     d = s["dark"]
-    w = dict(w); w["clues"] = _dark_build_clues(s, w); w["found"] = 0
+    w = dict(w); w["clues"] = _dark_build_clues(s, w); w["found"] = 1   # one free opening lead; earn the rest
+    w["ally_tip_used"] = False; w["mole_buys"] = 0   # mole price escalates within a case, resets here
     d["watch"] = w; d["watch_known"] = False
     days = random.randint(DARK_RAID_MIN_DAYS, DARK_RAID_MAX_DAYS)
     d["raid_days"] = days; d["raid_pace"] = 100.0 / days; d["heat"] = 0
-    d["lawyered"] = False; d["moved"] = False
+    d["lawyered"] = False; d["moved"] = False; d["lielow_used"] = False   # scramble moves reset each case
     if events is not None:
         events.append({"type": "warning", "text": f"🕵️ The Fixer: \"{random.choice(DARK_MARSH_LOCK_LINES)}\""})
 
@@ -5245,25 +5250,15 @@ def _dark_hunt_tick(s, events):
     else:
         step = d.get("raid_pace", 12) * random.uniform(0.85, 1.15)
         d["heat"] = min(100, d.get("heat", 0) + step)
-    h = d.get("heat", 0)
-    # Clues sharpen with the countdown: a guaranteed clue roughly every 20%.
-    target = min(len(w.get("clues", [])), int(h // 20))
-    if w.get("found", 0) < target:
-        new = _dark_clue_reveal(d, target - w.get("found", 0))
-        if new: events.append({"type": "info", "text": "🗂️ New lead in the case file: " + new[-1]})
-    # Connected crew whisper a clue.
-    if not _dark_clues_done(d) and any(m.get("trait") == "connected" for m in d.get("roster", [])) \
+    # ── Clues are EARNED. You get one free lead when the case opens (set at lock); everything
+    #    else comes from working the VIP room or paying the mole. The only passive drip is a single
+    #    free tip from PHIL — and only if you've actually hired him — at most once per case. ──
+    if not _dark_clues_done(d) and not w.get("ally_tip_used") and d.get("phil") \
             and random.random() < DARK_CLUE_CREW_CHANCE:
         new = _dark_clue_reveal(d, 1)
-        if new: events.append({"type": "info", "text": "👂 One of your connected people heard something: " + new[-1]})
-    # A dealer flags a weird buyer — only when the target actually is a dealer.
-    if not _dark_clues_done(d) and w.get("kind") == "dealer" and random.random() < DARK_CLUE_DEAL_CHANCE:
-        new = _dark_clue_reveal(d, 1)
-        if new: events.append({"type": "warning", "text": "🧢 One of your dealers flagged a buyer who smelled like a cop: " + new[-1]})
-    # Free ambient news headline.
-    if not _dark_clues_done(d) and random.random() < DARK_CLUE_NEWS_CHANCE:
-        new = _dark_clue_reveal(d, 1)
-        if new: events.append({"type": "info", "text": random.choice(DARK_NEWS_HEADLINES) + " " + new[-1]})
+        if new:
+            w["ally_tip_used"] = True
+            events.append({"type": "info", "text": "👂 Phil caught wind of something and slipped you a tip: " + new[-1]})
     if d.get("heat", 0) >= 100:
         _dark_do_raid(s, events)
 
@@ -5338,22 +5333,19 @@ DARK_BAR_PRICE = {
     "top":   {"name": "Top-shelf",    "mult": 0.7,  "rep": +1, "desc": "Thin margins, but the room loves it."},
 }
 DARK_BARTENDER_NAMES = ["Tony", "Gina", "Rick", "Manny", "Lou", "Dom"]
-# VIP minigame patron archetypes. `topics` = the angle that gets them talking;
-# `reward` = what extracting their intel does. `risk` rises the deeper/wronger you push.
-DARK_VIP_TYPES = {
-    "beat":      {"name": "an off-duty beat cop", "tell": "keeps glancing at the door like he's still on shift",
-                  "topic": "the neighborhood", "reward": "cool", "susp": 3},
-    "vice":      {"name": "a vice detective",     "tell": "nurses one drink and watches the room more than the stage",
-                  "topic": "open cases",    "reward": "watch", "susp": 7},
-    "da":        {"name": "an assistant DA",      "tell": "name-drops the courthouse and flashes an expensive watch",
-                  "topic": "the courthouse", "reward": "leverage_da", "susp": 5},
-    "snitch":    {"name": "a nervous informant",  "tell": "sits with his back to the wall and won't give his name",
-                  "topic": "street talk",    "reward": "sell", "susp": 4},
-    "undercover":{"name": "a friendly regular",   "tell": "asks a few too many friendly questions about the owner",
-                  "topic": "the business",   "reward": "trap", "susp": 9},
-}
-DARK_VIP_TOPICS = {"the neighborhood": "beat", "open cases": "vice", "the courthouse": "da",
-                   "street talk": "snitch", "the business": "undercover"}
+# VIP room minigame "Loosen His Tongue" — a connected patron drifts in during an open
+# case. You climb a hidden 0–100 "talk" dial onto a small GREEN sure-spot for a clue;
+# drift just past it into the ORANGE shoulder for a 50/50; sail into the RED and it's
+# too pushy. Three tries — each try the dial resets cold and your moves refill. The
+# green/orange position is randomized per patron and held across the three tries.
+DARK_VIP_GREEN    = 3.5     # width of the guaranteed-clue band (0–100 scale)
+DARK_VIP_ORANGE   = 3.25    # width of the 50/50 shoulder, immediately right of the green
+DARK_VIP_GLO_MIN  = 38      # the green band's left edge sits randomly in this range…
+DARK_VIP_GLO_MAX  = 60      # …so the sweet spot is never in a predictable place
+DARK_VIP_TRIES    = 3       # missed shots before he clams up for the night
+DARK_VIP_ODDS     = 0.5     # success chance of an "ask anyway" from the orange
+DARK_VIP_MOVES    = {"round": 2, "dancer": 3, "lean": 4}                    # move uses, refilled each try
+DARK_VIP_NUDGE    = {"round": (15, 22), "dancer": (7, 11), "lean": (2, 5)}  # how far up each move pushes
 
 # ── THE CAST: six fixed, hand-written dancers. You bring them on one at a time;
 #    once all six are in, the roster's closed (no more hiring, no firing). Each has a
@@ -5462,6 +5454,7 @@ def _dark_club_migrate(c):
     c.setdefault("door", "balanced")
     c.setdefault("event", None); c.setdefault("vip_patron", False); c.setdefault("vip_game", None)
     c.setdefault("vip_day", 0); c.setdefault("last_gross", 0); c.setdefault("last_wages", 0); c.setdefault("last_net", 0)
+    if c.get("vip_game") and "glo" not in c["vip_game"]: c["vip_game"] = None  # drop any in-flight old-format VIP minigame
     c.pop("lounge_offer", None); c.pop("lounge_day", None)
     # Saves made before the named-cast overhaul had randomly-generated dancers — reset to the
     # fresh cast (a clean slate for the scripted arcs).
@@ -5568,8 +5561,9 @@ def _dark_club_tick(s, events):
     c["heat"] = min(100, max(0, c.get("heat", 0) + max(0, base - min(secr, 7))))
     bent = sum(1 for L in c.get("leverage", []) if L.get("kind") == "bent_cop")
     if bent: d["heat"] = max(0, d.get("heat", 0) - 3 * bent)
-    # ── A connected patron drifts into the VIP room (the intel minigame). ──
-    if up.get("vip", 0) > 0 and not c.get("vip_patron") and not c.get("vip_game") and (s["day"] - c.get("vip_day", 0)) >= 5:
+    # ── A connected patron drifts into the VIP room — ONLY when Marsh has an open case
+    #    (nothing to learn otherwise). The minigame's payoff is a clue on that case. ──
+    if up.get("vip", 0) > 0 and d.get("watch") and not _dark_clues_done(d) and not c.get("vip_patron") and not c.get("vip_game") and (s["day"] - c.get("vip_day", 0)) >= 5:
         c["vip_patron"] = True; c["vip_day"] = s["day"]
         events.append({"type": "info", "text": "🥂 Someone connected just slipped into the VIP room — go read them (Biz → Strip Club)."})
     # ── ONE drama per night: either a dancer's story beat (pauses just her) OR a
@@ -5894,13 +5888,48 @@ def _dark_club_resolve_event(s, c, choice):
     c["event"] = None
     return msg
 
-# ── VIP room minigame: read the patron, loosen their tongue, extract Hunt intel. ──
+# ── VIP room minigame "Loosen His Tongue": climb the talk dial onto the green for a
+#    sure Hunt clue, gamble the orange for a 50/50, dodge the red. Three tries. ──
+def _dark_vip_new_try(g):
+    """Reset the dial cold and refill the move budget for a fresh attempt."""
+    g["talk"] = float(random.randint(6, 12))
+    g["uses"] = dict(DARK_VIP_MOVES)
+    g["pending"] = False; g["miss"] = None
+
 def _dark_vip_start(c):
-    weights = ["beat", "beat", "vice", "vice", "da", "snitch", "undercover"]
-    t = random.choice(weights)
+    glo = float(random.randint(DARK_VIP_GLO_MIN, DARK_VIP_GLO_MAX))
+    ghi = glo + DARK_VIP_GREEN
+    g = {"glo": glo, "ghi": ghi, "ohi": ghi + DARK_VIP_ORANGE, "tries": DARK_VIP_TRIES,
+         "done": False, "win": False, "outcome": None}
+    _dark_vip_new_try(g)
     c["vip_patron"] = False
-    c["vip_game"] = {"type": t, "comfort": 15, "susp": DARK_VIP_TYPES[t]["susp"], "intel": 0,
-                     "round": 0, "revealed": False, "done": False}
+    c["vip_game"] = g
+
+def _dark_vip_can_ask(g):
+    """True when the dial is anywhere in the green-or-orange band (you can take a shot)."""
+    return g["glo"] <= g["talk"] <= g["ohi"]
+
+def _dark_vip_miss(c, g, reason):
+    """Burn a try. If any remain, flag it pending — the client lingers on the missed shot
+    (marker left where it landed) for a beat, then a `next` call resets the dial cold."""
+    g["tries"] -= 1
+    if g["tries"] <= 0:
+        g["done"] = True; g["win"] = False
+        g["outcome"] = "Out of tries. He clams up and waves you off the booth — no tip tonight."
+    else:
+        g["pending"] = True; g["miss"] = reason
+
+def _dark_vip_win(s, c, g, gamble):
+    """A green ask, or a winning orange flip — pull one clue from the open case."""
+    g["done"] = True; g["win"] = True
+    d = s["dark"]
+    lead = ("He eyes you a long second… then decides you're alright."
+            if gamble else "He leans in and mutters something.")
+    if d.get("watch") and not _dark_clues_done(d):
+        new = _dark_clue_reveal(d, 1)
+        g["outcome"] = "🔎 " + lead + " " + (new[-1] if new else "But it's nothing you didn't already have.")
+    else:
+        g["outcome"] = lead + " But there's no open case for him to talk about right now."
 
 # Criminal traits — each recruit has exactly ONE. "knows" traits gate which drug a crew
 # can cook (a crew needs a member who knows the target drug). The rest are skill/personality
@@ -6009,7 +6038,8 @@ DARK_WATCH_MIN_HEAT  = 25      # an op must be at least this hot to draw his eye
 DARK_RAID_MIN_DAYS   = 5       # fastest the countdown fills once he's locked on
 DARK_RAID_MAX_DAYS   = 10      # slowest
 DARK_RAID_COOLDOWN   = 6       # days after a raid before he can lock onto a new target
-DARK_INTEL_COST      = 25_000  # the mole's tip — a sharp clue, but it costs real money now
+DARK_INTEL_BASE      = 5_000   # the mole's first tip this case; each further tip costs +DARK_INTEL_STEP
+DARK_INTEL_STEP      = 5_000   # 5k, 10k, 15k, ... per tip (resets each case); max one tip/day
 DARK_VIP_COST        = 60_000  # build the strip-club VIP lounge (intel engine)
 DARK_VIP_WORK_COST   = 6_000   # work the VIP room for a guaranteed clue
 DARK_VIP_INTEL_CHANCE = 0.35   # passive daily chance the lounge turns up a clue
@@ -6056,8 +6086,180 @@ def _dark_stash_add(d, drug, units):
 
 DARK_DEALER_CAP = 12   # units a dealer moves per day (see _dark_dealer_cap for cred scaling)
 DARK_BIZ_PRICE  = {"laundromat": 50_000, "car_wash": 300_000, "strip_club": 200_000, "pizzeria": 130_000,
-                   "autolot": 600_000, "construction": 1_200_000}
-DARK_CASINO_COST = 75_000   # convert a carried-over arcade into a casino
+                   "autolot": 600_000, "construction": 1_200_000, "casino": 500_000}
+DARK_BIZ_CRED   = {"casino": 7}   # Street Cred needed to buy certain businesses
+DARK_CASINO_COST = 500_000   # build & reopen a casino from scratch (the Fixer took your arcade)
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  THE CASINO — a LEGIT gambling floor (clean income, like the club) with one dirty
+#  organ: THE CAGE, which launders dirty→clean above any front's cap. The floor never
+#  draws heat; only running the cage does. Tune the house EDGE for the revenue sweet
+#  spot, host blackjack HIGH-ROLLER nights, and build the floor out with upgrades.
+# ══════════════════════════════════════════════════════════════════════════════
+DARK_CASINO_BASE = 3_800     # base clean $/night at one pit, fair edge, before rep/variance
+# Edge: pure revenue lever (NO heat). Greedy margin vs crowd size + reputation drift.
+DARK_CASINO_EDGE = {
+    "loose":  {"name": "Loose",  "mult": 0.72, "crowd": 1.30, "rep":  2},   # generous → thin margin, packed house, name grows
+    "fair":   {"name": "Fair",   "mult": 1.00, "crowd": 1.00, "rep":  0},
+    "tight":  {"name": "Tight",  "mult": 1.45, "crowd": 0.72, "rep": -1},   # greedy → fat margin, thinner crowd
+    "brutal": {"name": "Brutal", "mult": 1.90, "crowd": 0.48, "rep": -3},   # bleed 'em → huge margin, crowd dwindles fast
+}
+DARK_CASINO_EDGE_ORDER = ["loose", "fair", "tight", "brutal"]
+DARK_CASINO_STAFF = {
+    "pitboss": {"name": "Pit Boss",     "icon": "🤵", "wage": 300, "hire": 15_000, "max": 1, "desc": "Keeps the floor tight — a small lift to the nightly take."},
+    "dealer":  {"name": "Dealer",       "icon": "🃏", "wage": 150, "hire": 6_000,  "max": 6, "desc": "Each open table moves more money. More dealers = bigger take."},
+    "cageman": {"name": "Cage Manager", "icon": "💼", "wage": 250, "hire": 12_000, "max": 1, "desc": "Runs the count room — raises the cage's launder cap and keeps its heat down."},
+}
+DARK_CASINO_UPGRADES = {
+    "tables":  {"name": "Gaming Tables",     "icon": "🃏", "desc": "More tables on the floor — straight bigger nightly take.",
+                "tiers": [["Add a pit", 40_000], ["Full casino floor", 120_000]]},
+    "poker":   {"name": "Poker Room",        "icon": "♠️", "desc": "A steady house rake on top of the floor take.",
+                "tiers": [["Open the poker room", 80_000]]},
+    "salon":   {"name": "High-Limit Salon",  "icon": "💎", "desc": "Whales only — bigger, richer High-Roller nights.",
+                "tiers": [["Build the salon", 150_000]]},
+    "members": {"name": "Members' Club",     "icon": "🎟️", "desc": "Cultivate regulars — whales show up more often.",
+                "tiers": [["Launch the club", 100_000]]},
+    "cage":    {"name": "The Cage",          "icon": "💵", "desc": "The count room — launders dirty money into clean, faster than any front. The one thing that draws heat.",
+                "tiers": [["Open the cage", 60_000], ["Upgrade the count room", 180_000]]},
+}
+DARK_CASINO_CAGE_CAP = [0, 9_000, 22_000]   # dirty $/day cleaned, by cage upgrade tier (0/1/2)
+DARK_CASINO_WHALE_GAP = 5                    # min days between High-Roller walk-ins (fewer with Members' Club)
+DARK_CASINO_WHALE_BASE = 18_000              # base whale bankroll (scales with rep + High-Limit Salon)
+
+def _dark_casino_cage_cap(c):
+    cap = DARK_CASINO_CAGE_CAP[min(c.get("upgrades", {}).get("cage", 0), 2)]
+    if any(st == "cageman" for st in c.get("staff", {})) and c["staff"].get("cageman", 0) > 0: cap = int(cap * 1.4)
+    return cap
+
+def _dark_casino_init(d):
+    c = {"bank": 0, "heat": 0, "rep": 40, "edge": "fair", "cage_rate": 0,
+         "staff": {"pitboss": 0, "dealer": 1, "cageman": 0},
+         "upgrades": {k: 0 for k in DARK_CASINO_UPGRADES},
+         "whale": None, "whale_day": 0, "streak": 0,
+         "last_gross": 0, "last_wages": 0, "last_clean": 0, "name": "your casino"}
+    d["casino"] = c
+
+def _dark_casino_migrate(c):
+    c.setdefault("bank", 0); c.setdefault("heat", 0); c.setdefault("rep", 40); c.setdefault("edge", "fair")
+    c.setdefault("cage_rate", 0); c.setdefault("streak", 0); c.setdefault("whale", None); c.setdefault("whale_day", 0)
+    c.setdefault("staff", {"pitboss": 0, "dealer": 1, "cageman": 0})
+    for k in ("pitboss", "dealer", "cageman"): c["staff"].setdefault(k, 0)
+    c.setdefault("upgrades", {k: 0 for k in DARK_CASINO_UPGRADES})
+    for k in DARK_CASINO_UPGRADES: c["upgrades"].setdefault(k, 0)
+    c.setdefault("name", "your casino")
+    c.setdefault("whale_pending", False); c.setdefault("whale_active", False); c.setdefault("whale_bankroll", 0)
+
+def _dark_casino_tick(s, events):
+    """Nightly: the floor earns CLEAN money (banked, you collect it) net of staff wages, with real
+    variance + streaks; reputation drifts with the house edge; the cage launders dirty→clean with NO
+    heat (the casino is off the Hunt — a protected late-game launderer). A nightly incident can break
+    out and FREEZE the whole casino until you handle it."""
+    d = s["dark"]
+    if not (d.get("biz") or {}).get("casino"): return
+    c = d.get("casino")
+    if not c: _dark_casino_init(d); c = d["casino"]
+    _dark_casino_migrate(c)
+    if c.get("event"): return   # an unhandled incident shuts the casino down — no income until resolved
+    up = c["upgrades"]; edge = DARK_CASINO_EDGE.get(c.get("edge", "fair"), DARK_CASINO_EDGE["fair"])
+    rep = c.get("rep", 40)
+    # ── Floor take (clean). Tables upgrade + dealers scale it; edge trades margin for crowd. ──
+    tables = 1 + 0.6 * up.get("tables", 0)
+    dealers = max(1, c["staff"].get("dealer", 1))
+    rep_factor = 0.55 + rep / 160.0
+    # Streaks: carry a little luck day to day so collecting stays tense (hot/cold runs).
+    c["streak"] = max(-3, min(3, c.get("streak", 0) + random.choice([-1, 0, 0, 1])))
+    variance = random.uniform(0.7, 1.3) + c["streak"] * 0.05
+    gross = DARK_CASINO_BASE * tables * (0.6 + 0.18 * dealers) * edge["mult"] * edge["crowd"] * rep_factor * variance
+    if up.get("poker", 0): gross += DARK_CASINO_BASE * 0.4 * rep_factor    # poker rake — steady
+    if c["staff"].get("pitboss", 0): gross *= 1.10
+    gross = max(0, round(gross))
+    # ── Wages from clean cash (unpaid staff walk, like a front manager). ──
+    wages = (c["staff"].get("pitboss", 0) * DARK_CASINO_STAFF["pitboss"]["wage"]
+             + c["staff"].get("dealer", 0) * DARK_CASINO_STAFF["dealer"]["wage"]
+             + c["staff"].get("cageman", 0) * DARK_CASINO_STAFF["cageman"]["wage"])
+    if s.get("cash", 0) >= wages:
+        s["cash"] -= wages
+    else:
+        c["staff"] = {"pitboss": 0, "dealer": max(1, 0), "cageman": 0}; wages = 0
+        events.append({"type": "warning", "text": "🎰 Couldn't make the casino payroll — your floor staff walked."})
+    c["bank"] = c.get("bank", 0) + gross
+    c["last_gross"], c["last_wages"] = gross, wages
+    # ── Reputation drifts with the edge (greedy = crowd thins over time). ──
+    c["rep"] = max(0, min(100, rep + edge["rep"]))
+    # ── The Cage — once built it auto-launders dirty→clean (banked) at full capacity. No heat,
+    #    no watchful eyes, no dial: this is the casino's whole point — a safe, high-cap money wash. ──
+    cleaned = 0
+    if up.get("cage", 0):
+        amount = min(d.get("dirty_money", 0), _dark_casino_cage_cap(c))
+        if amount > 0:
+            d["dirty_money"] -= amount; c["bank"] = c.get("bank", 0) + amount; cleaned = amount
+            d["year_take"] = d.get("year_take", 0) + amount
+            d["cred_xp"] = d.get("cred_xp", 0) + round(amount / 800)
+    c["last_clean"] = cleaned
+    # ── A high-roller drifts in (Members' Club shortens the gap; the Salon makes them whales). ──
+    gap = DARK_CASINO_WHALE_GAP - (2 if up.get("members", 0) else 0)
+    if not c.get("whale_pending") and not c.get("whale_active") and (s["day"] - c.get("whale_day", 0)) >= gap and random.random() < 0.45:
+        c["whale_pending"] = True; c["whale_day"] = s["day"]
+        events.append({"type": "info", "text": "🐳 A high-roller just sat down at your tables — deal him in (Biz → Casino)."})
+    # ── A casino incident may break out — it FREEZES the floor until you handle it. ──
+    if not c.get("event"):
+        chance = 0.16 - (0.06 if c["staff"].get("pitboss", 0) else 0)   # a Pit Boss keeps the floor tighter
+        if random.random() < chance:
+            _dark_casino_spawn_event(s, c, events)
+
+# ── Casino incidents — each FREEZES the floor until you tap a choice. Outcomes hit clean
+#    cash / dirty money / the count / reputation (the casino draws no heat). Like the club. ──
+DARK_CASINO_EVENTS = [
+    {"key": "counter", "icon": "🃏", "text": "A sharp at the blackjack tables is counting cards and bleeding the house.",
+     "choices": [["Have the pit boss bounce him", "Gone — and word spreads not to try it here.", {"rep": 3}],
+                 ["Let him ride", "He walks out fat. You eat the loss.", {"cash": -6000}]]},
+    {"key": "collusion", "icon": "🤝", "text": "Security caught a dealer colluding with a player to skim the house.",
+     "choices": [["Make an example of them", "Loud and ugly — but nobody tries it again.", {"rep": -3, "cash": 2500}],
+                 ["Handle it quietly", "A quiet payoff keeps it off the books.", {"cash": -4000}]]},
+    {"key": "marker", "icon": "🧾", "text": "A high-roller skipped town owing the house a $40,000 marker.",
+     "choices": [["Send collectors", "Your guys bring back most of it — in cash.", {"dirty": 30000}],
+                 ["Write it off", "It stings, but the room stays classy.", {"rep": 2}]]},
+    {"key": "inspector", "icon": "📋", "text": "A gaming-commission inspector is doing a surprise floor audit.",
+     "choices": [["Grease the clipboard", "Everything's suddenly 'in order.'", {"cash": -5000}],
+                 ["Run it by the book", "Clean — but he red-tags two tables for the night.", {"cash": -1500}]]},
+    {"key": "robbery", "icon": "🔫", "text": "Two armed men are at the cage trying to rob the count.",
+     "choices": [["Security takes them down", "Your guys handle it — nothing lost.", {"rep": 3}],
+                 ["Hand over the drawer", "Nobody hurt, but they cleaned out the count.", {"s": "rob_cage"}]]},
+    {"key": "salon", "icon": "💎", "text": "A famous whale wants the high-limit salon all to himself tonight.",
+     "choices": [["Comp him the salon", "He drops a fortune and tips big.", {"dirty": 12000}],
+                 ["Charge full freight", "He's insulted and takes his action elsewhere.", {"rep": -2}]]},
+    {"key": "power", "icon": "⚡", "text": "A power surge just knocked out half the floor mid-shift.",
+     "choices": [["Pay for emergency repairs", "Back online fast.", {"cash": -3000}],
+                 ["Limp through the night", "Half the tables dark — a thin night.", {"cash": -1200}]]},
+    {"key": "made_man", "icon": "🕴️", "text": "A made man is comping himself at your tables and daring anyone to object.",
+     "choices": [["Let him have his fun", "Costs you, but you keep the peace.", {"cash": -4000}],
+                 ["Cut him off", "He's furious — but it's your house.", {"rep": 2}]]},
+    {"key": "celebrity", "icon": "🌟", "text": "A celebrity just rolled in with an entourage and a camera crew.",
+     "choices": [["Roll out the red carpet", "The buzz packs your floor for a week.", {"rep": 6}],
+                 ["Keep it low-key", "Quiet night, no fuss.", {}]]},
+    {"key": "briefcase", "icon": "💼", "text": "Housekeeping found a briefcase stuffed with cash in a high-limit suite.",
+     "choices": [["Keep it", "Finders keepers — straight to the count.", {"dirty": 5000}],
+                 ["Track down the owner", "A grateful whale, loyal for life.", {"rep": 4}]]},
+]
+
+def _dark_casino_spawn_event(s, c, events):
+    e = random.choice(DARK_CASINO_EVENTS)
+    c["event"] = {"key": e["key"], "icon": e["icon"], "text": e["text"], "choices": [ch[0] for ch in e["choices"]]}
+    events.append({"type": "warning", "text": f"{e['icon']} Something's come up at {c.get('name', 'the casino')} — the floor's shut until you handle it (Biz → Casino)."})
+
+def _dark_casino_resolve_event(s, c, idx):
+    ev = c.get("event")
+    if not ev: return "Nothing to handle."
+    e = next((x for x in DARK_CASINO_EVENTS if x["key"] == ev["key"]), None)
+    if not e or idx < 0 or idx >= len(e["choices"]): return "Pick an option."
+    _, result, eff = e["choices"][idx]; d = s["dark"]
+    s["cash"] = max(0, s.get("cash", 0) + eff.get("cash", 0))
+    d["dirty_money"] = max(0, d.get("dirty_money", 0) + eff.get("dirty", 0))
+    if eff.get("dirty", 0) > 0: d["year_take"] = d.get("year_take", 0) + eff["dirty"]
+    c["rep"] = max(0, min(100, c.get("rep", 40) + eff.get("rep", 0)))
+    if eff.get("s") == "rob_cage": c["bank"] = c.get("bank", 0) // 2
+    c["event"] = None
+    return result
 
 # Laundering fronts — wash dirty money into clean. cap = dirty $/day cleaned per rate level;
 # hire = one-time dirty-manager fee; wage = daily upkeep while washing; heat_rate scales business heat.
@@ -7070,25 +7272,126 @@ def api_dark_buy_business():
     price = DARK_BIZ_PRICE.get(key)
     if price is None: return jsonify({"error": "Can't buy that."}), 400
     if biz.get(key): return jsonify({"error": "You already run that."}), 400
+    need = DARK_BIZ_CRED.get(key)
+    if need and d.get("cred", 1) < need: return jsonify({"error": f"Unlocks at Street Cred {need}."}), 400
     if s["cash"] < price: return jsonify({"error": f"Need ${price:,}."}), 400
     s["cash"] -= price; biz[key] = True
     if key == "strip_club" and not d.get("club"): _dark_club_init(d)
+    if key == "casino" and not d.get("casino"): _dark_casino_init(d)
     if key in DARK_LAUNDER and not d.get("debt_active"):   # first laundering front → the Fixer calls in his marker
         _dark_activate_debt(s)
     save(s)
     return jsonify({"ok": True})
 
-@app.route('/api/dark/convert_casino', methods=['POST'])
-def api_dark_convert_casino():
+# ── Casino management ──────────────────────────────────────────────────────────
+def _casino_or_err():
     s = load()
-    if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
-    d = s["dark"]; biz = d.setdefault("biz", {})
-    if biz.get("casino"): return jsonify({"error": "It's already a casino."}), 400
-    if not biz.get("arcade_had"): return jsonify({"error": "You've got no arcade to convert."}), 400
-    if s["cash"] < DARK_CASINO_COST: return jsonify({"error": f"Need ${DARK_CASINO_COST:,} to convert it."}), 400
-    s["cash"] -= DARK_CASINO_COST; biz["casino"] = True
+    if s.get("mode") != "dark": return None, None, (jsonify({"error": "Not on the dark side."}), 400)
+    c = s["dark"].get("casino")
+    if not (s["dark"].get("biz") or {}).get("casino") or not c: return None, None, (jsonify({"error": "You don't run a casino."}), 400)
+    _dark_casino_migrate(c)
+    return s, c, None
+
+@app.route('/api/dark/casino_edge', methods=['POST'])
+def api_dark_casino_edge():
+    s, c, err = _casino_or_err()
+    if err: return err
+    e = (request.json or {}).get("edge")
+    if e not in DARK_CASINO_EDGE: return jsonify({"error": "No such house edge."}), 400
+    c["edge"] = e; save(s)
+    return jsonify({"ok": True, "edge": e})
+
+@app.route('/api/dark/casino_hire', methods=['POST'])
+def api_dark_casino_hire():
+    s, c, err = _casino_or_err()
+    if err: return err
+    role = (request.json or {}).get("role"); meta = DARK_CASINO_STAFF.get(role)
+    if not meta: return jsonify({"error": "No such job."}), 400
+    if c["staff"].get(role, 0) >= meta["max"]: return jsonify({"error": f"You've got all the {meta['name']}s you need."}), 400
+    if s["cash"] < meta["hire"]: return jsonify({"error": f"Need ${meta['hire']:,} to bring on a {meta['name']}."}), 400
+    s["cash"] -= meta["hire"]; c["staff"][role] = c["staff"].get(role, 0) + 1
     save(s)
     return jsonify({"ok": True})
+
+@app.route('/api/dark/casino_upgrade', methods=['POST'])
+def api_dark_casino_upgrade():
+    s, c, err = _casino_or_err()
+    if err: return err
+    key = (request.json or {}).get("key"); up = DARK_CASINO_UPGRADES.get(key)
+    if not up: return jsonify({"error": "No such upgrade."}), 400
+    lvl = c["upgrades"].get(key, 0)
+    if lvl >= len(up["tiers"]): return jsonify({"error": "That's fully built out."}), 400
+    cost = up["tiers"][lvl][1]
+    if s["cash"] < cost: return jsonify({"error": f"Need ${cost:,} for that."}), 400
+    s["cash"] -= cost; c["upgrades"][key] = lvl + 1
+    save(s)
+    return jsonify({"ok": True, "level": lvl + 1})
+
+@app.route('/api/dark/casino_collect', methods=['POST'])
+def api_dark_casino_collect():
+    s, c, err = _casino_or_err()
+    if err: return err
+    got = c.get("bank", 0)
+    if got <= 0: return jsonify({"error": "Nothing in the count to collect yet."}), 400
+    s["cash"] += got; c["bank"] = 0
+    save(s)
+    return jsonify({"ok": True, "collected": got})
+
+@app.route('/api/dark/casino_rename', methods=['POST'])
+def api_dark_casino_rename():
+    s, c, err = _casino_or_err()
+    if err: return err
+    nm = ((request.json or {}).get("name") or "").strip()
+    if not nm: return jsonify({"error": "Give it a name."}), 400
+    c["name"] = nm[:28]; save(s)
+    return jsonify({"ok": True, "name": c["name"]})
+
+@app.route('/api/dark/casino_event', methods=['POST'])
+def api_dark_casino_event():
+    s, c, err = _casino_or_err()
+    if err: return err
+    if not c.get("event"): return jsonify({"error": "Nothing to handle right now."}), 400
+    msg = _dark_casino_resolve_event(s, c, int((request.json or {}).get("choice", 0)))
+    save(s)
+    return jsonify({"ok": True, "msg": msg})
+
+@app.route('/api/dark/casino_whale_start', methods=['POST'])
+def api_dark_casino_whale_start():
+    s, c, err = _casino_or_err()
+    if err: return err
+    if not c.get("whale_pending"): return jsonify({"error": "No high-roller at the tables right now."}), 400
+    rep = c.get("rep", 40); salon = c["upgrades"].get("salon", 0)
+    bankroll = int(DARK_CASINO_WHALE_BASE * (1 + rep / 100.0) * (2.2 if salon else 1.0) * random.uniform(0.8, 1.4))
+    c["whale_pending"] = False; c["whale_active"] = True; c["whale_bankroll"] = bankroll
+    save(s)
+    return jsonify({"ok": True, "bankroll": bankroll, "salon": bool(salon)})
+
+@app.route('/api/dark/casino_whale_finish', methods=['POST'])
+def api_dark_casino_whale_finish():
+    # Client runs the blackjack session (trusted single-player, like the cook/sling minigames) and
+    # reports the net result. Winnings are CLEAN (legit gambling) and bank at the casino.
+    s, c, err = _casino_or_err()
+    if err: return err
+    if not c.get("whale_active"): return jsonify({"error": "Nobody's at the high-roller table."}), 400
+    j = request.json or {}; result = j.get("result", "cashout")
+    try: net = int(j.get("net", 0)); comp = int(j.get("comp", 0))
+    except (TypeError, ValueError): net, comp = 0, 0
+    cap = c.get("whale_bankroll", 0)
+    net = max(-cap, min(net, cap)); comp = max(0, min(comp, 25_000))   # anti-cheat clamps
+    s["cash"] = max(0, s.get("cash", 0) - comp)
+    c["bank"] = c.get("bank", 0) + net
+    if c["bank"] < 0: s["cash"] = max(0, s.get("cash", 0) + c["bank"]); c["bank"] = 0
+    if result == "busted":
+        c["rep"] = max(0, c.get("rep", 40) - 12); msg = "He smelled a rat and stormed out — the house's name took a hit."
+    elif result == "tapped":
+        c["rep"] = min(100, c.get("rep", 40) + 4); msg = "You cleaned him out. The legend of the house grows."
+    elif result == "walked":
+        msg = "He cashed in his chips and called it a night."
+    else:
+        msg = "You sent him home happy — the pot's in the count."
+    c["whale_active"] = False; c["whale_bankroll"] = 0
+    save(s)
+    return jsonify({"ok": True, "msg": msg, "net": net})
 
 @app.route('/api/dark/hire_manager', methods=['POST'])
 def api_dark_hire_manager():
@@ -7299,49 +7602,39 @@ def api_dark_sling():
                     "slings_today": d["slings_today"], "sling_left": max(0, DARK_SLING_PER_DAY - d["slings_today"]),
                     "rank_msgs": [m["text"] for m in msgs]})
 
-DARK_BRIBE_BASE = 4_000   # paying off the detective; climbs each time he's paid
-DARK_LAWYER_COST = 8_000
-DARK_MOVE_COST   = 3_000
+DARK_LAWYER_COST = 15_000   # retainer to beat the raid charge (one-time per case)
 
 @app.route('/api/dark/hunt_action', methods=['POST'])
 def api_dark_hunt_action():
     s = load()
     if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
     d = s["dark"]; act = (request.json or {}).get("action"); raid = bool(d.get("watch"))
+    # Both moves are ONE-TIME PER CASE — reset when Marsh locks onto a fresh target.
     if act == "lie_low":
-        if d.get("lying_low"): return jsonify({"error": "You're already set to lie low."}), 400
-        d["lying_low"] = True
-        save(s); return jsonify({"ok": True, "msg": "You'll keep everything quiet — advance to stall the case a day."})
-    if act == "bribe":
-        if not raid: return jsonify({"error": f"{DARK_DETECTIVE} hasn't got an open case to bury right now."}), 400
-        cost = DARK_BRIBE_BASE + 1500 * d.get("bribes", 0)
-        if s["cash"] < cost: return jsonify({"error": f"Need ${cost:,} to pay {DARK_DETECTIVE} off."}), 400
-        s["cash"] -= cost; d["bribes"] = d.get("bribes", 0) + 1
-        d["heat"] = max(0, d.get("heat", 0) - 35)   # knocks the raid countdown back a few days
-        save(s); return jsonify({"ok": True, "msg": f"Paid off {DARK_DETECTIVE} — bought yourself some days."})
+        if not raid: return jsonify({"error": f"{DARK_DETECTIVE} hasn't got an open case right now."}), 400
+        if d.get("lielow_used"): return jsonify({"error": "You've already laid low on this one — it's a one-time play."}), 400
+        d["lying_low"] = True; d["lielow_used"] = True
+        save(s); return jsonify({"ok": True, "msg": "You'll keep it quiet — advance to stall the case a day."})
     if act == "lawyer":
         if not raid: return jsonify({"error": "Nothing to lawyer up for right now."}), 400
         if d.get("lawyered"): return jsonify({"error": "Your lawyer's already on retainer."}), 400
         if s["cash"] < DARK_LAWYER_COST: return jsonify({"error": f"Need ${DARK_LAWYER_COST:,} for a lawyer."}), 400
         s["cash"] -= DARK_LAWYER_COST; d["lawyered"] = True
-        save(s); return jsonify({"ok": True, "msg": "Lawyer's on retainer — if they raid, he'll beat the charge."})
-    if act == "move":
-        if not raid: return jsonify({"error": "No case open — nothing to move yet."}), 400
-        if d.get("moved"): return jsonify({"error": "Product's already stashed safe."}), 400
-        if s["cash"] < DARK_MOVE_COST: return jsonify({"error": f"Need ${DARK_MOVE_COST:,} for a mover."}), 400
-        s["cash"] -= DARK_MOVE_COST; d["moved"] = True
-        save(s); return jsonify({"ok": True, "msg": "Stash and dirty money moved somewhere safe."})
+        save(s); return jsonify({"ok": True, "msg": "Lawyer's on retainer — if they raid, he beats the charge and you keep the operation."})
     return jsonify({"error": "Unknown move."}), 400
 
 @app.route('/api/dark/buy_intel', methods=['POST'])
 def api_dark_buy_intel():
     s = load()
     if s.get("mode") != "dark": return jsonify({"error": "Not on the dark side."}), 400
-    d = s["dark"]
-    if not d.get("watch"): return jsonify({"error": "Marsh isn't building a case on anything right now."}), 400
+    d = s["dark"]; w = d.get("watch")
+    if not w: return jsonify({"error": "Marsh isn't building a case on anything right now."}), 400
     if _dark_clues_done(d): return jsonify({"error": "Your mole's got nothing new — you already know exactly what he's after."}), 400
-    if s["cash"] < DARK_INTEL_COST: return jsonify({"error": f"Need ${DARK_INTEL_COST:,} for the mole's tip."}), 400
-    s["cash"] -= DARK_INTEL_COST; new = _dark_clue_reveal(d, 1)
+    if d.get("mole_day") == s.get("day"): return jsonify({"error": "Your mole's gone quiet for the day — hit him up again tomorrow."}), 400
+    cost = DARK_INTEL_BASE + DARK_INTEL_STEP * w.get("mole_buys", 0)   # 5k, then +5k each tip this case
+    if s["cash"] < cost: return jsonify({"error": f"Need ${cost:,} for the mole's next tip."}), 400
+    s["cash"] -= cost; w["mole_buys"] = w.get("mole_buys", 0) + 1; d["mole_day"] = s.get("day")
+    new = _dark_clue_reveal(d, 1)
     save(s)
     return jsonify({"ok": True, "msg": "Mole's tip — " + (new[-1] if new else "nothing new, sorry.")})
 
@@ -7632,81 +7925,39 @@ def api_dark_vip_action():
     g = c.get("vip_game")
     if not g: return jsonify({"error": "There's nobody in the VIP room."}), 400
     j = request.json or {}; action = j.get("action")
-    d = s["dark"]; t = g["type"]; meta = DARK_VIP_TYPES[t]
     if action == "close":
         c["vip_game"] = None; save(s); return jsonify({"ok": True})
-    if g.get("done"): return jsonify({"ok": True, "game": g})
     if action == "leave":
-        c["vip_game"] = None
-        save(s); return jsonify({"ok": True, "left": True, "msg": "You read the room and stepped back out. Sometimes that's the smart play."})
-    if action == "dancer":
-        x = next((dd for dd in c.get("dancers", []) if dd["id"] == j.get("id")), None)
-        if not x: return jsonify({"error": "Send which girl?"}), 400
-        ch = x.get("charm", 2)
-        g["comfort"] = min(100, g["comfort"] + ch * 9)
-        g["susp"] = max(0, g["susp"] - ch * 2)
-        if t == "undercover": g["susp"] += 4          # he keeps probing no matter how charming she is
-        g["round"] += 1
-    elif action == "bottle":
-        if s["cash"] < 1_500: return jsonify({"error": "Need $1,500 for a bottle."}), 400
-        s["cash"] -= 1_500
-        g["comfort"] = min(100, g["comfort"] + 22); g["susp"] = max(0, g["susp"] - 4); g["round"] += 1
-    elif action == "steer":
-        topic = j.get("topic")
-        if topic not in DARK_VIP_TOPICS: return jsonify({"error": "Steer toward what?"}), 400
-        if DARK_VIP_TOPICS[topic] == t:
-            g["intel"] = min(100, g["intel"] + round(35 * g["comfort"] / 100.0) + 10); g["susp"] += meta["susp"]
+        c["vip_game"] = None; save(s)
+        return jsonify({"ok": True, "left": True, "msg": "You read the room and stepped back out. Sometimes that's the smart play."})
+    if g.get("done"): return jsonify({"ok": True, "game": g})
+    if action == "next":                       # advance past a missed shot to the fresh try
+        if g.get("pending"): _dark_vip_new_try(g)
+        save(s); return jsonify({"ok": True, "game": g})
+    if g.get("pending"):                       # mid-linger on a miss — ignore stray input
+        return jsonify({"ok": True, "game": g})
+    if action == "move":
+        mv = j.get("move")
+        if mv not in DARK_VIP_NUDGE: return jsonify({"error": "Bad move."}), 400
+        if g["uses"].get(mv, 0) <= 0: return jsonify({"error": "You're out of that one."}), 400
+        g["uses"][mv] -= 1
+        lo, hi = DARK_VIP_NUDGE[mv]
+        g["talk"] = min(100.0, g["talk"] + random.randint(lo, hi))
+        if g["talk"] > g["ohi"]:
+            _dark_vip_miss(c, g, "pushy")                                   # blew past into the red
+        elif sum(g["uses"].values()) <= 0 and not _dark_vip_can_ask(g):
+            _dark_vip_miss(c, g, "stuck")                                   # out of moves, still short
+        save(s); return jsonify({"ok": True, "game": g})
+    if action == "ask":
+        if not _dark_vip_can_ask(g): return jsonify({"error": "He's not talking yet."}), 400
+        if g["talk"] <= g["ghi"]:
+            _dark_vip_win(s, c, g, False)                                   # green — a sure tip
+        elif random.random() < DARK_VIP_ODDS:
+            _dark_vip_win(s, c, g, True)                                    # orange — the gamble paid
         else:
-            g["susp"] += 18; g["intel"] = min(100, g["intel"] + 2)
-        g["round"] += 1
-    else:
-        return jsonify({"error": "Bad action."}), 400
-    if g["comfort"] >= 40: g["revealed"] = True       # enough rapport to clock his tell
-    # ── Resolve outcome. ──
-    outcome = None
-    if g["susp"] >= 100:
-        g["done"] = True; g["win"] = False
-        if t == "undercover":
-            _dark_trigger_hunt(s, bump=40)   # he made a call — Marsh swings onto your hottest op
-            outcome = "🚨 He was undercover — and you tipped your hand. He made a call on the way out. Marsh is moving on one of your spots."
-        else:
-            outcome = "He clammed up and left rattled. Whatever he knew, it's locked up tight now."
-    elif g["intel"] >= 100:
-        g["done"] = True; g["win"] = True
-        rw = meta["reward"]
-        if rw == "trap":
-            _dark_trigger_hunt(s, bump=30)   # that was no regular — you walked into it
-            outcome = "🎣 You pushed him for everything — and walked right into it. That was no regular. Marsh just moved on one of your spots."
-        elif rw == "watch":
-            if d.get("watch") and not _dark_clues_done(d):
-                new = _dark_clue_reveal(d, 1)
-                outcome = "🔎 You got it out of him — " + (new[-1] if new else "but nothing new tonight.")
-            else:
-                outcome = "🔎 He let slip the detective's got nothing solid right now. Nothing to act on."
-        elif rw == "leverage_da":
-            c.setdefault("leverage", []).append({"kind": "da", "who": meta["name"]})
-            outcome = f"⚖️ {meta['name'].capitalize()} said too much over too many drinks. You've got leverage on him now."
-        elif rw == "sell":
-            pay = random.randint(2_000, 5_000)
-            s["cash"] = max(0, s.get("cash", 0) - pay)
-            if random.random() < 0.25:
-                outcome = f"🐀 He took your ${pay:,} and fed you a line — that intel was garbage. Wasted money."
-            elif d.get("watch") and not _dark_clues_done(d):
-                new = _dark_clue_reveal(d, 1)
-                outcome = f"🐀 ${pay:,} loosened his tongue — " + (new[-1] if new else "but he had nothing new.")
-            else:
-                outcome = f"🐀 ${pay:,} loosened his tongue, but there's no open case for him to talk about right now."
-        else:  # beat cop
-            if d.get("watch") and not _dark_clues_done(d):
-                new = _dark_clue_reveal(d, 1)
-                outcome = "🍺 A friendly badge, a few beers — " + (new[-1] if new else "nothing new tonight, though.")
-            else:
-                outcome = "🍺 Just street gossip, but a friendly badge is always worth having."
-    elif g["round"] >= 6:
-        g["done"] = True; g["win"] = False
-        outcome = "Last call — he's done talking for the night. You didn't get what you came for."
-    if g.get("done"): g["outcome"] = outcome
-    save(s); return jsonify({"ok": True, "game": g})
+            _dark_vip_miss(c, g, "flop")                                    # orange — the gamble flopped
+        save(s); return jsonify({"ok": True, "game": g})
+    return jsonify({"error": "Bad action."}), 400
 
 def _dark_heist_curchoice(h, defn, ci):
     if h.get("phase") == "getaway": beat = defn["getaway"]
@@ -8053,6 +8304,7 @@ def api_dark_advance():
     bleed = _dark_heat_bleed(d)   # bent-cop perk (Distributor+) quietly drags the raid countdown
     if bleed: d["heat"] = max(0, d.get("heat", 0) - bleed)
     _dark_club_tick(s, events)    # strip-club income, reputation, heat, VIP lounge
+    _dark_casino_tick(s, events)  # casino floor (clean), the cage (launder + heat), high-rollers
     # ── THE HUNT — local heat draws Marsh onto ONE op; the top-right Heat is the raid
     # countdown that follows. Only live once you've made a name (Street Cred 2+). ──
     _dark_hunt_tick(s, events)    # reads lying_low to stall the countdown, so clear it AFTER

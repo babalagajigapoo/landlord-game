@@ -398,6 +398,7 @@ const DARK = {
       requestAnimationFrame(() => { ind.style.opacity = idx >= 0 ? 1 : 0; if (idx >= 0) ind.style.transform = `translateX(${idx * 100}%)`; });
     }
     this._animResources();
+    this._slotEnsure();   // keep the casino slot-machine banner animating across re-renders
   },
   // Roll the header resource counters from their old value to the new one, with a
   // green/red flash + floating delta when they change.
@@ -416,7 +417,7 @@ const DARK = {
         cell.classList.add(diff > 0 ? 'dk-flash-up' : 'dk-flash-down');
         const f = document.createElement('div');
         f.className = 'dk-float ' + (diff > 0 ? 'up' : 'down');
-        f.textContent = (diff > 0 ? '+' : '−') + (res === 'heat' ? Math.abs(diff) + '%' : fmt(Math.abs(diff)));
+        f.textContent = (diff > 0 ? '+' : '−') + (res === 'heat' ? Math.round(Math.abs(diff)) + '%' : fmt(Math.abs(diff)));
         cell.appendChild(f); setTimeout(() => f.remove(), 1100);
       }
       const t0 = performance.now(), dur = 500;
@@ -1229,11 +1230,212 @@ const DARK = {
     if (typeof sfx === 'object' && sfx.purchase) sfx.purchase();
     await refreshState(); this.rerender(); toast('Bought. 💼', 'success');
   },
-  async convertCasino() {
-    const r = await api('/dark/convert_casino', 'POST');
+  // ── Casino ──────────────────────────────────────────────────────────────--
+  CASINO_EDGES: [
+    { k: 'loose',  name: 'Loose',  desc: 'Generous odds — thin margin, packed house, your name grows.' },
+    { k: 'fair',   name: 'Fair',   desc: 'Balanced — steady money.' },
+    { k: 'tight',  name: 'Tight',  desc: 'Greedy — fat margin, but the crowd thins.' },
+    { k: 'brutal', name: 'Brutal', desc: 'Bleed them dry — huge margin, crowd dwindles fast.' },
+  ],
+  CASINO_STAFF: {
+    pitboss: { name: 'Pit Boss',     icon: '🤵', wage: 300, hire: 15000, max: 1, desc: 'Keeps the floor tight — lifts the take.' },
+    dealer:  { name: 'Dealer',       icon: '🃏', wage: 150, hire: 6000,  max: 6, desc: 'Each one moves more money.' },
+    cageman: { name: 'Cage Manager', icon: '💼', wage: 250, hire: 12000, max: 1, desc: 'Raises the cage cap, cuts its heat.' },
+  },
+  CASINO_UPG: {
+    tables:  { name: 'Gaming Tables',    icon: '🃏', desc: 'Bigger nightly take.', tiers: [['Add a pit', 40000], ['Full floor', 120000]] },
+    poker:   { name: 'Poker Room',       icon: '♠️', desc: 'A steady house rake.', tiers: [['Open it', 80000]] },
+    salon:   { name: 'High-Limit Salon', icon: '💎', desc: 'Whales only — richer high-roller nights.', tiers: [['Build it', 150000]] },
+    members: { name: "Members' Club",    icon: '🎟️', desc: 'Whales show up more often.', tiers: [['Launch it', 100000]] },
+    cage:    { name: 'The Cage',         icon: '💵', desc: 'Launder dirty → clean, fast. The only thing that draws heat.', tiers: [['Open the cage', 60000], ['Upgrade count room', 180000]] },
+  },
+  CASINO_CAGE_CAP: [0, 9000, 22000],
+
+  casinoPanel() {
+    const c = (state.dark || {}).casino || {}; const cash = state.cash || 0;
+    const edge = this.CASINO_EDGES.find(e => e.k === (c.edge || 'fair')) || this.CASINO_EDGES[1];
+    const up = c.upgrades || {};
+    const bank = c.bank || 0; const cageLvl = up.cage || 0;
+    // Header — section title + a small rename pencil (top-right, opposite the title)
+    let h = `<div class="dk-sec" style="display:flex;align-items:center;justify-content:space-between">
+      <span>🎰 The Casino</span>
+      <button class="dk-x" title="Rename casino" onclick="DARK.renameCasino()">✏️</button></div>`;
+    h += this.slotBanner();
+    // An incident freezes the whole casino until handled — show only the handler.
+    if (c.event) {
+      return h + `<div class="dk-card" style="border-color:#E0533D">
+        <div class="dk-row-title">${c.event.icon} Floor shut — handle it</div>
+        <div class="dk-muted" style="font-size:12px;margin:7px 0 11px;line-height:1.5">${c.event.text}</div>
+        <div style="display:flex;flex-direction:column;gap:7px">${(c.event.choices || []).map((ch, i) => `<button class="dk-mini" style="width:100%" onclick="DARK.casinoEvent(${i})">${ch}</button>`).join('')}</div>
+      </div>`;
+    }
+    // The count — clean money + collect, with last-night + rep on one divider line
+    h += `<div class="dk-card">
+      <div style="display:flex;align-items:flex-end;justify-content:space-between">
+        <div><div class="dk-muted" style="font-size:10px;letter-spacing:.5px">IN THE COUNT</div>
+          <div style="font-size:24px;font-weight:800;color:#4CAF50;line-height:1.15">${fmt(bank)}</div></div>
+        <button class="dk-mini ${bank > 0 ? '' : 'dk-buy-off'}" ${bank > 0 ? 'onclick="DARK.collectCasino()"' : 'disabled'}>💵 Collect</button>
+      </div>
+      <div style="display:flex;gap:14px;margin-top:10px;padding-top:9px;border-top:1px solid #2a1518;font-size:11px">
+        <span class="dk-muted">Last night <b style="color:#e8d9d9">${fmt(c.last_gross || 0)}</b></span>
+        ${(c.last_clean || 0) > 0 ? `<span class="dk-muted">Cage <b style="color:#e8d9d9">${fmt(c.last_clean)}</b></span>` : ''}
+        <span class="dk-muted" style="margin-left:auto">⭐ Rep ${Math.round(c.rep || 0)}</span>
+      </div></div>`;
+    // High-Roller
+    h += `<div class="dk-card" style="border-color:${c.whale_pending ? '#FFC83D' : '#3a2024'}"><div class="dk-row-title">🐳 High-Roller Table</div>`;
+    h += c.whale_pending
+      ? `<div class="dk-muted" style="font-size:12px;margin:7px 0 9px">A whale's at the table, ready to play.</div><button class="dk-mini" style="width:100%;background:#C0392B;color:#fff;border:none;padding:10px" onclick="DARK.openWhale()">🃏 Deal him in</button>`
+      : `<div class="dk-muted" style="font-size:12px;margin-top:7px">No high-roller right now — they drift in over time${up.members ? " (your Members' Club brings them faster)" : ''}.</div>`;
+    h += `</div>`;
+    // House Edge
+    h += `<div class="dk-card"><div class="dk-row-title">🎚️ House Edge</div>
+      <div class="dk-rates" style="margin-top:9px">${this.CASINO_EDGES.map(e => `<button class="dk-rate ${c.edge === e.k ? 'active' : ''}" onclick="DARK.setEdge('${e.k}')">${e.name}</button>`).join('')}</div>
+      <div class="dk-muted2" style="margin-top:8px;font-size:11px">${edge.desc}</div></div>`;
+    // The Cage — a safe, no-heat launderer (the casino draws no watchful eyes)
+    h += `<div class="dk-card"><div class="dk-row-title">💵 The Cage</div>`;
+    if (!cageLvl) h += `<div class="dk-muted" style="font-size:12px;margin-top:7px">Not built — open the cage in Upgrades to launder dirty money here, faster than any front and with <b style="color:#9fcf9f">no watchful eyes</b>.</div>`;
+    else {
+      const cap = Math.round(this.CASINO_CAGE_CAP[Math.min(cageLvl, 2)] * ((c.staff || {}).cageman ? 1.4 : 1));
+      const washing = Math.min((state.dark || {}).dirty_money || 0, cap);
+      h += `<div class="dk-muted2" style="font-size:11px;margin-top:7px;line-height:1.5">Auto-launders dirty → clean, up to <b style="color:#e8d9d9">${fmt(cap)}/day</b> — <span style="color:#9fcf9f">no heat, no eyes on it.</span> Upgrade the count room or add a Cage Manager to wash more.</div>
+        <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:11px"><span class="dk-muted">Washing tonight</span><span style="color:#4CAF50;font-weight:800">${fmt(washing)}</span></div>`;
+    }
+    h += `</div>`;
+    // Staff
+    h += `<div class="dk-card"><div class="dk-row-title">👔 Staff</div>`;
+    Object.keys(this.CASINO_STAFF).forEach(k => { const m = this.CASINO_STAFF[k]; const have = (c.staff || {})[k] || 0; const maxed = have >= m.max;
+      h += `<div style="display:flex;align-items:center;gap:10px;margin-top:9px">
+        <div style="flex:1;min-width:0"><div style="font-size:13px">${m.icon} <b>${m.name}</b> <span class="dk-muted">×${have}${m.max > 1 ? '/' + m.max : ''}</span></div><div class="dk-muted2" style="font-size:10px">${m.desc} · ${fmt(m.wage)}/day</div></div>
+        <button class="dk-mini ${maxed || cash < m.hire ? 'dk-buy-off' : ''}" ${maxed || cash < m.hire ? 'disabled' : `onclick="DARK.casinoHire('${k}')"`}>${maxed ? 'Maxed' : fmt(m.hire)}</button></div>`; });
+    h += `</div>`;
+    // Upgrades
+    h += `<div class="dk-card"><div class="dk-row-title">⬆️ Upgrades</div>`;
+    Object.keys(this.CASINO_UPG).forEach(k => { const u = this.CASINO_UPG[k]; const lvl = (c.upgrades || {})[k] || 0; const done = lvl >= u.tiers.length; const next = done ? null : u.tiers[lvl];
+      h += `<div style="display:flex;align-items:center;gap:10px;margin-top:9px">
+        <div style="flex:1;min-width:0"><div style="font-size:13px">${u.icon} <b>${u.name}</b> ${lvl ? `<span class="dk-muted">L${lvl}</span>` : ''}</div><div class="dk-muted2" style="font-size:10px">${u.desc}</div></div>
+        <button class="dk-mini ${done || cash < (next ? next[1] : 1e9) ? 'dk-buy-off' : ''}" ${done || cash < (next ? next[1] : 1e9) ? 'disabled' : `onclick="DARK.casinoUpgrade('${k}')"`}>${done ? 'Maxed' : fmt(next[1])}</button></div>`; });
+    h += `</div>`;
+    return h;
+  },
+  async setEdge(e) { const r = await api('/dark/casino_edge', 'POST', { edge: e }); if (r.error) { toast(r.error, 'error'); return; } await refreshState(); this.rerender(); },
+  async casinoHire(role) { const r = await api('/dark/casino_hire', 'POST', { role }); if (r.error) { toast(r.error, 'error'); return; } if (typeof sfx === 'object' && sfx.purchase) sfx.purchase(); await refreshState(); this.rerender(); },
+  async casinoUpgrade(key) { const r = await api('/dark/casino_upgrade', 'POST', { key }); if (r.error) { toast(r.error, 'error'); return; } if (typeof sfx === 'object' && sfx.purchase) sfx.purchase(); await refreshState(); this.rerender(); },
+  async collectCasino() { const r = await api('/dark/casino_collect', 'POST'); if (r.error) { toast(r.error, 'error'); return; } if (typeof sfx === 'object' && sfx.cash) sfx.cash(); await refreshState(); this.rerender(); toast(`Collected ${fmt(r.collected)} clean. 💵`, 'success'); },
+  async renameCasino() { const c = (state.dark || {}).casino || {}; const nm = (prompt('Name your casino:', c.name || '') || '').trim(); if (!nm) return; const r = await api('/dark/casino_rename', 'POST', { name: nm }); if (r.error) { toast(r.error, 'error'); return; } await refreshState(); this.rerender(); },
+  async casinoEvent(i) { const r = await api('/dark/casino_event', 'POST', { choice: i }); if (r.error) { toast(r.error, 'error'); return; } await refreshState(); this.rerender(); if (r.msg) toast(r.msg, 'success'); },
+
+  // ── High-Roller blackjack (you play the house) ─────────────────────────────
+  _bj: null,
+  async openWhale() {
+    const r = await api('/dark/casino_whale_start', 'POST');
     if (r.error) { toast(r.error, 'error'); return; }
-    if (typeof sfx === 'object' && sfx.purchase) sfx.purchase();
-    await refreshState(); this.rerender(); toast('Arcade gutted — welcome to the casino. 🎰', 'success');
+    if (typeof sfx === 'object' && sfx.tap) sfx.tap();
+    this._bj = { bankroll: r.bankroll, pot: 0, comp: 0, susp: 0, salon: r.salon, hand: null, over: false, press: false };
+    let el = document.getElementById('dk-bj'); if (!el) { el = document.createElement('div'); el.id = 'dk-bj'; document.body.appendChild(el); }
+    this.bjDeal();
+  },
+  _bjCard() { const ranks = ['A','2','3','4','5','6','7','8','9','10','J','Q','K']; const suits = ['♠','♥','♦','♣'];
+    return { r: ranks[Math.floor(Math.random() * 13)], s: suits[Math.floor(Math.random() * 4)] }; },
+  _bjVal(hand) { let t = 0, a = 0; hand.forEach(c => { if (c.r === 'A') { a++; t += 11; } else if (['K','Q','J','10'].includes(c.r)) t += 10; else t += parseInt(c.r); }); while (t > 21 && a > 0) { t -= 10; a--; } return t; },
+  bjDeal() { const bj = this._bj; if (bj.bankroll <= 0) { this.bjEnd('tapped'); return; }
+    let bet = Math.max(500, Math.round(bj.bankroll * 0.12)); if (bj.press) { bet = Math.round(bet * 1.6); bj.press = false; } bet = Math.min(bet, bj.bankroll);
+    const whale = [this._bjCard(), this._bjCard()]; const house = [this._bjCard(), this._bjCard()];
+    while (this._bjVal(whale) < 17) whale.push(this._bjCard());   // the whale plays himself out
+    bj.hand = { bet, whale, house, phase: 'house', result: null }; bj.over = false; this._bjRender(); },
+  bjHit() { const h = this._bj.hand; if (h.phase !== 'house') return; h.house.push(this._bjCard()); if (this._bjVal(h.house) > 21) this.bjResolve(); else this._bjRender(); },
+  bjStand() { if (this._bj.hand.phase === 'house') this.bjResolve(); },
+  bjResolve() { const bj = this._bj, h = bj.hand; const hv = this._bjVal(h.house), wv = this._bjVal(h.whale);
+    let win; if (hv > 21) win = false; else if (wv > 21) win = true; else if (hv > wv) win = true; else if (wv > hv) win = false; else win = null;
+    if (win === true) { bj.pot += h.bet; bj.bankroll -= h.bet; bj.susp += 8; h.result = 'win'; }
+    else if (win === false) { bj.pot -= h.bet; bj.bankroll += h.bet; bj.susp = Math.max(0, bj.susp - 5); h.result = 'lose'; }
+    else { bj.susp += 3; h.result = 'push'; }
+    h.phase = 'result';
+    if (typeof sfx === 'object' && sfx.tap) sfx.tap();
+    if (bj.susp >= 100) { this._bjRender(); setTimeout(() => this.bjEnd('busted'), 600); return; }
+    if (bj.bankroll <= 0) { this._bjRender(); setTimeout(() => this.bjEnd('tapped'), 700); return; }
+    this._bjRender(); },
+  bjComp() { const bj = this._bj; if (bj.hand.phase !== 'result') return; bj.comp += 1500; bj.susp = Math.max(0, bj.susp - 22); this.bjDeal(); },
+  bjPress() { if (this._bj.hand.phase !== 'result') return; this._bj.press = true; this.bjDeal(); },
+  bjDealAgain() { if (this._bj.hand.phase === 'result') this.bjDeal(); },
+  bjCashOut() { this.bjEnd('cashout'); },
+  async bjEnd(result) { const bj = this._bj; if (!bj || bj.over) return; bj.over = true;
+    const net = Math.round(bj.pot);
+    const r = await api('/dark/casino_whale_finish', 'POST', { result, net, comp: bj.comp });
+    const el = document.getElementById('dk-bj'); if (el) el.remove(); this._bj = null;
+    await refreshState(); this.rerender();
+    if (r && r.msg) toast(r.msg + (net > 0 ? ` (+${fmt(net)} clean)` : net < 0 ? ` (${fmt(net)})` : ''), net >= 0 ? 'success' : 'error'); },
+  _bjRender() { const bj = this._bj; const el = document.getElementById('dk-bj'); if (!el || !bj) return; const h = bj.hand;
+    const card = c => `<span class="dk-bjc ${(c.s === '♥' || c.s === '♦') ? 'red' : ''}">${c.r}${c.s}</span>`;
+    const hv = this._bjVal(h.house), wv = this._bjVal(h.whale); const phase = h.phase;
+    const susCol = bj.susp >= 70 ? '#E0533D' : bj.susp >= 40 ? '#FFC83D' : '#4CAF50';
+    el.innerHTML = `<div class="dk-bj-box">
+      <div class="dk-bj-top"><span>🐳 Bankroll <b>${fmt(bj.bankroll)}</b></span><span>Pot <b style="color:${bj.pot >= 0 ? '#4CAF50' : '#E0533D'}">${fmt(bj.pot)}</b></span></div>
+      <div class="dk-muted" style="font-size:10px;margin-bottom:3px">SUSPICION</div><div class="dk-heat" style="margin-bottom:10px"><div class="dk-heat-fill" style="width:${Math.min(100, bj.susp)}%;background:${susCol}"></div></div>
+      <div class="dk-bj-hand"><div class="dk-muted">Whale — ${wv > 21 ? 'BUST' : wv}</div><div>${h.whale.map(card).join('')}</div></div>
+      <div class="dk-bj-hand"><div class="dk-muted">House (you) — ${hv > 21 ? 'BUST' : hv}</div><div>${h.house.map(card).join('')}</div></div>
+      <div class="dk-bj-msg">${h.result ? (h.result === 'win' ? '🟢 House takes it — +' + fmt(h.bet) : h.result === 'lose' ? '🔴 Whale wins — −' + fmt(h.bet) : '🟡 Push') : 'This hand: ' + fmt(h.bet)}</div>
+      <div class="dk-bj-btns">${phase === 'house'
+        ? `<button class="dk-bjbtn go" onclick="DARK.bjHit()">Hit</button><button class="dk-bjbtn" onclick="DARK.bjStand()">Stand</button>`
+        : `<button class="dk-bjbtn go" onclick="DARK.bjDealAgain()">Deal again</button><button class="dk-bjbtn" onclick="DARK.bjComp()">Comp ($1.5k)</button><button class="dk-bjbtn" onclick="DARK.bjPress()">Press ↑bet</button><button class="dk-bjbtn stop" onclick="DARK.bjCashOut()">Cash out</button>`}</div>
+      <div class="dk-muted2" style="font-size:10px;text-align:center;margin-top:9px">You play the house — beat his total to grow the pot. The more he loses, the more suspicious he gets. Cash out before he walks.</div>
+    </div>`; },
+
+  // ── Ambient slot-machine banner for the Casino menu (custom SVG symbols) ────
+  SLOT_H: 44, SLOT_REP: 14,
+  SLOT_SYM: [
+    '<svg viewBox="0 0 48 48"><path d="M8 34 L10 15 L18 26 L24 11 L30 26 L38 15 L40 34 Z" fill="#E8B84B" stroke="#6e4a16" stroke-width="1.6" stroke-linejoin="round"/><rect x="8" y="33" width="32" height="6" rx="1.5" fill="#C9952F" stroke="#6e4a16" stroke-width="1.6"/><circle cx="24" cy="21" r="2.6" fill="#C0392B"/><circle cx="14" cy="27" r="2" fill="#4FA3D0"/><circle cx="34" cy="27" r="2" fill="#4FA3D0"/></svg>',
+    '<svg viewBox="0 0 48 48"><polygon points="14,18 34,18 31,12 17,12" fill="#C9952F" stroke="#6e4a16" stroke-width="1.6" stroke-linejoin="round"/><polygon points="10,36 38,36 34,18 14,18" fill="#E8B84B" stroke="#6e4a16" stroke-width="1.6" stroke-linejoin="round"/><line x1="17" y1="24" x2="31" y2="24" stroke="#C9952F" stroke-width="1.5"/></svg>',
+    '<svg viewBox="0 0 48 48"><rect x="9" y="19" width="30" height="16" rx="2" fill="#2f7d49" stroke="#16432a" stroke-width="1.6"/><rect x="6" y="15" width="30" height="16" rx="2" fill="#3E9E5E" stroke="#16432a" stroke-width="1.6"/><circle cx="21" cy="23" r="5.5" fill="#9DE4B6"/><text x="21" y="26.6" font-size="10" text-anchor="middle" fill="#16432a" font-weight="900" font-family="sans-serif">$</text></svg>',
+    '<svg viewBox="0 0 48 48"><polygon points="14,17 34,17 42,25 24,43 6,25" fill="#5FC6DA" stroke="#246e7e" stroke-width="1.6" stroke-linejoin="round"/><polygon points="14,17 34,17 30,25 18,25" fill="#A9E8F2"/><line x1="6" y1="25" x2="42" y2="25" stroke="#246e7e" stroke-width="1.1"/><line x1="18" y1="25" x2="24" y2="43" stroke="#246e7e" stroke-width="1.1"/><line x1="30" y1="25" x2="24" y2="43" stroke="#246e7e" stroke-width="1.1"/></svg>',
+    '<svg viewBox="0 0 48 48"><rect x="12" y="12" width="24" height="24" rx="5" fill="#f0ece2" stroke="#3a342b" stroke-width="1.6"/><g fill="#C0392B"><circle cx="19" cy="19" r="2.3"/><circle cx="29" cy="19" r="2.3"/><circle cx="24" cy="24" r="2.3"/><circle cx="19" cy="29" r="2.3"/><circle cx="29" cy="29" r="2.3"/></g></svg>',
+    '<svg viewBox="0 0 48 48"><ellipse cx="24" cy="29" rx="19" ry="4.5" fill="#33302c" stroke="#14120f" stroke-width="1.5"/><path d="M14 28 L15 18 Q16 12 24 12 Q32 12 33 18 L34 28 Z" fill="#3e3934" stroke="#14120f" stroke-width="1.5" stroke-linejoin="round"/><rect x="13.5" y="24.3" width="21" height="3.8" rx="1.4" fill="#8B1A1A" stroke="#14120f" stroke-width="1"/><path d="M19 15 Q24 13 29 15" fill="none" stroke="#14120f" stroke-width="1" opacity="0.45"/></svg>',
+    '<svg viewBox="0 0 48 48"><path d="M24 8 C14 8 9 15 9 23 C9 28 12 31 14 33 L14 38 Q14 41 17 41 L31 41 Q34 41 34 38 L34 33 C36 31 39 28 39 23 C39 15 34 8 24 8 Z" fill="#ECE7DA" stroke="#4a443a" stroke-width="1.6"/><circle cx="18" cy="24" r="3.8" fill="#2a251f"/><circle cx="30" cy="24" r="3.8" fill="#2a251f"/><path d="M24 29 l-2.5 4.5 h5 Z" fill="#2a251f"/><g stroke="#4a443a" stroke-width="1.1"><line x1="20" y1="38" x2="20" y2="41"/><line x1="24" y1="38" x2="24" y2="41"/><line x1="28" y1="38" x2="28" y2="41"/></g></svg>'
+  ],
+  _slotCells: null,
+  slotBanner() {
+    const c = (state.dark || {}).casino || {};
+    if (!this._slotCells) { let h = ''; for (let k = 0; k < this.SLOT_REP; k++) h += '<div class="cas-cell">' + this.SLOT_SYM[k % this.SLOT_SYM.length] + '</div>'; this._slotCells = h; }
+    return `<div id="casslot" class="cas-slot">
+      <div class="cas-marquee"><span class="cas-bulb"></span><span>${((c.name || 'Casino') + '').toUpperCase()}</span><span class="cas-bulb"></span></div>
+      <div class="cas-reels">
+        <div class="cas-reel"><div class="cas-strip" id="casslot-strip0">${this._slotCells}</div></div>
+        <div class="cas-reel"><div class="cas-strip" id="casslot-strip1">${this._slotCells}</div></div>
+        <div class="cas-reel"><div class="cas-strip" id="casslot-strip2">${this._slotCells}</div></div>
+        <div class="cas-line"></div>
+      </div></div>`;
+  },
+  _slotEnsure() {
+    if (!document.getElementById('casslot-strip0')) { if (this._slotRAF) { cancelAnimationFrame(this._slotRAF); this._slotRAF = null; } return; }
+    if (!this._slot) { this._slot = { reels: [] }; for (let i = 0; i < 3; i++) this._slot.reels.push({ pos: 0, vy: 0, mode: 'idle', target: 0 }); this._slotSpin(); }
+    if (!this._slotRAF) this._slotRAF = requestAnimationFrame(() => this._slotFrame());
+  },
+  _slotFrame() {
+    const s = this._slot; if (!s) { this._slotRAF = null; return; }
+    const H = this.SLOT_H, LOOP = this.SLOT_SYM.length * H; let alive = false;
+    for (let i = 0; i < 3; i++) {
+      const el = document.getElementById('casslot-strip' + i); if (!el) continue; alive = true;
+      const r = s.reels[i];
+      if (r.mode === 'spin') r.pos += r.vy;
+      else if (r.mode === 'stop') { r.pos += (r.target - r.pos) * 0.12; if (Math.abs(r.target - r.pos) < 0.5) { r.pos = ((r.target % LOOP) + LOOP) % LOOP; r.mode = 'idle'; } }
+      el.style.transform = 'translateY(' + (-(((r.pos % LOOP) + LOOP) % LOOP)) + 'px)';   // modulo one symbol-loop → never scrolls past the strip
+    }
+    if (!alive) { this._slotRAF = null; return; }
+    this._slotRAF = requestAnimationFrame(() => this._slotFrame());
+  },
+  _slotSpin() {
+    const s = this._slot; if (!s) return; const n = this.SLOT_SYM.length, H = this.SLOT_H;
+    const slot = document.getElementById('casslot'); if (slot) slot.classList.remove('cas-win');
+    const force = Math.random() < 0.3, ws = Math.floor(Math.random() * n);
+    s.reels.forEach(r => { r.vy = 14 + Math.random() * 4; r.mode = 'spin'; });
+    [0, 1, 2].forEach(i => { setTimeout(() => { const r = s.reels[i]; if (!r) return; const sym = force ? ws : Math.floor(Math.random() * n); const base = Math.floor(r.pos / H) + 10; const off = (((sym - 1) - base) % n + n) % n; r.target = (base + off) * H; r.mode = 'stop'; }, 700 + i * 360); });
+    s.checkT = setTimeout(() => this._slotCheck(), 700 + 2 * 360 + 700);
+  },
+  _slotCheck() {
+    const s = this._slot; if (!s) return; const n = this.SLOT_SYM.length, H = this.SLOT_H, LOOP = n * H;
+    const sym = r => { const d = ((r.pos % LOOP) + LOOP) % LOOP; return (Math.round(d / H) + 1) % n; };
+    const cc = s.reels.map(sym);
+    if (cc[0] === cc[1] && cc[1] === cc[2]) { const slot = document.getElementById('casslot'); if (slot) slot.classList.add('cas-win'); }
+    s.cycleT = setTimeout(() => this._slotSpin(), 2400);
   },
 
   pageCrew() {
@@ -1445,12 +1647,6 @@ const DARK = {
       <div class="dk-card">
         <p class="dk-p">You signed it all away. The Fixer left you a rundown house and ten grand in unmarked bills — nothing else. Build it back up from nothing, off the books this time. 😈</p>
       </div>
-      <div class="dk-grid2" style="margin-top:10px">
-        ${this.stat('💵 Clean Cash',  fmt(state.cash || 0),     '#4CAF50')}
-        ${this.stat('🧼 Dirty Money', fmt(d.dirty_money || 0),  '#E0533D')}
-        ${this.stat('🔥 Heat',        (d.heat || 0) + '%',      '#FF8A3D')}
-        ${this.stat('🏆 Rank',        this.rank(d.cred || 1).name, '#C0392B')}
-      </div>
       ${this.scoresCard()}
       ${this.rankCard()}
       ${this.huntCard()}
@@ -1511,7 +1707,6 @@ const DARK = {
       return `${this.sectionTitle('The Hunt')}
         <div class="dk-card"><div class="dk-muted" style="font-size:12px;line-height:1.5">🕵️ Nobody's watching you yet — you're too small to register. Make a name for yourself (<b>Street Cred 2</b>) and a detective will take an interest.</div></div>`;
     }
-    const bribeCost = 4000 + 1500 * (d.bribes || 0);
     const act = (a, label, sub, done) => `<button class="dk-hunt-act ${done ? 'done' : ''}" ${done ? 'disabled' : `onclick="DARK.huntAction('${a}')"`}><span>${label}</span><span class="dk-hunt-sub">${sub}</span></button>`;
     const w = d.watch;
     // ── No open case: a clean status line. The hotter you run an op, the likelier he locks on. ──
@@ -1529,7 +1724,6 @@ const DARK = {
     const [label, col] = this.huntTier(h);
     const total = (w.clues || []).length, found = total ? (w.found || 0) : 0;
     const idd = total && found >= total;
-    const vip = (d.biz || {}).strip_club && d.vip;
     let body = `
       <div class="dk-hunt-head"><div><span style="font-size:17px">🕵️</span> <b>${this.DETECTIVE}</b> <span class="dk-muted" style="font-size:11px">— case open</span></div>
         <span style="color:${col};font-weight:800;font-size:12px">${label}</span></div>
@@ -1542,19 +1736,17 @@ const DARK = {
         <button class="dk-mini" style="width:100%;margin-top:8px" onclick="DARK.openClues()">📁 Open case file${found ? ` · ${found} clue${found === 1 ? '' : 's'}` : ''}</button>
       </div>`;
     if (!idd) {
+      const moleCost = 5000 + 5000 * (w.mole_buys || 0);
+      const moleToday = d.mole_day === state.day;
       body += `<div class="dk-hunt-acts" style="margin-top:9px">
-        <button class="dk-hunt-act" onclick="DARK.buyIntel()"><span>🔎 Mole Tip</span><span class="dk-hunt-sub">${fmt(this.INTEL_COST)} · sharp clue</span></button>
-        ${vip ? `<button class="dk-hunt-act" onclick="DARK.workVip()"><span>💋 Work VIP</span><span class="dk-hunt-sub">${fmt(6000)} · lounge</span></button>`
-              : `<button class="dk-hunt-act done" disabled><span>💋 VIP Lounge</span><span class="dk-hunt-sub">need a club</span></button>`}
+        <button class="dk-hunt-act ${moleToday ? 'done' : ''}" ${moleToday ? 'disabled' : 'onclick="DARK.buyIntel()"'}><span>🔎 Mole Tip</span><span class="dk-hunt-sub">${moleToday ? '✓ used today' : fmt(moleCost) + ' · sharp clue'}</span></button>
       </div>`;
     }
     body += `<div class="dk-hunt-raid">
-      <div class="dk-muted" style="font-size:11px;margin-bottom:9px">The raid's coming regardless — shut the right op down to dodge it, or buy time and soften the blow.</div>
+      <div class="dk-muted" style="font-size:11px;margin-bottom:9px">The raid's coming regardless — shut the right op down to dodge it. Two one-time moves to soften the blow:</div>
       <div class="dk-hunt-acts">
-        ${act('lie_low', '🛌 Lie Low', d.lying_low ? '✓ stalls a day' : 'stall the case', d.lying_low)}
-        ${act('bribe', '💰 Pay Off', `${fmt(bribeCost)} · buy days`)}
-        ${act('lawyer', '⚖️ Lawyer Up', d.lawyered ? '✓ retained' : fmt(8000), d.lawyered)}
-        ${act('move', '📦 Move Product', d.moved ? '✓ stashed' : fmt(3000), d.moved)}
+        ${act('lie_low', '🛌 Lie Low', d.lielow_used ? '✓ used' : (d.lying_low ? '✓ stalls a day' : 'stall the case · once'), d.lielow_used)}
+        ${act('lawyer', '⚖️ Lawyer Up', d.lawyered ? '✓ retained' : `${fmt(15000)} · keep the op`, d.lawyered)}
       </div></div>`;
     return `${this.sectionTitle('The Hunt')}<div class="dk-card" style="border-color:#E0533D">${body}</div>`;
   },
@@ -1702,6 +1894,8 @@ const DARK = {
     if (r.error) { toast(r.error, 'error'); return; }
     await refreshState(); this.rerender();
     if (r.msg) toast(r.msg, 'info');
+    // A missed shot lingers in the red/orange for a beat, then auto-advances to the next try.
+    if (r.game && r.game.pending) setTimeout(() => DARK.vipAction('next'), 1050);
   },
 
   pageProperties() {
@@ -2110,31 +2304,46 @@ const DARK = {
     return `<div class="dk-card dk-vip"><div class="dk-vip-h">🥂 The VIP Room</div><div class="dk-muted" style="font-size:12px;margin-top:5px">Quiet for now. Someone worth knowing wanders in every few nights.</div></div>`;
   },
   vipGame(c, g, cash) {
-    const meter = (l, v, col) => `<div class="dk-minibar"><span style="width:74px;font-size:10px">${l}</span><div class="dk-heat" style="flex:1"><div class="dk-heat-fill" style="width:${Math.min(100, v)}%;background:${col}"></div></div></div>`;
     if (g.done) {
       return `<div class="dk-card dk-vip">
         <div class="dk-vip-h">🥂 VIP Room</div>
-        <div class="dk-evt-text" style="margin:9px 0;font-size:13px">${g.outcome || ''}</div>
-        <button class="dk-mini" style="width:100%" onclick="DARK.vipAction('close')">Close out</button></div>`;
+        <div class="dk-vip-res ${g.win ? 'win' : 'lose'}">${g.outcome || ''}</div>
+        <button class="dk-mini" style="width:100%;margin-top:10px" onclick="DARK.vipAction('close')">Close out</button></div>`;
     }
-    const tell = this.VIPTELL[g.type] || {};
-    const who = g.revealed ? `<b>${tell.name || 'someone'}</b> — he ${tell.tell || ''}` : 'A stranger in an expensive suit. Hard to read yet — buy a round and get him comfortable.';
-    const dbtns = (c.dancers || []).length ? (c.dancers || []).map(x => `<button class="dk-rate" style="flex:0 0 auto" onclick="DARK.vipAction('dancer',{id:${x.id}})">${x.name} ✨${x.charm || 1}</button>`).join('') : '<span class="dk-muted2" style="font-size:11px">No dancers to send in.</span>';
-    const topics = ['the neighborhood', 'open cases', 'the courthouse', 'street talk', 'the business'];
-    const tbtns = topics.map(t => `<button class="dk-rate" style="flex:0 0 auto" onclick="DARK.vipAction('steer',{topic:'${t}'})">${t}</button>`).join('');
+    const clamp = v => Math.max(2, Math.min(98, v));
+    const inGreen = g.talk >= g.glo && g.talk <= g.ghi;
+    const inOrange = g.talk > g.ghi && g.talk <= g.ohi;
+    const canAsk = inGreen || inOrange;
+    const dots = [0, 1, 2].map(i => `<span class="dk-vip-dot${i < g.tries ? '' : ' off'}"></span>`).join('');
+    let mood;
+    if (g.pending) mood = g.miss === 'pushy' ? 'Too pushy — he pulls back.' : g.miss === 'flop' ? 'The gamble flops — he clams up.' : 'He’s losing interest.';
+    else if (inGreen) mood = 'He’s loose and talking — ask now for a sure tip.';
+    else if (inOrange) mood = 'A hair past the green. Ask anyway for a 50/50 — nudging more risks the red.';
+    else if (g.talk < 24) mood = 'Ice cold. He won’t even look at you.';
+    else if (g.talk < g.glo - 12) mood = 'Starting to loosen up.';
+    else mood = 'Getting chatty — almost on the green.';
+    const dim = g.pending ? ' dk-vip-dim' : '';
+    const askCls = inGreen ? 'on' : inOrange ? 'mid' : 'off';
+    const askLbl = inOrange ? 'Ask anyway · 50/50' : 'Ask for the tip';
+    const mv = (k, lbl, str, icon) => {
+      const n = (g.uses || {})[k] || 0, off = n <= 0 || g.pending;
+      return `<button class="dk-vip-move${n <= 0 ? ' spent' : ''}" ${off ? 'disabled' : `onclick="DARK.vipAction('move',{move:'${k}'})"`}><span class="ic">${icon}</span><span class="ml">${lbl}</span><span class="ms">${str}</span><span class="mu">${n} left</span></button>`;
+    };
     return `<div class="dk-card dk-vip">
-      <div class="dk-vip-h">🥂 Working the VIP Room <span class="dk-muted2" style="font-size:10px;font-weight:600">round ${g.round || 0}/6</span></div>
-      <div class="dk-muted" style="font-size:12px;margin:6px 0 10px;line-height:1.45">${who}</div>
-      ${meter('Comfort', g.comfort, '#4CAF50')}
-      ${meter('Suspicion', g.susp, '#ff4d2d')}
-      ${meter('Intel', g.intel, '#FFC83D')}
-      <div class="dk-lbl">SEND A GIRL OVER</div><div class="dk-rates" style="flex-wrap:wrap;gap:6px">${dbtns}</div>
-      <div class="dk-lbl">STEER THE TALK TOWARD…</div><div class="dk-rates" style="flex-wrap:wrap;gap:6px">${tbtns}</div>
-      <div style="display:flex;gap:6px;margin-top:10px">
-        <button class="dk-mini ${cash < 1500 ? 'dk-buy-off' : ''}" ${cash < 1500 ? 'disabled' : "onclick=\"DARK.vipAction('bottle')\""}>🍾 Comp a bottle · ${fmt(1500)}</button>
-        <button class="dk-mini-x" style="margin:0;flex:1" onclick="DARK.vipAction('leave')">Step out</button>
+      <div class="dk-vip-h">🥂 VIP Room — loosen his tongue</div>
+      <div class="dk-vip-sub">Land the <b style="color:#4fd07f">green</b> for a sure tip, drift into the <b style="color:#e89a3c">orange</b> for a 50/50, and the <b style="color:#e2554f">red</b> is too far. Three tries.</div>
+      <div class="dk-vip-tries">Tries left ${dots}</div>
+      <div class="dk-vip-meter">
+        <div class="dk-vip-green" style="left:${g.glo}%;width:${g.ghi - g.glo}%"></div>
+        <div class="dk-vip-orange" style="left:${g.ghi}%;width:${g.ohi - g.ghi}%"></div>
+        <div class="dk-vip-red" style="left:${g.ohi}%;width:${100 - g.ohi}%"></div>
+        <div class="dk-vip-mark" style="left:${clamp(g.talk)}%"><span class="bub">${Math.round(g.talk)}</span></div>
       </div>
-      <div class="dk-muted2" style="font-size:10px;margin-top:8px">Fill <b>Intel</b> before <b>Suspicion</b> maxes. Wrong topic = he gets nervous. If he smells like a setup — step out.</div>
+      <div class="dk-vip-scale"><span>ice cold</span><span>sweet spot</span><span>too pushy</span></div>
+      <div class="dk-vip-mood">${mood}</div>
+      <div class="dk-vip-moves${dim}">${mv('round', 'Buy a round', 'strong', '🍾')}${mv('dancer', 'Send a dancer', 'medium', '💃')}${mv('lean', 'Lean in', 'gentle', '👂')}</div>
+      <button class="dk-vip-ask ${askCls}${dim}" ${(!canAsk || g.pending) ? 'disabled' : ''} onclick="DARK.vipAction('ask')">${askLbl}</button>
+      <button class="dk-mini-x" style="width:100%;margin-top:8px" ${g.pending ? 'disabled' : ''} onclick="DARK.vipAction('leave')">Step out</button>
     </div>`;
   },
   renoSection(c, cash) {
@@ -2389,7 +2598,8 @@ const DARK = {
       body = biz.strip_club ? this.clubPanel()
         : `${this.sectionTitle('💋 Strip Club')}${this.dancerVid()}<div class="dk-card dk-pcard"><div class="dk-phead"><div class="dk-row-ic">💋</div><div class="dk-row-main"><div class="dk-row-title">Strip Club</div><div class="dk-muted">A cash earner — and its VIP lounge becomes your ear on the cops.</div></div></div><button class="dk-mini" style="width:100%;margin-top:9px" ${cash < 200000 ? 'disabled' : "onclick=\"DARK.buyBusiness('strip_club')\""}>Buy — ${fmt(200000)}</button></div>`;
     } else if (tab === 'casino') {
-      body = this.soon('🎰 Underground Casino', 'Rig the tables and rake the house — a pure money-maker. Coming soon.');
+      body = biz.casino ? this.casinoPanel()
+        : `${this.sectionTitle('🎰 Casino')}<div class="dk-card dk-pcard"><div class="dk-phead"><div class="dk-row-ic">🎰</div><div class="dk-row-main"><div class="dk-row-title">The Casino</div><div class="dk-muted">A legit gambling floor that prints <b>clean</b> money — and a back-room <b>cage</b> that washes your dirty cash faster than any front. The floor's safe; only the cage draws heat.</div></div></div>${(d.cred||1) < 7 ? `<div class="dk-muted2" style="margin-top:9px;text-align:center">🔒 Unlocks at Street Cred 7</div>` : `<button class="dk-mini" style="width:100%;margin-top:9px" ${cash < 500000 ? 'disabled' : "onclick=\"DARK.buyBusiness('casino')\""}>Build & reopen — ${fmt(500000)}</button>`}</div>`;
     } else {
       body = this.soon('🔧 Chop Shop', 'Strip stolen cars for parts — steady dirty cash off the street. Coming soon.');
     }
@@ -2524,6 +2734,37 @@ const DARK = {
     .dk-minibar{display:flex;align-items:center;gap:7px;margin-top:4px;font-size:11px;color:#9a8a8a}
     .dk-vip{margin-bottom:8px;border-color:#7a4a2a}
     .dk-vip-h{font-weight:800;font-size:14px;color:#FFC83D}
+    .dk-vip-sub{font-size:11.5px;color:#b59a86;line-height:1.5;margin:5px 0 11px}
+    .dk-vip-tries{display:flex;align-items:center;gap:6px;font-size:11px;color:#b59a86;margin-bottom:10px;font-weight:700}
+    .dk-vip-dot{width:9px;height:9px;border-radius:50%;background:#FFC83D}
+    .dk-vip-dot.off{background:#3a2024}
+    .dk-vip-meter{position:relative;height:28px;background:#0c0608;border:1px solid #3a2024;border-radius:8px;overflow:hidden}
+    .dk-vip-green{position:absolute;top:0;bottom:0;background:rgba(63,180,107,0.5);border-left:1px solid #4fd07f;border-right:1px solid #4fd07f}
+    .dk-vip-orange{position:absolute;top:0;bottom:0;background:rgba(214,131,40,0.32);border-left:1px solid #d9892b}
+    .dk-vip-red{position:absolute;top:0;bottom:0;background:rgba(216,69,63,0.34);border-left:1px solid #d8453f}
+    .dk-vip-mark{position:absolute;top:-3px;bottom:-3px;width:3px;background:#fff;border-radius:2px;transform:translateX(-50%);transition:left .34s cubic-bezier(0.3,1.1,0.5,1)}
+    .dk-vip-mark .bub{position:absolute;top:-21px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:800;color:#150a0c;background:#fff;border-radius:5px;padding:1px 6px;line-height:1.3}
+    .dk-vip-scale{display:flex;justify-content:space-between;font-size:10px;color:#7a6a6a;margin:6px 1px 9px}
+    .dk-vip-mood{font-size:12px;color:#d8c8b8;line-height:1.45;min-height:32px;margin-bottom:10px}
+    .dk-vip-moves{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:9px}
+    .dk-vip-move{background:#1a1012;border:1px solid #4a2c33;border-radius:10px;padding:9px 3px 7px;color:#f0e0e0;cursor:pointer;text-align:center;-webkit-tap-highlight-color:transparent;transition:background .12s,transform .08s}
+    .dk-vip-move:active{transform:scale(.96)}
+    .dk-vip-move .ic{display:block;font-size:19px;line-height:1;margin-bottom:3px}
+    .dk-vip-move .ml{display:block;font-size:11.5px;font-weight:800}
+    .dk-vip-move .ms{display:block;font-size:9px;color:#8c7165}
+    .dk-vip-move .mu{display:block;font-size:9px;color:#FFC83D;font-weight:700;margin-top:1px}
+    .dk-vip-move.spent{opacity:.32}
+    .dk-vip-move.spent .mu{color:#8a3530}
+    .dk-vip-move:disabled{cursor:default}
+    .dk-vip-ask{width:100%;border:none;border-radius:10px;padding:11px;font-weight:800;font-size:14px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .12s,transform .08s}
+    .dk-vip-ask:active{transform:scale(.98)}
+    .dk-vip-ask.on{background:#4fd07f;color:#0c2a18}
+    .dk-vip-ask.mid{background:#b06a1c;color:#fce3c0}
+    .dk-vip-ask.off{background:#1a1012;color:#6b554b;border:1px solid #3a2024;cursor:default}
+    .dk-vip-dim{opacity:.4;pointer-events:none}
+    .dk-vip-res{font-size:13px;line-height:1.5;border-radius:10px;padding:11px 12px;margin-top:9px}
+    .dk-vip-res.win{background:rgba(63,180,107,0.13);border:1px solid #2f7d49;color:#9fe1bf}
+    .dk-vip-res.lose{background:rgba(216,69,63,0.12);border:1px solid #8a3530;color:#f0a9a4}
     .dk-incident{border-color:#ff4d2d;text-align:center;padding:18px 16px}
     .dk-incident-ic{font-size:40px;line-height:1}
     .dk-incident-t{font-weight:800;font-size:16px;margin-top:8px;color:#ff6b4d}
@@ -2575,6 +2816,28 @@ const DARK = {
     .dk-sling-btn{width:100%;display:flex;flex-direction:column;align-items:center;gap:2px;background:linear-gradient(180deg,#C0392B,#8e2a20);border:none;color:#fff;font-weight:800;font-size:15px;padding:13px;border-radius:11px;cursor:pointer;margin-bottom:12px;-webkit-tap-highlight-color:transparent}
     .dk-sling-btn span{font-size:10px;font-weight:700;opacity:0.85;text-transform:uppercase;letter-spacing:0.4px}
     .dk-sling-btn:active{opacity:0.9}
+    .cas-slot{position:relative;background:linear-gradient(180deg,#241310,#160b09);border:2px solid #E8B84B;border-radius:14px;padding:10px;margin:0 auto 12px;width:214px;max-width:100%;box-shadow:0 0 0 3px #0c0606}
+    .cas-marquee{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px;font-size:12px;font-weight:800;letter-spacing:.6px;color:#E8B84B;white-space:nowrap;overflow:hidden}
+    .cas-bulb{width:7px;height:7px;border-radius:50%;background:#E8B84B;animation:casblink 1.1s infinite alternate}
+    @keyframes casblink{from{opacity:.25}to{opacity:1;box-shadow:0 0 6px #E8B84B}}
+    .cas-reels{position:relative;display:flex;gap:5px;justify-content:center;background:#0c0606;border:2px solid #6e4a16;border-radius:9px;padding:7px;width:max-content;margin:0 auto}
+    .cas-reel{width:54px;height:132px;overflow:hidden;background:#f4efe6;border-radius:5px}
+    .cas-strip{}
+    .cas-cell{height:44px;display:flex;align-items:center;justify-content:center}
+    .cas-cell svg{width:32px;height:32px;display:block}
+    .cas-line{position:absolute;left:5px;right:5px;top:50%;height:42px;transform:translateY(-50%);border-top:2px solid rgba(192,57,43,.6);border-bottom:2px solid rgba(192,57,43,.6);pointer-events:none;border-radius:3px}
+    .cas-slot.cas-win{animation:caswin .5s ease 3}
+    @keyframes caswin{50%{box-shadow:0 0 0 3px #0c0606,0 0 22px 5px #E8B84B}}
+    #dk-bj{position:fixed;inset:0;z-index:9500;background:rgba(8,4,5,0.93);display:flex;align-items:center;justify-content:center;padding:16px}
+    .dk-bj-box{width:100%;max-width:380px;background:#120a0c;border:1px solid #3a2024;border-radius:16px;padding:16px}
+    .dk-bj-top{display:flex;justify-content:space-between;font-size:12px;color:#cbb6b6;margin-bottom:8px}
+    .dk-bj-hand{margin:8px 0}.dk-bj-hand>div:first-child{font-size:10px;margin-bottom:4px;color:#9a8a8a}
+    .dk-bjc{display:inline-block;min-width:28px;text-align:center;background:#f4efe6;color:#1a1a1a;border-radius:5px;padding:6px 4px;margin-right:4px;font-weight:800;font-size:14px}
+    .dk-bjc.red{color:#C0392B}
+    .dk-bj-msg{text-align:center;font-weight:800;font-size:13px;margin:12px 0;min-height:18px;color:#e8d9d9}
+    .dk-bj-btns{display:flex;flex-wrap:wrap;gap:6px}
+    .dk-bjbtn{flex:1;min-width:62px;background:#1a1012;border:1px solid #3a2024;color:#e8d9d9;border-radius:9px;padding:11px 8px;font-weight:800;font-size:12px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+    .dk-bjbtn.go{background:#C0392B;color:#fff;border:none}.dk-bjbtn.stop{background:#3a2024}
     #dk-sling{position:fixed;inset:0;z-index:9400;background:#0c0608;display:flex;flex-direction:column;overflow:hidden}
     .dk-sl-top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #2a1518;background:#0c0608}
     .dk-sl-inv{display:flex;flex-wrap:wrap;gap:5px;justify-self:start}
